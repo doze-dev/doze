@@ -59,6 +59,30 @@ it's one ~15 MB daemon and zero engine processes (see
 You can reap on demand (`doze down <name>`), boot eagerly (`doze up`), or just let
 it happen.
 
+## Waking back up
+
+If reaping shut the engine down, isn't reconnecting slow? No — and this is the
+point that makes the whole sleep/wake cycle worth it.
+
+**A reap stops the process but keeps the data directory.** So waking an instance
+isn't a from-scratch boot: doze just restarts the backend on the files that are
+already there and runs the (idempotent, no-op) convergence. There's no
+re-`initdb` and no template clone. In practice that's **sub-second** — your next
+connection cold-boots the engine and runs its first query in a fraction of a
+second, then everything after is a thin pipe.
+
+The slower paths are one-offs you pay once, not on every wake:
+
+| Event | Cost | How often |
+|---|---|---|
+| **Wake a reaped instance** | sub-second (just restart the backend) | every idle → reconnect |
+| **First boot of a new instance** | a few seconds (clone the [template](#real-engines-pinned-for-reproducibility), provision roles/db) | once per instance, ever |
+| **First use of an engine version** | + a one-time binary download | once per version, ever |
+
+So from your app's side there's simply "a Postgres at this address." doze drops
+it when nobody's connected and brings it back the instant someone knocks — and
+because the data and provisioning survive, knocking is cheap.
+
 ## Convergence: structure, not data
 
 When an instance boots fresh (and whenever you run `doze up`), doze **converges**
