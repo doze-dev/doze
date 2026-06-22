@@ -1,0 +1,10 @@
+# Compiled binary
+/doze
+/dist/
+
+# Local data directory (per-db clusters, sockets, downloaded binaries)
+.doze/
+
+# Go
+*.test
+*.out
