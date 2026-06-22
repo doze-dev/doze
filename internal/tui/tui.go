@@ -21,19 +21,20 @@ import (
 )
 
 // ── palette ───────────────────────────────────────────────────────────────
-// An "observatory" theme: a calm slate base with a violet accent and sharp
-// state colors. Engines that sleep should feel restful, not alarming.
+// A "quiet instrument" theme: a near-monochrome slate console where color is
+// rare and meaningful. One restrained accent (slate-cyan), desaturated state
+// marks used only on small glyphs/badges — never on large fills.
 var (
-	cAccent = lipgloss.Color("#A78BFA") // violet — selection, title, RAM
-	cText   = lipgloss.Color("#C8CCD4")
-	cDim    = lipgloss.Color("#6B7280")
-	cFaint  = lipgloss.Color("#3B414D")
+	cAccent = lipgloss.Color("#8FB8C9") // slate-cyan — the single accent (name, url, graph, selection)
+	cText   = lipgloss.Color("#C5C8D0")
+	cDim    = lipgloss.Color("#6E7480")
+	cFaint  = lipgloss.Color("#3A3F4A")
 	cPanel  = lipgloss.Color("#2A2F3A") // borders
-	cSel    = lipgloss.Color("#232734") // selected row fill
-	cGreen  = lipgloss.Color("#6BCB77") // active
-	cGold   = lipgloss.Color("#E0A82E") // idle
-	cCyan   = lipgloss.Color("#56B6C2") // booting / conns
-	cRed    = lipgloss.Color("#E06C75") // error
+	cSel    = lipgloss.Color("#222732") // selected row fill
+	cGreen  = lipgloss.Color("#8FB89B") // active  (sage)
+	cGold   = lipgloss.Color("#C6A878") // idle    (sand)
+	cCyan   = lipgloss.Color("#88A6C4") // booting (slate-blue)
+	cRed    = lipgloss.Color("#C98B8B") // error   (dusty)
 
 	stTitle  = lipgloss.NewStyle().Bold(true).Foreground(cAccent)
 	stDim    = lipgloss.NewStyle().Foreground(cDim)
@@ -61,8 +62,8 @@ func stateColor(state string) lipgloss.Color {
 }
 
 const (
-	histLen   = 48
-	detailH   = 11
+	histLen   = 64
+	detailH   = 12
 	refreshMS = 500 * time.Millisecond
 	logsMS    = 400 * time.Millisecond
 	spinMS    = 110 * time.Millisecond
@@ -593,15 +594,25 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 	row2 := stLabel.Render("endpoint ") + stText.Render(orDash(v.Endpoint))
 	urlLine := stLabel.Render(orEnv(v.EnvVar)+" ") + stAccent.Render(truncate(orDash(v.URL), w-len(orEnv(v.EnvVar))-7))
 
+	dataLine := stLabel.Render("data ") + stDim.Render(truncate(abbrevHome(v.DataDir), w-8))
+
+	// Memory as a thin braille line trace (an oscilloscope, not a filled bar).
+	const lbl = 7 // width of the "memory" gutter
+	gw := clampi(w-lbl-16, 12, 48)
 	h := m.hist[v.Name]
-	sw := min(28, w-22)
-	ramSpark, connSpark := stFaint.Render(strings.Repeat("·", max(0, sw))), stFaint.Render(strings.Repeat("·", max(0, sw)))
-	if h != nil {
-		ramSpark = lipgloss.NewStyle().Foreground(cAccent).Render(sparkline(h.ram, sw))
-		connSpark = lipgloss.NewStyle().Foreground(cCyan).Render(sparkline(h.conns, sw))
+	graph := lipgloss.NewStyle().Foreground(cAccent)
+	var g []string
+	if h != nil && v.PID != 0 && varies(h.ram) {
+		g = brailleGraph(h.ram, gw, 3)
+	} else {
+		// a faint, flat midline when there's nothing to plot
+		g = []string{strings.Repeat(" ", gw), strings.Repeat("⠒", gw), strings.Repeat(" ", gw)}
+		graph = stFaint
 	}
-	ramLine := stLabel.Render("ram  ") + ramSpark + "  " + stText.Render(orDash(ui.HumanBytes(v.RAM)))
-	connLine := stLabel.Render("conn ") + connSpark + "  " + stText.Render(fmt.Sprint(v.Conns))
+	pad := strings.Repeat(" ", lbl)
+	memTop := pad + graph.Render(g[0])
+	memMid := stLabel.Render("memory ") + graph.Render(g[1]) + "  " + stText.Render(orDash(ui.HumanBytes(v.RAM)))
+	memBot := pad + graph.Render(g[2]) + "  " + stFaint.Render(memCaption(h))
 
 	var status string
 	switch {
@@ -612,23 +623,21 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 	case st == "booting":
 		status = lipgloss.NewStyle().Foreground(cCyan).Render(string(spinner[m.frame%len(spinner)]) + " booting…")
 	case st == "idle":
-		// Running with zero connections — not asleep. Show the reap countdown
-		// when we have the data; otherwise just say it's up and waiting.
+		// Running, zero connections — not asleep. A subtle countdown to reap.
 		if !v.IdleSince.IsZero() && m.resp.IdleTimeout > 0 {
-			status = m.reapGauge(v, w-4)
+			status = m.reapHint(v)
 		} else {
-			status = lipgloss.NewStyle().Foreground(cGold).Render("○ up — idle, 0 connections")
+			status = lipgloss.NewStyle().Foreground(cGold).Render("○ idle — up, 0 connections")
 		}
 	default: // reaped
 		status = stDim.Render("· asleep — connect to wake it")
 	}
 
-	dataLine := stLabel.Render("data ") + stDim.Render(truncate(abbrevHome(v.DataDir), w-8))
 	card := strings.Join([]string{
 		title,
 		stFaint.Render(strings.Repeat("╌", max(1, w-4))),
 		row1, row2, urlLine, dataLine, "",
-		ramLine, connLine, "",
+		memTop, memMid, memBot, "",
 		status,
 	}, "\n")
 	return lipgloss.NewStyle().Width(w).Height(detailH).
@@ -636,20 +645,121 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 		Padding(0, 1).Render(card)
 }
 
-func (m model) reapGauge(v control.InstanceView, w int) string {
+// reapHint is a quiet, compact idle countdown — a thin baseline that empties.
+func (m model) reapHint(v control.InstanceView) string {
 	remain := m.resp.IdleTimeout - time.Since(v.IdleSince)
 	if remain < 0 {
 		remain = 0
 	}
-	frac := float64(remain) / float64(m.resp.IdleTimeout)
-	barW := max(6, w-22)
-	filled := int(frac*float64(barW) + 0.5)
-	if filled > barW {
-		filled = barW
+	const track = 16
+	filled := clampi(int(float64(remain)/float64(m.resp.IdleTimeout)*float64(track)+0.5), 0, track)
+	bar := lipgloss.NewStyle().Foreground(cGold).Render(strings.Repeat("▔", filled)) +
+		stFaint.Render(strings.Repeat("▔", track-filled))
+	idle := lipgloss.NewStyle().Foreground(cGold).Render("○")
+	return idle + stDim.Render(" idle · sleeps in "+compactDur(remain)+"  ") + bar
+}
+
+// memCaption summarizes the memory window: peak value and the time span shown.
+func memCaption(h *history) string {
+	if h == nil || len(h.ram) == 0 {
+		return ""
 	}
-	bar := lipgloss.NewStyle().Foreground(cGold).Render(strings.Repeat("█", filled)) +
-		stFaint.Render(strings.Repeat("░", barW-filled))
-	return stLabel.Render("sleeps in ") + bar + "  " + stDim.Render(compactDur(remain))
+	var peak float64
+	for _, v := range h.ram {
+		if v > peak {
+			peak = v
+		}
+	}
+	win := compactDur(time.Duration(len(h.ram)) * refreshMS)
+	if p := ui.HumanBytes(int64(peak)); p != "" {
+		return "peak " + p + " · " + win
+	}
+	return win
+}
+
+// varies reports whether a series has any movement worth plotting as a line.
+func varies(vals []float64) bool {
+	if len(vals) < 2 {
+		return false
+	}
+	mn, mx := vals[0], vals[0]
+	for _, v := range vals {
+		if v < mn {
+			mn = v
+		}
+		if v > mx {
+			mx = v
+		}
+	}
+	return mx > 0
+}
+
+// brailleGraph plots vals as a thin connected line using braille dots: each cell
+// packs 2×4 dots, so a few rows give a smooth trace. Returns hRows plain strings
+// (top to bottom); the caller colors them. The line is scaled to the window's
+// own min..max so small movements are visible.
+func brailleGraph(vals []float64, w, hRows int) []string {
+	cols, rowsPx := w*2, hRows*4
+	cell := make([][]uint8, hRows)
+	for i := range cell {
+		cell[i] = make([]uint8, w)
+	}
+	if len(vals) > 0 {
+		mn, mx := vals[0], vals[0]
+		for _, v := range vals {
+			if v < mn {
+				mn = v
+			}
+			if v > mx {
+				mx = v
+			}
+		}
+		span := mx - mn
+		yOf := func(v float64) int {
+			f := 0.5
+			if span > 0 {
+				f = (v - mn) / span
+			}
+			return clampi(int((1-f)*float64(rowsPx-1)+0.5), 0, rowsPx-1) // 0 = top
+		}
+		prev := -1
+		for x := 0; x < cols; x++ {
+			idx := 0
+			if cols > 1 {
+				idx = x * (len(vals) - 1) / (cols - 1)
+			}
+			y := yOf(vals[idx])
+			lo, hi := y, y
+			if prev >= 0 { // bridge to the previous point so the line is continuous
+				if prev < lo {
+					lo = prev
+				}
+				if prev > hi {
+					hi = prev
+				}
+			}
+			for yy := lo; yy <= hi; yy++ {
+				setDot(cell, x, yy)
+			}
+			prev = y
+		}
+	}
+	out := make([]string, hRows)
+	for r := 0; r < hRows; r++ {
+		var b strings.Builder
+		for c := 0; c < w; c++ {
+			b.WriteRune(rune(0x2800 + int(cell[r][c])))
+		}
+		out[r] = b.String()
+	}
+	return out
+}
+
+// setDot lights the braille dot at pixel (x,y) within the cell grid.
+func setDot(cell [][]uint8, x, y int) {
+	// Braille bit layout per cell (2 cols × 4 rows of dots).
+	bits := [4][2]uint8{{0x01, 0x08}, {0x02, 0x10}, {0x04, 0x20}, {0x40, 0x80}}
+	cell[y/4][x/2] |= bits[y%4][x%2]
 }
 
 func (m model) viewLogs(v control.InstanceView, w int) string {
@@ -699,39 +809,6 @@ func displayState(in control.InstanceView) string {
 		return "reaped"
 	}
 	return in.State
-}
-
-// sparkline renders values as block runes, scaled to the window's max.
-func sparkline(vals []float64, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	bl := []rune(" ▁▂▃▄▅▆▇█")
-	if len(vals) == 0 {
-		return strings.Repeat(string(bl[0]), width)
-	}
-	if len(vals) > width {
-		vals = vals[len(vals)-width:]
-	}
-	maxV := 0.0
-	for _, v := range vals {
-		if v > maxV {
-			maxV = v
-		}
-	}
-	var b strings.Builder
-	for i := 0; i < width-len(vals); i++ {
-		b.WriteRune(bl[0])
-	}
-	for _, v := range vals {
-		lvl := 0
-		if maxV > 0 {
-			lvl = int(v / maxV * float64(len(bl)-1))
-		}
-		lvl = clampi(lvl, 0, len(bl)-1)
-		b.WriteRune(bl[lvl])
-	}
-	return b.String()
 }
 
 func renderLogs(lines []string) string {

@@ -415,12 +415,16 @@ func (r *Runtime) RunReaper(ctx context.Context) {
 	if timeout <= 0 {
 		return
 	}
+	// Check at least once a second so an instance reaps within ~1s of crossing
+	// its deadline — keeping the dashboard's "sleeps in" countdown honest rather
+	// than reaping a coarse interval late. The scan is a cheap in-memory pass
+	// over a handful of instances, so a 1s cadence is negligible.
 	interval := timeout / 10
-	if interval < time.Second {
+	if interval > time.Second {
 		interval = time.Second
 	}
-	if interval > 30*time.Second {
-		interval = 30 * time.Second
+	if interval < 250*time.Millisecond {
+		interval = 250 * time.Millisecond
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
