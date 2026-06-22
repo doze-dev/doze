@@ -3,6 +3,15 @@
 Real databases and AWS services on your laptop — asleep until you need them.
 New to doze? Start with the [project overview](../README.md).
 
+## Start here
+
+- **[Why doze](guide/why-doze.md)** — the case for it over docker-compose, a
+  native install, and LocalStack; and whether it's for you.
+- **[Resource footprint](guide/resource-footprint.md)** — what doze actually
+  uses, measured, vs Docker and LocalStack.
+- **[The engines](guide/engines.md)** — what Postgres, Valkey, Kvrocks, FerretDB,
+  and the built-in S3/SQS/SNS each are, and when to reach for them.
+
 ## Learn
 
 Read these in order to build a working mental model:

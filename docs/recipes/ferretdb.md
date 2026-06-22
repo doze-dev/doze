@@ -1,10 +1,13 @@
 # Recipes — FerretDB (MongoDB wire)
 
-FerretDB speaks the MongoDB wire protocol, so MongoDB drivers, `mongosh`, and
-GUIs like Compass all work — but it's stateless and stores everything in a
-**PostgreSQL** backend (with the `documentdb` extension). doze models this as an
-instance **dependency**: booting FerretDB boots and *holds* its Postgres backend,
-and releases it when FerretDB stops. You declare two blocks; doze wires the rest.
+FerretDB is doze's way to run a **MongoDB-compatible** document store locally
+without MongoDB itself or its SSPL license (see **[The
+engines](../guide/engines.md)**). It speaks the MongoDB wire protocol, so MongoDB
+drivers, `mongosh`, and GUIs like Compass all work — but it's stateless and stores
+everything in a **PostgreSQL** backend (with the `documentdb` extension). doze
+models this as an instance **dependency**: booting FerretDB boots and *holds* its
+Postgres backend, and releases it when FerretDB stops. You declare two blocks;
+doze wires the rest.
 
 ## A Mongo-compatible store
 

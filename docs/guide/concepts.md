@@ -1,7 +1,8 @@
 # Core concepts
 
 A handful of ideas explain everything doze does. Once they click, the whole tool
-feels obvious.
+feels obvious. (For *why* you'd want this in the first place, see
+[Why doze](why-doze.md); for the engines themselves, [The engines](engines.md).)
 
 **A note on words.** Throughout the docs:
 
@@ -51,7 +52,9 @@ doze reaps an instance when it has had **zero live connections** for the
 
 When you stop touching an instance and your clients disconnect, it sleeps. RAM
 returns to your machine. The next connection boots it again. This is why a
-laptop running doze is quiet: nothing runs unless something is using it.
+laptop running doze is quiet: nothing runs unless something is using it — at rest
+it's one ~15 MB daemon and zero engine processes (see
+[Resource footprint](resource-footprint.md)).
 
 You can reap on demand (`doze down <name>`), boot eagerly (`doze up`), or just let
 it happen.

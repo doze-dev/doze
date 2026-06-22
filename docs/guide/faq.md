@@ -69,8 +69,6 @@ roles, buckets, and queues, with no manual setup. Personal tweaks go in a
 gitignored `doze.d/local.hcl` (see
 [Files & storage](files-and-storage.md#per-developer-overrides)).
 
-## How is this different from docker-compose / Testcontainers / LocalStack?
-
 - **docker-compose** runs a heavyweight, always-on stack in Docker. doze runs
   native binaries that sleep when idle — far less RAM, no Docker daemon, instant
   for the service you're actually using.
@@ -79,6 +77,9 @@ gitignored `doze.d/local.hcl` (see
   container runtime; and doze also serves your everyday dev loop.
 - **LocalStack** emulates AWS via Python + a JVM + Docker. doze's S3/SQS/SNS are
   built into one Go binary — no Docker, no JVM.
+
+For the full argument and **measured** numbers, see [Why doze](why-doze.md) and
+[Resource footprint](resource-footprint.md).
 
 ## How do I uninstall doze?
 

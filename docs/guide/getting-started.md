@@ -96,7 +96,7 @@ Start the daemon in the background and look at what's running:
 doze start
 doze status
 #   NAME   ENGINE     STATE    CONNS   RAM    UPTIME   ENDPOINT
-#   app    postgres   idle     0       26M    3s       127.0.0.1:6432
+#   app    postgres   idle     0       5M     3s       127.0.0.1:6432
 ```
 
 `app` is **idle** — booted, but with no live connections. Connect to it:
@@ -191,6 +191,9 @@ That's the whole loop: **declare** in `doze.hcl`, **use** via `doze run`/`doze
 env` or a direct connection, and let doze **boot on demand** and **reap when
 idle**. From here:
 
+- **[Why doze](why-doze.md)** — the case against docker-compose / native installs,
+  and **[the footprint numbers](resource-footprint.md)** behind "quiet laptop."
+- **[The engines](engines.md)** — what Valkey, Kvrocks, and FerretDB actually are.
 - **[Core concepts](concepts.md)** — how lazy boot, reaping, convergence, and the
   proxy actually work.
 - **[Files & storage](files-and-storage.md)** — where doze keeps everything, what

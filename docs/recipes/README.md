@@ -6,7 +6,9 @@ get.
 
 New to doze? Start with **[Getting started](../guide/getting-started.md)** and
 **[Core concepts](../guide/concepts.md)** first — these recipes assume you know
-the basic loop (declare → `doze run` → boots on connect, reaps when idle).
+the basic loop (declare → `doze run` → boots on connect, reaps when idle). For
+what each engine *is* and when to reach for it, see **[The
+engines](../guide/engines.md)**.
 
 ## How every recipe works
 

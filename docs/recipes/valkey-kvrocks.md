@@ -1,11 +1,15 @@
 # Recipes — Valkey & Kvrocks
 
-Both speak the Redis (RESP) protocol, so every redis client and library works
-unchanged. The difference is where the data lives:
+Both speak the Redis (RESP) protocol, so every Redis client and library works
+unchanged — these are doze's **cheap, open-source ways to run "Redis" locally**.
+(Valkey is the Linux-Foundation fork that kept Redis open source after its 2024
+relicense; Kvrocks is an Apache project with the same API on disk. The full story
+is in **[The engines](../guide/engines.md)**.) The difference is where the data
+lives:
 
 - **Valkey** — in-memory, like Redis. Fast, volatile. Use it as a **cache**.
-- **Kvrocks** — RocksDB-backed (on disk). Redis API, durable storage. Use it as a
-  **persistent KV store** that survives reaps and restarts.
+- **Kvrocks** — RocksDB-backed (on disk). Redis API, durable storage, lower RAM.
+  Use it as a **persistent KV store** that survives reaps and restarts.
 
 ## A cache (Valkey)
 

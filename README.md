@@ -5,10 +5,10 @@
 ### Real databases on your laptop — asleep until you need them.
 
 doze runs **Postgres, Valkey, Kvrocks, FerretDB**, and local **S3, SQS, and SNS**
-as real services — no Docker, no JVM. Declare what your app needs in one file;
-doze fetches the real engines, boots each the moment something connects, and puts
-it back to sleep when you walk away. At rest, your laptop is quiet: only a tiny
-daemon runs.
+as real services — no Docker, no JVM, no always-on stack. Declare what your app
+needs in one file; doze fetches the real engines, boots each the moment something
+connects, and puts it back to sleep when you walk away. At rest, your whole
+backend is one ~15 MB daemon.
 
 [![CI](https://github.com/NerdMeNot/doze/actions/workflows/ci.yml/badge.svg)](https://github.com/NerdMeNot/doze/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
@@ -31,53 +31,47 @@ $ doze run -- <your tests>      # npm test · pytest · go test · cargo test ·
   DATABASE_URL, REDIS_URL, AWS_ENDPOINT_URL_S3 injected — and your command just runs
 ```
 
-No `docker-compose.yml`. No 2 GB daemon humming while you're at lunch. No "wait,
-which Postgres is on 5432?" Just the services your app needs, exactly when it
-needs them — and nothing when it doesn't.
+No `docker-compose.yml`. No multi-gigabyte VM humming while you're at lunch. No
+"wait, which Postgres is on 5432?" Just the services your app needs, exactly when
+it needs them — and nothing when it doesn't.
 
 ---
 
 ## Why doze?
 
-Building a real app locally means running real infrastructure: a database, a
-cache, maybe a queue, a bucket, a document store. Today that usually means one of
-three bad options.
+Running real infrastructure locally — a database, a cache, a queue, a bucket —
+usually means one of three taxes:
 
-**You reach for Docker**, and now a 2 GB daemon idles in the background whether
-you're using it or not. Every project carries a `docker-compose.yml` you
-copy-paste and tweak forever. Cold starts are slow, healthchecks flake, volumes
-fight you over permissions, and on Apple Silicon half your images run emulated
-while the fan never stops. The *entire* stack runs all the time — even when you're
-only touching one piece of it.
+- **Docker / docker-compose:** a Linux VM that reserves ~half your RAM and runs
+  all day, the whole stack up even when you're touching one service, images
+  emulated on Apple Silicon.
+- **`brew install` everything:** version drift across projects, port conflicts,
+  no pinning, services idling since login.
+- **LocalStack for AWS:** a ~1.2 GB image running Python and a JVM, inside Docker.
 
-**Or you `brew install` everything**, and now you're juggling versions across
-projects, fighting port conflicts, guessing which `postgres` is actually running,
-and there's no way to pin the exact versions your teammate has.
+doze is the opposite — **real engines that sleep**. It runs the genuine binaries,
+boots each on first connect, splices your connection straight through, and
+returns the RAM when you walk away.
 
-**Or you want local AWS**, so you bolt on LocalStack — Python, a JVM, and yet
-more Docker.
+| | Docker / compose | `brew install` | LocalStack | **doze** |
+|---|---|---|---|---|
+| Setup | a compose file per project | manual, per-machine | a container | **one `doze.hcl`** |
+| Idle cost | a VM, ~½ your RAM | services run at login | Docker + Python + JVM | **~15 MB, engines asleep** |
+| Run only what you use | no — whole stack | no | no | **yes — boot on connect** |
+| Pinned versions | image tags | none | image tag | **`doze.lock`, exact** |
+| Apple Silicon | often emulated | native | emulated | **native** |
+| Local AWS | extra tooling | n/a | yes (heavy) | **built in, pure Go** |
 
-It's heavy, it's slow, and it's never *quite* reproducible.
+Because doze runs **real, unmodified engines** — not emulations — every client,
+extension, and wire-protocol feature behaves exactly like production. It just gets
+out of your way the moment you stop using it.
 
-doze is the opposite:
-
-|  | Without doze | With doze |
-|---|---|---|
-| **Setup** | a `docker-compose.yml` per project | one `doze.hcl` |
-| **Idle cost** | ~2 GB always running | ~0 — a tiny daemon; engines sleep |
-| **Footprint** | emulated images, hot fan | native binaries, quiet laptop |
-| **Reproducible** | "works on my machine" | exact versions pinned in `doze.lock` |
-| **Startup** | boot the whole stack | each service boots on first connect |
-| **Local AWS** | LocalStack (Python + JVM + Docker) | S3/SQS/SNS built into the binary |
-
-And because doze runs **real, unmodified engines** — not emulations — every
-client, every extension, every wire-protocol feature behaves exactly like
-production. It just gets out of your way the moment you stop using it.
+→ **[The full case](docs/guide/why-doze.md)** · **[Measured footprint](docs/guide/resource-footprint.md)**
 
 ## See it work (60 seconds)
 
 ```sh
-# 1. Build it (one binary, Go 1.26+)
+# 1. Install it (one binary, Go 1.26+)
 go install github.com/nerdmenot/doze/cmd/doze@latest
 
 # 2. Describe what you need
@@ -96,41 +90,43 @@ is instant; stop touching it and, a few minutes later, it reaps back to zero.
 ```sh
 $ doze status
   NAME    ENGINE   STATE    CONNS   RAM    UPTIME   ENDPOINT
-  app     postgres active   1       28M    8s       127.0.0.1:6432
+  app     postgres active   1       5M     8s       127.0.0.1:6432
   cache   valkey   reaped   0              -        127.0.0.1:6433
 ```
 
 ## What you can run
 
-| Service | What it's for | Declare |
-|---|---|---|
-| **PostgreSQL** | your primary database — roles, schemas, extensions, the works | `postgres "app" { … }` |
-| **Valkey** | a Redis-compatible in-memory cache | `valkey "cache" { … }` |
-| **Kvrocks** | Redis-compatible, RocksDB-backed durable KV | `kvrocks "store" { … }` |
-| **FerretDB** | MongoDB-wire document store (on a Postgres backend) | `ferretdb "docs" { … }` |
-| **S3** | local object storage (buckets, multipart, presigned URLs) | `s3 "media" { … }` |
-| **SQS** | message queues (standard, FIFO, dead-letter) | `sqs "jobs" { … }` |
-| **SNS** | pub/sub with SNS→SQS fanout and webhooks | `sns "events" { … }` |
+The engines are chosen to be **cheap, real, license-clean local stand-ins** —
+the API your code already speaks, without the heavy or encumbered originals.
 
-Mix as many as you want in one file. → **[See real recipes for each](docs/recipes/README.md)**
+| Service | What it's for | Why this one |
+|---|---|---|
+| **PostgreSQL** | your primary database — roles, schemas, extensions | the real, unmodified upstream (14–17) |
+| **Valkey** | a Redis-compatible in-memory cache | the open-source Redis after the 2024 relicense |
+| **Kvrocks** | Redis-compatible, RocksDB-backed durable KV | Redis API without keeping it all in RAM |
+| **FerretDB** | a MongoDB-wire document store | "Mongo" on Postgres, without MongoDB's license |
+| **S3 / SQS / SNS** | object storage, queues, pub/sub | local AWS with no LocalStack, Docker, or JVM |
+
+Mix as many as you want in one file. → **[The engines](docs/guide/engines.md)** ·
+**[Recipes for each](docs/recipes/README.md)**
 
 ## How it works
 
 Five ideas, and you've got the whole model:
 
 1. **Declare, don't orchestrate.** You describe the *end state* in `doze.hcl` —
-   which engines, which versions, which databases and roles. doze makes it so.
+   which engines, versions, databases, roles. doze makes it so.
 2. **Lazy boot.** A tiny daemon listens on one address per instance. The first
    connection cold-boots the real engine behind it; doze then splices your
    connection straight through, byte for byte.
-3. **Idle reap.** When an instance has had zero connections for a while, doze
-   shuts it down. Walk away and your laptop goes quiet on its own.
+3. **Idle reap.** Zero connections for a while and doze shuts the instance down.
+   Walk away and your laptop goes quiet on its own.
 4. **Real engines, pinned.** doze downloads the actual upstream binaries, verifies
-   their checksums, and records exact versions in `doze.lock` — so your whole
-   team and your CI run byte-identical software.
+   their checksums, and records exact versions in `doze.lock` — so your whole team
+   and CI run byte-identical software.
 5. **Structure, not data.** doze converges the *shape* of things (databases,
-   roles, schemas, grants, extensions, buckets, queues, topics). Your app and
-   migrations own the data.
+   roles, schemas, grants, buckets, queues, topics). Your app and migrations own
+   the data.
 
 → **[The full mental model](docs/guide/concepts.md)**
 
@@ -138,13 +134,13 @@ Five ideas, and you've got the whole model:
 
 **Great for** local development, automated tests, CI pipelines, demos, and
 spinning up a realistic backend for a new project in seconds. If you've ever run
-`docker-compose up` just to work on one service, doze is for you.
+`docker compose up` just to work on one service, doze is for you.
 
 **Not for** production. doze runs **single** local instances (no replication, no
 HA, no failover), tuned toward fast iteration over durability, and reaps them when
 idle — so it's not a place to keep data you can't lose. The local AWS services
 (S3/SQS/SNS) are dev-grade conveniences, not a stand-in for real AWS. Use managed
-Postgres/Redis and real AWS in production. (Full rationale in the
+databases and real AWS in production. (Full rationale in the
 [FAQ](docs/guide/faq.md#is-doze-production-ready).)
 
 **Platforms:** macOS and Linux, on Apple Silicon and x86-64. (No native Windows;
@@ -164,19 +160,25 @@ git clone https://github.com/NerdMeNot/doze && cd doze
 go build -o doze ./cmd/doze
 ```
 
-Engine binaries are fetched and cached automatically on first use — you don't
-install Postgres or Redis yourself. They're built and published by the companion
-repo **[NerdMeNot/doze-binaries](https://github.com/NerdMeNot/doze-binaries)**;
-see [Managing binaries](docs/BINARIES.md) for the mirror format and self-hosting.
+Engine binaries are fetched and cached automatically on first use. They're built
+and published by the companion repo
+**[NerdMeNot/doze-binaries](https://github.com/NerdMeNot/doze-binaries)**; see
+[Managing binaries](docs/BINARIES.md) for the mirror format and self-hosting.
 
 ## Documentation
 
 New here? Read these in order:
 
-1. **[Getting started](docs/guide/getting-started.md)** — from zero to a running app, step by step.
-2. **[Core concepts](docs/guide/concepts.md)** — the daemon, lazy boot, reaping, convergence, endpoints.
-3. **[Files & storage](docs/guide/files-and-storage.md)** — where things live, what to commit, splitting config.
-4. **[Recipes](docs/recipes/README.md)** — copy-pasteable examples for every engine and workflow.
+1. **[Why doze](docs/guide/why-doze.md)** — the case for it, and whether it's for you.
+2. **[Getting started](docs/guide/getting-started.md)** — from zero to a running app, step by step.
+3. **[Core concepts](docs/guide/concepts.md)** — the daemon, lazy boot, reaping, convergence, endpoints.
+4. **[The engines](docs/guide/engines.md)** — what each engine is and when to reach for it.
+
+Going deeper:
+
+- **[Resource footprint](docs/guide/resource-footprint.md)** — measured numbers vs Docker & LocalStack.
+- **[Files & storage](docs/guide/files-and-storage.md)** — where things live, what to commit, splitting config.
+- **[Recipes](docs/recipes/README.md)** — copy-pasteable examples for every engine and workflow.
 
 Reference, when you need it:
 

@@ -15,6 +15,9 @@ Jump to an engine: [postgres](#postgres) · [valkey](#valkey) ·
 [kvrocks](#kvrocks) · [ferretdb](#ferretdb) · [s3](#s3) · [sqs](#sqs) ·
 [sns](#sns).
 
+This is the field-by-field reference. For what each engine *is* and when to use
+it, see **[The engines](../guide/engines.md)**.
+
 ## Root
 
 | Field | Type | Default | Description |
