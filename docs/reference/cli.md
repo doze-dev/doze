@@ -64,7 +64,9 @@ sidebar on the left, and on the right the selected instance's telemetry (state,
 RAM/connection sparklines, a reap countdown) above its **streaming logs**. It
 refreshes continuously. Select a row with `↑/↓`, then:
 `b` boot · `d` reap · `R` restart · `f` toggle log-follow · `/` filter ·
-`r` refresh · `q` quit.
+`r` refresh · `q` quit. **Mouse:** click an instance to select it; scroll over
+the sidebar to move the selection, or over the logs pane to scroll the logs
+(scrolling up pauses follow; scrolling to the bottom resumes it).
 
 ### `doze logs [instance] [-f]`
 With no argument, tail the daemon's log. With an instance, show that backend's

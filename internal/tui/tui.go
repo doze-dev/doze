@@ -177,7 +177,7 @@ func Run(socketPath string) error {
 		hist:   map[string]*history{},
 		logVP:  viewport.New(0, 0),
 	}
-	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
 }
 
@@ -307,6 +307,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, refresh(m.client)
 
+	case tea.MouseMsg:
+		return m.handleMouse(msg)
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -314,6 +317,46 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.logVP, cmd = m.logVP.Update(msg)
 	return m, cmd
+}
+
+// handleMouse routes the wheel and clicks like mprocs: wheel over the sidebar
+// moves the selection, wheel over the right pane scrolls the logs, and a click
+// in the sidebar selects that instance.
+func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	const headerRows = 2 // title + rule above the body
+	overSidebar := msg.X < m.sidebarW()
+	switch msg.Button {
+	case tea.MouseButtonWheelUp:
+		if overSidebar {
+			if m.cursor > 0 {
+				m.cursor--
+			}
+			return m, m.onSelect()
+		}
+		m.follow = false
+		m.logVP.LineUp(3)
+		return m, nil
+	case tea.MouseButtonWheelDown:
+		if overSidebar {
+			if m.cursor < len(m.visible())-1 {
+				m.cursor++
+			}
+			return m, m.onSelect()
+		}
+		m.logVP.LineDown(3)
+		if m.logVP.AtBottom() { // caught up — resume tailing
+			m.follow = true
+		}
+		return m, nil
+	case tea.MouseButtonLeft:
+		if msg.Action == tea.MouseActionPress && overSidebar {
+			if row := msg.Y - headerRows; row >= 0 && row < len(m.visible()) {
+				m.cursor = row
+				return m, m.onSelect()
+			}
+		}
+	}
+	return m, nil
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
