@@ -46,10 +46,13 @@ func TestWriteConf(t *testing.T) {
 	}
 	b, _ := os.ReadFile(path)
 	conf := string(b)
-	for _, want := range []string{"dir /data/store", "port 0", "unixsocket /run/store/kvrocks.sock", "requirepass pw"} {
+	for _, want := range []string{"dir /data/store", "bind\n", "port 6666", "unixsocket /run/store/kvrocks.sock", "requirepass pw"} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("conf missing %q:\n%s", want, conf)
 		}
+	}
+	if strings.Contains(conf, "port 0") {
+		t.Errorf("conf must not set port 0 (kvrocks rejects it):\n%s", conf)
 	}
 }
 

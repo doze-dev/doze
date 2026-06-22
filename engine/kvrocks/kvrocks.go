@@ -96,7 +96,11 @@ func writeConf(path string, inst engine.Instance, socket string) error {
 	var b strings.Builder
 	b.WriteString("# Managed by doze — regenerated on every boot.\n")
 	fmt.Fprintf(&b, "dir %s\n", inst.DataDir)
-	b.WriteString("port 0\n") // unix socket only
+	// Serve only over the unix socket. Kvrocks (unlike Redis/Valkey) rejects
+	// `port 0` as out-of-range, so disable the TCP listener by binding no
+	// address; `port` must still be a valid number but goes unused.
+	b.WriteString("bind\n")
+	b.WriteString("port 6666\n")
 	fmt.Fprintf(&b, "unixsocket %s\n", socket)
 	if cfg, ok := inst.Spec.(*Config); ok && cfg != nil && cfg.Password != "" {
 		fmt.Fprintf(&b, "requirepass %s\n", cfg.Password)
