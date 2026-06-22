@@ -33,7 +33,7 @@ postgres "app" {
 ```
 
 ```sh
-doze run -- npm run dev     # DATABASE_URL is injected; the DB boots on first use
+doze run -- <your app>     # DATABASE_URL is injected; the DB boots on first use
 doze psql app              # or open a SQL shell directly (boots `app` if cold)
 ```
 

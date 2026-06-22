@@ -26,9 +26,9 @@ s3 "uploads" {
 ```
 
 ```sh
-$ doze run -- npm test
+$ doze run -- <your tests>      # npm test · pytest · go test · cargo test · rails test
   ⏵ postgres/app (16.14) ready 0.2s   ⏵ valkey/cache ready 0.05s   ⏵ s3/uploads ready
-  injected DATABASE_URL, REDIS_URL, AWS_ENDPOINT_URL_S3 — running npm test…
+  DATABASE_URL, REDIS_URL, AWS_ENDPOINT_URL_S3 injected — and your command just runs
 ```
 
 No `docker-compose.yml`. No 2 GB daemon humming while you're at lunch. No "wait,
@@ -85,7 +85,7 @@ doze init                      # writes a starter doze.hcl
 
 # 3. Use it — the database boots on the first connection
 doze psql app                  # opens a real psql shell (cold-boots `app` for you)
-doze run -- npm test           # injects DATABASE_URL & co., runs your tests
+doze run -- <your command>     # injects DATABASE_URL & co. into any command/language
 eval "$(doze env)"             # or export the connection strings into your shell
 ```
 

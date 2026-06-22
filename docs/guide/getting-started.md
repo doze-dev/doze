@@ -152,12 +152,12 @@ Two engines, one file. Each has its own endpoint and its own lifecycle.
 Your app shouldn't hardcode ports. Let doze inject the connection strings:
 
 ```sh
-doze run -- npm run dev
+doze run -- <your dev server>     # npm run dev · rails server · go run ./... · python manage.py runserver
 ```
 
 `doze run` ensures the daemon is up, exports each instance's connection string
-into the environment, and runs your command. Your app reads the standard
-variables it already knows:
+into the environment, and runs your command — whatever language it's in. Your app
+reads the standard variables it already knows:
 
 - `DATABASE_URL` → the `app` Postgres
 - `REDIS_URL` → the `cache` Valkey
