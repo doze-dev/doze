@@ -91,11 +91,20 @@ func TestFilterToggleAndClear(t *testing.T) {
 func TestViewRendersInstancesAndKeys(t *testing.T) {
 	m := threeInstances()
 	out := m.View()
-	for _, want := range []string{"app", "cache", "media", "boot", "reap", "restart", "doze"} {
+	for _, want := range []string{"app", "cache", "media", "boot", "reap", "follow", "doze"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("view missing %q:\n%s", want, out)
 		}
 	}
+	// The full key set (incl. restart) and the mouse/state legend live in `?` help.
+	m.showHelp = true
+	help := m.View()
+	for _, want := range []string{"restart", "Mouse", "asleep", "cycle theme"} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("help overlay missing %q:\n%s", want, help)
+		}
+	}
+	m.showHelp = false
 	// Selecting the failed instance surfaces its error detail.
 	m.cursor = 2
 	if !strings.Contains(m.View(), "boom") {
