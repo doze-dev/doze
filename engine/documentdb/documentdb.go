@@ -63,6 +63,12 @@ func (Driver) Type() string { return "documentdb" }
 // `documentdb` block needs no `version`.
 func (Driver) Versionless() {}
 
+// BootBudget implements engine.SlowBooter: the first cold boot downloads the
+// bundle, runs initdb, and CREATE EXTENSION documentdb CASCADE (PostGIS, pg_cron,
+// vector, …), which easily exceeds the proxy's default client-boot budget. Later
+// boots (cluster provisioned, extension already present) finish in seconds.
+func (Driver) BootBudget() time.Duration { return 3 * time.Minute }
+
 // Resolve implements engine.Driver. It resolves TWO toolchains — the Postgres+
 // extension bundle (the primary BinDir) and the FerretDB gateway (stashed under
 // Tools["ferretdb"]) — so Spawn can launch both from one Toolchain.

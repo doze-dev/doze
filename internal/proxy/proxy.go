@@ -117,7 +117,11 @@ func (p *Proxy) handle(ctx context.Context, raw net.Conn, name string, drv engin
 		replay = res.Replay
 	}
 
-	bootCtx, cancel := context.WithTimeout(ctx, p.BootTimeout)
+	budget := p.BootTimeout
+	if sb, ok := drv.(engine.SlowBooter); ok && sb.BootBudget() > budget {
+		budget = sb.BootBudget() // e.g. documentdb's first boot builds a PG cluster + extension
+	}
+	bootCtx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	ep, err := p.router.Boot(bootCtx, name)
 	if err != nil {

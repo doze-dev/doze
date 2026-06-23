@@ -6,9 +6,19 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"time"
 
 	"github.com/hashicorp/hcl/v2"
 )
+
+// SlowBooter is implemented by engines whose cold boot legitimately takes longer
+// than the proxy's default client-boot budget — e.g. documentdb builds a Postgres
+// cluster and runs CREATE EXTENSION … CASCADE on first boot. The proxy waits up to
+// BootBudget (instead of its default) before giving up on a client-triggered boot.
+// Once provisioned, later boots are quick and finish well within either bound.
+type SlowBooter interface {
+	BootBudget() time.Duration
+}
 
 // Driver is the minimal contract every database engine implements. The generic
 // runtime depends only on these methods; richer behavior (convergence,
