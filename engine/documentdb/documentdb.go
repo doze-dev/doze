@@ -20,6 +20,7 @@ package documentdb
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"net"
 	"os"
 	"os/exec"
@@ -144,10 +145,16 @@ func (Driver) Spawn(ctx context.Context, inst engine.Instance, tc engine.Toolcha
 		return nil, err
 	}
 	// The DocumentDB extension opens libpq connections back to its own server over
-	// loopback TCP, so the backend must bind a real (unique) localhost port.
+	// loopback TCP, so the backend must bind a real (unique) localhost port; and
+	// FerretDB always binds a debug/metrics handler. Allocate both in our high
+	// window up front, distinct from each other.
 	port, err := freePort()
 	if err != nil {
 		return nil, fmt.Errorf("allocating postgres port: %w", err)
+	}
+	debugPort, err := freePort(port)
+	if err != nil {
+		return nil, fmt.Errorf("allocating ferretdb debug port: %w", err)
 	}
 
 	pgCmd := exec.Command(tc.Path("postgres"),
@@ -182,6 +189,10 @@ func (Driver) Spawn(ctx context.Context, inst engine.Instance, tc engine.Toolcha
 		"FERRETDB_POSTGRESQL_URL="+backendURL(pgSock, port),
 		"FERRETDB_LISTEN_UNIX="+socket,
 		"FERRETDB_LISTEN_ADDR=", // no TCP listener; doze fronts the mongo wire
+		// Pin the debug/metrics handler to a port in doze's high window. Left unset,
+		// FerretDB hardwires it to 127.0.0.1:8088, so a second documentdb instance
+		// would crash-loop on "address already in use".
+		"FERRETDB_DEBUG_ADDR=127.0.0.1:"+strconv.Itoa(debugPort),
 		"FERRETDB_STATE_DIR="+stateDir,
 		"FERRETDB_TELEMETRY=disable",
 		// Local-dev posture: no Mongo-client auth. FerretDB reaches the private
@@ -249,16 +260,46 @@ func backendURL(pgSock string, port int) string {
 	return fmt.Sprintf("postgres://postgres@/postgres?host=%s&port=%d", pgSock, port)
 }
 
-// freePort returns an unused loopback TCP port. There is a small TOCTOU window
-// before Postgres binds it; acceptable for local dev and far simpler than a port
-// registry. Postgres fails loudly to its logs if the port is taken.
-func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
+// doze keeps documentdb's internal loopback ports — the Postgres port the
+// extension self-connects to, and FerretDB's debug/metrics handler — inside one
+// high, fixed window. That sits well clear of the low-numbered defaults real
+// services use (FerretDB otherwise hardwires its debug handler to :8088, which
+// collides the moment a second documentdb instance boots), and is easy to spot
+// in `lsof`/logs as "doze's private ports".
+const (
+	portLo = 30000
+	portHi = 40000
+)
+
+// freePort returns an unused loopback TCP port in [portLo, portHi], skipping any
+// port in exclude (so a caller allocating several at once keeps them distinct).
+// It probes random ports in the window, so two instances booting concurrently are
+// unlikely to choose the same one. There is a small TOCTOU window before the port
+// is bound; acceptable for local dev and far simpler than a port registry — the
+// server logs loudly if it loses the race.
+func freePort(exclude ...int) (int, error) {
+	excluded := func(p int) bool {
+		for _, e := range exclude {
+			if p == e {
+				return true
+			}
+		}
+		return false
 	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	const span = portHi - portLo + 1
+	for i := 0; i < 128; i++ {
+		p := portLo + rand.IntN(span)
+		if excluded(p) {
+			continue
+		}
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+		if err != nil {
+			continue // in use — try another
+		}
+		_ = l.Close()
+		return p, nil
+	}
+	return 0, fmt.Errorf("no free loopback port in %d-%d", portLo, portHi)
 }
 
 // waitPostgres polls pg_isready until the backend accepts connections, the
