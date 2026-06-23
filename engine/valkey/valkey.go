@@ -88,17 +88,33 @@ func (Driver) Spawn(_ context.Context, inst engine.Instance, tc engine.Toolchain
 		"--port", "0",
 		"--unixsocket", socket,
 		"--dir", inst.DataDir,
-		"--save", "",
-		"--appendonly", "no",
 		"--daemonize", "no",
 	}
+	// Persistence defaults to off (an ephemeral dev cache), overridable per field.
+	save, appendonly := "", "no"
 	if cfg, ok := inst.Spec.(*Config); ok && cfg != nil {
+		if cfg.Save != "" {
+			save = cfg.Save
+		}
+		if cfg.Appendonly {
+			appendonly = "yes"
+		}
+		args = append(args, "--save", save, "--appendonly", appendonly)
 		if cfg.Password != "" {
 			args = append(args, "--requirepass", cfg.Password)
 		}
 		if cfg.Maxmemory != "" {
 			args = append(args, "--maxmemory", cfg.Maxmemory)
 		}
+		if cfg.MaxmemoryPolicy != "" {
+			args = append(args, "--maxmemory-policy", cfg.MaxmemoryPolicy)
+		}
+		// Raw valkey.conf passthrough, applied last so it can override the above.
+		for _, k := range sortedKeys(cfg.Settings) {
+			args = append(args, "--"+k, cfg.Settings[k])
+		}
+	} else {
+		args = append(args, "--save", save, "--appendonly", appendonly)
 	}
 	return supervisor.Start(exec.Command(tc.Path("valkey-server"), args...))
 }

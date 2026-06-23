@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -127,6 +128,17 @@ func ensureInclude(dataDir string) error {
 	return err
 }
 
+// lockedSettings are parameters doze always controls; a user `settings = {}`
+// entry for one of these is ignored (with the locked value winning) so the
+// socket-only, single-instance model can't be broken from config.
+var lockedSettings = map[string]bool{
+	"listen_addresses":        true,
+	"port":                    true,
+	"unix_socket_directories": true,
+	"hba_file":                true,
+	"data_directory":          true,
+}
+
 func settings(cfg *Config) [][2]string {
 	onoff := func(b bool) string {
 		if b {
@@ -134,7 +146,7 @@ func settings(cfg *Config) [][2]string {
 		}
 		return "off"
 	}
-	return [][2]string{
+	out := [][2]string{
 		{"shared_buffers", quote(cfg.SharedBuffers)},
 		{"max_connections", strconv.Itoa(cfg.MaxConnections)},
 		{"fsync", onoff(cfg.Fsync)},
@@ -142,9 +154,28 @@ func settings(cfg *Config) [][2]string {
 		// The light/dev profile: no point being synchronous if not fsyncing.
 		{"synchronous_commit", onoff(cfg.Fsync)},
 		{"full_page_writes", onoff(cfg.Fsync)},
-		// TCP off entirely; clients reach the backend only via the unix socket.
-		{"listen_addresses", quote("")},
 	}
+	// Raw postgresql.conf passthrough, applied after the typed tuning so it can
+	// override it. Sorted for deterministic output. Locked params are skipped.
+	for _, k := range sortedKeys(cfg.Settings) {
+		if lockedSettings[strings.ToLower(k)] {
+			continue
+		}
+		out = append(out, [2]string{k, quote(cfg.Settings[k])})
+	}
+	// TCP off entirely; clients reach the backend only via the unix socket. Emitted
+	// last so it always wins, even over a user `settings` entry.
+	out = append(out, [2]string{"listen_addresses", quote("")})
+	return out
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func quote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }

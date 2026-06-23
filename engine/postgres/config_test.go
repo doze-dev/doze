@@ -97,6 +97,92 @@ postgres "app" {
 	}
 }
 
+func TestExtensionOptionalDecode(t *testing.T) {
+	pg := parsePG(t, `
+postgres "app" {
+  version = 16
+  extension "postgis" {}
+  extension "rum" { optional = true }
+}
+`)
+	byName := map[string]Extension{}
+	for _, e := range pg.Extensions {
+		byName[e.Name] = e
+	}
+	if byName["postgis"].Optional {
+		t.Errorf("postgis should be required (optional=false) by default")
+	}
+	if !byName["rum"].Optional {
+		t.Errorf("rum should be optional")
+	}
+}
+
+func TestSettingsPassthrough(t *testing.T) {
+	pg := parsePG(t, `
+postgres "app" {
+  version = 16
+  settings = {
+    work_mem         = "8MB"
+    listen_addresses = "*"   # locked: must be ignored
+  }
+}
+`)
+	kv := settings(pg)
+	var listenIdx, workMemIdx = -1, -1
+	for i, p := range kv {
+		switch p[0] {
+		case "listen_addresses":
+			listenIdx = i
+			if p[1] != "''" {
+				t.Errorf("listen_addresses must stay locked to '', got %s", p[1])
+			}
+		case "work_mem":
+			workMemIdx = i
+			if p[1] != "'8MB'" {
+				t.Errorf("work_mem = %s, want '8MB'", p[1])
+			}
+		}
+	}
+	if workMemIdx == -1 {
+		t.Fatal("user setting work_mem not emitted")
+	}
+	if listenIdx == -1 || listenIdx != len(kv)-1 {
+		t.Fatalf("listen_addresses must be emitted last (idx %d of %d)", listenIdx, len(kv))
+	}
+}
+
+func TestDatabaseAndRoleOptions(t *testing.T) {
+	pg := parsePG(t, `
+postgres "app" {
+  version          = 16
+  connection_limit = 25
+  is_template      = true
+  lc_collate       = "C"
+  comment          = "primary db"
+
+  role "rls_admin" {
+    bypassrls = true
+    comment   = "owns RLS bypass"
+    config    = { search_path = "app, public" }
+  }
+}
+`)
+	if pg.ConnectionLimit != 25 || !pg.IsTemplate || pg.LCCollate != "C" || pg.Comment != "primary db" {
+		t.Errorf("db options wrong: %+v", pg)
+	}
+	if len(pg.Roles) != 1 {
+		t.Fatalf("roles = %+v", pg.Roles)
+	}
+	r := pg.Roles[0]
+	if !r.BypassRLS || r.Comment != "owns RLS bypass" || r.Config["search_path"] != "app, public" {
+		t.Errorf("role options wrong: %+v", r)
+	}
+	// roleOptions must emit BYPASSRLS for an RLS-bypass role.
+	if !strings.Contains(roleOptions(r), "BYPASSRLS") || strings.Contains(roleOptions(r), "NOBYPASSRLS") {
+		t.Errorf("roleOptions missing BYPASSRLS: %s", roleOptions(r))
+	}
+}
+
 func TestPostgresDefaults(t *testing.T) {
 	pg := parsePG(t, `postgres "app" { version = 16 }`)
 	if pg.SharedBuffers != defaultSharedBuffers || pg.MaxConnections != defaultMaxConnections {

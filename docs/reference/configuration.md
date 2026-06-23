@@ -78,12 +78,20 @@ postgres "app" {
 |---|---|---|---|
 | `owner` | string | `postgres` | Role that owns the database. |
 | `encoding` | string | server default | Database encoding, e.g. `"UTF8"`. |
-| `locale` | string | server default | Database locale, e.g. `"C"` or `"en_US.UTF-8"`. |
+| `locale` | string | server default | Database locale; shorthand for both `lc_collate` and `lc_ctype`. |
+| `lc_collate` | string | `locale` | Collation, overriding `locale`. |
+| `lc_ctype` | string | `locale` | Character classification, overriding `locale`. |
 | `template` | string | server default | Template database to clone from. |
+| `connection_limit` | number | `-1` (unlimited) | Database `CONNECTION LIMIT`. |
+| `is_template` | bool | `false` | Mark the database a template. |
+| `allow_connections` | bool | `true` | Allow connections to the database. |
+| `tablespace` | string | default | Tablespace for the database. |
+| `comment` | string | none | `COMMENT ON DATABASE`. |
 | `shared_buffers` | string | `16MB` | Postgres `shared_buffers`. |
 | `max_connections` | number | `50` | Postgres `max_connections`. |
 | `fsync` | bool | `false` | When off (default), also disables `synchronous_commit` and `full_page_writes` — fast, not crash-safe. Set `true` for durability. |
 | `autovacuum` | bool | `false` | Enable autovacuum. |
+| `settings` | map(string) | `{}` | Raw `postgresql.conf` passthrough for any parameter without a typed field (e.g. `{ work_mem = "8MB" }`). Applied after the typed tuning; doze-locked params (`listen_addresses`, …) always win. |
 | `extensions` | list(string) | `[]` | Shorthand for `CREATE EXTENSION IF NOT EXISTS` per name. |
 
 **`role "<name>" { … }`** — a login user (default) or, with `login = false`, a group role.
@@ -97,9 +105,12 @@ postgres "app" {
 | `createrole` | bool | `false` | Grant CREATEROLE. |
 | `replication` | bool | `false` | Grant REPLICATION. |
 | `inherit` | bool | `true` | Inherit privileges of granted roles. |
+| `bypassrls` | bool | `false` | Grant BYPASSRLS (skip row-level security). |
 | `connection_limit` | number | `-1` (unlimited) | Max concurrent connections. |
 | `valid_until` | string | none | Password expiry timestamp. |
 | `member_of` | list(string) | `[]` | Roles this role is a member of. |
+| `comment` | string | none | `COMMENT ON ROLE`. |
+| `config` | map(string) | `{}` | Per-role parameters via `ALTER ROLE … SET` (e.g. `{ search_path = "app, public" }`). |
 
 **`schema "<name>" { … }`**
 
@@ -116,6 +127,7 @@ postgres "app" {
 | `database` | string | none | Grant at the database level. |
 | `schema` | string | none | Grant within a schema. |
 | `objects` | string | none | With `schema`: `tables` / `sequences` / `functions` (covers current + future objects). |
+| `with_grant_option` | bool | `false` | Allow the grantee to re-grant. |
 
 **`extension "<name>" { … }`** — for options beyond the `extensions` shorthand.
 
@@ -124,6 +136,8 @@ postgres "app" {
 | `version` | string | latest available | Specific extension version. |
 | `schema` | string | default | Schema to install into. |
 | `source` | string | none | Path to a source/bundle for an extension the binary doesn't ship — see [Extensions](../EXTENSIONS.md). |
+| `cascade` | bool | `false` | Add `CASCADE` to also create dependency extensions. |
+| `optional` | bool | `false` | When `true`, an unavailable or failed extension is a warning, not a hard error. By default a missing/failed extension **fails convergence and taints the instance**. |
 
 ---
 
@@ -143,6 +157,10 @@ valkey "cache" {
 | `version` | string/number | — | Major or exact. **Required.** |
 | `password` | string | none | `requirepass`. |
 | `maxmemory` | string | unlimited | Memory cap, e.g. `"256mb"`. |
+| `maxmemory_policy` | string | server default | Eviction policy, e.g. `"allkeys-lru"`. |
+| `appendonly` | bool | `false` | Enable the AOF persistence log. |
+| `save` | string | off | RDB snapshot schedule, e.g. `"3600 1 300 100"`. |
+| `settings` | map(string) | `{}` | Raw `valkey.conf` passthrough, e.g. `{ "lazyfree-lazy-eviction" = "yes" }`. Applied last so it overrides typed fields. |
 
 ---
 
@@ -152,14 +170,24 @@ RocksDB-backed, Redis-protocol durable KV store.
 
 ```hcl
 kvrocks "store" {
-  version = 2
+  version  = 2
+  password = "default-token"
+  namespace "tenant_a" { token = "tok-a" }
 }
 ```
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `version` | string/number | — | Major or exact. **Required.** |
-| `password` | string | none | `requirepass`. |
+| `password` | string | none | `requirepass` (also the default-namespace token). |
+| `workers` | number | server default | Worker thread pool size. |
+| `settings` | map(string) | `{}` | Raw `kvrocks.conf` passthrough, e.g. `{ "rocksdb.block_size" = "16384" }`. |
+
+**`namespace "<name>" { … }`** — a kvrocks namespace with an access token. Requires `password`.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `token` | string | — | The namespace access token. **Required.** |
 
 ---
 

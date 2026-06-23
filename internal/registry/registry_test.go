@@ -112,3 +112,38 @@ func TestMarkReapedClears(t *testing.T) {
 		t.Fatalf("reaped instance not cleared: %+v", inst)
 	}
 }
+
+// Taint must persist across boot attempts (MarkBooting/MarkRunning) and reaps —
+// a half-converged instance can never look healthy until a converge clears it.
+func TestTaintPersistsUntilCleared(t *testing.T) {
+	r := New()
+	r.SetTainted("db")
+
+	// A fresh boot attempt clears LastError but must NOT clear the taint.
+	r.SetError("db", "boom")
+	r.MarkBooting("db")
+	if inst, _ := r.Get("db"); inst.LastError != "" {
+		t.Fatalf("MarkBooting should clear LastError, got %q", inst.LastError)
+	}
+	if inst, _ := r.Get("db"); !inst.Tainted {
+		t.Fatal("MarkBooting must not clear taint")
+	}
+
+	// A successful boot also must not clear the taint (only a converge does).
+	r.MarkRunning("db", "/sock", 5432, 100)
+	if inst, _ := r.Get("db"); !inst.Tainted {
+		t.Fatal("MarkRunning must not clear taint")
+	}
+
+	// A reap leaves the structure incomplete — taint survives.
+	r.MarkReaped("db")
+	if inst, _ := r.Get("db"); !inst.Tainted {
+		t.Fatal("MarkReaped must not clear taint")
+	}
+
+	// Only a successful converge clears it.
+	r.ClearTainted("db")
+	if inst, _ := r.Get("db"); inst.Tainted {
+		t.Fatal("ClearTainted should clear taint")
+	}
+}

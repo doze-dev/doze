@@ -53,23 +53,38 @@ func (Driver) Converge(ctx context.Context, inst engine.Instance, tc engine.Tool
 		}
 	}
 
-	// 4. Extensions.
+	// 4. Extensions. A missing or failed extension fails convergence (and taints
+	// the instance) unless the block is marked `optional = true`, in which case it
+	// degrades to a warning — so a half-provisioned database never looks healthy.
 	inst2 := newInstaller(tc.Path("pg_config"))
 	for _, ext := range cfg.Extensions {
 		name := ext.Name
 		if alias, ok := extensionAliases[ext.Name]; ok {
 			name = alias
 		}
+		// soft reports a non-fatal condition: a warning if the extension is
+		// optional, otherwise a hard convergence error.
+		soft := func(format string, args ...any) error {
+			if ext.Optional {
+				Logf("warning: "+format, args...)
+				return nil
+			}
+			return fmt.Errorf(format, args...)
+		}
 		if ext.Source != "" && !inst2.available(name) {
 			if err := inst2.install(name, resolveExtSource(cfg.BaseDir, ext.Source)); err != nil {
-				Logf("warning: could not install extension %q for %q: %v", ext.Name, dbName, err)
+				if e := soft("could not install extension %q for %q: %v", ext.Name, dbName, err); e != nil {
+					return e
+				}
 				continue
 			}
 			Logf("installed extension %q into the Postgres toolchain", name)
 		}
 		if !inst2.available(name) {
-			Logf("warning: extension %q is not available for %q (declare a `source` bundle, "+
-				"or use a Postgres build that includes it)", ext.Name, dbName)
+			if e := soft("extension %q is not available for %q (declare a `source` bundle, "+
+				"use a Postgres build that includes it, or set `optional = true`)", ext.Name, dbName); e != nil {
+				return e
+			}
 			continue
 		}
 		stmt := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS %s", sqlIdent(name))
@@ -79,8 +94,13 @@ func (Driver) Converge(ctx context.Context, inst engine.Instance, tc engine.Tool
 		if ext.Version != "" {
 			stmt += " VERSION " + sqlLit(ext.Version)
 		}
+		if ext.Cascade {
+			stmt += " CASCADE"
+		}
 		if err := psql.exec(ctx, dbName, stmt); err != nil {
-			Logf("warning: CREATE EXTENSION %q for %q failed: %v", ext.Name, dbName, err)
+			if e := soft("CREATE EXTENSION %q for %q failed: %v", ext.Name, dbName, err); e != nil {
+				return e
+			}
 		}
 	}
 
@@ -121,6 +141,17 @@ func convergeRole(ctx context.Context, psql *psqlRunner, role Role) error {
 			return fmt.Errorf("granting membership in %q: %w", parent, err)
 		}
 	}
+	// Per-role parameters: ALTER ROLE … SET key = value (search_path, timeouts, …).
+	for _, k := range sortedKeys(role.Config) {
+		if err := psql.exec(ctx, "postgres", fmt.Sprintf("ALTER ROLE %s SET %s = %s", sqlIdent(role.Name), sqlIdent(k), sqlLit(role.Config[k]))); err != nil {
+			return fmt.Errorf("setting role parameter %q: %w", k, err)
+		}
+	}
+	if role.Comment != "" {
+		if err := psql.exec(ctx, "postgres", fmt.Sprintf("COMMENT ON ROLE %s IS %s", sqlIdent(role.Name), sqlLit(role.Comment))); err != nil {
+			return fmt.Errorf("commenting role: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -138,6 +169,7 @@ func roleOptions(r Role) string {
 		flag(r.CreateRole, "CREATEROLE", "NOCREATEROLE"),
 		flag(r.Replication, "REPLICATION", "NOREPLICATION"),
 		flag(r.Inherit, "INHERIT", "NOINHERIT"),
+		flag(r.BypassRLS, "BYPASSRLS", "NOBYPASSRLS"),
 		"CONNECTION LIMIT " + strconv.Itoa(r.ConnectionLimit),
 	}
 	if r.Password != "" {
@@ -155,6 +187,15 @@ func convergeDatabase(ctx context.Context, psql *psqlRunner, name string, cfg *C
 	if err != nil {
 		return fmt.Errorf("checking existence: %w", err)
 	}
+	collate, ctype := cfg.LCCollate, cfg.LCCtype
+	if cfg.Locale != "" { // `locale` is shorthand for both, unless one is set explicitly.
+		if collate == "" {
+			collate = cfg.Locale
+		}
+		if ctype == "" {
+			ctype = cfg.Locale
+		}
+	}
 	if !exists {
 		stmt := "CREATE DATABASE " + sqlIdent(name)
 		var with []string
@@ -162,7 +203,7 @@ func convergeDatabase(ctx context.Context, psql *psqlRunner, name string, cfg *C
 			with = append(with, "OWNER "+sqlIdent(cfg.Owner))
 		}
 		template := cfg.Template
-		if (cfg.Encoding != "" || cfg.Locale != "") && template == "" {
+		if (cfg.Encoding != "" || collate != "" || ctype != "") && template == "" {
 			template = "template0"
 		}
 		if template != "" {
@@ -171,8 +212,17 @@ func convergeDatabase(ctx context.Context, psql *psqlRunner, name string, cfg *C
 		if cfg.Encoding != "" {
 			with = append(with, "ENCODING "+sqlLit(cfg.Encoding))
 		}
-		if cfg.Locale != "" {
-			with = append(with, "LC_COLLATE "+sqlLit(cfg.Locale), "LC_CTYPE "+sqlLit(cfg.Locale))
+		if collate != "" {
+			with = append(with, "LC_COLLATE "+sqlLit(collate))
+		}
+		if ctype != "" {
+			with = append(with, "LC_CTYPE "+sqlLit(ctype))
+		}
+		if cfg.Tablespace != "" {
+			with = append(with, "TABLESPACE "+sqlIdent(cfg.Tablespace))
+		}
+		if cfg.ConnectionLimit != unlimitedConnections {
+			with = append(with, "CONNECTION LIMIT "+strconv.Itoa(cfg.ConnectionLimit))
 		}
 		if len(with) > 0 {
 			stmt += " WITH " + strings.Join(with, " ")
@@ -185,22 +235,48 @@ func convergeDatabase(ctx context.Context, psql *psqlRunner, name string, cfg *C
 			return fmt.Errorf("setting owner: %w", err)
 		}
 	}
+	// Options ALTER-able on an existing database (locale/encoding are fixed at
+	// creation and intentionally not re-applied here).
+	alter := []string{}
+	if cfg.ConnectionLimit != unlimitedConnections {
+		alter = append(alter, "CONNECTION LIMIT "+strconv.Itoa(cfg.ConnectionLimit))
+	}
+	if cfg.IsTemplate {
+		alter = append(alter, "IS_TEMPLATE true")
+	}
+	if !cfg.AllowConns {
+		alter = append(alter, "ALLOW_CONNECTIONS false")
+	}
+	if len(alter) > 0 {
+		if err := psql.exec(ctx, "postgres", fmt.Sprintf("ALTER DATABASE %s WITH %s", sqlIdent(name), strings.Join(alter, " "))); err != nil {
+			return fmt.Errorf("setting options: %w", err)
+		}
+	}
+	if cfg.Comment != "" {
+		if err := psql.exec(ctx, "postgres", fmt.Sprintf("COMMENT ON DATABASE %s IS %s", sqlIdent(name), sqlLit(cfg.Comment))); err != nil {
+			return fmt.Errorf("commenting database: %w", err)
+		}
+	}
 	return nil
 }
 
 func convergeGrant(ctx context.Context, psql *psqlRunner, dbName string, g Grant) error {
 	privs := strings.Join(g.Privileges, ", ")
+	wgo := ""
+	if g.WithGrantOption {
+		wgo = " WITH GRANT OPTION"
+	}
 	switch {
 	case g.Database != "":
-		return psql.exec(ctx, "postgres", fmt.Sprintf("GRANT %s ON DATABASE %s TO %s", privs, sqlIdent(g.Database), sqlIdent(g.Role)))
+		return psql.exec(ctx, "postgres", fmt.Sprintf("GRANT %s ON DATABASE %s TO %s%s", privs, sqlIdent(g.Database), sqlIdent(g.Role), wgo))
 	case g.Objects != "":
 		kind := strings.ToUpper(g.Objects)
-		if err := psql.exec(ctx, dbName, fmt.Sprintf("GRANT %s ON ALL %s IN SCHEMA %s TO %s", privs, kind, sqlIdent(g.Schema), sqlIdent(g.Role))); err != nil {
+		if err := psql.exec(ctx, dbName, fmt.Sprintf("GRANT %s ON ALL %s IN SCHEMA %s TO %s%s", privs, kind, sqlIdent(g.Schema), sqlIdent(g.Role), wgo)); err != nil {
 			return err
 		}
-		return psql.exec(ctx, dbName, fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT %s ON %s TO %s", sqlIdent(g.Schema), privs, kind, sqlIdent(g.Role)))
+		return psql.exec(ctx, dbName, fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT %s ON %s TO %s%s", sqlIdent(g.Schema), privs, kind, sqlIdent(g.Role), wgo))
 	default:
-		return psql.exec(ctx, dbName, fmt.Sprintf("GRANT %s ON SCHEMA %s TO %s", privs, sqlIdent(g.Schema), sqlIdent(g.Role)))
+		return psql.exec(ctx, dbName, fmt.Sprintf("GRANT %s ON SCHEMA %s TO %s%s", privs, sqlIdent(g.Schema), sqlIdent(g.Role), wgo))
 	}
 }
 

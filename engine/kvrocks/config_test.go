@@ -28,6 +28,44 @@ func TestKvrocksBlockDecode(t *testing.T) {
 	}
 }
 
+func TestKvrocksNamespacesAndSettings(t *testing.T) {
+	cfg, err := config.Parse([]byte(`kvrocks "store" {
+  version  = "2.15.0"
+  password = "default-token"
+  workers  = 4
+  namespace "tenant_a" { token = "tok-a" }
+  settings = { "rocksdb.block_size" = "16384" }
+}`), "doze.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	kc := cfg.Lookup("store").Spec.(*Config)
+	if kc.Workers != 4 || len(kc.Namespaces) != 1 || kc.Namespaces[0].Token != "tok-a" {
+		t.Errorf("decoded = %+v", kc)
+	}
+	// writeConf must emit the namespace and passthrough directives.
+	path := filepath.Join(t.TempDir(), "kvrocks.conf")
+	if err := writeConf(path, engine.Instance{Name: "store", DataDir: "/d", Spec: kc}, "/run/s.sock"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(path)
+	for _, want := range []string{"workers 4", "namespace.tenant_a tok-a", "rocksdb.block_size 16384"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("conf missing %q:\n%s", want, b)
+		}
+	}
+}
+
+func TestKvrocksNamespaceRequiresPassword(t *testing.T) {
+	_, err := config.Parse([]byte(`kvrocks "store" {
+  version = "2.15.0"
+  namespace "a" { token = "t" }
+}`), "doze.hcl")
+	if err == nil || !strings.Contains(err.Error(), "password") {
+		t.Errorf("expected password-required error, got %v", err)
+	}
+}
+
 func TestKvrocksUnknownKey(t *testing.T) {
 	_, err := config.Parse([]byte(`kvrocks "s" {
   version = "2.15.0"

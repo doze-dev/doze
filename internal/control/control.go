@@ -37,6 +37,7 @@ type InstanceView struct {
 	EnvVar    string    `json:"env_var,omitempty"`    // conventional env var (DATABASE_URL, …)
 	DataDir   string    `json:"data_dir,omitempty"`   // where this instance's data is written
 	LastError string    `json:"last_error,omitempty"` // most recent boot/crash failure
+	Tainted   bool      `json:"tainted,omitempty"`    // last convergence failed/incomplete
 	Declared  bool      `json:"declared"`
 	KeepAwake bool      `json:"keep_awake,omitempty"` // pinned: exempt from the idle reaper
 }
@@ -165,6 +166,7 @@ func ViewFromRegistry(inst registry.Instance, engineType, version string, declar
 		StartedAt: inst.StartedAt,
 		IdleSince: inst.IdleSince,
 		LastError: inst.LastError,
+		Tainted:   inst.Tainted,
 		Declared:  declared,
 		KeepAwake: inst.KeepAwake,
 	}

@@ -107,8 +107,18 @@ func renderTable(views []control.InstanceView) {
 	var failed []control.InstanceView
 	for _, v := range views {
 		state := v.State
+		flagged := false
 		if v.LastError != "" && (v.State == "reaped" || v.State == "") {
 			state = "error"
+			flagged = true
+		}
+		// A running-but-tainted instance is serving with known-incomplete structure
+		// (its last converge failed) — flag it so it never looks healthy.
+		if v.Tainted {
+			state = "tainted"
+			flagged = true
+		}
+		if flagged {
 			failed = append(failed, v)
 		}
 		pid, ram := "", ""
@@ -123,6 +133,10 @@ func renderTable(views []control.InstanceView) {
 	}
 	fmt.Println(ui.Table(header, rows))
 	for _, v := range failed {
-		fmt.Printf("  %s %s: %s\n", ui.Fail("✗"), v.Name, v.LastError)
+		msg := v.LastError
+		if msg == "" && v.Tainted {
+			msg = "structure incomplete — run `doze up` to re-converge"
+		}
+		fmt.Printf("  %s %s: %s\n", ui.Fail("✗"), v.Name, msg)
 	}
 }

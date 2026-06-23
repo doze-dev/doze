@@ -215,19 +215,24 @@ func (r *Runtime) bootLocked(ctx context.Context, name string) (engine.Endpoint,
 	r.writePidfile(name, proc.PID()) // for orphan reconciliation after a daemon crash
 	go r.watch(name, proc)           // detect an unexpected exit and mark it reaped
 
-	if fresh {
-		if c, ok := drv.(engine.Converger); ok {
-			if err := c.Converge(ctx, inst, tc, inst.Endpoint); err != nil {
-				r.logf("convergence for %q failed: %v", name, err)
-				r.mu.Lock() // delete before Stop so the crash watcher no-ops
-				delete(r.procs, name)
-				delete(r.deps, name)
-				r.mu.Unlock()
-				_ = proc.Stop(context.Background())
-				r.removePidfile(name)
-				return fail(fmt.Errorf("provisioning %q: %w", name, err))
-			}
+	// Converge to the declared structure when the instance has not yet fully
+	// converged — on a fresh provision, or on any later boot whose prior converge
+	// never completed (marker absent). A failure tears the backend down and taints
+	// the instance, so incomplete structure never silently serves.
+	if c, ok := drv.(engine.Converger); ok && (fresh || !r.isConverged(name)) {
+		if err := c.Converge(ctx, inst, tc, inst.Endpoint); err != nil {
+			r.reg.SetTainted(name)
+			r.logf("convergence for %q failed: %v", name, err)
+			r.mu.Lock() // delete before Stop so the crash watcher no-ops
+			delete(r.procs, name)
+			delete(r.deps, name)
+			r.mu.Unlock()
+			_ = proc.Stop(context.Background())
+			r.removePidfile(name)
+			return fail(fmt.Errorf("provisioning %q: %w", name, err))
 		}
+		r.markConverged(name)
+		r.reg.ClearTainted(name)
 	}
 
 	r.logf("%q ready (pid %d)", name, proc.PID())
@@ -352,6 +357,27 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 	r.removePidfile(name)
 	r.logf("backend %q exited unexpectedly; it will re-boot on the next connection", name)
 }
+
+// convergedMarkerPath is a sentinel written inside an instance's data dir after
+// a successful convergence. Its absence means the declared structure has not been
+// fully applied — so a provisioned-but-unconverged instance (e.g. one whose first
+// converge failed and was torn down) re-converges on its next boot instead of
+// silently serving incomplete structure. `doze reset` deletes the data dir and
+// with it the marker.
+func (r *Runtime) convergedMarkerPath(name string) string {
+	return filepath.Join(r.cfg.ClusterDir(name), ".doze-converged")
+}
+
+func (r *Runtime) isConverged(name string) bool {
+	_, err := os.Stat(r.convergedMarkerPath(name))
+	return err == nil
+}
+
+func (r *Runtime) markConverged(name string) {
+	_ = os.WriteFile(r.convergedMarkerPath(name), nil, 0o644)
+}
+
+func (r *Runtime) clearConvergedMarker(name string) { _ = os.Remove(r.convergedMarkerPath(name)) }
 
 // pidfilePath is where a running backend's pid is recorded for reconciliation.
 func (r *Runtime) pidfilePath(name string) string {
@@ -485,7 +511,17 @@ func (r *Runtime) ensureConverged(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	return c.Converge(ctx, inst, tc, inst.Endpoint)
+	if err := c.Converge(ctx, inst, tc, inst.Endpoint); err != nil {
+		// An explicit `up`/`apply` is left running so the user can inspect it, but
+		// the instance is tainted and surfaced loudly until a converge succeeds.
+		r.clearConvergedMarker(name)
+		r.reg.SetTainted(name)
+		r.reg.SetError(name, err.Error())
+		return err
+	}
+	r.markConverged(name)
+	r.reg.ClearTainted(name)
+	return nil
 }
 
 // ResolveToolchain resolves (and caches) the toolchain for a declared instance.

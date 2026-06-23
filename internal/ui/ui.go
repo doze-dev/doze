@@ -30,6 +30,7 @@ var (
 		"booting": lipgloss.NewStyle().Foreground(lipgloss.Color("#3C9DD0")),
 		"reaped":  dimStyle,
 		"error":   badStyle.Bold(true),
+		"tainted": badStyle.Bold(true),
 		"running": goodStyle,
 	}
 )

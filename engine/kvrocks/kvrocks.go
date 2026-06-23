@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -102,10 +103,32 @@ func writeConf(path string, inst engine.Instance, socket string) error {
 	b.WriteString("bind\n")
 	b.WriteString("port 6666\n")
 	fmt.Fprintf(&b, "unixsocket %s\n", socket)
-	if cfg, ok := inst.Spec.(*Config); ok && cfg != nil && cfg.Password != "" {
-		fmt.Fprintf(&b, "requirepass %s\n", cfg.Password)
+	if cfg, ok := inst.Spec.(*Config); ok && cfg != nil {
+		if cfg.Password != "" {
+			fmt.Fprintf(&b, "requirepass %s\n", cfg.Password)
+		}
+		if cfg.Workers > 0 {
+			fmt.Fprintf(&b, "workers %d\n", cfg.Workers)
+		}
+		// Raw kvrocks.conf passthrough, before namespaces so it can't clobber them.
+		for _, k := range sortedKeys(cfg.Settings) {
+			fmt.Fprintf(&b, "%s %s\n", k, cfg.Settings[k])
+		}
+		for _, ns := range cfg.Namespaces {
+			fmt.Fprintf(&b, "namespace.%s %s\n", ns.Name, ns.Token)
+		}
 	}
 	return os.WriteFile(path, []byte(b.String()), 0o600)
+}
+
+// sortedKeys returns the keys of m in deterministic order.
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // WaitReady implements engine.Driver: poll the unix socket with a RESP PING.

@@ -47,6 +47,12 @@ type Instance struct {
 	// LastError holds the most recent boot/convergence/crash failure, surfaced in
 	// status and the TUI. Cleared on a new boot attempt and on success.
 	LastError string
+	// Tainted means the instance's last convergence failed or never completed, so
+	// its declared structure (roles, databases, …) is known-incomplete even though
+	// the backend may be serving. Unlike LastError it is NOT cleared by a fresh
+	// boot — only a successful Converge clears it — so a half-provisioned engine
+	// never silently looks healthy.
+	Tainted bool
 	// KeepAwake exempts the instance from the idle reaper — a per-instance "pin"
 	// toggled live from the dashboard. It persists across state changes (e.g. for a
 	// slow-booting engine you want to keep warm).
@@ -90,6 +96,22 @@ func (r *Registry) SetError(name, msg string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.ensure(name).LastError = msg
+}
+
+// SetTainted marks the instance's declared structure as known-incomplete (a
+// convergence failed). It persists across boots until ClearTainted.
+func (r *Registry) SetTainted(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensure(name).Tainted = true
+}
+
+// ClearTainted records that the instance has fully converged to its declared
+// state. Called only on a successful Converge.
+func (r *Registry) ClearTainted(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensure(name).Tainted = false
 }
 
 // MarkRunning records a successfully booted backend.

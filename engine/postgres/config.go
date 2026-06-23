@@ -20,16 +20,31 @@ const (
 // Config is the Postgres-specific configuration decoded from a `postgres` block.
 // It is stored opaquely in engine.Instance.Spec and type-asserted by the driver.
 type Config struct {
-	Owner    string
-	Encoding string
-	Locale   string
-	Template string
+	Owner     string
+	Encoding  string
+	Locale    string
+	LCCollate string
+	LCCtype   string
+	Template  string
+
+	// Database-level options.
+	ConnectionLimit int // -1 = unlimited (default)
+	IsTemplate      bool
+	AllowConns      bool // default true
+	Tablespace      string
+	Comment         string
 
 	// Light/dev tuning profile (per instance).
 	SharedBuffers  string
 	MaxConnections int
 	Fsync          bool
 	Autovacuum     bool
+
+	// Settings is a raw postgresql.conf passthrough (work_mem, wal_level, …) for
+	// any parameter doze doesn't model with a typed field. Applied after the typed
+	// tuning, so it can override it; doze-locked parameters (listen_addresses) still
+	// win.
+	Settings map[string]string
 
 	Roles      []Role
 	Schemas    []Schema
@@ -51,9 +66,14 @@ type Role struct {
 	CreateRole      bool
 	Replication     bool
 	Inherit         bool
+	BypassRLS       bool
 	ConnectionLimit int
 	ValidUntil      string
 	MemberOf        []string
+	Comment         string
+	// Config is a set of per-role parameters applied with ALTER ROLE … SET
+	// (e.g. search_path, statement_timeout).
+	Config map[string]string
 }
 
 // Schema is a schema to create within the database.
@@ -68,55 +88,75 @@ type Extension struct {
 	Version string
 	Schema  string
 	Source  string
+	// Optional downgrades an unavailable extension or a failed CREATE EXTENSION
+	// from a hard convergence error to a logged warning. Default false: a missing
+	// or failed extension fails the apply (and taints the instance).
+	Optional bool
+	// Cascade adds CASCADE to CREATE EXTENSION, creating dependency extensions too.
+	Cascade bool
 }
 
 // Grant is a privilege grant targeting a database, a schema, or all objects of
 // a kind within a schema.
 type Grant struct {
-	Role       string
-	Privileges []string
-	Database   string
-	Schema     string
-	Objects    string
+	Role            string
+	Privileges      []string
+	Database        string
+	Schema          string
+	Objects         string
+	WithGrantOption bool
 }
 
 // --- raw HCL shapes (decode targets) ---
 
 type pgBody struct {
-	Owner           string         `hcl:"owner,optional"`
-	Encoding        string         `hcl:"encoding,optional"`
-	Locale          string         `hcl:"locale,optional"`
-	Template        string         `hcl:"template,optional"`
-	SharedBuffers   string         `hcl:"shared_buffers,optional"`
-	MaxConnections  int            `hcl:"max_connections,optional"`
-	Fsync           *bool          `hcl:"fsync,optional"`
-	Autovacuum      *bool          `hcl:"autovacuum,optional"`
-	Extensions      []string       `hcl:"extensions,optional"`
-	ExtensionBlocks []hclExtension `hcl:"extension,block"`
-	Roles           []hclRole      `hcl:"role,block"`
-	Schemas         []hclSchema    `hcl:"schema,block"`
-	Grants          []hclGrant     `hcl:"grant,block"`
+	Owner           string            `hcl:"owner,optional"`
+	Encoding        string            `hcl:"encoding,optional"`
+	Locale          string            `hcl:"locale,optional"`
+	LCCollate       string            `hcl:"lc_collate,optional"`
+	LCCtype         string            `hcl:"lc_ctype,optional"`
+	Template        string            `hcl:"template,optional"`
+	ConnectionLimit *int              `hcl:"connection_limit,optional"`
+	IsTemplate      *bool             `hcl:"is_template,optional"`
+	AllowConns      *bool             `hcl:"allow_connections,optional"`
+	Tablespace      string            `hcl:"tablespace,optional"`
+	Comment         string            `hcl:"comment,optional"`
+	SharedBuffers   string            `hcl:"shared_buffers,optional"`
+	MaxConnections  int               `hcl:"max_connections,optional"`
+	Fsync           *bool             `hcl:"fsync,optional"`
+	Autovacuum      *bool             `hcl:"autovacuum,optional"`
+	Settings        map[string]string `hcl:"settings,optional"`
+	Extensions      []string          `hcl:"extensions,optional"`
+	ExtensionBlocks []hclExtension    `hcl:"extension,block"`
+	Roles           []hclRole         `hcl:"role,block"`
+	Schemas         []hclSchema       `hcl:"schema,block"`
+	Grants          []hclGrant        `hcl:"grant,block"`
 }
 
 type hclRole struct {
-	Name            string   `hcl:"name,label"`
-	Login           *bool    `hcl:"login,optional"`
-	Password        string   `hcl:"password,optional"`
-	Superuser       bool     `hcl:"superuser,optional"`
-	CreateDB        bool     `hcl:"createdb,optional"`
-	CreateRole      bool     `hcl:"createrole,optional"`
-	Replication     bool     `hcl:"replication,optional"`
-	Inherit         *bool    `hcl:"inherit,optional"`
-	ConnectionLimit *int     `hcl:"connection_limit,optional"`
-	ValidUntil      string   `hcl:"valid_until,optional"`
-	MemberOf        []string `hcl:"member_of,optional"`
+	Name            string            `hcl:"name,label"`
+	Login           *bool             `hcl:"login,optional"`
+	Password        string            `hcl:"password,optional"`
+	Superuser       bool              `hcl:"superuser,optional"`
+	CreateDB        bool              `hcl:"createdb,optional"`
+	CreateRole      bool              `hcl:"createrole,optional"`
+	Replication     bool              `hcl:"replication,optional"`
+	Inherit         *bool             `hcl:"inherit,optional"`
+	BypassRLS       bool              `hcl:"bypassrls,optional"`
+	ConnectionLimit *int              `hcl:"connection_limit,optional"`
+	ValidUntil      string            `hcl:"valid_until,optional"`
+	MemberOf        []string          `hcl:"member_of,optional"`
+	Comment         string            `hcl:"comment,optional"`
+	Config          map[string]string `hcl:"config,optional"`
 }
 
 type hclExtension struct {
-	Name    string `hcl:"name,label"`
-	Version string `hcl:"version,optional"`
-	Schema  string `hcl:"schema,optional"`
-	Source  string `hcl:"source,optional"`
+	Name     string `hcl:"name,label"`
+	Version  string `hcl:"version,optional"`
+	Schema   string `hcl:"schema,optional"`
+	Source   string `hcl:"source,optional"`
+	Optional bool   `hcl:"optional,optional"`
+	Cascade  bool   `hcl:"cascade,optional"`
 }
 
 type hclSchema struct {
@@ -125,11 +165,12 @@ type hclSchema struct {
 }
 
 type hclGrant struct {
-	Role       string   `hcl:"role"`
-	Privileges []string `hcl:"privileges"`
-	Database   string   `hcl:"database,optional"`
-	Schema     string   `hcl:"schema,optional"`
-	Objects    string   `hcl:"objects,optional"`
+	Role            string   `hcl:"role"`
+	Privileges      []string `hcl:"privileges"`
+	Database        string   `hcl:"database,optional"`
+	Schema          string   `hcl:"schema,optional"`
+	Objects         string   `hcl:"objects,optional"`
+	WithGrantOption bool     `hcl:"with_grant_option,optional"`
 }
 
 // DecodeConfig implements engine.ConfigDecoder for the postgres block.
@@ -140,13 +181,29 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string) 
 	}
 
 	c := &Config{
-		Owner:          raw.Owner,
-		Encoding:       raw.Encoding,
-		Locale:         raw.Locale,
-		Template:       raw.Template,
-		SharedBuffers:  defaultSharedBuffers,
-		MaxConnections: defaultMaxConnections,
-		BaseDir:        baseDir,
+		Owner:           raw.Owner,
+		Encoding:        raw.Encoding,
+		Locale:          raw.Locale,
+		LCCollate:       raw.LCCollate,
+		LCCtype:         raw.LCCtype,
+		Template:        raw.Template,
+		ConnectionLimit: unlimitedConnections,
+		AllowConns:      true,
+		Tablespace:      raw.Tablespace,
+		Comment:         raw.Comment,
+		SharedBuffers:   defaultSharedBuffers,
+		MaxConnections:  defaultMaxConnections,
+		Settings:        raw.Settings,
+		BaseDir:         baseDir,
+	}
+	if raw.ConnectionLimit != nil {
+		c.ConnectionLimit = *raw.ConnectionLimit
+	}
+	if raw.IsTemplate != nil {
+		c.IsTemplate = *raw.IsTemplate
+	}
+	if raw.AllowConns != nil {
+		c.AllowConns = *raw.AllowConns
 	}
 	if raw.SharedBuffers != "" {
 		c.SharedBuffers = raw.SharedBuffers
@@ -196,7 +253,7 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string) 
 			return nil, fmt.Errorf("extension %q is declared more than once", ex.Name)
 		}
 		extSeen[ex.Name] = true
-		c.Extensions = append(c.Extensions, Extension{Name: ex.Name, Version: ex.Version, Schema: ex.Schema, Source: ex.Source})
+		c.Extensions = append(c.Extensions, Extension{Name: ex.Name, Version: ex.Version, Schema: ex.Schema, Source: ex.Source, Optional: ex.Optional, Cascade: ex.Cascade})
 	}
 
 	for i, g := range raw.Grants {
@@ -222,9 +279,12 @@ func normalizeRole(rr hclRole) (Role, error) {
 		CreateRole:      rr.CreateRole,
 		Replication:     rr.Replication,
 		Inherit:         true,
+		BypassRLS:       rr.BypassRLS,
 		ConnectionLimit: unlimitedConnections,
 		ValidUntil:      rr.ValidUntil,
 		MemberOf:        rr.MemberOf,
+		Comment:         rr.Comment,
+		Config:          rr.Config,
 	}
 	if rr.Login != nil {
 		role.Login = *rr.Login
@@ -274,5 +334,5 @@ func normalizeGrant(idx int, g hclGrant) (Grant, error) {
 			return Grant{}, fmt.Errorf("%s: unknown privilege %q", loc, p)
 		}
 	}
-	return Grant{Role: g.Role, Privileges: g.Privileges, Database: g.Database, Schema: g.Schema, Objects: g.Objects}, nil
+	return Grant{Role: g.Role, Privileges: g.Privileges, Database: g.Database, Schema: g.Schema, Objects: g.Objects, WithGrantOption: g.WithGrantOption}, nil
 }

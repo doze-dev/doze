@@ -120,7 +120,7 @@ func stateColor(state string) lipgloss.Color {
 		return cGold
 	case "booting":
 		return cCyan
-	case "error":
+	case "error", "tainted":
 		return cRed
 	default:
 		return cDim
@@ -1240,6 +1240,8 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 	switch {
 	case v.LastError != "":
 		status = stErr.Render("✕ " + truncate(v.LastError, w-6))
+	case v.Tainted:
+		status = stErr.Render("✕ structure incomplete — run `doze up` to re-converge")
 	case st == "active":
 		status = stGreen.Render("● serving " + fmt.Sprint(v.Conns) + " connection(s)")
 	case st == "booting":
@@ -1473,10 +1475,15 @@ func (m model) viewFooter() string {
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
-// displayState promotes a reaped instance carrying an error to "error".
+// displayState promotes a reaped instance carrying an error to "error", and a
+// running-but-tainted instance (last converge failed) to "tainted" so it never
+// reads as healthy.
 func displayState(in control.InstanceView) string {
 	if in.LastError != "" && (in.State == "reaped" || in.State == "") {
 		return "error"
+	}
+	if in.Tainted {
+		return "tainted"
 	}
 	if in.State == "" {
 		return "reaped"

@@ -32,6 +32,29 @@ valkey "cache" {
 	}
 }
 
+func TestValkeyExtendedOptions(t *testing.T) {
+	cfg, err := config.Parse([]byte(`
+valkey "cache" {
+  version          = 8
+  maxmemory        = "64mb"
+  maxmemory_policy = "allkeys-lru"
+  appendonly       = true
+  save             = "3600 1"
+  settings = { "lazyfree-lazy-eviction" = "yes" }
+}
+`), "doze.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vc := cfg.Lookup("cache").Spec.(*Config)
+	if vc.MaxmemoryPolicy != "allkeys-lru" || !vc.Appendonly || vc.Save != "3600 1" {
+		t.Errorf("extended options wrong: %+v", vc)
+	}
+	if vc.Settings["lazyfree-lazy-eviction"] != "yes" {
+		t.Errorf("settings passthrough wrong: %+v", vc.Settings)
+	}
+}
+
 func TestValkeyUnknownKey(t *testing.T) {
 	_, err := config.Parse([]byte(`valkey "cache" {
   version = 8
