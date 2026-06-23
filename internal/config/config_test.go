@@ -370,3 +370,127 @@ func writeFile(t *testing.T, dir, name, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestForEachStampsInstances(t *testing.T) {
+	src := `
+fake "node" {
+  for_each = toset(["x", "y"])
+  version  = 1
+  color    = each.key
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(cfg.Instances) != 2 {
+		t.Fatalf("got %d instances, want 2: %+v", len(cfg.Instances), cfg.Instances)
+	}
+	for _, want := range []struct{ name, color string }{{"node_x", "x"}, {"node_y", "y"}} {
+		inst := cfg.Lookup(want.name)
+		if inst == nil {
+			t.Fatalf("instance %q missing", want.name)
+		}
+		if got := inst.Spec.(*fakeConfig).Color; got != want.color {
+			t.Errorf("%s color = %q, want %q (each.key)", want.name, got, want.color)
+		}
+	}
+}
+
+func TestForEachMapEachValue(t *testing.T) {
+	src := `
+fake "n" {
+  for_each = { a = "red", b = "blue" }
+  version  = 1
+  color    = each.value
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got := cfg.Lookup("n_a").Spec.(*fakeConfig).Color; got != "red" {
+		t.Errorf("n_a color = %q, want red", got)
+	}
+	if got := cfg.Lookup("n_b").Spec.(*fakeConfig).Color; got != "blue" {
+		t.Errorf("n_b color = %q, want blue", got)
+	}
+}
+
+func TestCountStampsInstances(t *testing.T) {
+	src := `
+fake "rep" {
+  count   = 3
+  version = 1
+  color   = "c${count.index}"
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(cfg.Instances) != 3 {
+		t.Fatalf("got %d instances, want 3", len(cfg.Instances))
+	}
+	for i, name := range []string{"rep_0", "rep_1", "rep_2"} {
+		inst := cfg.Lookup(name)
+		if inst == nil {
+			t.Fatalf("instance %q missing", name)
+		}
+		want := "c" + string(rune('0'+i))
+		if got := inst.Spec.(*fakeConfig).Color; got != want {
+			t.Errorf("%s color = %q, want %q (count.index)", name, got, want)
+		}
+		if inst.Index != i {
+			t.Errorf("%s Index = %d, want %d (distinct ports)", name, inst.Index, i)
+		}
+	}
+}
+
+func TestCountZeroProducesNoInstances(t *testing.T) {
+	cfg, err := Parse([]byte(`fake "none" { count = 0 }`), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(cfg.Instances) != 0 {
+		t.Errorf("count = 0 should produce no instances, got %d", len(cfg.Instances))
+	}
+}
+
+func TestCountAndForEachConflict(t *testing.T) {
+	src := `
+fake "x" {
+  count    = 2
+  for_each = toset(["a"])
+}
+`
+	_, err := Parse([]byte(src), "doze.hcl")
+	if err == nil || !strings.Contains(err.Error(), "count or for_each") {
+		t.Errorf("expected count/for_each conflict error, got %v", err)
+	}
+}
+
+func TestReferenceToStampedInstance(t *testing.T) {
+	src := `
+fake "node" {
+  for_each = toset(["a"])
+  version  = 1
+  color    = "x"
+}
+fake "client" {
+  version = 1
+  ref     = fake.node_a.name
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	c := cfg.Lookup("client")
+	if got := c.Spec.(*fakeConfig).Ref; got != "node_a" {
+		t.Errorf("ref = %q, want node_a", got)
+	}
+	if len(c.Deps) != 1 || c.Deps[0] != "node_a" {
+		t.Errorf("client.Deps = %v, want [node_a]", c.Deps)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/convert"
 	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/function/stdlib"
 )
@@ -63,9 +64,45 @@ func stdlibFunctions() map[string]function.Function {
 		"jsondecode": stdlib.JSONDecodeFunc,
 		"csvdecode":  stdlib.CSVDecodeFunc,
 
+		// type conversions (Terraform-style)
+		"toset":    makeToFunc(cty.Set(cty.DynamicPseudoType)),
+		"tolist":   makeToFunc(cty.List(cty.DynamicPseudoType)),
+		"tomap":    makeToFunc(cty.Map(cty.DynamicPseudoType)),
+		"tostring": makeToFunc(cty.String),
+		"tonumber": makeToFunc(cty.Number),
+		"tobool":   makeToFunc(cty.Bool),
+
 		// doze-specific
 		"env": envFunc(),
 	}
+}
+
+// makeToFunc builds a to<type> conversion function (toset, tolist, …) that
+// converts its argument to wantTy, inferring the element type where wantTy uses
+// a dynamic element.
+func makeToFunc(wantTy cty.Type) function.Function {
+	return function.New(&function.Spec{
+		Params: []function.Parameter{{
+			Name:             "v",
+			Type:             cty.DynamicPseudoType,
+			AllowNull:        true,
+			AllowDynamicType: true,
+		}},
+		Type: func(args []cty.Value) (cty.Type, error) {
+			gotTy := args[0].Type()
+			if gotTy.Equals(wantTy) {
+				return wantTy, nil
+			}
+			conv := convert.GetConversionUnsafe(args[0].Type(), wantTy)
+			if conv == nil {
+				return cty.NilType, function.NewArgErrorf(0, "cannot convert %s to %s", gotTy.FriendlyName(), wantTy.FriendlyNameForConstraint())
+			}
+			return wantTy, nil
+		},
+		Impl: func(args []cty.Value, retType cty.Type) (cty.Value, error) {
+			return convert.Convert(args[0], retType)
+		},
+	})
 }
 
 // envFunc reads a host environment variable, returning an optional default (or

@@ -128,6 +128,33 @@ variables, functions, and earlier locals.
 masks it in listings. Print them with `doze output` (all) or `doze output <name>`
 (one, raw — for `$(…)` in scripts).
 
+### Stamping with `for_each` / `count`
+
+Stamp several similar instances from one block. Each stamp becomes its own
+instance with a flat name — `<label>_<key>` (for_each) or `<label>_<index>`
+(count) — addressable like any other (`valkey.shard_0.url`, `sqs.worker_emails.url`).
+
+```hcl
+sqs "worker" {
+  for_each = toset(["emails", "orders", "billing"])  # → worker_emails, worker_orders, worker_billing
+  queue "main" {}
+}
+
+valkey "shard" {
+  count     = 3                       # → shard_0, shard_1, shard_2
+  version   = 9
+  maxmemory = "${(count.index + 1) * 64}mb"
+}
+```
+
+| Meta-arg | Value | In-body | Names |
+|---|---|---|---|
+| `for_each` | a set of strings, or a map | `each.key`, `each.value` | `<label>_<key>` |
+| `count` | a non-negative number | `count.index` (0-based) | `<label>_<index>` |
+
+`count = 0` (or an empty `for_each`) produces no instances. A block can't set both.
+Keys are sanitized for use in names/paths (`orders.fifo` → `orders_fifo`).
+
 ---
 
 ## postgres

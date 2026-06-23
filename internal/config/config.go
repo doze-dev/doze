@@ -309,11 +309,11 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 	declRanges := map[string]hcl.Range{}
 	var pending []*pendingInstance
 	for _, block := range instanceBlocks {
-		p, err := cfg.decodeInstanceShell(parser, block, declRanges, ctx)
+		ps, err := cfg.expandInstanceBlock(parser, block, declRanges, ctx)
 		if err != nil {
 			return nil, err
 		}
-		pending = append(pending, p)
+		pending = append(pending, ps...)
 	}
 	if err := cfg.evaluate(parser, pending, ctx); err != nil {
 		return nil, err
@@ -427,12 +427,47 @@ func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block, ctx *hcl
 	return nil
 }
 
-// decodeInstanceShell decodes the engine-agnostic fields (version, listen) and
-// registers the instance, but defers the driver-specific body decode to the
-// evaluation pass (evaluate) so cross-resource references resolve in dependency
-// order. It returns the pending decode for that pass.
-func (cfg *Config) decodeInstanceShell(parser *hclparse.Parser, block *hcl.Block, declRanges map[string]hcl.Range, ctx *hcl.EvalContext) (*pendingInstance, error) {
-	name := block.Labels[0]
+// expandInstanceBlock turns one instance block into one or more pending
+// instances. A plain block yields one; a `count`/`for_each` block is stamped into
+// several, each with a flat derived name (label_key / label_index) and a child
+// context exposing each.key/each.value or count.index. The meta-args are stripped
+// before the driver decode so the engine's strict schema never sees them.
+func (cfg *Config) expandInstanceBlock(parser *hclparse.Parser, block *hcl.Block, declRanges map[string]hcl.Range, ctx *hcl.EvalContext) ([]*pendingInstance, error) {
+	metaSchema := &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}}}
+	meta, restBody, diags := block.Body.PartialContent(metaSchema)
+	if diags.HasErrors() {
+		return nil, diagError(parser, diags)
+	}
+	countAttr, hasCount := meta.Attributes["count"]
+	forEachAttr, hasForEach := meta.Attributes["for_each"]
+	if hasCount && hasForEach {
+		return nil, posErr(parser, block.DefRange, fmt.Sprintf("%s %q: set either count or for_each, not both", block.Type, block.Labels[0]), "")
+	}
+
+	stamps, err := cfg.instanceStamps(parser, block, countAttr, forEachAttr, hasCount, hasForEach, ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*pendingInstance, 0, len(stamps))
+	for _, s := range stamps {
+		stampCtx := ctx
+		if s.vars != nil {
+			stampCtx = ctx.NewChild()
+			stampCtx.Variables = s.vars
+		}
+		p, err := cfg.buildPending(parser, block, restBody, s.name(block.Labels[0]), stampCtx, declRanges)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// buildPending decodes the engine-agnostic fields of one (possibly stamped)
+// instance against stampCtx and registers it, deferring the driver body decode to
+// the evaluation pass.
+func (cfg *Config) buildPending(parser *hclparse.Parser, block *hcl.Block, restBody hcl.Body, name string, stampCtx *hcl.EvalContext, declRanges map[string]hcl.Range) (*pendingInstance, error) {
 	if first, dup := declRanges[name]; dup {
 		return nil, posErr(parser, block.DefRange,
 			fmt.Sprintf("%s %q: instance %q is already declared", block.Type, name, name),
@@ -441,7 +476,7 @@ func (cfg *Config) decodeInstanceShell(parser *hclparse.Parser, block *hcl.Block
 	declRanges[name] = block.DefRange
 
 	var c common
-	if diags := gohcl.DecodeBody(block.Body, ctx, &c); diags.HasErrors() {
+	if diags := gohcl.DecodeBody(restBody, stampCtx, &c); diags.HasErrors() {
 		return nil, diagError(parser, diags)
 	}
 	drv, ok := engine.Lookup(block.Type)
@@ -477,8 +512,9 @@ func (cfg *Config) decodeInstanceShell(parser *hclparse.Parser, block *hcl.Block
 	return &pendingInstance{
 		decl:     inst,
 		drv:      drv,
-		body:     block.Body,
+		body:     restBody,
 		remain:   c.Remain,
+		ctx:      stampCtx,
 		defRange: block.DefRange,
 		baseDir:  baseDir,
 	}, nil

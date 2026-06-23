@@ -19,8 +19,9 @@ import (
 type pendingInstance struct {
 	decl     *InstanceDecl
 	drv      engine.Driver
-	body     hcl.Body // full block body, for reference extraction
-	remain   hcl.Body // body minus common fields, for the driver decode
+	body     hcl.Body         // block body (meta-args stripped), for reference extraction
+	remain   hcl.Body         // body minus common fields, for the driver decode
+	ctx      *hcl.EvalContext // the context this stamp decodes against (carries each/count)
 	defRange hcl.Range
 	baseDir  string
 }
@@ -61,8 +62,14 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance,
 	// <type>.<name>.
 	byType := map[string]map[string]cty.Value{}
 	for _, p := range order {
+		// p.ctx is the stamp-specific context (with each/count) for a for_each/count
+		// instance; it chains to the shared ctx so var/local/resources resolve too.
+		decodeCtx := p.ctx
+		if decodeCtx == nil {
+			decodeCtx = ctx
+		}
 		if dec, ok := p.drv.(engine.ConfigDecoder); ok {
-			spec, err := dec.DecodeConfig(p.remain, ctx, p.baseDir)
+			spec, err := dec.DecodeConfig(p.remain, decodeCtx, p.baseDir)
 			if err != nil {
 				return fmt.Errorf("%s %q: %w", p.decl.Type, p.decl.Name, err)
 			}
