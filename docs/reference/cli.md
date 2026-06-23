@@ -25,12 +25,34 @@ doze run -- sh -c 'echo "$DATABASE_URL"'
 Print `export` lines for the connection strings, for `eval "$(doze env)"`. Also
 writes `.doze/endpoints.yaml`.
 
-### `doze up [instance]`
-Converge declared structure — databases, roles, schemas, grants, extensions,
-buckets, queues, topics. Idempotent. With no argument, converges everything.
+### `doze plan [instance]`
+Show the structural changes `apply` would make — the diff between the declared
+structure and the last applied state, as `+` create / `~` change / `-` destroy.
+Read-only; makes no changes and boots nothing.
 ```sh
-doze up           # everything
-doze up app       # just `app`
+doze plan
+```
+
+### `doze apply [instance]` (alias `doze up`)
+Converge declared structure — databases, roles, schemas, extensions, buckets,
+queues, topics — **and prune** objects that were applied before but are no longer
+declared. Shows the plan and asks for confirmation first (skip with
+`--auto-approve`). Records the result in `.doze/state.json`. With no argument,
+applies everything.
+```sh
+doze apply                  # plan, confirm, apply everything
+doze apply app              # just `app`
+doze apply --auto-approve   # no prompt (for scripts/CI)
+```
+
+### `doze destroy [instance]`
+Drop the structural objects doze has applied (tracked in state) and clear them
+from state. Shows a plan and confirms first (`--auto-approve` to skip). This is
+**not** `doze reset` — it removes logical structure (roles/databases/buckets/…),
+not the engine's on-disk data directory.
+```sh
+doze destroy
+doze destroy app --auto-approve
 ```
 
 ### `doze psql <instance> [-- psql args…]`

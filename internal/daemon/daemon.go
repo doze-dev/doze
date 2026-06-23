@@ -231,6 +231,14 @@ func (h *handler) Down(ctx context.Context, name string) error {
 	return h.d.rt.Stop(ctx, name)
 }
 
+func (h *handler) Apply(ctx context.Context, name string) error {
+	return h.d.rt.Apply(ctx, name)
+}
+
+func (h *handler) Destroy(ctx context.Context, name string) error {
+	return h.d.rt.Destroy(ctx, name)
+}
+
 func (h *handler) KeepAwake(name string) error {
 	if name == "" {
 		return fmt.Errorf("keepawake needs an instance name")

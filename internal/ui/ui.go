@@ -23,6 +23,7 @@ var (
 	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
 	goodStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#43BF6D"))
 	badStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#E06C75"))
+	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#E0A82E"))
 
 	stateStyles = map[string]lipgloss.Style{
 		"active":  goodStyle.Bold(true),
@@ -55,10 +56,11 @@ func paint(st lipgloss.Style, s string) string {
 }
 
 // Styling helpers (color-gated).
-func Title(s string) string  { return paint(titleStyle, s) }
-func Muted(s string) string  { return paint(dimStyle, s) }
-func OK(s string) string     { return paint(goodStyle, s) }
-func Fail(s string) string   { return paint(badStyle, s) }
+func Title(s string) string { return paint(titleStyle, s) }
+func Muted(s string) string { return paint(dimStyle, s) }
+func OK(s string) string    { return paint(goodStyle, s) }
+func Fail(s string) string  { return paint(badStyle, s) }
+func Warn(s string) string  { return paint(warnStyle, s) }
 
 // State renders a lifecycle state in its color.
 func State(s string) string {

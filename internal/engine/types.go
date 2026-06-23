@@ -7,9 +7,34 @@
 package engine
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 )
+
+// Object is one structural item an instance manages: a Postgres role/database/
+// schema/extension/grant, an S3 bucket, an SQS queue, an SNS topic/subscription.
+// The runtime tracks the set of objects each instance has applied (in the state
+// file) so a later apply can prune the ones no longer declared. Kind+Name is the
+// identity; Hash is a content fingerprint used to detect changes ("~" in a plan).
+type Object struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Hash string `json:"hash"`
+}
+
+// HashOf returns a short, stable content fingerprint of v (its JSON form), used
+// for an Object's Hash so a plan can tell an unchanged object from a changed one.
+func HashOf(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])[:12]
+}
 
 // VersionSpec is the raw, un-normalized version from config: either a major
 // version ("16") or an exact dotted full version ("16.14"). Each driver

@@ -88,6 +88,22 @@ type Converger interface {
 	Converge(ctx context.Context, inst Instance, tc Toolchain, ep Endpoint) error
 }
 
+// Inventory is implemented by engines whose instances manage discrete structural
+// objects, so `doze plan`/`apply`/`destroy` can track and diff them. Objects
+// returns the objects the instance currently declares (derived from its config,
+// no live query). Engines that implement Converger should usually implement this
+// too; engines without structure (Valkey, Kvrocks) implement neither.
+type Inventory interface {
+	Objects(inst Instance) []Object
+}
+
+// Pruner is implemented by engines that can delete previously-applied objects no
+// longer declared. The runtime calls Prune during apply (for objects removed from
+// config) and destroy (for every applied object), passing the objects to drop.
+type Pruner interface {
+	Prune(ctx context.Context, inst Instance, tc Toolchain, ep Endpoint, removed []Object) error
+}
+
 // Attributer is implemented by engines that expose attributes beyond the generic
 // baseline (name, engine, host, port, address, socket, url) under their
 // <type>.<name> reference. The runtime/config merge these over the baseline when

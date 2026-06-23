@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nerdmenot/doze/internal/config"
+	"github.com/nerdmenot/doze/internal/engine"
 )
 
 func parsePG(t *testing.T, src string) *Config {
@@ -234,4 +235,36 @@ func TestGrantValidation(t *testing.T) {
 			t.Errorf("%s: error %q should mention %q", c.name, err.Error(), c.want)
 		}
 	}
+}
+
+func TestInventoryObjects(t *testing.T) {
+	pg := parsePG(t, `
+postgres "app" {
+  version = 16
+  role "app" { password = "x" }
+  role "ro"  { login = false }
+  schema "billing" {}
+  extensions = ["uuid-ossp"]
+}
+`)
+	objs := Driver{}.Objects(engineInstance("app", pg))
+	// roles (2), database (1), schema (1), extension (1) — grants not tracked.
+	var kinds []string
+	for _, o := range objs {
+		kinds = append(kinds, o.Kind+":"+o.Name)
+	}
+	want := []string{"role:app", "role:ro", "database:app", "schema:billing", "extension:uuid-ossp"}
+	if strings.Join(kinds, ",") != strings.Join(want, ",") {
+		t.Errorf("objects = %v\nwant     = %v", kinds, want)
+	}
+	// Hashes are populated and stable.
+	for _, o := range objs {
+		if o.Hash == "" {
+			t.Errorf("object %s/%s has empty hash", o.Kind, o.Name)
+		}
+	}
+}
+
+func engineInstance(name string, spec *Config) engine.Instance {
+	return engine.Instance{Name: name, Type: "postgres", Spec: spec}
 }

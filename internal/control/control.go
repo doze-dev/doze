@@ -61,6 +61,8 @@ type Handler interface {
 	Restart(ctx context.Context, db string) error
 	Logs(db string) ([]string, error)
 	KeepAwake(db string) error // toggle the idle-reaper exemption for db
+	Apply(ctx context.Context, db string) error
+	Destroy(ctx context.Context, db string) error
 }
 
 // Server listens on a unix socket and dispatches requests to a Handler.
@@ -112,6 +114,18 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 		resp.OK = true
 	case "up":
 		if err := s.h.Up(ctx, req.DB); err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.OK = true
+		}
+	case "apply":
+		if err := s.h.Apply(ctx, req.DB); err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.OK = true
+		}
+	case "destroy":
+		if err := s.h.Destroy(ctx, req.DB); err != nil {
 			resp.Error = err.Error()
 		} else {
 			resp.OK = true

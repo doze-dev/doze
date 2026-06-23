@@ -22,6 +22,7 @@ import (
 	"github.com/nerdmenot/doze/internal/config"
 	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/registry"
+	"github.com/nerdmenot/doze/internal/state"
 	"github.com/nerdmenot/doze/internal/supervisor"
 )
 
@@ -42,6 +43,8 @@ type Runtime struct {
 	procs map[string]engine.Process
 	deps  map[string][]string // instance -> dependency names it holds running
 
+	statePath string // .doze/state.json for apply/destroy object tracking
+
 	logf func(format string, args ...any)
 }
 
@@ -56,14 +59,15 @@ func New(cfg *config.Config) (*Runtime, error) {
 		return nil, err
 	}
 	r := &Runtime{
-		cfg:   cfg,
-		mgr:   binaries.NewManager(cfg.Home),
-		lock:  lock,
-		plat:  plat,
-		reg:   registry.New(),
-		procs: map[string]engine.Process{},
-		deps:  map[string][]string{},
-		logf:  func(string, ...any) {},
+		cfg:       cfg,
+		mgr:       binaries.NewManager(cfg.Home),
+		lock:      lock,
+		plat:      plat,
+		reg:       registry.New(),
+		procs:     map[string]engine.Process{},
+		deps:      map[string][]string{},
+		statePath: state.Path(cfg.Path()),
+		logf:      func(string, ...any) {},
 	}
 	return r, nil
 }
