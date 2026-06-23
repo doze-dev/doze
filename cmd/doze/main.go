@@ -21,7 +21,10 @@ import (
 	"github.com/nerdmenot/doze/internal/ui"
 )
 
-var configPath string
+var (
+	configPath string
+	varFlags   []string // --var name=value (repeatable)
+)
 
 func main() {
 	// Surface engine convergence warnings on stderr (the daemon redirects its
@@ -48,6 +51,7 @@ func rootCmd() *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.PersistentFlags().StringVarP(&configPath, "config", "c", "doze.hcl", "path to doze.hcl")
+	root.PersistentFlags().StringArrayVar(&varFlags, "var", nil, "set a config variable: --var name=value (repeatable)")
 
 	root.AddCommand(
 		serveCmd(),
@@ -61,6 +65,7 @@ func rootCmd() *cobra.Command {
 		statusCmd(),
 		runCmd(),
 		envCmd(),
+		outputCmd(),
 		ephemeralCmd(),
 		versionsCmd(),
 		psqlCmd(),
@@ -74,13 +79,30 @@ func rootCmd() *cobra.Command {
 	return root
 }
 
-// loadConfig loads and validates the configuration referenced by --config.
+// loadConfig loads and validates the configuration referenced by --config,
+// applying any --var overrides.
 func loadConfig() (*config.Config, error) {
-	cfg, err := config.Load(configPath)
+	cliVars, err := parseVarFlags(varFlags)
 	if err != nil {
 		return nil, err
 	}
-	return cfg, nil
+	return config.LoadWithVars(configPath, cliVars)
+}
+
+// parseVarFlags turns repeated --var name=value flags into a map.
+func parseVarFlags(flags []string) (map[string]string, error) {
+	if len(flags) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]string, len(flags))
+	for _, f := range flags {
+		name, val, ok := strings.Cut(f, "=")
+		if !ok || name == "" {
+			return nil, fmt.Errorf("invalid --var %q: expected name=value", f)
+		}
+		out[name] = val
+	}
+	return out, nil
 }
 
 // stderrLogger is the daemon/engine logging sink for foreground commands. It

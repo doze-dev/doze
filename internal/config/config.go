@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 
 	"github.com/nerdmenot/doze/internal/engine"
 )
@@ -49,9 +50,22 @@ type Config struct {
 	TLS TLSSettings
 	// Instances preserves declaration order from the file.
 	Instances []*InstanceDecl
+	// Outputs are the declared output values, keyed by name (declaration order in
+	// OutputOrder), resolved against the final evaluation context.
+	Outputs     map[string]Output
+	OutputOrder []string
 
 	path  string
 	index map[string]*InstanceDecl
+}
+
+// Output is a declared output value: the connection strings or facts a stack
+// exposes. Surfaced by `doze output`.
+type Output struct {
+	Name        string
+	Value       string // rendered value
+	Description string
+	Sensitive   bool
 }
 
 // Defaults holds engine-agnostic tuning. Engine-specific tuning (Postgres
@@ -100,11 +114,16 @@ type hclDefaults struct {
 	IdleTimeout string `hcl:"idle_timeout,optional"`
 }
 
-// Load reads and validates the doze configuration at path. path may be a single
-// file (e.g. doze.hcl) — in which case a sibling doze.d/*.hcl directory is merged
-// in if present — or a directory, in which case all of its *.hcl files are merged.
-// Instance blocks may be split across files; root settings live in the main file.
-func Load(path string) (*Config, error) {
+// Load reads and validates the doze configuration at path, with no variable
+// overrides. See LoadWithVars.
+func Load(path string) (*Config, error) { return LoadWithVars(path, nil) }
+
+// LoadWithVars reads and validates the doze configuration at path. path may be a
+// single file (e.g. doze.hcl) — in which case a sibling doze.d/*.hcl directory is
+// merged in if present — or a directory, in which case all of its *.hcl files are
+// merged. cliVars are --var overrides (highest precedence). Variable values also
+// come from DOZE_VAR_<name> env vars and sibling *.auto.doze.vars files.
+func LoadWithVars(path string, cliVars map[string]string) (*Config, error) {
 	files, primary, err := gatherConfigFiles(path)
 	if err != nil {
 		return nil, err
@@ -125,7 +144,20 @@ func Load(path string) (*Config, error) {
 	if err := checkBlockTypes(parser, hclFiles); err != nil {
 		return nil, err
 	}
-	return buildConfig(parser, hcl.MergeFiles(hclFiles), primary)
+	autoVars, err := loadAutoVars(configDirOf(path))
+	if err != nil {
+		return nil, err
+	}
+	return buildConfig(parser, hcl.MergeFiles(hclFiles), primary, &varInputs{cli: cliVars, auto: autoVars})
+}
+
+// configDirOf returns the directory that holds the config (and its sibling
+// *.auto.doze.vars files): path itself if it is a directory, else its parent.
+func configDirOf(path string) string {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return path
+	}
+	return filepath.Dir(path)
 }
 
 // gatherConfigFiles resolves the ordered set of HCL files to merge, and the
@@ -169,11 +201,11 @@ func Parse(src []byte, filename string) (*Config, error) {
 	if err := checkBlockTypes(parser, []*hcl.File{file}); err != nil {
 		return nil, err
 	}
-	return buildConfig(parser, file.Body, filename)
+	return buildConfig(parser, file.Body, filename, nil)
 }
 
 // buildConfig validates a (possibly merged) HCL body into a Config.
-func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string) (*Config, error) {
+func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inputs *varInputs) (*Config, error) {
 	// The schema is built from the registered engines so each engine block type
 	// is recognized; unknown block types become positioned diagnostics.
 	schema := &hcl.BodySchema{
@@ -183,6 +215,9 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string) (*C
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "defaults"},
 			{Type: "tls"},
+			{Type: "variable", LabelNames: []string{"name"}},
+			{Type: "locals"},
+			{Type: "output", LabelNames: []string{"name"}},
 		},
 	}
 	for _, t := range engine.Types() {
@@ -201,6 +236,46 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string) (*C
 		Defaults: Defaults{IdleTimeout: DefaultIdleTimeout},
 	}
 
+	// Classify the top-level blocks. variable/locals/output are resolved before
+	// the resources so that var.*/local.* are available everywhere.
+	var varBlocks, localsBlocks, outputBlocks, instanceBlocks []*hcl.Block
+	seenDefaults, seenTLS := false, false
+	var defaultsBlock, tlsBlock *hcl.Block
+	for _, block := range content.Blocks {
+		switch block.Type {
+		case "defaults":
+			if seenDefaults {
+				return nil, posErr(parser, block.DefRange, "duplicate defaults block", "only one defaults block is allowed across all config files")
+			}
+			seenDefaults, defaultsBlock = true, block
+		case "tls":
+			if seenTLS {
+				return nil, posErr(parser, block.DefRange, "duplicate tls block", "only one tls block is allowed across all config files")
+			}
+			seenTLS, tlsBlock = true, block
+		case "variable":
+			varBlocks = append(varBlocks, block)
+		case "locals":
+			localsBlocks = append(localsBlocks, block)
+		case "output":
+			outputBlocks = append(outputBlocks, block)
+		default:
+			instanceBlocks = append(instanceBlocks, block)
+		}
+	}
+
+	// Build the evaluation context: functions, then variables, then locals.
+	ctx := &hcl.EvalContext{Variables: map[string]cty.Value{}, Functions: stdlibFunctions()}
+	varObj, err := resolveVariables(parser, varBlocks, inputs, ctx)
+	if err != nil {
+		return nil, err
+	}
+	ctx.Variables["var"] = cty.ObjectVal(emptyIfNil(varObj))
+	if err := evaluateLocals(parser, localsBlocks, ctx); err != nil {
+		return nil, err
+	}
+
+	// Root attributes and defaults/tls — may now reference var.*/local.*.
 	for name, attr := range content.Attributes {
 		var dst *string
 		switch name {
@@ -211,58 +286,56 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string) (*C
 		case "data_dir":
 			dst = &cfg.DataDir
 		}
-		if diags := gohcl.DecodeExpression(attr.Expr, nil, dst); diags.HasErrors() {
+		if diags := gohcl.DecodeExpression(attr.Expr, ctx, dst); diags.HasErrors() {
 			return nil, diagError(parser, diags)
 		}
 	}
-
 	if err := cfg.resolveHome(); err != nil {
 		return nil, err
 	}
-
-	declRanges := map[string]hcl.Range{}
-	seenDefaults, seenTLS := false, false
-	var pending []*pendingInstance
-	for _, block := range content.Blocks {
-		switch block.Type {
-		case "defaults":
-			if seenDefaults {
-				return nil, posErr(parser, block.DefRange, "duplicate defaults block", "only one defaults block is allowed across all config files")
-			}
-			seenDefaults = true
-			if err := cfg.decodeDefaults(parser, block); err != nil {
-				return nil, err
-			}
-		case "tls":
-			if seenTLS {
-				return nil, posErr(parser, block.DefRange, "duplicate tls block", "only one tls block is allowed across all config files")
-			}
-			seenTLS = true
-			if err := cfg.decodeTLS(parser, block); err != nil {
-				return nil, err
-			}
-		default:
-			p, err := cfg.decodeInstanceShell(parser, block, declRanges)
-			if err != nil {
-				return nil, err
-			}
-			pending = append(pending, p)
+	if defaultsBlock != nil {
+		if err := cfg.decodeDefaults(parser, defaultsBlock, ctx); err != nil {
+			return nil, err
+		}
+	}
+	if tlsBlock != nil {
+		if err := cfg.decodeTLS(parser, tlsBlock, ctx); err != nil {
+			return nil, err
 		}
 	}
 
-	// Second pass: build the reference graph and decode each instance's body in
-	// dependency order, so references like sqs.jobs.name resolve to a value.
-	if err := cfg.evaluate(parser, pending); err != nil {
+	// Instance shells (engine-agnostic fields), then the reference graph + driver
+	// bodies in dependency order, then outputs (which may reference everything).
+	declRanges := map[string]hcl.Range{}
+	var pending []*pendingInstance
+	for _, block := range instanceBlocks {
+		p, err := cfg.decodeInstanceShell(parser, block, declRanges, ctx)
+		if err != nil {
+			return nil, err
+		}
+		pending = append(pending, p)
+	}
+	if err := cfg.evaluate(parser, pending, ctx); err != nil {
+		return nil, err
+	}
+	if err := cfg.evaluateOutputs(parser, outputBlocks, ctx); err != nil {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func emptyIfNil(m map[string]cty.Value) map[string]cty.Value {
+	if m == nil {
+		return map[string]cty.Value{}
+	}
+	return m
 }
 
 // checkBlockTypes reports the first unknown top-level block type with a friendly,
 // positioned diagnostic (with a "did you mean" suggestion) — better than HCL's
 // generic "Unsupported block type". Operates on native-syntax bodies.
 func checkBlockTypes(parser *hclparse.Parser, files []*hcl.File) error {
-	known := map[string]bool{"defaults": true, "tls": true}
+	known := map[string]bool{"defaults": true, "tls": true, "variable": true, "locals": true, "output": true}
 	var candidates []string
 	for _, t := range engine.Types() {
 		known[t] = true
@@ -324,9 +397,9 @@ func (cfg *Config) resolveHome() error {
 	return nil
 }
 
-func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block) error {
+func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
 	var d hclDefaults
-	if diags := gohcl.DecodeBody(block.Body, nil, &d); diags.HasErrors() {
+	if diags := gohcl.DecodeBody(block.Body, ctx, &d); diags.HasErrors() {
 		return diagError(parser, diags)
 	}
 	if d.IdleTimeout != "" {
@@ -342,9 +415,9 @@ func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block) err
 	return nil
 }
 
-func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block) error {
+func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
 	var t hclTLS
-	if diags := gohcl.DecodeBody(block.Body, nil, &t); diags.HasErrors() {
+	if diags := gohcl.DecodeBody(block.Body, ctx, &t); diags.HasErrors() {
 		return diagError(parser, diags)
 	}
 	cfg.TLS = TLSSettings{Enabled: true, Cert: t.Cert, Key: t.Key, Required: t.Required}
@@ -358,7 +431,7 @@ func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block) error {
 // registers the instance, but defers the driver-specific body decode to the
 // evaluation pass (evaluate) so cross-resource references resolve in dependency
 // order. It returns the pending decode for that pass.
-func (cfg *Config) decodeInstanceShell(parser *hclparse.Parser, block *hcl.Block, declRanges map[string]hcl.Range) (*pendingInstance, error) {
+func (cfg *Config) decodeInstanceShell(parser *hclparse.Parser, block *hcl.Block, declRanges map[string]hcl.Range, ctx *hcl.EvalContext) (*pendingInstance, error) {
 	name := block.Labels[0]
 	if first, dup := declRanges[name]; dup {
 		return nil, posErr(parser, block.DefRange,
@@ -368,7 +441,7 @@ func (cfg *Config) decodeInstanceShell(parser *hclparse.Parser, block *hcl.Block
 	declRanges[name] = block.DefRange
 
 	var c common
-	if diags := gohcl.DecodeBody(block.Body, nil, &c); diags.HasErrors() {
+	if diags := gohcl.DecodeBody(block.Body, ctx, &c); diags.HasErrors() {
 		return nil, diagError(parser, diags)
 	}
 	drv, ok := engine.Lookup(block.Type)

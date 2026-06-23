@@ -84,6 +84,50 @@ Functions include the common string/collection/number/encoding helpers (`upper`,
 `join`, `format`, `coalesce`, `merge`, `jsonencode`, …) plus `env("NAME")` to read
 a host environment variable (with an optional default).
 
+### Variables, locals & outputs
+
+```hcl
+variable "pg_version" {
+  type    = number
+  default = 16
+}
+
+locals {
+  app_db = "app_${var.pg_version}"
+}
+
+postgres "app" {
+  version = var.pg_version
+  owner   = local.app_db
+}
+
+output "db_url" { value = postgres.app.url }
+output "password" {
+  value     = "s3cr3t"
+  sensitive = true
+}
+```
+
+**`variable "<name>" { … }`** — a typed input.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `type` | type | any | Optional constraint: `string`, `number`, `bool`, `list(string)`, `map(string)`, … |
+| `default` | any | — | Value when no override is given. Omit to make the variable required. |
+| `description` | string | none | Human description. |
+| `sensitive` | bool | `false` | Hint that the value is secret. |
+
+Values resolve by precedence (highest first): **`--var name=value`** › **`DOZE_VAR_<name>`**
+env var › a sibling **`*.auto.doze.vars`** file (`name = value` assignments) › the
+`default`. A required variable with no value is an error.
+
+**`locals { … }`** — named intermediate values (`local.<name>`); may reference
+variables, functions, and earlier locals.
+
+**`output "<name>" { value = … }`** — a value the stack exposes; `sensitive = true`
+masks it in listings. Print them with `doze output` (all) or `doze output <name>`
+(one, raw — for `$(…)` in scripts).
+
 ---
 
 ## postgres

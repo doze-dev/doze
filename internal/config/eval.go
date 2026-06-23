@@ -31,7 +31,7 @@ type pendingInstance struct {
 // evaluation context that already holds the attributes of every instance it
 // references — so `sqs = sqs.jobs.name` resolves to a value and the dependency is
 // recorded without any hand-declared DependsOn.
-func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance) error {
+func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance, ctx *hcl.EvalContext) error {
 	knownTypes := map[string]bool{}
 	for _, t := range engine.Types() {
 		knownTypes[t] = true
@@ -56,12 +56,9 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance)
 		return err
 	}
 
-	// 3. Decode each driver body in order, growing the evaluation context with
-	// each instance's attribute object under <type>.<name>.
-	ctx := &hcl.EvalContext{
-		Variables: map[string]cty.Value{},
-		Functions: stdlibFunctions(),
-	}
+	// 3. Decode each driver body in order, growing the evaluation context (which
+	// already holds var.*/local.*) with each instance's attribute object under
+	// <type>.<name>.
 	byType := map[string]map[string]cty.Value{}
 	for _, p := range order {
 		if dec, ok := p.drv.(engine.ConfigDecoder); ok {

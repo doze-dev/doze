@@ -2,6 +2,8 @@ package config
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -220,5 +222,151 @@ fake "a" {
 	}
 	if got := cfg.Lookup("a").Spec.(*fakeConfig).Color; got != "RED" {
 		t.Errorf("color = %q, want RED (upper applied)", got)
+	}
+}
+
+func TestVariableDefaultAndOutput(t *testing.T) {
+	src := `
+variable "color" { default = "teal" }
+fake "a" {
+  version = 1
+  color   = var.color
+}
+output "the_color" { value = fake.a.name }
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got := cfg.Lookup("a").Spec.(*fakeConfig).Color; got != "teal" {
+		t.Errorf("color = %q, want teal (from var default)", got)
+	}
+	if got := cfg.Outputs["the_color"].Value; got != "a" {
+		t.Errorf("output = %q, want a", got)
+	}
+}
+
+func TestVariableEnvOverride(t *testing.T) {
+	t.Setenv("DOZE_VAR_color", "crimson")
+	src := `
+variable "color" { default = "teal" }
+fake "a" {
+  version = 1
+  color   = var.color
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got := cfg.Lookup("a").Spec.(*fakeConfig).Color; got != "crimson" {
+		t.Errorf("color = %q, want crimson (DOZE_VAR_ override)", got)
+	}
+}
+
+func TestLocalsResolveInDependencyOrder(t *testing.T) {
+	src := `
+variable "base" { default = "red" }
+locals {
+  a = upper(var.base)
+  b = "${local.a}-x"
+}
+fake "x" {
+  version = 1
+  color   = local.b
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got := cfg.Lookup("x").Spec.(*fakeConfig).Color; got != "RED-x" {
+		t.Errorf("color = %q, want RED-x", got)
+	}
+}
+
+func TestLocalsCycleDetected(t *testing.T) {
+	src := `
+locals {
+  a = local.b
+  b = local.a
+}
+fake "x" { version = 1 }
+`
+	_, err := Parse([]byte(src), "doze.hcl")
+	if err == nil || !strings.Contains(err.Error(), "cycle") {
+		t.Errorf("expected locals cycle error, got %v", err)
+	}
+}
+
+func TestRequiredVariableMissing(t *testing.T) {
+	src := `
+variable "needed" {}
+fake "x" {
+  version = 1
+  color   = var.needed
+}
+`
+	_, err := Parse([]byte(src), "doze.hcl")
+	if err == nil || !strings.Contains(err.Error(), "required variable") || !strings.Contains(err.Error(), "needed") {
+		t.Errorf("expected required-variable error, got %v", err)
+	}
+}
+
+func TestOutputSensitiveFlag(t *testing.T) {
+	src := `
+fake "a" { version = 1 }
+output "secret" {
+  value     = fake.a.name
+  sensitive = true
+}
+`
+	cfg, err := Parse([]byte(src), "doze.hcl")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !cfg.Outputs["secret"].Sensitive {
+		t.Error("output should be marked sensitive")
+	}
+}
+
+func TestLoadWithVarsPrecedenceAndAutoFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "doze.hcl", `
+variable "env" { default = "dev" }
+variable "n" {
+  type    = number
+  default = 1
+}
+fake "a" {
+  version = 1
+  color   = "${var.env}-${var.n}"
+}
+`)
+	writeFile(t, dir, "x.auto.doze.vars", `env = "fromfile"`)
+
+	// Auto-vars file beats the default.
+	cfg, err := LoadWithVars(dir+"/doze.hcl", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Lookup("a").Spec.(*fakeConfig).Color; got != "fromfile-1" {
+		t.Errorf("auto-file: color = %q, want fromfile-1", got)
+	}
+
+	// --var beats the auto-vars file, and a number var converts from a string.
+	cfg, err = LoadWithVars(dir+"/doze.hcl", map[string]string{"env": "fromcli", "n": "7"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Lookup("a").Spec.(*fakeConfig).Color; got != "fromcli-7" {
+		t.Errorf("cli override: color = %q, want fromcli-7", got)
+	}
+}
+
+func writeFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
