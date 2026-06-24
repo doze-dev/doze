@@ -90,10 +90,10 @@ shows the `app` database. Quit with `\q`.
 
 ## 4. See the magic: lazy boot and idle reap
 
-Start the daemon in the background and look at what's running:
+See your declared instances and their state (everything's asleep until you
+connect):
 
 ```sh
-doze start
 doze status
 #   NAME   ENGINE     STATE    CONNS   RAM    UPTIME   ENDPOINT
 #   app    postgres   idle     0       5M     3s       127.0.0.1:6432

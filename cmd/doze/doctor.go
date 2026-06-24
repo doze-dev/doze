@@ -55,7 +55,7 @@ func doctorCmd() *cobra.Command {
 			if daemonRunning(cfg) {
 				check("daemon", "running", true)
 			} else {
-				check("daemon", "stopped (start with `doze start`)", true)
+				check("daemon", "stopped (starts automatically on first use)", true)
 			}
 
 			fmt.Println()

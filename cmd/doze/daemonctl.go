@@ -23,15 +23,14 @@ import (
 )
 
 func startCmd() *cobra.Command {
-	var foreground bool
+	var foreground, all bool
 	cmd := &cobra.Command{
-		Use:   "start [instance]",
-		Short: "Start the daemon, or boot an instance's backend",
-		Long: "With no argument, start launches the background daemon (the proxy listener,\n" +
-			"the idle reaper, and the control socket). With an instance name, it boots\n" +
-			"that backend now — warming it up instead of waiting for a connection. Use\n" +
-			"--foreground to run the daemon in this terminal, printing boot/convergence\n" +
-			"progress, instead of detaching.",
+		Use:   "start <instance | --all>",
+		Short: "Boot an instance's backend now (or --all)",
+		Long: "start boots a backend immediately — warming it up instead of waiting for a\n" +
+			"connection. Name an instance, or pass --all to boot every declared one. The\n" +
+			"background daemon starts automatically; you don't start it by hand. (Use\n" +
+			"--foreground to run the daemon in this terminal for debugging.)",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
@@ -39,64 +38,118 @@ func startCmd() *cobra.Command {
 				return err
 			}
 			if foreground {
-				if len(args) == 1 {
-					return fmt.Errorf("--foreground runs the daemon and takes no instance argument")
+				if all || len(args) == 1 {
+					return fmt.Errorf("--foreground runs the daemon and takes no instance/--all")
 				}
 				return runDaemonForeground(cfg)
 			}
-			if len(args) == 1 {
-				return bootInstance(cfg, args[0])
-			}
-			if daemonRunning(cfg) {
-				fmt.Println("doze is already running")
-				return nil
-			}
-			if err := startDaemon(cfg); err != nil {
+			targets, err := lifecycleTargets(cfg, args, all, "start")
+			if err != nil {
 				return err
 			}
-			fmt.Printf("doze started, listening on %s\n", cfg.Listen)
-			return nil
+			return bootInstances(cfg, targets)
 		},
 	}
-	cmd.Flags().BoolVarP(&foreground, "foreground", "f", false, "run the daemon in the foreground instead of detaching")
+	cmd.Flags().BoolVarP(&foreground, "foreground", "f", false, "run the daemon in the foreground (debugging)")
+	cmd.Flags().BoolVar(&all, "all", false, "boot every declared instance")
 	return cmd
 }
 
 func stopCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "stop [instance]",
-		Short: "Stop the daemon, or reap a single instance's backend",
-		Long: "With no argument, stop shuts down the background daemon (reaping every\n" +
-			"backend). With an instance name, it reaps just that backend — the daemon\n" +
-			"keeps running and the next connection re-boots it.",
+	var all bool
+	cmd := &cobra.Command{
+		Use:   "stop <instance | --all>",
+		Short: "Reap an instance's backend (or --all to stop everything)",
+		Long: "stop reaps a backend. Name an instance to reap just that one (the daemon\n" +
+			"keeps running and the next connection re-boots it). Pass --all to stop\n" +
+			"everything — every backend and the background daemon itself.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
+			if all {
+				if len(args) == 1 {
+					return fmt.Errorf("give an instance or --all, not both")
+				}
+				return stopDaemon(cfg) // full shutdown: the daemon exit reaps every backend
+			}
 			if len(args) == 1 {
 				return stopInstance(cfg, args[0])
 			}
-			pid := daemonPid(cfg)
-			if pid == 0 {
-				fmt.Println("doze is not running")
-				return nil
-			}
-			if err := syscall.Kill(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
-				return fmt.Errorf("signalling daemon: %w", err)
-			}
-			// Wait for it to exit.
-			for i := 0; i < 100; i++ {
-				if !processAlive(pid) {
-					fmt.Println("doze stopped")
-					return nil
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-			return fmt.Errorf("daemon (pid %d) did not stop", pid)
+			return fmt.Errorf("specify an instance (e.g. `doze stop app`) or --all to stop everything")
 		},
 	}
+	cmd.Flags().BoolVar(&all, "all", false, "stop the daemon and reap every backend")
+	return cmd
+}
+
+// lifecycleTargets resolves a start/stop invocation to the instance names to act
+// on: the named instance, every instance with --all, or a helpful error when
+// neither is given (so the verb never silently acts on "the daemon").
+func lifecycleTargets(cfg *config.Config, args []string, all bool, verb string) ([]string, error) {
+	switch {
+	case all && len(args) == 1:
+		return nil, fmt.Errorf("give an instance or --all, not both")
+	case all:
+		names := make([]string, 0, len(cfg.Instances))
+		for _, d := range cfg.Instances {
+			names = append(names, d.Name)
+		}
+		return names, nil
+	case len(args) == 1:
+		if cfg.Lookup(args[0]) == nil {
+			return nil, instanceNotFound(cfg, args[0])
+		}
+		return []string{args[0]}, nil
+	default:
+		return nil, fmt.Errorf("specify an instance (e.g. `doze %s app`) or --all to %s everything", verb, verb)
+	}
+}
+
+// bootInstances ensures the daemon is up once, then boots each target. With more
+// than one (i.e. --all) it is best-effort: a failing instance is reported but
+// doesn't stop the rest.
+func bootInstances(cfg *config.Config, names []string) error {
+	if !daemonRunning(cfg) {
+		if err := startDaemon(cfg); err != nil {
+			return err
+		}
+	}
+	var failed []string
+	for _, name := range names {
+		if err := bootInstance(cfg, name); err != nil {
+			if len(names) == 1 {
+				return err
+			}
+			failed = append(failed, name)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("failed to start: %s", strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+// stopDaemon shuts the background daemon down (which reaps every backend).
+func stopDaemon(cfg *config.Config) error {
+	pid := daemonPid(cfg)
+	if pid == 0 {
+		fmt.Println("doze is not running")
+		return nil
+	}
+	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return fmt.Errorf("signalling daemon: %w", err)
+	}
+	for i := 0; i < 100; i++ {
+		if !processAlive(pid) {
+			fmt.Println("doze stopped")
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("daemon (pid %d) did not stop", pid)
 }
 
 // runDaemonForeground runs the listener daemon in this terminal (the old
@@ -202,7 +255,7 @@ func restartCmd() *cobra.Command {
 				}
 				client := control.NewClient(daemon.ControlSocketPath(cfg))
 				if !client.Available() {
-					return fmt.Errorf("doze is not running; start it with `doze start`")
+					return fmt.Errorf("the daemon is not running; boot an instance first (e.g. `doze start <instance>` or `doze run`)")
 				}
 				if _, err := client.Do(control.Request{Op: "restart", DB: name}); err != nil {
 					return err
@@ -241,7 +294,7 @@ func logsCmd() *cobra.Command {
 			if len(args) == 1 {
 				client := control.NewClient(daemon.ControlSocketPath(cfg))
 				if !client.Available() {
-					return fmt.Errorf("doze is not running; start it with `doze start`")
+					return fmt.Errorf("the daemon is not running; boot an instance first (e.g. `doze start <instance>` or `doze run`)")
 				}
 				resp, err := client.Do(control.Request{Op: "logs", DB: args[0]})
 				if err != nil {

@@ -89,8 +89,8 @@ The footprint isn't a tuning trick — it falls out of the architecture
 So you can reproduce or sanity-check the numbers:
 
 ```sh
-# idle daemon RSS (KB) — nothing connected
-doze start
+# idle daemon RSS (KB) — nothing connected (run boots the daemon, no instances)
+doze run -- true
 ps -o rss= -p "$(pgrep -f 'doze start --foreground')"
 
 # a booted engine's RSS — boot it, then read its process

@@ -14,7 +14,7 @@ feels obvious. (For *why* you'd want this in the first place, see
 
 ## The daemon and per-instance endpoints
 
-doze runs a small background **daemon** (`doze start`, started for you by most
+doze runs a small background **daemon** (started for you automatically by most
 commands). For every instance you declare, the daemon opens **one listener** at
 its own address — `app` on `127.0.0.1:6432`, `cache` on `:6433`, and so on.
 

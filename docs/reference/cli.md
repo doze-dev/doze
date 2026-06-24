@@ -71,24 +71,30 @@ isolated test runs.
 
 ## Lifecycle
 
-Each verb acts on the **daemon** with no argument, or on a **single instance**
-with one.
+`start` and `stop` always act on **instances** — name one, or pass `--all`. The
+background **daemon starts automatically** on first use, so you don't start it by
+hand; the only daemon action you take is shutting it down (`stop --all`).
 
-### `doze start [instance]`
-No argument: start the background daemon (proxy listener, idle reaper, control
-socket). With an instance: boot that backend now — warming it up instead of
-waiting for a connection. `-f`/`--foreground` runs the daemon in this terminal,
-printing boot/convergence progress, instead of detaching.
+### `doze start <instance | --all>`
+Boot a backend now — warming it up instead of waiting for a connection. Name an
+instance, or `--all` to boot every declared one. `-f`/`--foreground` runs the
+daemon in this terminal (for debugging) instead of detaching.
 ```sh
-doze start            # start the daemon
 doze start app        # boot the app backend now
+doze start --all      # boot every declared instance
 doze start -f         # run the daemon in the foreground
 ```
+With no instance and no `--all`, it's an error — `start` never silently acts on
+"the daemon." (Need the daemon up but nothing booted? `doze run -- true`.)
 
-### `doze stop [instance]`
-No argument: stop the daemon, reaping every backend. With an instance: reap just
-that backend — the daemon keeps running and the next connection re-boots it. Data
-persists either way.
+### `doze stop <instance | --all>`
+Reap a backend. Name an instance to reap just that one (the daemon keeps running;
+the next connection re-boots it), or `--all` to **stop everything** — every backend
+and the daemon itself. Data persists either way.
+```sh
+doze stop app         # reap just app
+doze stop --all       # full shutdown (daemon + all backends)
+```
 
 ### `doze restart [instance]`
 No argument: restart the daemon. With an instance: restart that backend (reap +

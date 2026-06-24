@@ -212,7 +212,7 @@ doze stop app
 rm -rf "$(doze doctor | awk '/project/{print $3}')/clusters/app"
 
 # Nuke a whole project's state (stop the daemon first)
-doze stop
+doze stop --all
 rm -rf "$(doze doctor | awk '/project/{print $3}')"
 
 # Reclaim disk from downloads / unused toolchains

@@ -25,7 +25,7 @@ doze run -- go test ./...
 or start once and reuse across steps:
 
 ```sh
-doze start && eval "$(doze env)"
+eval "$(doze env)"            # connection strings (instances boot on connect)
 ./migrate && ./integration-tests
 ```
 

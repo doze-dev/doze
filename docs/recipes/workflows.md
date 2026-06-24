@@ -49,15 +49,17 @@ doze ephemeral app -- pytest tests/billing
 doze ephemeral app -- pytest tests/orders   # fully isolated from the first
 ```
 
-## Operating the daemon
+## Lifecycle
+
+The daemon starts automatically; you drive **instances**:
 
 ```sh
-doze start            # background daemon (logs to the project run dir)
-doze start -f         # run the daemon in the foreground (styled output)
-doze stop             # stop the daemon, reaping all backends
-doze restart          # restart the daemon
-doze restart app      # restart just the `app` instance
-doze stop [name]      # reap one backend, or all (data persists)
+doze start app        # boot one backend now (warms it up; daemon auto-starts)
+doze start --all      # boot every declared instance
+doze start -f         # run the daemon in the foreground (styled output, debugging)
+doze stop app         # reap one backend (data persists; next connect re-boots)
+doze stop --all       # stop everything — every backend and the daemon itself
+doze restart app      # restart one backend (reap + re-boot)
 ```
 
 ## Observability
@@ -85,13 +87,12 @@ Simplest — wrap the test command:
 doze run -- go test ./...
 ```
 
-Or start once and reuse:
+Or bring up the env once and reuse it (connections boot what they touch):
 
 ```sh
-doze start
 eval "$(doze env)"
 ./run-migrations && ./integration-tests
-doze stop
+doze stop --all
 ```
 
 Tips for CI:

@@ -243,7 +243,7 @@ func (m *model) setFlash(s string) { m.flash = s; m.flashFrame = m.frame }
 func Run(socketPath string) error {
 	c := control.NewClient(socketPath)
 	if !c.Available() {
-		return fmt.Errorf("no daemon is running (start one with `doze start`)")
+		return fmt.Errorf("no daemon is running (boot an instance with `doze start <name>`)")
 	}
 	loadTheme() // restore the last-used theme
 	fi := textinput.New()

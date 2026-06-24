@@ -12,7 +12,7 @@ engine** behind a small interface. Adding an engine is a driver package plus one
 registration line; the core never changes.
 
 ```
-        ┌───────────────────────── doze start (daemon) ─────────────────────────┐
+        ┌───────────────────────── doze daemon process ─────────────────────────┐
 clients │  proxy (one listener per instance)                                      │
   │     │     │ accept ─▶ runtime.Boot ─▶ driver ──┬─ Resolve  (toolchain)        │
   └─────▶     │  [optional ProxyFilter: TLS/        ├─ Provision (init / clone)    │
@@ -102,7 +102,7 @@ to the SNS worker for fanout.
 | `internal/endpoints` | Per-instance client addresses, connection strings, and `.doze/endpoints.yaml`. |
 | `internal/ui` | Shared, color-gated CLI/TUI vocabulary: palette, state coloring, ANSI-aware table, cross-platform RAM, uptime. Plain when piped or `NO_COLOR`. |
 | `internal/control` | Newline-delimited JSON admin IPC over a unix socket. |
-| `internal/daemon` | Wires runtime + per-instance proxy listeners + reaper + control into the daemon (`doze start`). |
+| `internal/daemon` | Wires runtime + per-instance proxy listeners + reaper + control into the daemon (`doze start --foreground`). |
 | `internal/tui` | Charm Bubble Tea dashboard. |
 | `engine/postgres` | The Postgres driver: cluster (`initdb`/conf/hba), convergence, extensions, the startup/TLS/cancel `ProxyFilter`, CoW `Templater`, `BackendProvider`. |
 | `engine/valkey`, `engine/kvrocks` | Redis-protocol drivers (required methods only). |

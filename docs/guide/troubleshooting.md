@@ -24,7 +24,7 @@ Another process (or a stale doze daemon) holds the listen port.
 
 ```sh
 doze status                      # is a daemon already running?
-doze stop                        # stop a stale one
+doze stop --all                  # stop a stale daemon
 lsof -iTCP:6432 -sTCP:LISTEN     # who's on the port? (adjust to your `listen`)
 ```
 
@@ -34,7 +34,7 @@ If you genuinely need a different port, change the base address in `doze.hcl`:
 listen = "127.0.0.1:7000"
 ```
 
-When `doze start` can't come up it now prints the real reason from the log — read
+When the daemon can't come up it now prints the real reason from the log — read
 that message; it usually names the port or path it failed to bind.
 
 ## An instance shows `error` in `doze status`
@@ -99,8 +99,8 @@ defaults { idle_timeout = "30m" }
 ## A backend lingered after a crash (macOS)
 
 If the daemon was killed hard (`kill -9`, a crash), macOS can't auto-kill its
-children the way Linux does. doze reclaims them automatically on the next
-`doze start`. To clean up immediately: `doze stop`.
+children the way Linux does. doze reclaims them automatically the next time the
+daemon starts. To clean up immediately: `doze stop --all`.
 
 ## Start completely fresh
 
