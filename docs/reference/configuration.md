@@ -333,7 +333,7 @@ ferretdb "docs" {
 
 ## s3
 
-Local object storage. Buckets are created on boot / `doze up`.
+Local object storage. Buckets are created on boot / `doze apply`.
 
 ```hcl
 s3 "media" {
@@ -433,7 +433,7 @@ every `*.hcl` in a directory. See [Files & storage](../guide/files-and-storage.m
 A bare major (`version = 16`) resolves to the newest minor and is pinned in
 `doze.lock`; a dotted string (`version = "16.14"`) pins exactly. **Commit
 `doze.lock`** so every machine downloads byte-identical binaries. Run
-`doze versions <engine>` to see what's available. See [Managing binaries](../BINARIES.md).
+`doze binaries available <engine>` to see what's available. See [Managing binaries](../BINARIES.md).
 
 ## Environment variables doze injects
 

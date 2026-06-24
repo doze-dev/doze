@@ -10,11 +10,11 @@ feels obvious. (For *why* you'd want this in the first place, see
 - **instance** — one thing you declare (`postgres "app" {}` is the `app`
   instance); each has its own data, endpoint, and lifecycle.
 - **backend** — the actual process running an instance once it's booted.
-- **daemon** — the long-running `doze serve` that fronts every instance.
+- **daemon** — the long-running daemon that fronts every instance.
 
 ## The daemon and per-instance endpoints
 
-doze runs a small background **daemon** (`doze serve`, started for you by most
+doze runs a small background **daemon** (`doze start`, started for you by most
 commands). For every instance you declare, the daemon opens **one listener** at
 its own address — `app` on `127.0.0.1:6432`, `cache` on `:6433`, and so on.
 
@@ -56,7 +56,7 @@ laptop running doze is quiet: nothing runs unless something is using it — at r
 it's one ~15 MB daemon and zero engine processes (see
 [Resource footprint](resource-footprint.md)).
 
-You can reap on demand (`doze down <name>`), boot eagerly (`doze up`), or just let
+You can reap on demand (`doze stop <name>`), boot eagerly (`doze start <name>`), or just let
 it happen.
 
 ## Waking back up
@@ -85,7 +85,7 @@ because the data and provisioning survive, knocking is cheap.
 
 ## Convergence: structure, not data
 
-When an instance boots fresh (and whenever you run `doze up`), doze **converges**
+When an instance boots fresh (and whenever you run `doze apply`), doze **converges**
 it to the shape you declared:
 
 - Postgres → databases, roles, schemas, grants, extensions

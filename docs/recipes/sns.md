@@ -112,5 +112,5 @@ doze run -- ./consumer
 ## Notes
 
 - Topics/subscriptions declared in config are created on boot (and re-converged by
-  `doze up`); you can also Subscribe/Publish dynamically via the SDK.
+  `doze apply`); you can also Subscribe/Publish dynamically via the SDK.
 - ARNs use the conventional local account `000000000000` and region `us-east-1`.

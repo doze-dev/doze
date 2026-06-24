@@ -53,11 +53,11 @@ doze ephemeral app -- pytest tests/orders   # fully isolated from the first
 
 ```sh
 doze start            # background daemon (logs to the project run dir)
-doze serve            # run in the foreground (styled boot/convergence output)
+doze start -f         # run the daemon in the foreground (styled output)
 doze stop             # stop the daemon, reaping all backends
 doze restart          # restart the daemon
 doze restart app      # restart just the `app` instance
-doze down [name]      # reap one backend, or all (data persists)
+doze stop [name]      # reap one backend, or all (data persists)
 ```
 
 ## Observability
@@ -69,7 +69,7 @@ doze dash             # interactive TUI: select a row, then b boot / d reap / R 
 doze logs             # tail the daemon log
 doze logs app -f      # follow a backend's logs
 doze doctor           # diagnose config, platform, toolchains, daemon state
-doze versions [engine] # versions available from the mirror (installed/pinned marked)
+doze binaries available [engine] # versions available from the mirror (installed/pinned marked)
 doze binaries list    # resolved/cached toolchains per instance
 ```
 

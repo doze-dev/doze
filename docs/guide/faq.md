@@ -64,7 +64,7 @@ teammate and your CI download **byte-identical** binaries. See
 ## How do I share a setup with my team?
 
 Commit `doze.hcl` and `doze.lock`. A teammate clones the repo and runs
-`doze run -- …` (or `doze up`) — they get the same engines, versions, databases,
+`doze run -- …` (or `doze apply`) — they get the same engines, versions, databases,
 roles, buckets, and queues, with no manual setup. Personal tweaks go in a
 gitignored `doze.d/local.hcl` (see
 [Files & storage](files-and-storage.md#per-developer-overrides)).
@@ -93,5 +93,5 @@ That's it — doze installs nothing else system-wide.
 ## Where can I see what doze is doing?
 
 `doze status` (snapshot), `doze dash` (live, interactive), and `doze logs`
-(daemon) / `doze logs <instance>` (a backend). Run `doze serve` in the foreground
+(daemon) / `doze logs <instance>` (a backend). Run `doze start -f` in the foreground
 to watch boot and convergence in real time.

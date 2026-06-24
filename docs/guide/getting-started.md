@@ -62,7 +62,7 @@ doze doctor
 Open a SQL shell:
 
 ```sh
-doze psql app
+doze shell app
 ```
 
 The first time, this does a lot for you, transparently:

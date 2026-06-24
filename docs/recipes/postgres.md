@@ -34,7 +34,7 @@ postgres "app" {
 
 ```sh
 doze run -- <your app>     # DATABASE_URL is injected; the DB boots on first use
-doze psql app              # or open a SQL shell directly (boots `app` if cold)
+doze shell app              # or open a SQL shell directly (boots `app` if cold)
 ```
 
 ## Connect a client or GUI
@@ -198,9 +198,9 @@ doze run -- ./scripts/seed.sh        # reads DATABASE_URL
 Sometimes you want a clean slate:
 
 ```sh
-doze down app                                   # stop it
+doze stop app                                   # stop it
 rm -rf "$(doze doctor | awk '/project/{print $3}')/clusters/app"
-doze psql app                                   # next connect re-provisions + converges
+doze shell app                                   # next connect re-provisions + converges
 ```
 
 Or use a **disposable** clone that vanishes on its own — ideal for tests:
@@ -222,9 +222,9 @@ doze ephemeral app -- pytest        # real Postgres, isolated, deleted afterward
   }
   ```
 - **Idle reaping** is by connection count — a pool holding idle connections keeps
-  the backend alive; close them (or `doze down app`) to let it sleep.
+  the backend alive; close them (or `doze stop app`) to let it sleep.
 - **Pin versions** for the team: `version = "16.14"` (exact) or `version = 16`
-  (newest, pinned in `doze.lock`). Run `doze versions postgres` to see options.
+  (newest, pinned in `doze.lock`). Run `doze binaries available postgres` to see options.
 - **TLS** for `sslmode=require` clients: see the
   [TLS reference](../reference/configuration.md#tls).
 - **Ephemeral cold boots are instant** — doze runs `initdb` once into a template

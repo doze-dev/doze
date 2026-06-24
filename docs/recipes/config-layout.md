@@ -76,5 +76,5 @@ doze.d/local.hcl
 
 These root-level concerns are covered in the reference:
 
-- **[Versions & the lockfile](../reference/configuration.md#versions--the-lockfile)** — major vs exact, `doze.lock`, `doze versions`.
+- **[Versions & the lockfile](../reference/configuration.md#versions--the-lockfile)** — major vs exact, `doze.lock`, `doze binaries available`.
 - **[TLS](../reference/configuration.md#tls)** — auto self-signed or bring your own cert.

@@ -85,7 +85,7 @@ eval "$(doze env)"
 redis-cli -u "$REDIS_URL" flushall            # wipe everything
 redis-cli -u "$REDIS_URL" info keyspace       # how many keys
 redis-cli -u "$REDIS_URL" monitor             # watch commands live
-doze down cache                                # put it to sleep now
+doze stop cache                                # put it to sleep now
 ```
 
 ## Tips

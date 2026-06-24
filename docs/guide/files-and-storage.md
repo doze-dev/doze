@@ -205,10 +205,10 @@ conflict.
 
 ```sh
 # Put an instance to sleep now (data is kept; next connect re-boots it)
-doze down app
+doze stop app
 
 # Wipe one instance's data and start fresh (re-provisions + converges on next boot)
-doze down app
+doze stop app
 rm -rf "$(doze doctor | awk '/project/{print $3}')/clusters/app"
 
 # Nuke a whole project's state (stop the daemon first)

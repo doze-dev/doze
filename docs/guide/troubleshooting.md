@@ -56,7 +56,7 @@ Common causes:
 - **Bad config value** — re-run `doze doctor`; config errors point at the file and
   line.
 
-After fixing config, `doze up <instance>` (or just reconnect) re-converges.
+After fixing config, `doze apply <instance>` (or just reconnect) re-converges.
 
 ## Engine binaries won't download
 
@@ -66,7 +66,7 @@ proxy, or a download fails:
 - **Use a local build** instead of downloading — point doze at an existing bin
   directory:
   ```sh
-  DOZE_POSTGRES_BINDIR=/opt/homebrew/opt/postgresql@16/bin doze psql app
+  DOZE_POSTGRES_BINDIR=/opt/homebrew/opt/postgresql@16/bin doze shell app
   ```
 - **Point at a mirror you can reach** with `DOZE_<ENGINE>_MIRROR` /
   `DOZE_MIRROR`, including a `file://` path for a fully offline mirror — see
@@ -99,7 +99,7 @@ defaults { idle_timeout = "30m" }
 
 If the daemon was killed hard (`kill -9`, a crash), macOS can't auto-kill its
 children the way Linux does. doze reclaims them automatically on the next
-`doze start`/`doze serve`. To clean up immediately: `doze down` or `doze stop`.
+`doze start`. To clean up immediately: `doze stop`.
 
 ## Start completely fresh
 

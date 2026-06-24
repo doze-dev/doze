@@ -72,7 +72,7 @@ doze status
 - In `doze status` you'll see `docs_pg` active with a held connection whenever
   `docs` is up.
 - Because it's really Postgres underneath, you can even inspect the stored
-  documents with `doze psql docs_pg` if you're curious.
+  documents with `doze shell docs_pg` if you're curious.
 
 ## Notes
 

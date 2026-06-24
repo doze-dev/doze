@@ -25,7 +25,7 @@ identical on every machine. To use an existing local build, point
 `DOZE_<ENGINE>_BINDIR` at it.
 
 A version is either a **major** (`16` → the newest minor the mirror has) or an
-**exact** full version (`"16.14"`). `doze versions [engine]` lists what the
+**exact** full version (`"16.14"`). `doze binaries available [engine]` lists what the
 mirror offers, marking which versions are installed and pinned.
 
 ## The lockfile
@@ -62,7 +62,7 @@ engines:
 ```
 doze binaries list          # declared instances: pinned + cached toolchains
 doze binaries which <name>  # resolve and print an instance's bin directory
-doze versions [engine]      # versions the mirror offers (installed/pinned marked)
+doze binaries available [engine]      # versions the mirror offers (installed/pinned marked)
 ```
 
 ## Hosting your own mirror
