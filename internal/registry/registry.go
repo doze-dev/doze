@@ -57,6 +57,13 @@ type Instance struct {
 	// toggled live from the dashboard. It persists across state changes (e.g. for a
 	// slow-booting engine you want to keep warm).
 	KeepAwake bool
+	// RestartCount is how many times a supervised process has been re-booted after
+	// an unexpected exit (per its restart policy). Surfaced in status and the dash.
+	RestartCount int
+	// Healthy is the result of the most recent periodic liveness probe for a
+	// supervised process: nil = not yet probed (or no probe), true/false otherwise.
+	// Distinct from State (which tracks running/idle/reaped).
+	Healthy *bool
 }
 
 // Registry is a concurrency-safe map of database name -> Instance.
@@ -114,6 +121,32 @@ func (r *Registry) ClearTainted(name string) {
 	r.ensure(name).Tainted = false
 }
 
+// IncRestart bumps and returns the restart counter for a supervised instance. The
+// runtime calls it on each re-boot after an unexpected exit; the counter is not
+// cleared by MarkReaped/MarkRunning so it reflects total restarts since the last
+// intentional stop.
+func (r *Registry) IncRestart(name string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	inst := r.ensure(name)
+	inst.RestartCount++
+	return inst.RestartCount
+}
+
+// ResetRestart zeroes the restart counter (on an intentional stop/restart).
+func (r *Registry) ResetRestart(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensure(name).RestartCount = 0
+}
+
+// SetHealthy records the result of the most recent periodic liveness probe.
+func (r *Registry) SetHealthy(name string, healthy bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensure(name).Healthy = &healthy
+}
+
 // MarkRunning records a successfully booted backend.
 func (r *Registry) MarkRunning(name, socketDir string, port, pid int) {
 	r.mu.Lock()
@@ -145,6 +178,7 @@ func (r *Registry) MarkReaped(name string) {
 	inst.Conns = 0
 	inst.StartedAt = time.Time{}
 	inst.IdleSince = time.Time{}
+	inst.Healthy = nil // a stopped process has no current health
 }
 
 // Acquire increments the live connection count, returning the new count. It

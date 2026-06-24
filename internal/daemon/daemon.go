@@ -96,6 +96,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("no driver registered for engine %q (instance %q)", ep.Engine, ep.Name)
 		}
+		// Supervised processes bind their own port — doze does not front them with a
+		// proxy. They boot eagerly via `doze up`/`doze start`, not on a connection.
+		if lc, ok := drv.(engine.Lifecycle); ok && lc.Supervised(engine.Instance{Name: ep.Name, Type: ep.Engine}) {
+			d.logf("%s/%s is a supervised process; no proxy listener", ep.Engine, ep.Name)
+			continue
+		}
 		ln, err := proxy.Listen(ep.Address)
 		if err != nil {
 			return fmt.Errorf("listening for %q on %s: %w", ep.Name, ep.Address, err)
@@ -126,6 +132,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	defer os.Remove(pidPath)
 
 	go d.rt.RunReaper(ctx)
+	go d.rt.RunHealthProber(ctx)
 	go ctrl.Serve(ctx)
 
 	<-ctx.Done()
@@ -261,6 +268,59 @@ func (h *handler) Logs(name string) ([]string, error) {
 		return nil, fmt.Errorf("instance %q is not running", name)
 	}
 	return p.Logs(), nil
+}
+
+// StreamLogs polls the named backends' log rings (every 250ms) and emits each new
+// line, tagged with its instance, until ctx is cancelled or emit fails. Empty names
+// follows every declared instance. A process restart resets its ring; the cursor
+// regression is detected and the new process's output is streamed from the start.
+func (h *handler) StreamLogs(ctx context.Context, names []string, emit func(control.LogFrame) error) error {
+	if len(names) == 0 {
+		for _, d := range h.d.cfg.Instances {
+			names = append(names, d.Name)
+		}
+	}
+	sent := map[string]int{}
+	flush := func() error {
+		for _, n := range names {
+			p := h.d.rt.Backend(n)
+			if p == nil {
+				continue
+			}
+			ls, ok := p.(interface {
+				LogsSince(int) ([]string, int)
+			})
+			if !ok {
+				continue
+			}
+			lines, cursor := ls.LogsSince(sent[n])
+			if cursor < sent[n] { // ring reset (process restarted) — resume from the start
+				lines, cursor = ls.LogsSince(0)
+			}
+			for _, line := range lines {
+				if err := emit(control.LogFrame{Instance: n, Line: line}); err != nil {
+					return err
+				}
+			}
+			sent[n] = cursor
+		}
+		return nil
+	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	if err := flush(); err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // Resources lists a builtin instance's sub-resources (queues/buckets/topics) with

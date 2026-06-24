@@ -114,6 +114,60 @@ type Lifecycle interface {
 	Supervised(inst Instance) bool
 }
 
+// Hooked is implemented by supervised engines that run lifecycle commands around
+// an instance's start and stop. The runtime calls PreStart after dependencies are
+// up but before Spawn (e.g. run migrations), PostStart after the instance becomes
+// ready, and PreStop before signalling the process. A non-nil error from PreStart
+// aborts (and taints) the boot. Optional.
+type Hooked interface {
+	PreStart(ctx context.Context, inst Instance) error
+	PostStart(ctx context.Context, inst Instance) error
+	PreStop(ctx context.Context, inst Instance) error
+}
+
+// HealthChecker is implemented by supervised engines that expose an ongoing
+// liveness probe, run periodically after readiness so the dashboard can show a
+// health badge. It is distinct from WaitReady (the one-shot readiness gate during
+// boot); the runtime does not auto-restart on a failed CheckHealth in v1. Optional.
+type HealthChecker interface {
+	CheckHealth(ctx context.Context, inst Instance) error
+}
+
+// RestartPolicy is one of the supported supervisor restart behaviors.
+type RestartPolicy string
+
+const (
+	// RestartNo never restarts — the instance stays reaped after it exits.
+	RestartNo RestartPolicy = "no"
+	// RestartOnFailure restarts only when the process exits non-zero.
+	RestartOnFailure RestartPolicy = "on_failure"
+	// RestartAlways restarts on any exit (clean or not).
+	RestartAlways RestartPolicy = "always"
+)
+
+// RestartSpec is what to do when a supervised process exits unexpectedly.
+type RestartSpec struct {
+	Policy     RestartPolicy
+	Backoff    time.Duration // base delay; the runtime grows it exponentially, capped
+	MaxRetries int           // 0 means no restart attempts
+}
+
+// Restartable is implemented by supervised engines that want the runtime to
+// re-boot them after an unexpected exit, per RestartPolicy. Engines without it (or
+// with RestartNo) stay reaped — today's behavior for crashed backends. Optional.
+type Restartable interface {
+	RestartPolicy(inst Instance) RestartSpec
+}
+
+// PortBinder is implemented by supervised engines that bind their own listening
+// port instead of sitting behind a doze proxy. AdvertisedAddr returns the
+// "host:port" the app listens on (derived from its decoded Spec); the runtime uses
+// it as the instance's endpoint address and the daemon opens no proxy listener for
+// it. ok is false when the port is not yet known. Optional.
+type PortBinder interface {
+	AdvertisedAddr(inst Instance) (addr string, ok bool)
+}
+
 // Attributer is implemented by engines that expose attributes beyond the generic
 // baseline (name, engine, host, port, address, socket, url) under their
 // <type>.<name> reference. The runtime/config merge these over the baseline when

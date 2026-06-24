@@ -75,6 +75,26 @@ isolated test runs.
 background **daemon starts automatically** on first use, so you don't start it by
 hand; the only daemon action you take is shutting it down (`stop --all`).
 
+### `doze up [process…]`
+Bring up application **processes** (`process` blocks) and the databases/queues they
+depend on, in dependency order, gating on each health probe — then stream their
+interleaved, name-prefixed logs. Press **Ctrl-C** to stop the processes in reverse
+order (running `pre_stop` hooks, then signalling). Name one or more processes, or
+omit to bring up every declared process.
+```sh
+doze up                 # bring up all processes + their deps, stream logs
+doze up api worker      # just these two (and their deps)
+doze up --detach        # boot everything and return; daemon keeps supervising
+```
+Databases referenced by a process boot underneath it (held until the process
+stops, then reaped on idle). A failing `pre_start` hook (e.g. a bad migration)
+aborts `up` with a precise error.
+
+### `doze down [process…]`
+Stop processes (the counterpart to `up`), reverse dependency order. Name one or
+more, or omit for all. The databases they used are left to reap on idle; the daemon
+keeps running.
+
 ### `doze start <instance | --all>`
 Boot a backend now — warming it up instead of waiting for a connection. Name an
 instance, or `--all` to boot every declared one. `-f`/`--foreground` runs the
@@ -127,7 +147,8 @@ small command console — type `<action> <resource> [input]` (e.g. `send emails 
 
 ### `doze logs [instance] [-f]`
 With no argument, tail the daemon's log. With an instance, show that backend's
-logs. `-f`/`--follow` follows like `tail -f`.
+logs. `-f`/`--follow` streams new lines live (for a process or any running
+backend) until Ctrl-C.
 
 ### `doze doctor`
 Diagnose the environment: config parses, platform, home/project dirs, per-instance

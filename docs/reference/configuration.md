@@ -168,9 +168,11 @@ sqs "jobs" {
 ```
 
 The key is an instance address (or bare name); the value is the readiness
-condition — `healthy` (wait until it accepts connections, the default for every
-reference) or `started`. The `started` condition is groundwork for a future
-process engine; today doze waits for `healthy` either way.
+condition — `healthy` (wait until it accepts connections / its health probe
+passes, the default for every reference) or `started` (wait only until the
+dependency's process has spawned). `started` lets a service start before a peer
+process becomes healthy; for a database/queue, which is ready as soon as it
+accepts connections, the two are equivalent.
 
 ---
 
@@ -418,6 +420,72 @@ sns "events" {
 | `endpoint` | string | — | Queue name/ARN (for `sqs`) or a URL (for `http(s)`). **Required.** |
 | `raw` | bool | `false` | Raw delivery (deliver the bare message, not the SNS envelope). |
 | `filter` | object | none | Message-attribute filter policy, e.g. `{ type = ["a","b"] }`. |
+
+---
+
+## process
+
+An application **process** run directly on the host — no Docker, no
+virtualization. Unlike the database/AWS engines (which doze proxies and
+idle-reaps), a process is a long-lived, supervised *client* of those backends: it
+binds its own port, is exempt from the idle reaper, gates readiness on a health
+probe, and restarts per a policy when it exits. Bring processes up with
+[`doze up`](cli.md#doze-up-process); they boot eagerly (not on connection).
+
+```hcl
+process "api" {
+  cwd     = "../approvals-engine"          # working dir, relative to this file
+  command = "go run main.go -program api"  # run via `sh -c` (pipes, &&, expansion OK)
+  port    = 8080                           # the port the app binds (doze does NOT bind it)
+
+  env = {
+    DATABASE_URL  = postgres.app.url       # typed ref → dependency edge + injected value
+    HTTP_API_PORT = "8080"
+  }
+  env_file = ".env.local"                  # optional; lower precedence than env{}
+
+  depends_on = { postgres.app = "healthy" } # explicit; the env refs above also imply edges
+
+  hooks {
+    pre_start  = ["go run main.go -program migrate -command up"]  # after deps, before start
+    post_start = ["./scripts/notify-ready.sh"]                    # after the app is healthy
+    pre_stop   = ["./scripts/drain.sh"]                           # before SIGINT
+  }
+
+  health {
+    http     = "http://localhost:8080/health/ready"
+    interval = "2s"
+    timeout  = "3s"
+    retries  = 30                          # readiness budget = interval × retries
+  }
+
+  restart {
+    policy      = "on_failure"             # no | on_failure | always
+    backoff     = "1s"                     # exponential, capped at 30s
+    max_retries = 5
+  }
+}
+```
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `command` | string | — | Command line, run via `sh -c`. **Required.** |
+| `cwd` | string | the file's dir | Working directory, resolved relative to the declaring file. |
+| `port` | number | none | The port the app listens on. Exposed as `process.<name>.{url,host,port}`; doze opens **no** proxy listener for it. Omit for a worker with no endpoint. |
+| `env` | map | none | Environment for the process and its hooks. Highest precedence; values may reference other instances. |
+| `env_file` | string | none | Path to a `KEY=VALUE` file (lower precedence than `env`). |
+| `hooks` | block | none | `pre_start` / `post_start` / `pre_stop` command lists, each run via `sh -c` in `cwd`. A non-zero `pre_start`/`post_start` aborts the boot and taints the instance. |
+| `health` | block | none | One probe kind — `http` (2xx), `tcp` (`host:port` accepts), `exec` (exit 0), or `log_line` (regex over logs) — plus `interval`, `timeout`, `retries`. With no `health` block, readiness = "the process stayed alive briefly". |
+| `restart` | block | `policy = "no"` | `policy` (`no` / `on_failure` / `always`), `backoff` (base, grown exponentially and capped), `max_retries` (defaults to 5 for a restarting policy). |
+
+The process runs with the full environment [`doze run`](cli.md#doze-run----command-args)
+injects (connection strings, AWS creds/region, `DOZE_<NAME>_URL`), layered as:
+`os` env → doze-injected → `env_file` → `env {}`. v1 runs `go`/`bun`/`node` from
+`PATH`; a `.go-version`/`.prototools` in `cwd` only triggers a warning on
+mismatch. The command and all its children are reaped as a process group on stop.
+
+> Note: HCL single-line blocks hold one argument only — write `health { … }` and
+> `restart { … }` across multiple lines (one argument per line), as above.
 
 ---
 

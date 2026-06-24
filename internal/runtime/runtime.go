@@ -20,6 +20,7 @@ import (
 
 	"github.com/nerdmenot/doze/internal/binaries"
 	"github.com/nerdmenot/doze/internal/config"
+	"github.com/nerdmenot/doze/internal/endpoints"
 	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/registry"
 	"github.com/nerdmenot/doze/internal/state"
@@ -111,9 +112,19 @@ func (r *Runtime) instanceFor(decl *config.InstanceDecl, drv engine.Driver) engi
 	}
 }
 
-// Boot ensures the named instance is provisioned and running, returning its
-// endpoint. Concurrent cold boots for the same name coalesce onto one start.
+// Boot ensures the named instance is provisioned and running (to the Healthy
+// condition — backend accepts/health probe passes), returning its endpoint.
+// Concurrent cold boots for the same name coalesce onto one start.
 func (r *Runtime) Boot(ctx context.Context, name string) (engine.Endpoint, error) {
+	return r.bootCond(ctx, name, engine.Healthy)
+}
+
+// bootCond boots name to a readiness condition: Healthy runs the full readiness
+// gate (today's behavior), Started returns as soon as the process has spawned and
+// survived a brief liveness window — used by dependents that don't need a peer's
+// health probe to pass first. Coalescing is keyed by name, so a concurrent Healthy
+// boot wins over a Started one (Healthy is the stronger guarantee).
+func (r *Runtime) bootCond(ctx context.Context, name string, cond engine.Condition) (engine.Endpoint, error) {
 	if inst, ok := r.reg.Get(name); ok && (inst.State == registry.Active || inst.State == registry.Idle) {
 		r.mu.Lock()
 		p := r.procs[name]
@@ -122,7 +133,7 @@ func (r *Runtime) Boot(ctx context.Context, name string) (engine.Endpoint, error
 			return r.endpointFor(name)
 		}
 	}
-	res, err, _ := r.group.Do(name, func() (any, error) { return r.bootLocked(ctx, name) })
+	res, err, _ := r.group.Do(name, func() (any, error) { return r.bootLocked(ctx, name, cond) })
 	if err != nil {
 		return engine.Endpoint{}, err
 	}
@@ -158,7 +169,7 @@ func (r *Runtime) endpointFor(name string) (engine.Endpoint, error) {
 	return inst.Endpoint, nil
 }
 
-func (r *Runtime) bootLocked(ctx context.Context, name string) (engine.Endpoint, error) {
+func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condition) (engine.Endpoint, error) {
 	if inst, ok := r.reg.Get(name); ok && (inst.State == registry.Active || inst.State == registry.Idle) {
 		r.mu.Lock()
 		p := r.procs[name]
@@ -219,13 +230,34 @@ func (r *Runtime) bootLocked(ctx context.Context, name string) (engine.Endpoint,
 		return fail(err)
 	}
 
+	// Supervised processes run with the same environment `doze run` injects
+	// (connection strings, AWS creds/region, DOZE_<NAME>_URL); their config also
+	// references peers directly, so this is the floor, not the only source.
+	if r.isSupervised(drv, inst) {
+		inst.InjectedEnv = r.injectedEnv()
+	}
+
+	// Lifecycle hooks run around the start: pre_start (e.g. migrations) after deps
+	// are up but before the process spawns. A failure aborts and taints the boot.
+	if h, ok := drv.(engine.Hooked); ok {
+		if err := h.PreStart(ctx, inst); err != nil {
+			r.reg.SetTainted(name)
+			return fail(fmt.Errorf("pre_start for %q: %w", name, err))
+		}
+	}
+
 	proc, err := drv.Spawn(ctx, inst, tc)
 	if err != nil {
 		return fail(err)
 	}
-	if err := drv.WaitReady(ctx, inst, tc, proc); err != nil {
-		_ = proc.Stop(context.Background())
-		return fail(err)
+	// Healthy waits the readiness gate; Started returns once spawned (the driver's
+	// WaitReady still ran nothing, so a brief liveness check is the process driver's
+	// job when it has no health block).
+	if cond != engine.Started {
+		if err := drv.WaitReady(ctx, inst, tc, proc); err != nil {
+			_ = proc.Stop(context.Background())
+			return fail(err)
+		}
 	}
 
 	r.mu.Lock()
@@ -256,6 +288,23 @@ func (r *Runtime) bootLocked(ctx context.Context, name string) (engine.Endpoint,
 		r.reg.ClearTainted(name)
 	}
 
+	// post_start runs once the instance is up and (for Healthy) ready. A failure
+	// taints and tears it down so a half-started service never looks healthy.
+	if cond != engine.Started {
+		if h, ok := drv.(engine.Hooked); ok {
+			if err := h.PostStart(ctx, inst); err != nil {
+				r.reg.SetTainted(name)
+				r.mu.Lock()
+				delete(r.procs, name)
+				delete(r.deps, name)
+				r.mu.Unlock()
+				_ = proc.Stop(context.Background())
+				r.removePidfile(name)
+				return fail(fmt.Errorf("post_start for %q: %w", name, err))
+			}
+		}
+	}
+
 	r.logf("%q ready (pid %d)", name, proc.PID())
 	return inst.Endpoint, nil
 }
@@ -266,10 +315,10 @@ func (r *Runtime) ToggleKeepAwake(name string) bool { return r.reg.ToggleKeepAwa
 
 // bootDeps boots and holds (via Acquire) every instance the named instance
 // depends on, returning the resolved deps and the list of held names. On any
-// failure it releases the deps it already held.
-// The dependency's Condition (healthy/started) is groundwork for the future
-// supervised process engine; today Boot always waits until the backend is healthy,
-// which satisfies both conditions, so the runtime treats them alike for now.
+// failure it releases the deps it already held. Each dependency is booted to its
+// declared Condition: Healthy waits the full readiness gate, Started returns once
+// the dependency has spawned (used to start a service before a peer process's
+// health probe passes).
 func (r *Runtime) bootDeps(ctx context.Context, name string, depList []engine.Dependency) (map[string]engine.Dep, []string, error) {
 	deps := map[string]engine.Dep{}
 	var held []string
@@ -288,7 +337,11 @@ func (r *Runtime) bootDeps(ctx context.Context, name string, depList []engine.De
 			release()
 			return nil, nil, fmt.Errorf("instance %q depends on undeclared instance %q", name, dn)
 		}
-		if _, err := r.Boot(ctx, dn); err != nil {
+		cond := dep.Condition
+		if cond == "" {
+			cond = engine.Healthy
+		}
+		if _, err := r.bootCond(ctx, dn, cond); err != nil {
 			release()
 			return nil, nil, fmt.Errorf("booting dependency %q: %w", dn, err)
 		}
@@ -346,9 +399,25 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 	if p == nil && len(held) == 0 {
 		return nil
 	}
+	// An intentional stop clears the restart budget, so a later `up` starts fresh.
+	r.reg.ResetRestart(name)
 	var err error
 	if p != nil {
 		r.logf("reaping %q…", name)
+		// pre_stop hooks (e.g. drain) run before the process is signalled.
+		if decl := r.cfg.Lookup(name); decl != nil {
+			if drv, ok := engine.Lookup(decl.Type); ok {
+				if h, ok := drv.(engine.Hooked); ok {
+					inst := r.instanceFor(decl, drv)
+					if r.isSupervised(drv, inst) {
+						inst.InjectedEnv = r.injectedEnv()
+					}
+					if e := h.PreStop(ctx, inst); e != nil {
+						r.logf("pre_stop for %q failed: %v", name, e)
+					}
+				}
+			}
+		}
 		err = p.Stop(ctx)
 	}
 	for _, dn := range held {
@@ -364,7 +433,7 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 // records the failure — so the next connect cleanly re-boots instead of dialing
 // a dead socket.
 func (r *Runtime) watch(name string, proc engine.Process) {
-	_ = proc.Wait()
+	exitErr := proc.Wait()
 	r.mu.Lock()
 	if r.procs[name] != proc {
 		r.mu.Unlock() // intentionally stopped/replaced; nothing to do
@@ -373,14 +442,87 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 	delete(r.procs, name)
 	held := r.deps[name]
 	delete(r.deps, name)
-	r.reg.MarkReaped(name)
-	r.reg.SetError(name, "backend exited unexpectedly")
 	r.mu.Unlock()
 	for _, dn := range held {
 		r.Release(dn)
 	}
 	r.removePidfile(name)
+	r.reg.MarkReaped(name)
+
+	// A supervised process may restart per its policy instead of staying down.
+	if spec, ok := r.restartSpec(name); ok && shouldRestart(spec.Policy, exitErr) {
+		count := r.reg.IncRestart(name)
+		if count <= spec.MaxRetries {
+			delay := backoffFor(spec.Backoff, count)
+			r.reg.SetError(name, fmt.Sprintf("exited; restarting (%d/%d) in %s", count, spec.MaxRetries, delay))
+			r.logf("process %q exited; restarting (%d/%d) in %s", name, count, spec.MaxRetries, delay)
+			go func() {
+				time.Sleep(delay)
+				if _, err := r.Boot(context.Background(), name); err != nil {
+					r.logf("restart of %q failed: %v", name, err)
+				}
+			}()
+			return
+		}
+		r.reg.SetError(name, fmt.Sprintf("exited; gave up after %d restarts", spec.MaxRetries))
+		r.logf("process %q exited; gave up after %d restarts", name, spec.MaxRetries)
+		return
+	}
+
+	r.reg.SetError(name, "backend exited unexpectedly")
 	r.logf("backend %q exited unexpectedly; it will re-boot on the next connection", name)
+}
+
+// restartSpec returns the restart policy for an instance whose driver is
+// Restartable, and ok=false when it isn't (or the policy is "no") — in which case
+// an unexpected exit leaves the instance reaped, today's behavior.
+func (r *Runtime) restartSpec(name string) (engine.RestartSpec, bool) {
+	decl := r.cfg.Lookup(name)
+	if decl == nil {
+		return engine.RestartSpec{}, false
+	}
+	drv, ok := engine.Lookup(decl.Type)
+	if !ok {
+		return engine.RestartSpec{}, false
+	}
+	rs, ok := drv.(engine.Restartable)
+	if !ok {
+		return engine.RestartSpec{}, false
+	}
+	spec := rs.RestartPolicy(r.instanceFor(decl, drv))
+	if spec.Policy == engine.RestartNo || spec.MaxRetries <= 0 {
+		return engine.RestartSpec{}, false
+	}
+	return spec, true
+}
+
+// shouldRestart decides whether an exit warrants a restart under a policy: always
+// on any exit; on_failure only on a non-nil exit error (non-zero status).
+func shouldRestart(policy engine.RestartPolicy, exitErr error) bool {
+	switch policy {
+	case engine.RestartAlways:
+		return true
+	case engine.RestartOnFailure:
+		return exitErr != nil
+	default:
+		return false
+	}
+}
+
+// backoffFor grows the base delay exponentially with the attempt number, capped at
+// 30s so a flapping process backs off without waiting absurdly long.
+func backoffFor(base time.Duration, attempt int) time.Duration {
+	if base <= 0 {
+		base = time.Second
+	}
+	d := base
+	for i := 1; i < attempt; i++ {
+		d *= 2
+		if d >= 30*time.Second {
+			return 30 * time.Second
+		}
+	}
+	return d
 }
 
 // convergedMarkerPath is a sentinel written inside an instance's data dir after
@@ -503,8 +645,8 @@ func (r *Runtime) RunReaper(ctx context.Context) {
 }
 
 // supervised reports whether an instance's engine marks it as a long-lived,
-// always-on process (engine.Lifecycle) — exempt from the idle reaper. No current
-// engine does; it is the seam a future supervised `process` engine plugs into.
+// always-on process (engine.Lifecycle) — exempt from the idle reaper. The process
+// engine implements it; lazy DB/AWS backends do not.
 func (r *Runtime) supervised(name string) bool {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
@@ -519,6 +661,66 @@ func (r *Runtime) supervised(name string) bool {
 		return false
 	}
 	return lc.Supervised(r.instanceFor(decl, drv))
+}
+
+// isSupervised reports whether a resolved (driver, instance) pair is a long-lived
+// supervised process.
+func (r *Runtime) isSupervised(drv engine.Driver, inst engine.Instance) bool {
+	lc, ok := drv.(engine.Lifecycle)
+	return ok && lc.Supervised(inst)
+}
+
+// injectedEnv is the doze-managed environment handed to a supervised process: the
+// same connection strings + AWS creds/region + DOZE_<NAME>_URL that `doze run`
+// injects, derived from every declared instance's endpoint. Best-effort.
+func (r *Runtime) injectedEnv() map[string]string {
+	eps, err := endpoints.For(r.cfg)
+	if err != nil {
+		return nil
+	}
+	return endpoints.EnvVars(eps)
+}
+
+// RunHealthProber periodically probes running supervised instances that expose an
+// engine.HealthChecker and records the result in the registry (for the dashboard
+// badge). It never restarts on a failed probe in v1 — that is the crash watcher's
+// job — so a transient blip can't trigger a flap.
+func (r *Runtime) RunHealthProber(ctx context.Context) {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.probeHealthOnce(ctx)
+		}
+	}
+}
+
+func (r *Runtime) probeHealthOnce(ctx context.Context) {
+	for _, inst := range r.reg.Snapshot() {
+		if inst.State != registry.Active && inst.State != registry.Idle {
+			continue
+		}
+		decl := r.cfg.Lookup(inst.Name)
+		if decl == nil {
+			continue
+		}
+		drv, ok := engine.Lookup(decl.Type)
+		if !ok {
+			continue
+		}
+		hc, ok := drv.(engine.HealthChecker)
+		if !ok {
+			continue
+		}
+		ei := r.instanceFor(decl, drv)
+		if !r.isSupervised(drv, ei) {
+			continue
+		}
+		r.reg.SetHealthy(inst.Name, hc.CheckHealth(ctx, ei) == nil)
+	}
 }
 
 // Up boots an instance and converges it to its declared state, leaving it

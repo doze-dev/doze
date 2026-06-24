@@ -13,6 +13,7 @@ import (
 	_ "github.com/nerdmenot/doze/engine/documentdb" // register the documentdb driver
 	_ "github.com/nerdmenot/doze/engine/kvrocks"    // register the kvrocks driver
 	"github.com/nerdmenot/doze/engine/postgres"
+	"github.com/nerdmenot/doze/engine/process"
 	"github.com/nerdmenot/doze/engine/s3"
 	"github.com/nerdmenot/doze/engine/sns"
 	"github.com/nerdmenot/doze/engine/sqs"
@@ -30,6 +31,7 @@ func main() {
 	// Surface engine convergence warnings on stderr (the daemon redirects its
 	// stderr to the log file). Importing engine/postgres also registers the driver.
 	postgres.Logf = stderrLogger
+	process.Logf = stderrLogger
 	s3.Logf = stderrLogger
 	sqs.Logf = stderrLogger
 	sns.Logf = stderrLogger
@@ -64,6 +66,8 @@ func rootCmd() *cobra.Command {
 		envCmd(),
 		shellCmd(),
 		// Lifecycle (daemon, or a single instance)
+		upCmd(),
+		downCmd(),
 		startCmd(),
 		stopCmd(),
 		restartCmd(),

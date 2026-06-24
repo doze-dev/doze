@@ -13,6 +13,7 @@ type ring struct {
 	max     int
 	buf     []string
 	partial bytes.Buffer
+	total   int // monotonic count of lines ever pushed, for incremental streaming
 }
 
 func newRing(max int) *ring {
@@ -40,6 +41,7 @@ func (r *ring) Write(p []byte) (int, error) {
 // holds the lock.
 func (r *ring) push(line string) {
 	r.buf = append(r.buf, line)
+	r.total++
 	if len(r.buf) > r.max {
 		r.buf = r.buf[len(r.buf)-r.max:]
 	}
@@ -52,4 +54,24 @@ func (r *ring) lines() []string {
 	out := make([]string, len(r.buf))
 	copy(out, r.buf)
 	return out
+}
+
+// since returns the lines pushed after absolute index n, plus the current total
+// (the cursor to pass next time). Lines evicted before n are unavailable — a burst
+// larger than the buffer between polls drops the overflow — so the caller resumes
+// from the oldest line still buffered.
+func (r *ring) since(n int) (lines []string, total int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if n >= r.total {
+		return nil, r.total
+	}
+	oldest := r.total - len(r.buf) // absolute index of buf[0]
+	start := n - oldest
+	if start < 0 {
+		start = 0
+	}
+	out := make([]string, len(r.buf)-start)
+	copy(out, r.buf[start:])
+	return out, r.total
 }

@@ -107,3 +107,34 @@ sns "events_bus" {
     filter   = { eventType = ["created"] }   # message-attribute filter policy
   }
 }
+
+# --- Application processes (no Docker) --------------------------------------
+# A `process` runs your app directly on the host, wired to the services above by
+# typed references. `doze up` boots the databases first, runs pre_start hooks
+# (migrations), starts the app, then waits for its health probe before streaming
+# logs. Uncomment and point `cwd` at a real app to try it.
+#
+# process "api" {
+#   cwd     = "../approvals-engine"
+#   command = "go run main.go -program api"
+#   port    = 8080
+#
+#   env = {
+#     DATABASE_URL = postgres.app_dev.url   # typed ref → boots app_dev first
+#   }
+#
+#   hooks {
+#     pre_start = ["go run main.go -program migrate -command up"]
+#   }
+#
+#   health {
+#     http     = "http://localhost:8080/health/ready"
+#     interval = "2s"
+#     retries  = 30
+#   }
+#
+#   restart {
+#     policy      = "on_failure"
+#     max_retries = 5
+#   }
+# }

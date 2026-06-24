@@ -296,6 +296,12 @@ func logsCmd() *cobra.Command {
 				if !client.Available() {
 					return fmt.Errorf("the daemon is not running; boot an instance first (e.g. `doze start <instance>` or `doze run`)")
 				}
+				if follow {
+					ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+					defer stop()
+					return client.Stream(ctx, control.Request{Op: "logs", Follow: true, DB: args[0]},
+						func(f control.LogFrame) { fmt.Println(f.Line) })
+				}
 				resp, err := client.Do(control.Request{Op: "logs", DB: args[0]})
 				if err != nil {
 					return err

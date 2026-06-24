@@ -1611,13 +1611,20 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 	if v.PID != 0 {
 		cpuVal = ui.CPUStr(v.CPU)
 	}
-	row1 := strings.Join([]string{
-		stLabel.Render("state") + " " + badge,
-		vit("conns", fmt.Sprint(v.Conns)),
-		vit("cpu", cpuVal),
-		vit("pid", pidStr(v.PID)),
-		vit("up", ui.Uptime(v.StartedAt)),
-	}, stFaint.Render("   "))
+	// A process is a supervised app (not a proxied backend), so its vitals lead with
+	// a health badge and restart count rather than a doze connection count.
+	isProc := v.Engine == "process"
+	cells := []string{stLabel.Render("state") + " " + badge}
+	if isProc {
+		cells = append(cells, stLabel.Render("health")+" "+healthBadge(v.Healthy))
+	} else {
+		cells = append(cells, vit("conns", fmt.Sprint(v.Conns)))
+	}
+	cells = append(cells, vit("cpu", cpuVal), vit("pid", pidStr(v.PID)), vit("up", ui.Uptime(v.StartedAt)))
+	if v.RestartCount > 0 {
+		cells = append(cells, vit("restarts", fmt.Sprint(v.RestartCount)))
+	}
+	row1 := strings.Join(cells, stFaint.Render("   "))
 	row2 := stLabel.Render("endpoint ") + stText.Render(orDash(v.Endpoint))
 	urlLine := stLabel.Render(orEnv(v.EnvVar)+" ") + stAccent.Render(truncate(orDash(v.URL), w-len(orEnv(v.EnvVar))-7))
 
@@ -1682,6 +1689,16 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 		status = stErr.Render("✕ " + truncate(v.LastError, w-6))
 	case v.Tainted:
 		status = stErr.Render("✕ structure incomplete — run `doze apply` to re-converge")
+	case isProc && (st == "active" || st == "idle"):
+		// A process is a supervised app: report liveness/health, not connections.
+		switch {
+		case v.Healthy != nil && !*v.Healthy:
+			status = stErr.Render("✕ running but health probe failing")
+		case v.Healthy != nil && *v.Healthy:
+			status = stGreen.Render("● running — healthy")
+		default:
+			status = lipgloss.NewStyle().Foreground(cCyan).Render("● running — waiting for health")
+		}
 	case st == "active":
 		status = stGreen.Render("● serving " + fmt.Sprint(v.Conns) + " connection(s)")
 	case st == "booting":
@@ -1955,6 +1972,19 @@ func displayLabel(state string) string {
 		return "ASLEEP"
 	}
 	return strings.ToUpper(state)
+}
+
+// healthBadge renders a supervised process's latest liveness probe result: nil
+// (not yet probed) reads as "starting".
+func healthBadge(h *bool) string {
+	switch {
+	case h == nil:
+		return lipgloss.NewStyle().Foreground(cCyan).Render("starting")
+	case *h:
+		return stGreen.Render("healthy")
+	default:
+		return stErr.Render("unhealthy")
+	}
 }
 
 func renderLogs(lines []string) string {
