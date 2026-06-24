@@ -82,7 +82,7 @@ type Process interface {
 
 // Converger is implemented by engines that converge to a declared structural
 // spec (roles, databases, schemas, grants, extensions). The runtime calls it
-// only on a freshly provisioned instance (and on explicit `doze up`). Engines
+// only on a freshly provisioned instance (and on explicit `doze apply`). Engines
 // without structure (Valkey, Kvrocks) do not implement it.
 type Converger interface {
 	Converge(ctx context.Context, inst Instance, tc Toolchain, ep Endpoint) error

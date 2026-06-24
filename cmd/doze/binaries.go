@@ -21,7 +21,7 @@ func binariesCmd() *cobra.Command {
 		Long: "binaries inspects the engine toolchains doze resolves from the mirror.\n" +
 			"Resolved versions and checksums are pinned in doze.lock.",
 	}
-	cmd.AddCommand(binariesListCmd(), binariesWhichCmd())
+	cmd.AddCommand(binariesListCmd(), binariesWhichCmd(), binariesAvailableCmd())
 	return cmd
 }
 

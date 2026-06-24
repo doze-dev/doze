@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,14 +23,29 @@ import (
 )
 
 func startCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "start",
-		Short: "Start the daemon in the background",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+	var foreground bool
+	cmd := &cobra.Command{
+		Use:   "start [instance]",
+		Short: "Start the daemon, or boot an instance's backend",
+		Long: "With no argument, start launches the background daemon (the proxy listener,\n" +
+			"the idle reaper, and the control socket). With an instance name, it boots\n" +
+			"that backend now — warming it up instead of waiting for a connection. Use\n" +
+			"--foreground to run the daemon in this terminal, printing boot/convergence\n" +
+			"progress, instead of detaching.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
+			}
+			if foreground {
+				if len(args) == 1 {
+					return fmt.Errorf("--foreground runs the daemon and takes no instance argument")
+				}
+				return runDaemonForeground(cfg)
+			}
+			if len(args) == 1 {
+				return bootInstance(cfg, args[0])
 			}
 			if daemonRunning(cfg) {
 				fmt.Println("doze is already running")
@@ -41,17 +58,25 @@ func startCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&foreground, "foreground", "f", false, "run the daemon in the foreground instead of detaching")
+	return cmd
 }
 
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop",
-		Short: "Stop the background daemon (reaping all backends)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Use:   "stop [instance]",
+		Short: "Stop the daemon, or reap a single instance's backend",
+		Long: "With no argument, stop shuts down the background daemon (reaping every\n" +
+			"backend). With an instance name, it reaps just that backend — the daemon\n" +
+			"keeps running and the next connection re-boots it.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
+			}
+			if len(args) == 1 {
+				return stopInstance(cfg, args[0])
 			}
 			pid := daemonPid(cfg)
 			if pid == 0 {
@@ -72,6 +97,91 @@ func stopCmd() *cobra.Command {
 			return fmt.Errorf("daemon (pid %d) did not stop", pid)
 		},
 	}
+}
+
+// runDaemonForeground runs the listener daemon in this terminal (the old
+// `serve`): proxy listeners, idle reaper, and control socket, until SIGINT/TERM.
+func runDaemonForeground(cfg *config.Config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	d, err := daemon.New(cfg, stderrLogger)
+	if err != nil {
+		return err
+	}
+	return d.Run(ctx)
+}
+
+// bootInstance starts one instance's backend now (the old `boot`): ensure the
+// daemon is up so the backend is held, then boot it via the control socket.
+func bootInstance(cfg *config.Config, name string) error {
+	if cfg.Lookup(name) == nil {
+		return instanceNotFound(cfg, name)
+	}
+	if !daemonRunning(cfg) {
+		if err := startDaemon(cfg); err != nil {
+			return err
+		}
+	}
+	client := control.NewClient(daemon.ControlSocketPath(cfg))
+	fmt.Print(ui.Muted("› booting "+name+"…") + "\r")
+	if _, err := client.Do(control.Request{Op: "boot", DB: name}); err != nil {
+		fmt.Println(ui.Fail("✗") + " " + name + ": " + err.Error())
+		return err
+	}
+	fmt.Println(ui.OK("✓") + " booted " + name + "    ")
+	return nil
+}
+
+// stopInstance reaps one instance's backend (the old `down <instance>`): via the
+// daemon when it's up, otherwise by signalling the backend's pidfile directly.
+func stopInstance(cfg *config.Config, name string) error {
+	if cfg.Lookup(name) == nil {
+		return instanceNotFound(cfg, name)
+	}
+	client := control.NewClient(daemon.ControlSocketPath(cfg))
+	if client.Available() {
+		if _, err := client.Do(control.Request{Op: "down", DB: name}); err != nil {
+			return err
+		}
+		fmt.Println("stopped", name)
+		return nil
+	}
+	ok, err := stopByPidFile(cfg, name)
+	if err != nil {
+		return err
+	}
+	if ok {
+		fmt.Println("stopped", name)
+	} else {
+		fmt.Println(name, "is not running")
+	}
+	return nil
+}
+
+// stopByPidFile sends SIGINT (fast shutdown) to a backend identified by its data
+// dir's postmaster.pid, when no daemon is available to do it for us.
+func stopByPidFile(cfg *config.Config, name string) (bool, error) {
+	pidPath := filepath.Join(cfg.ClusterDir(name), "postmaster.pid")
+	raw, err := os.ReadFile(pidPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	line := strings.SplitN(string(raw), "\n", 2)[0]
+	pid, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || pid <= 0 {
+		return false, nil
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false, nil
+	}
+	if err := proc.Signal(syscall.SIGINT); err != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 func restartCmd() *cobra.Command {
@@ -152,8 +262,9 @@ func logsCmd() *cobra.Command {
 
 // --- helpers ---
 
-// startDaemon launches `doze serve` as a detached background process whose
-// output is redirected to the daemon log file, then waits for it to come up.
+// startDaemon launches the daemon (`doze start --foreground`) as a detached
+// background process whose output is redirected to the daemon log file, then
+// waits for it to come up.
 func startDaemon(cfg *config.Config) error {
 	self, err := os.Executable()
 	if err != nil {
@@ -173,7 +284,7 @@ func startDaemon(cfg *config.Config) error {
 	}
 	defer logFile.Close()
 
-	c := exec.Command(self, "serve", "--config", absConfig)
+	c := exec.Command(self, "start", "--foreground", "--config", absConfig)
 	c.Stdout = logFile
 	c.Stderr = logFile
 	c.Stdin = nil

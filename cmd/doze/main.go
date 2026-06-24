@@ -44,7 +44,7 @@ func rootCmd() *cobra.Command {
 		Use:   "doze",
 		Short: "Weightless local databases & AWS services — real engines, lazy boot, idle reap",
 		Long: "doze runs real local backing services without Docker — Postgres, Valkey,\n" +
-			"Kvrocks, FerretDB, and built-in S3/SQS/SNS. A thin proxy routes each\n" +
+			"Kvrocks, DocumentDB, and built-in S3/SQS/SNS. A thin proxy routes each\n" +
 			"connection to a per-instance backend, booting it on first connect and\n" +
 			"reaping it when idle.",
 		SilenceUsage:  true,
@@ -54,29 +54,31 @@ func rootCmd() *cobra.Command {
 	root.PersistentFlags().StringArrayVar(&varFlags, "var", nil, "set a config variable: --var name=value (repeatable)")
 
 	root.AddCommand(
-		serveCmd(),
-		startCmd(),
-		stopCmd(),
-		restartCmd(),
-		logsCmd(),
-		bootCmd(),
+		// Structure (declarative)
 		planCmd(),
 		applyCmd(),
 		destroyCmd(),
-		downCmd(),
-		resetCmd(),
-		statusCmd(),
+		outputCmd(),
+		// Run / connect
 		runCmd(),
 		envCmd(),
-		outputCmd(),
-		ephemeralCmd(),
-		versionsCmd(),
-		psqlCmd(),
+		shellCmd(),
+		// Lifecycle (daemon, or a single instance)
+		startCmd(),
+		stopCmd(),
+		restartCmd(),
+		// Inspect
+		statusCmd(),
 		dashCmd(),
-		binariesCmd(),
-		initCmd(),
+		logsCmd(),
 		doctorCmd(),
+		// Setup / manage
+		initCmd(),
+		resetCmd(),
+		binariesCmd(),
+		ephemeralCmd(),
 		versionCmd(),
+		// Internal (hidden)
 		serveInternalCmd(),
 	)
 	return root

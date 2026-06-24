@@ -135,7 +135,7 @@ func renderTable(views []control.InstanceView) {
 	for _, v := range failed {
 		msg := v.LastError
 		if msg == "" && v.Tainted {
-			msg = "structure incomplete — run `doze up` to re-converge"
+			msg = "structure incomplete — run `doze apply` to re-converge"
 		}
 		fmt.Printf("  %s %s: %s\n", ui.Fail("✗"), v.Name, msg)
 	}

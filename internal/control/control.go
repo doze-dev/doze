@@ -1,6 +1,6 @@
 // Package control is the thin admin IPC between the `doze` CLI and a running
-// `doze serve` daemon. It speaks newline-delimited JSON over a unix socket so
-// commands like `status`, `down`, and `dash` can reflect and steer live state.
+// doze daemon. It speaks newline-delimited JSON over a unix socket so commands
+// like `status`, `stop`, and `dash` can reflect and steer live state.
 package control
 
 import (

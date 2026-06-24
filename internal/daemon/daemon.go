@@ -1,5 +1,5 @@
 // Package daemon wires the runtime, per-instance proxy listeners, reaper, and
-// control socket into the long-running `doze serve` process.
+// control socket into the long-running daemon process (`doze start`).
 package daemon
 
 import (

@@ -46,7 +46,7 @@ func initCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("wrote %s\n", configPath)
-			fmt.Println("next: `doze up` to provision, then `doze start` and connect")
+			fmt.Println("next: `doze plan` to preview, `doze apply` to provision, then connect")
 			return nil
 		},
 	}

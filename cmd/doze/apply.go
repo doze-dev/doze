@@ -16,9 +16,8 @@ import (
 func applyCmd() *cobra.Command {
 	var autoApprove bool
 	cmd := &cobra.Command{
-		Use:     "apply [instance]",
-		Aliases: []string{"up"},
-		Short:   "Apply config: converge declared structure, pruning what's removed",
+		Use:   "apply [instance]",
+		Short: "Apply config: converge declared structure, pruning what's removed",
 		Long: "apply brings the local environment in line with doze.hcl — creating or\n" +
 			"updating databases, schemas, roles, extensions, and the declared S3\n" +
 			"buckets / SQS queues / SNS topics, and dropping structure that was applied\n" +

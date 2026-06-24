@@ -24,7 +24,7 @@ func (r *Runtime) Apply(ctx context.Context, name string) error {
 	}
 	for _, n := range r.targetNames(name) {
 		if !r.hasStructure(n) {
-			continue // no structure to apply; it boots lazily or via `doze boot`
+			continue // no structure to apply; it boots lazily or via `doze start <instance>`
 		}
 		if err := r.Up(ctx, n); err != nil { // boot + converge (creates/updates)
 			return err

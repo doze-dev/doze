@@ -1241,7 +1241,7 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 	case v.LastError != "":
 		status = stErr.Render("✕ " + truncate(v.LastError, w-6))
 	case v.Tainted:
-		status = stErr.Render("✕ structure incomplete — run `doze up` to re-converge")
+		status = stErr.Render("✕ structure incomplete — run `doze apply` to re-converge")
 	case st == "active":
 		status = stGreen.Render("● serving " + fmt.Sprint(v.Conns) + " connection(s)")
 	case st == "booting":

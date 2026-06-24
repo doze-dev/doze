@@ -14,11 +14,11 @@ import (
 	"github.com/nerdmenot/doze/internal/engine"
 )
 
-func versionsCmd() *cobra.Command {
+func binariesAvailableCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "versions [engine]",
-		Short: "List database versions available from the mirror",
-		Long: "versions lists the engine versions the doze-binaries mirror offers (like\n" +
+		Use:   "available [engine]",
+		Short: "List engine versions available from the mirror",
+		Long: "available lists the engine versions the doze-binaries mirror offers (like\n" +
 			"`nvm ls-remote`), marking which are installed locally and pinned in\n" +
 			"doze.lock. With an engine argument it also shows the platforms each\n" +
 			"version is built for.",

@@ -1,44 +1,27 @@
 # CLI reference
 
-Every command. The global flag `-c, --config <path>` selects the config (default
-`doze.hcl`); it can also point at a directory to merge all its `*.hcl` files.
+The global flag `-c, --config <path>` selects the config (default `doze.hcl`,
+which auto-merges sibling `*.doze.hcl` files; a directory merges its `*.hcl`).
+`--var name=value` (repeatable) overrides a config variable.
 
 Most commands auto-start the background daemon if it isn't running, so you rarely
-manage it directly.
+manage it directly. The command set has two parallel quartets — **structure**
+(`plan`/`apply`/`destroy`/`output`) and **lifecycle** (`start`/`stop`/`restart`) —
+where every lifecycle verb takes an optional instance (no argument = the daemon).
 
-## Everyday
-
-### `doze init [--force]`
-Scaffold a starter `doze.hcl` in the current directory. `--force` overwrites an
-existing file.
-
-### `doze run -- <command> [args…]`
-Ensure the daemon is up, inject every instance's connection string into the
-environment, run the command, and propagate its exit code. The core dev command.
-```sh
-doze run -- npm test
-doze run -- go run ./cmd/api
-doze run -- sh -c 'echo "$DATABASE_URL"'
-```
-
-### `doze env`
-Print `export` lines for the connection strings, for `eval "$(doze env)"`. Also
-writes `.doze/endpoints.yaml`.
+## Structure (declarative)
 
 ### `doze plan [instance]`
 Show the structural changes `apply` would make — the diff between the declared
 structure and the last applied state, as `+` create / `~` change / `-` destroy.
 Read-only; makes no changes and boots nothing.
-```sh
-doze plan
-```
 
-### `doze apply [instance]` (alias `doze up`)
+### `doze apply [instance]`
 Converge declared structure — databases, roles, schemas, extensions, buckets,
 queues, topics — **and prune** objects that were applied before but are no longer
 declared. Shows the plan and asks for confirmation first (skip with
 `--auto-approve`). Records the result in `.doze/state.json`. With no argument,
-applies everything.
+applies every instance that has structure.
 ```sh
 doze apply                  # plan, confirm, apply everything
 doze apply app              # just `app`
@@ -50,50 +33,83 @@ Drop the structural objects doze has applied (tracked in state) and clear them
 from state. Shows a plan and confirms first (`--auto-approve` to skip). This is
 **not** `doze reset` — it removes logical structure (roles/databases/buckets/…),
 not the engine's on-disk data directory.
+
+### `doze output [name]`
+Print the values declared in `output` blocks (connection strings, facts). With a
+name, prints just that value, raw — for `$(doze output db_url)` in scripts;
+sensitive outputs are masked in the full listing.
+
+## Run & connect
+
+### `doze run -- <command> [args…]`
+Ensure the daemon is up, inject every instance's connection string into the
+environment, run the command, and propagate its exit code. The core dev command.
 ```sh
-doze destroy
-doze destroy app --auto-approve
+doze run -- npm test
+doze run -- sh -c 'echo "$DATABASE_URL"'
 ```
 
-### `doze psql <instance> [-- psql args…]`
-Open an interactive `psql` shell to a Postgres instance, booting it if cold.
-Arguments after `--` pass through.
+### `doze env`
+Print `export` lines for the connection strings, for `eval "$(doze env)"`. Also
+writes `.doze/endpoints.yaml`.
+
+### `doze shell <instance> [-- client args…]` (alias `doze psql`)
+Open the right interactive client for an instance's engine — `psql` for postgres,
+`redis-cli` for valkey/kvrocks, `mongosh` for documentdb — connected through
+doze's endpoint, booting the backend on connect. Arguments after the name pass
+through to the client.
 ```sh
-doze psql app
-doze psql app -- -c 'select now()'
+doze shell app
+doze shell app -- -c 'select now()'
+doze shell cache               # opens redis-cli
 ```
 
 ### `doze ephemeral <instance> [-- command…]`
 Boot a disposable copy-on-write clone of an instance, inject its connection
 string, run the command (or wait for Ctrl-C), then reap and delete it. Ideal for
 isolated test runs.
+
+## Lifecycle
+
+Each verb acts on the **daemon** with no argument, or on a **single instance**
+with one.
+
+### `doze start [instance]`
+No argument: start the background daemon (proxy listener, idle reaper, control
+socket). With an instance: boot that backend now — warming it up instead of
+waiting for a connection. `-f`/`--foreground` runs the daemon in this terminal,
+printing boot/convergence progress, instead of detaching.
 ```sh
-doze ephemeral app -- pytest
-doze ephemeral app                 # print the clone's URL and wait
+doze start            # start the daemon
+doze start app        # boot the app backend now
+doze start -f         # run the daemon in the foreground
 ```
+
+### `doze stop [instance]`
+No argument: stop the daemon, reaping every backend. With an instance: reap just
+that backend — the daemon keeps running and the next connection re-boots it. Data
+persists either way.
+
+### `doze restart [instance]`
+No argument: restart the daemon. With an instance: restart that backend (reap +
+re-boot) — e.g. to pick up changed engine tuning.
 
 ## Inspect
 
 ### `doze status` (alias `doze ls`)
 List instances and their live state — engine, colored state, connections, RAM,
 uptime, endpoint, PID. Shows on-disk state when the daemon is stopped; an instance
-that failed to boot shows state `error` with the reason. Output is plain when
-piped (safe for scripts).
+whose last apply failed shows `tainted`, and one that failed to boot shows
+`error` with the reason. Output is plain when piped (safe for scripts).
 
 ### `doze dash`
-Launch the live, interactive TUI — a split "mission control": an instance
-sidebar on the left, and on the right the selected instance's telemetry (state,
-RAM/connection sparklines, a reap countdown) above its **streaming logs**. It
-refreshes continuously. Select a row with `↑/↓`, then:
-`b` boot · `d` reap · `R` restart · `f` toggle log-follow · `/` filter ·
-`r` refresh · `q` quit. **Mouse:** click an instance to select it; scroll over
-the sidebar to move the selection, or over the logs pane to scroll the logs
-(scrolling up pauses follow; scrolling to the bottom resumes it).
-**Copy logs:** drag across the log lines with the mouse to select a range and
-release to copy it; or press `c` for keyboard copy mode (`↑/↓` move, `v` anchors
-a range, `a` selects all, `c`/`y` copies, `esc` cancels). Either way the selected
-lines go to the system clipboard. For piping/redirecting, `doze logs <instance>`
-prints to stdout instead.
+Launch the live, interactive TUI — a split "mission control": an instance sidebar
+on the left, and on the right the selected instance's telemetry (state,
+RAM/connection sparklines, a reap countdown) above its **streaming logs**. Select
+a row with `↑/↓`, then: `b` boot · `d` reap · `R` restart · `f` toggle log-follow ·
+`/` filter · `r` refresh · `q` quit. Mouse: click to select, scroll the sidebar or
+the logs pane; drag across log lines (or `c` for keyboard copy mode) to copy to
+the clipboard. For piping, `doze logs <instance>` prints to stdout instead.
 
 ### `doze logs [instance] [-f]`
 With no argument, tail the daemon's log. With an instance, show that backend's
@@ -103,34 +119,23 @@ logs. `-f`/`--follow` follows like `tail -f`.
 Diagnose the environment: config parses, platform, home/project dirs, per-instance
 toolchain status, and daemon state.
 
-### `doze versions [engine]`
-List engine versions the mirror offers (like `nvm ls-remote`), marking which are
-installed and pinned. With an engine name, also shows the platforms each version
-is built for.
+## Setup & toolchain
 
-### `doze binaries list` · `doze binaries which <instance>`
-`list` shows declared instances with their pinned/cached toolchains; `which`
-resolves and prints an instance's bin directory.
+### `doze init [--force]`
+Scaffold a starter `doze.hcl` in the current directory. `--force` overwrites an
+existing file.
 
-## Lifecycle
+### `doze reset [instance]`
+Wipe an instance's data directory and start fresh — the clean-slate counterpart to
+`stop` (which only reaps the process). The next connection re-provisions and
+re-converges. Downloaded toolchains are kept; `--hard` also drops shared templates.
 
-### `doze boot [instance]`
-Boot an instance's backend now — warming it up instead of waiting for the first
-connection. Ensures the daemon is running so it's held alive and idle-reaped like
-any other; with no argument, boots every declared instance. Unlike `apply`, it
-touches no structure.
-
-### `doze start` / `doze stop` / `doze restart [instance]`
-Manage the background daemon. `restart` with no argument restarts the daemon;
-`restart <instance>` restarts a single instance (reap + re-boot).
-
-### `doze serve`
-Run the daemon in the **foreground** (instead of `start`), printing styled
-boot/convergence progress to your terminal. Useful for watching what happens.
-
-### `doze down [instance]`
-Reap a running backend (or all of them with no argument). Data persists; the next
-connection re-boots it.
+### `doze binaries` (alias `bin`)
+Inspect engine toolchains:
+- `binaries list` — declared instances with their pinned/cached toolchains.
+- `binaries which <instance>` — resolve and print an instance's bin directory.
+- `binaries available [engine]` — versions the mirror offers (like `nvm ls-remote`),
+  marking which are installed and pinned; with an engine, the platforms each builds for.
 
 ### `doze version`
 Print the doze version and Go runtime.
@@ -140,6 +145,7 @@ Print the doze version and Go runtime.
 | Variable | Effect |
 |---|---|
 | `DOZE_HOME` | Override the shared home (default `~/.doze`). |
+| `DOZE_VAR_<name>` | Set a config variable (lower precedence than `--var`). |
 | `DOZE_<ENGINE>_BINDIR` | Use an explicit engine bin dir instead of downloading (e.g. `DOZE_POSTGRES_BINDIR`). |
 | `DOZE_<ENGINE>_MIRROR` / `DOZE_MIRROR` | Override the binaries mirror — see [BINARIES](../BINARIES.md). |
 | `NO_COLOR` | Disable colored output. |
