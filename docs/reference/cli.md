@@ -114,6 +114,12 @@ resolves and prints an instance's bin directory.
 
 ## Lifecycle
 
+### `doze boot [instance]`
+Boot an instance's backend now — warming it up instead of waiting for the first
+connection. Ensures the daemon is running so it's held alive and idle-reaped like
+any other; with no argument, boots every declared instance. Unlike `apply`, it
+touches no structure.
+
 ### `doze start` / `doze stop` / `doze restart [instance]`
 Manage the background daemon. `restart` with no argument restarts the daemon;
 `restart <instance>` restarts a single instance (reap + re-boot).
