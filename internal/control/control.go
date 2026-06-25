@@ -78,6 +78,9 @@ type InstanceView struct {
 	Tainted   bool      `json:"tainted,omitempty"`    // last convergence failed/incomplete
 	Declared  bool      `json:"declared"`
 	KeepAwake bool      `json:"keep_awake,omitempty"` // pinned: exempt from the idle reaper
+	// Group is the display heading for status/dash; empty means "infer from engine
+	// category" (an explicit `group=` or a module address can set it later).
+	Group string `json:"group,omitempty"`
 	// RestartCount is how many times a supervised process has been re-booted after
 	// an unexpected exit; 0 for DB/AWS backends.
 	RestartCount int `json:"restart_count,omitempty"`

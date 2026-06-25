@@ -14,6 +14,7 @@ import (
 	"github.com/nerdmenot/doze/internal/control"
 	"github.com/nerdmenot/doze/internal/daemon"
 	"github.com/nerdmenot/doze/internal/endpoints"
+	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/ui"
 )
 
@@ -103,8 +104,6 @@ func renderTable(views []control.InstanceView) {
 		return
 	}
 	header := []string{"NAME", "ENGINE", "VERSION", "STATE", "CONNS", "CPU", "RAM", "UPTIME", "ENDPOINT", "PID"}
-	var rows [][]string
-	var failed []control.InstanceView
 	pids := make([]int, 0, len(views))
 	for _, v := range views {
 		if v.PID != 0 {
@@ -112,18 +111,18 @@ func renderTable(views []control.InstanceView) {
 		}
 	}
 	stats := ui.ProcStats(pids)
-	for _, v := range views {
+
+	var failed []control.InstanceView
+	rowFor := func(v control.InstanceView) []string {
 		state := v.State
 		flagged := false
 		if v.LastError != "" && (v.State == "reaped" || v.State == "") {
-			state = "error"
-			flagged = true
+			state, flagged = "error", true
 		}
 		// A running-but-tainted instance is serving with known-incomplete structure
 		// (its last converge failed) — flag it so it never looks healthy.
 		if v.Tainted {
-			state = "tainted"
-			flagged = true
+			state, flagged = "tainted", true
 		}
 		if flagged {
 			failed = append(failed, v)
@@ -134,11 +133,35 @@ func renderTable(views []control.InstanceView) {
 			st := stats[v.PID]
 			ram, cpu = ui.HumanBytes(st.RSS), ui.CPUStr(st.CPU)
 		}
-		rows = append(rows, []string{
+		return []string{
 			v.Name, v.Engine, v.Version, ui.State(state),
 			strconv.Itoa(v.Conns), cpu, ram, ui.Uptime(v.StartedAt), v.Endpoint, pid,
-		})
+		}
 	}
+
+	// Group by engine category so the list reads by concern (databases, caches,
+	// queues, storage, your services) instead of as a flat dump.
+	byCat := map[string][]control.InstanceView{}
+	for _, v := range views {
+		byCat[instanceGroup(v)] = append(byCat[instanceGroup(v)], v)
+	}
+	var rows [][]string
+	first := true
+	for _, cat := range engine.CategoryOrder {
+		group := byCat[cat]
+		if len(group) == 0 {
+			continue
+		}
+		if !first {
+			rows = append(rows, make([]string, len(header))) // blank separator row
+		}
+		first = false
+		rows = append(rows, sectionRow(len(header), cat))
+		for _, v := range group {
+			rows = append(rows, rowFor(v))
+		}
+	}
+
 	fmt.Println(ui.Table(header, rows))
 	for _, v := range failed {
 		msg := v.LastError
@@ -147,4 +170,20 @@ func renderTable(views []control.InstanceView) {
 		}
 		fmt.Printf("  %s %s: %s\n", ui.Fail("✗"), v.Name, msg)
 	}
+}
+
+// instanceGroup is the heading an instance falls under (an explicit group wins;
+// otherwise its engine category).
+func instanceGroup(v control.InstanceView) string {
+	if v.Group != "" {
+		return v.Group
+	}
+	return engine.Category(v.Engine)
+}
+
+// sectionRow is a styled category heading row spanning the table's NAME column.
+func sectionRow(cols int, label string) []string {
+	r := make([]string, cols)
+	r[0] = ui.Muted("▸ " + label)
+	return r
 }

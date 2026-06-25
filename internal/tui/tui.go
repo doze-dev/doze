@@ -20,6 +20,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/nerdmenot/doze/internal/control"
+	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/ui"
 )
 
@@ -370,9 +371,57 @@ func (m model) visible() []int {
 		idx = append(idx, i)
 	}
 	sort.SliceStable(idx, func(a, b int) bool {
-		return m.resp.Instances[idx[a]].Name < m.resp.Instances[idx[b]].Name
+		ia, ib := m.resp.Instances[idx[a]], m.resp.Instances[idx[b]]
+		if ra, rb := groupRank(groupOf(ia)), groupRank(groupOf(ib)); ra != rb {
+			return ra < rb
+		}
+		return ia.Name < ib.Name
 	})
 	return idx
+}
+
+// groupOf is the display heading an instance falls under (explicit group wins,
+// else its engine category).
+func groupOf(in control.InstanceView) string {
+	if in.Group != "" {
+		return in.Group
+	}
+	return engine.Category(in.Engine)
+}
+
+// groupRank orders the fixed engine categories; unknown groups (e.g. modules)
+// sort after them, alphabetically via the stable name tiebreak.
+func groupRank(cat string) int {
+	for i, c := range engine.CategoryOrder {
+		if c == cat {
+			return i
+		}
+	}
+	return len(engine.CategoryOrder)
+}
+
+// sbLine is one rendered sidebar line: a group header, or an instance at display
+// index di (into visible()). The cursor only ever lands on instance lines.
+type sbLine struct {
+	header string
+	di     int
+}
+
+// sidebarLines lays out the visible instances with a header line inserted wherever
+// the group changes. Both the renderer and the click handler use it so headers and
+// selection stay in sync.
+func (m model) sidebarLines() []sbLine {
+	vis := m.visible()
+	out := make([]sbLine, 0, len(vis)+4)
+	prev := ""
+	for di, i := range vis {
+		if g := groupOf(m.resp.Instances[i]); g != prev {
+			out = append(out, sbLine{header: g})
+			prev = g
+		}
+		out = append(out, sbLine{di: di})
+	}
+	return out
 }
 
 func (m model) selected() (control.InstanceView, bool) {
@@ -573,9 +622,14 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if overSidebar {
-			if row := msg.Y - headerRows; row >= 0 && row < len(m.visible()) {
-				m.cursor = row
-				return m, m.onSelect()
+			// Map the clicked body row to a sidebar line (headers interspersed); only
+			// instance lines are selectable.
+			lines := m.sidebarLines()
+			if row := msg.Y - headerRows; row >= 0 && row < len(lines) {
+				if ln := lines[row]; ln.header == "" {
+					m.cursor = ln.di
+					return m, m.onSelect()
+				}
 			}
 		} else if m.logsRegion(msg.Y) && len(m.logLines) > 0 {
 			// Enter copy mode (line granularity by default) anchored at the click.
@@ -1474,8 +1528,12 @@ func (m model) viewSidebar() string {
 		}
 	}
 	var rows []string
-	for di, i := range vis {
-		rows = append(rows, m.sidebarRow(m.resp.Instances[i], di == m.cursor, w, maxRAM))
+	for _, ln := range m.sidebarLines() {
+		if ln.header != "" {
+			rows = append(rows, m.sidebarHeader(ln.header, w))
+			continue
+		}
+		rows = append(rows, m.sidebarRow(m.resp.Instances[vis[ln.di]], ln.di == m.cursor, w, maxRAM))
 	}
 	if len(rows) == 0 {
 		rows = append(rows, stDim.Render("  (no instances)"))
@@ -1490,6 +1548,12 @@ func (m model) viewSidebar() string {
 		Border(lipgloss.NormalBorder(), false, true, false, false). // right edge only
 		BorderForeground(cPanel).
 		Render(strings.Join(all, "\n"))
+}
+
+// sidebarHeader renders a group section label (a faint, upper-case heading that
+// reads distinctly from the indented instance rows below it).
+func (m model) sidebarHeader(label string, w int) string {
+	return lipgloss.NewStyle().Width(w).Render(stFaint.Render(strings.ToUpper(label)))
 }
 
 func (m model) sidebarRow(in control.InstanceView, selected bool, w int, maxRAM int64) string {
