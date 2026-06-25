@@ -39,6 +39,8 @@ const (
 	Engine_CheckHealth_FullMethodName    = "/dozeplugin.v1.Engine/CheckHealth"
 	Engine_RestartPolicy_FullMethodName  = "/dozeplugin.v1.Engine/RestartPolicy"
 	Engine_AdvertisedAddr_FullMethodName = "/dozeplugin.v1.Engine/AdvertisedAddr"
+	Engine_EnsureTemplate_FullMethodName = "/dozeplugin.v1.Engine/EnsureTemplate"
+	Engine_CloneTemplate_FullMethodName  = "/dozeplugin.v1.Engine/CloneTemplate"
 )
 
 // EngineClient is the client API for Engine service.
@@ -74,6 +76,8 @@ type EngineClient interface {
 	CheckHealth(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*Empty, error)
 	RestartPolicy(ctx context.Context, in *RestartPolicyRequest, opts ...grpc.CallOption) (*RestartSpec, error)
 	AdvertisedAddr(ctx context.Context, in *AddrRequest, opts ...grpc.CallOption) (*AddrResponse, error)
+	EnsureTemplate(ctx context.Context, in *EnsureTemplateRequest, opts ...grpc.CallOption) (*Empty, error)
+	CloneTemplate(ctx context.Context, in *CloneTemplateRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type engineClient struct {
@@ -284,6 +288,26 @@ func (c *engineClient) AdvertisedAddr(ctx context.Context, in *AddrRequest, opts
 	return out, nil
 }
 
+func (c *engineClient) EnsureTemplate(ctx context.Context, in *EnsureTemplateRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Engine_EnsureTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *engineClient) CloneTemplate(ctx context.Context, in *CloneTemplateRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Engine_CloneTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EngineServer is the server API for Engine service.
 // All implementations must embed UnimplementedEngineServer
 // for forward compatibility.
@@ -317,6 +341,8 @@ type EngineServer interface {
 	CheckHealth(context.Context, *HealthRequest) (*Empty, error)
 	RestartPolicy(context.Context, *RestartPolicyRequest) (*RestartSpec, error)
 	AdvertisedAddr(context.Context, *AddrRequest) (*AddrResponse, error)
+	EnsureTemplate(context.Context, *EnsureTemplateRequest) (*Empty, error)
+	CloneTemplate(context.Context, *CloneTemplateRequest) (*Empty, error)
 	mustEmbedUnimplementedEngineServer()
 }
 
@@ -386,6 +412,12 @@ func (UnimplementedEngineServer) RestartPolicy(context.Context, *RestartPolicyRe
 }
 func (UnimplementedEngineServer) AdvertisedAddr(context.Context, *AddrRequest) (*AddrResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AdvertisedAddr not implemented")
+}
+func (UnimplementedEngineServer) EnsureTemplate(context.Context, *EnsureTemplateRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method EnsureTemplate not implemented")
+}
+func (UnimplementedEngineServer) CloneTemplate(context.Context, *CloneTemplateRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CloneTemplate not implemented")
 }
 func (UnimplementedEngineServer) mustEmbedUnimplementedEngineServer() {}
 func (UnimplementedEngineServer) testEmbeddedByValue()                {}
@@ -768,6 +800,42 @@ func _Engine_AdvertisedAddr_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Engine_EnsureTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EnsureTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EngineServer).EnsureTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Engine_EnsureTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EngineServer).EnsureTemplate(ctx, req.(*EnsureTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Engine_CloneTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CloneTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EngineServer).CloneTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Engine_CloneTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EngineServer).CloneTemplate(ctx, req.(*CloneTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Engine_ServiceDesc is the grpc.ServiceDesc for Engine service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -854,6 +922,14 @@ var Engine_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AdvertisedAddr",
 			Handler:    _Engine_AdvertisedAddr_Handler,
+		},
+		{
+			MethodName: "EnsureTemplate",
+			Handler:    _Engine_EnsureTemplate_Handler,
+		},
+		{
+			MethodName: "CloneTemplate",
+			Handler:    _Engine_CloneTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

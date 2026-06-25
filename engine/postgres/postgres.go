@@ -97,6 +97,35 @@ func (Driver) Provision(ctx context.Context, inst engine.Instance, tc engine.Too
 // Provisioned implements engine.Driver.
 func (Driver) Provisioned(dataDir string) bool { return provisioned(dataDir) }
 
+// Plan implements engine.Spawner: it returns a one-spec SpawnPlan that core's
+// supervisor runs and reaps, gated on pg_isready. It does the same pre-spawn prep
+// Spawn did (socket dir + stale-lock clearing) so the declarative path is
+// behaviour-identical; Spawn/WaitReady remain for the in-tree LegacySpawner path.
+func (Driver) Plan(_ context.Context, inst engine.Instance, tc engine.Toolchain) (engine.SpawnPlan, error) {
+	if err := os.MkdirAll(inst.SocketDir, 0o700); err != nil {
+		return engine.SpawnPlan{}, fmt.Errorf("creating socket dir: %w", err)
+	}
+	if err := clearStaleLock(inst); err != nil {
+		return engine.SpawnPlan{}, err
+	}
+	spec := engine.SpawnSpec{
+		Name: "postgres",
+		Bin:  tc.Path("postgres"),
+		Args: []string{
+			"-D", inst.DataDir,
+			"-k", inst.SocketDir,
+			"-p", strconv.Itoa(inst.Port),
+			"-c", "listen_addresses=", // unix socket only
+		},
+		Ready: &engine.Ready{
+			Kind:    "exec",
+			Target:  fmt.Sprintf("%s -h %s -p %d -d postgres", tc.Path("pg_isready"), inst.SocketDir, inst.Port),
+			Timeout: bootTimeout,
+		},
+	}
+	return engine.SpawnPlan{Specs: []engine.SpawnSpec{spec}}, nil
+}
+
 // Spawn implements engine.Driver.
 func (Driver) Spawn(ctx context.Context, inst engine.Instance, tc engine.Toolchain) (engine.Process, error) {
 	if err := os.MkdirAll(inst.SocketDir, 0o700); err != nil {

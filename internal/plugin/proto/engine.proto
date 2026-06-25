@@ -34,6 +34,8 @@ service Engine {
   rpc CheckHealth(HealthRequest) returns (Empty);           // CAP_HEALTH
   rpc RestartPolicy(RestartPolicyRequest) returns (RestartSpec); // CAP_RESTARTABLE
   rpc AdvertisedAddr(AddrRequest) returns (AddrResponse);   // CAP_PORTBINDER
+  rpc EnsureTemplate(EnsureTemplateRequest) returns (Empty); // CAP_TEMPLATER
+  rpc CloneTemplate(CloneTemplateRequest) returns (Empty);   // CAP_TEMPLATER
 }
 
 message Empty {}
@@ -113,6 +115,8 @@ message ConnStringRequest { Instance instance = 1; Endpoint endpoint = 2; }
 message ConnStringResponse { string env_var = 1; string url = 2; }
 
 message PlanRequest { Instance instance = 1; Toolchain toolchain = 2; }
+message EnsureTemplateRequest { Toolchain toolchain = 1; string template_dir = 2; }
+message CloneTemplateRequest { string template_dir = 1; string dest_dir = 2; }
 
 message ConvergeRequest { Instance instance = 1; Toolchain toolchain = 2; Endpoint endpoint = 3; }
 message ObjectsRequest { Instance instance = 1; }

@@ -39,10 +39,18 @@ func newPluginDriver(c proto.EngineClient) engine.Driver {
 			d.caps[cp] = true
 		}
 	}
-	// Versionless changes config behavior by interface *presence* (no version
-	// required), so it can't be a no-op method — wrap to add it only when advertised.
-	if d.caps[capVersionless] {
+	// Versionless and Templater change behaviour by interface *presence* (the
+	// runtime type-asserts for them), so they can't be no-op methods on the base
+	// driver — every plugin would falsely claim them. Wrap to add exactly the ones
+	// advertised. The wrappers embed *pluginDriver (concrete) so all other
+	// capability assertions still resolve.
+	switch {
+	case d.caps[capVersionless] && d.caps[capTemplater]:
+		return versionlessTemplaterDriver{d}
+	case d.caps[capVersionless]:
 		return versionlessDriver{d}
+	case d.caps[capTemplater]:
+		return templaterDriver{d}
 	}
 	return d
 }
@@ -52,6 +60,27 @@ func newPluginDriver(c proto.EngineClient) engine.Driver {
 type versionlessDriver struct{ *pluginDriver }
 
 func (versionlessDriver) Versionless() {}
+
+// templaterDriver adds engine.Templater to a plugin driver that advertised it.
+type templaterDriver struct{ *pluginDriver }
+
+func (t templaterDriver) EnsureTemplate(ctx context.Context, tc engine.Toolchain, templateDir string) error {
+	return t.pluginDriver.ensureTemplate(ctx, tc, templateDir)
+}
+func (t templaterDriver) CloneTemplate(ctx context.Context, templateDir, destDir string) error {
+	return t.pluginDriver.cloneTemplate(ctx, templateDir, destDir)
+}
+
+// versionlessTemplaterDriver advertises both presence-sensitive capabilities.
+type versionlessTemplaterDriver struct{ *pluginDriver }
+
+func (versionlessTemplaterDriver) Versionless() {}
+func (t versionlessTemplaterDriver) EnsureTemplate(ctx context.Context, tc engine.Toolchain, templateDir string) error {
+	return t.pluginDriver.ensureTemplate(ctx, tc, templateDir)
+}
+func (t versionlessTemplaterDriver) CloneTemplate(ctx context.Context, templateDir, destDir string) error {
+	return t.pluginDriver.cloneTemplate(ctx, templateDir, destDir)
+}
 
 func (d *pluginDriver) has(cap string) bool { return d.caps[cap] }
 
@@ -143,6 +172,16 @@ func (d *pluginDriver) Plan(ctx context.Context, inst engine.Instance, tc engine
 		return engine.SpawnPlan{}, err
 	}
 	return planFromProto(resp), nil
+}
+
+// ── engine.Templater (exposed only via the templater wrappers) ───────────────
+func (d *pluginDriver) ensureTemplate(ctx context.Context, tc engine.Toolchain, templateDir string) error {
+	_, err := d.client.EnsureTemplate(ctx, &proto.EnsureTemplateRequest{Toolchain: toolchainToProto(tc), TemplateDir: templateDir})
+	return err
+}
+func (d *pluginDriver) cloneTemplate(ctx context.Context, templateDir, destDir string) error {
+	_, err := d.client.CloneTemplate(ctx, &proto.CloneTemplateRequest{TemplateDir: templateDir, DestDir: destDir})
+	return err
 }
 
 // ── optional capabilities (no-op unless advertised) ──────────────────────────

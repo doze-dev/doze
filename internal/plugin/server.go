@@ -47,6 +47,7 @@ const (
 	capPortBinder  = "port_binder"
 	capSpawner     = "spawner"
 	capVersionless = "versionless"
+	capTemplater   = "templater"
 )
 
 func (s *engineServer) Capabilities(context.Context, *proto.Empty) (*proto.CapabilitiesResponse, error) {
@@ -82,6 +83,8 @@ func (s *engineServer) Capabilities(context.Context, *proto.Empty) (*proto.Capab
 	add(sp, capSpawner)
 	_, vl := s.drv.(engine.Versionless)
 	add(vl, capVersionless)
+	_, tm := s.drv.(engine.Templater)
+	add(tm, capTemplater)
 	return &proto.CapabilitiesResponse{Capabilities: caps}, nil
 }
 
@@ -190,6 +193,22 @@ func (s *engineServer) Plan(ctx context.Context, req *proto.PlanRequest) (*proto
 		return nil, err
 	}
 	return planToProto(plan), nil
+}
+
+func (s *engineServer) EnsureTemplate(ctx context.Context, req *proto.EnsureTemplateRequest) (*proto.Empty, error) {
+	t, ok := s.drv.(engine.Templater)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "not a Templater")
+	}
+	return &proto.Empty{}, t.EnsureTemplate(ctx, toolchainFromProto(req.Toolchain), req.TemplateDir)
+}
+
+func (s *engineServer) CloneTemplate(ctx context.Context, req *proto.CloneTemplateRequest) (*proto.Empty, error) {
+	t, ok := s.drv.(engine.Templater)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "not a Templater")
+	}
+	return &proto.Empty{}, t.CloneTemplate(ctx, req.TemplateDir, req.DestDir)
 }
 
 func (s *engineServer) Converge(ctx context.Context, req *proto.ConvergeRequest) (*proto.Empty, error) {
