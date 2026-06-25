@@ -33,6 +33,8 @@ type Manager struct {
 	bin  *binaries.Manager
 	plat engine.Platform
 
+	lockPath func() string // resolves the project doze.lock path (lazily), for pinning
+
 	mu     sync.Mutex
 	misses map[string]bool // engine types with no published module (negative cache)
 }
@@ -57,21 +59,45 @@ func NewManager(home string) (*Manager, error) {
 // SetLogger installs a progress logger for downloads.
 func (m *Manager) SetLogger(f func(string, ...any)) { m.bin.Logf = f }
 
+// UseLock makes Resolve pin each fetched module in the project doze.lock (under
+// modules:), and verify re-fetches against the locked checksum. lockPath resolves
+// the lockfile lazily (the config dir isn't known when the Manager is built).
+func (m *Manager) UseLock(lockPath func() string) { m.lockPath = lockPath }
+
 // Resolve fetches (or finds cached) the plugin binary for module name at the
 // given version spec ("" = the default channel) and returns its executable path.
+// When a lock is configured it freezes the resolved version + checksum and
+// verifies subsequent fetches against it (the doze-modules pin layer).
 func (m *Manager) Resolve(ctx context.Context, name, version string) (string, error) {
 	if version == "" {
 		version = DefaultVersion
 	}
+	lock := m.loadLock()
+
+	// A frozen pin wins: honor its resolved version + checksum so a moving
+	// "default" channel can't drift and a tampered archive is rejected.
+	if pin, ok := lock.GetModule(name, version); ok && pin.Resolved != "" {
+		binDir, _, err := m.bin.Ensure(ctx, name, pin.Resolved, m.plat, pin.Hashes[m.plat.Triple])
+		if err != nil {
+			return "", err
+		}
+		return pluginExe(binDir, name, pin.Resolved)
+	}
+
 	full, err := m.bin.ResolveMajor(name, version)
 	if err != nil {
 		return "", err
 	}
-	binDir, _, err := m.bin.Ensure(ctx, name, full, m.plat, "")
+	binDir, digest, err := m.bin.Ensure(ctx, name, full, m.plat, "")
 	if err != nil {
 		return "", err
 	}
-	// Convention: the archive ships the plugin as bin/<name>-plugin.
+	m.recordPin(lock, name, version, full, digest)
+	return pluginExe(binDir, name, full)
+}
+
+// pluginExe finds the plugin executable in binDir (convention bin/<name>-plugin).
+func pluginExe(binDir, name, full string) (string, error) {
 	exe := filepath.Join(binDir, name+"-plugin")
 	if fi, err := os.Stat(exe); err == nil && !fi.IsDir() {
 		return exe, nil
@@ -80,6 +106,31 @@ func (m *Manager) Resolve(ctx context.Context, name, version string) (string, er
 		return p, nil
 	}
 	return "", fmt.Errorf("module %s %s has no plugin executable", name, full)
+}
+
+// loadLock loads the project doze.lock for module pinning, or a detached lock
+// (records dropped) when no lock path is configured.
+func (m *Manager) loadLock() *binaries.Lock {
+	if m.lockPath == nil {
+		return nil
+	}
+	lock, err := binaries.LoadLock(m.lockPath())
+	if err != nil {
+		return nil
+	}
+	return lock
+}
+
+// recordPin freezes (name, spec) -> full + this platform's checksum and saves.
+func (m *Manager) recordPin(lock *binaries.Lock, name, spec, full, digest string) {
+	if lock == nil {
+		return
+	}
+	lock.RecordModule(name, spec, engine.Pin{
+		Resolved: full, Source: "module",
+		Hashes: map[string]string{m.plat.Triple: digest},
+	})
+	_ = lock.Save()
 }
 
 // Lookup adapts Resolve to the plugin resolver contract: engine type -> module of

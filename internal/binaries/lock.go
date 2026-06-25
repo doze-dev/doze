@@ -23,6 +23,10 @@ const LockFileName = "doze.lock"
 type Lock struct {
 	// Engines maps engine type -> version spec ("16" or "16.14") -> pin.
 	Engines map[string]map[string]*lockPin `yaml:"engines"`
+	// Modules maps plugin module name -> version spec ("default") -> pin. This is
+	// the second pin layer: the plugin binary doze fetches from doze-modules, above
+	// the service binary the plugin itself resolves.
+	Modules map[string]map[string]*lockPin `yaml:"modules,omitempty"`
 
 	path  string
 	dirty bool
@@ -121,6 +125,51 @@ func (l *Lock) Entries() []engine.LockEntry {
 		}
 	}
 	return out
+}
+
+// GetModule returns the pin for plugin module (name, spec), if present.
+func (l *Lock) GetModule(name, spec string) (engine.Pin, bool) {
+	if l == nil {
+		return engine.Pin{}, false
+	}
+	p, ok := l.Modules[name][spec]
+	if !ok {
+		return engine.Pin{}, false
+	}
+	return engine.Pin{Resolved: p.Resolved, Source: p.Source, Hashes: copyMap(p.Hashes)}, true
+}
+
+// RecordModule pins a plugin module (name, spec) to a resolved version and merges
+// the platform's archive hash — the doze-modules layer of the lock.
+func (l *Lock) RecordModule(name, spec string, pin engine.Pin) {
+	if l == nil {
+		return
+	}
+	if l.Modules == nil {
+		l.Modules = map[string]map[string]*lockPin{}
+	}
+	if l.Modules[name] == nil {
+		l.Modules[name] = map[string]*lockPin{}
+	}
+	p := l.Modules[name][spec]
+	if p == nil || p.Resolved != pin.Resolved {
+		p = &lockPin{Resolved: pin.Resolved, Source: pin.Source, Hashes: map[string]string{}}
+		l.Modules[name][spec] = p
+		l.dirty = true
+	}
+	if p.Source == "" && pin.Source != "" {
+		p.Source = pin.Source
+		l.dirty = true
+	}
+	for triple, sha := range pin.Hashes {
+		if p.Hashes == nil {
+			p.Hashes = map[string]string{}
+		}
+		if p.Hashes[triple] != sha {
+			p.Hashes[triple] = sha
+			l.dirty = true
+		}
+	}
 }
 
 // Resolved returns the full versions pinned for an engine (across all specs).

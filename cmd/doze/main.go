@@ -19,6 +19,7 @@ import (
 	"github.com/nerdmenot/doze/engine/sns"
 	"github.com/nerdmenot/doze/engine/sqs"
 	_ "github.com/nerdmenot/doze/engine/valkey" // register the valkey driver
+	"github.com/nerdmenot/doze/internal/binaries"
 	"github.com/nerdmenot/doze/internal/config"
 	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/modules"
@@ -49,6 +50,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "doze: modules disabled:", err)
 		} else {
 			modMgr.SetLogger(stderrLogger)
+			// Pin fetched modules in the project doze.lock (resolved lazily — the
+			// config path isn't known until a command runs).
+			modMgr.UseLock(func() string {
+				return filepath.Join(configDir(configPath), binaries.LockFileName)
+			})
 			resolvers = append(resolvers, modMgr.Lookup)
 		}
 	}
