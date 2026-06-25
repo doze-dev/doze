@@ -101,6 +101,7 @@ func rootCmd() *cobra.Command {
 		initCmd(),
 		resetCmd(),
 		binariesCmd(),
+		modulesCmd(),
 		ephemeralCmd(),
 		versionCmd(),
 		// Internal (hidden)

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/nerdmenot/doze/internal/binaries"
@@ -105,6 +106,28 @@ func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool)
 // published it is opt-in via DOZE_MODULES_MIRROR, so the public (not-yet-existing)
 // default mirror doesn't add a failed round-trip per engine type.
 func Enabled() bool { return os.Getenv("DOZE_MODULES_MIRROR") != "" }
+
+// Mirror returns the configured module mirror base.
+func (m *Manager) Mirror() string { return m.bin.MirrorRoot }
+
+// Cached returns the path + version of a cached build of module name for the host
+// platform (newest by directory listing), or ok=false if none is cached. It does
+// no network — for inspection (`doze modules`).
+func (m *Manager) Cached(name string) (path, version string, ok bool) {
+	base := filepath.Join(m.bin.Home, name)
+	entries, _ := os.ReadDir(base)
+	suffix := "-" + m.plat.Triple
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasSuffix(e.Name(), suffix) {
+			continue
+		}
+		exe := filepath.Join(base, e.Name(), "bin", name+"-plugin")
+		if fi, err := os.Stat(exe); err == nil && !fi.IsDir() {
+			return exe, strings.TrimSuffix(e.Name(), suffix), true
+		}
+	}
+	return "", "", false
+}
 
 func firstExecutable(dir string) string {
 	entries, _ := os.ReadDir(dir)
