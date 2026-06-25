@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ import (
 	_ "github.com/nerdmenot/doze/engine/valkey" // register the valkey driver
 	"github.com/nerdmenot/doze/internal/config"
 	"github.com/nerdmenot/doze/internal/engine"
+	"github.com/nerdmenot/doze/internal/modules"
 	"github.com/nerdmenot/doze/internal/plugin"
 	"github.com/nerdmenot/doze/internal/ui"
 )
@@ -38,9 +40,19 @@ func main() {
 	sqs.Logf = stderrLogger
 	sns.Logf = stderrLogger
 
-	// Out-of-process engine modules: resolve DOZE_<TYPE>_PLUGIN overrides and keep
-	// them warm for config eval + boot, reaping them when the command returns.
-	pluginMgr := plugin.NewManager(plugin.EnvResolver())
+	// Out-of-process engine modules: resolve a plugin binary (local DOZE_<TYPE>_PLUGIN
+	// override first, then a fetched-from-doze-modules module), keep it warm for
+	// config eval + boot, and reap it when the command returns.
+	resolvers := []plugin.Resolver{plugin.EnvResolver()}
+	if modules.Enabled() {
+		if modMgr, err := modules.NewManager(dozeHome()); err != nil {
+			fmt.Fprintln(os.Stderr, "doze: modules disabled:", err)
+		} else {
+			modMgr.SetLogger(stderrLogger)
+			resolvers = append(resolvers, modMgr.Lookup)
+		}
+	}
+	pluginMgr := plugin.NewManager(plugin.Chain(resolvers...))
 	engine.SetPluginResolver(pluginMgr.Lookup)
 	defer pluginMgr.Close()
 
@@ -95,6 +107,16 @@ func rootCmd() *cobra.Command {
 		serveInternalCmd(),
 	)
 	return root
+}
+
+// dozeHome is the shared cache root (binaries + fetched modules), DOZE_HOME or
+// ~/.doze — the same location the daemon and plugins use.
+func dozeHome() string {
+	if h := os.Getenv("DOZE_HOME"); h != "" {
+		return h
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".doze")
 }
 
 // loadConfig loads and validates the configuration referenced by --config,

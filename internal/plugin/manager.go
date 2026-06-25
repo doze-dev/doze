@@ -26,9 +26,25 @@ func EnvResolver() Resolver {
 }
 
 // Resolver locates the plugin binary for an engine type, returning ok=false when
-// that engine is compiled in (not a plugin). For v1 a path comes from a local
-// override or the doze-modules cache; Phase 5 adds fetch+pin from the monorepo.
+// that engine is compiled in (not a plugin). A path comes from a local override
+// (DOZE_<TYPE>_PLUGIN) or the doze-modules cache (fetched + pinned).
 type Resolver func(engineType string) (path string, env []string, ok bool)
+
+// Chain returns a Resolver that tries each in order and returns the first hit —
+// e.g. the local DOZE_<TYPE>_PLUGIN override before a fetched-from-doze-modules one.
+func Chain(resolvers ...Resolver) Resolver {
+	return func(engineType string) (string, []string, bool) {
+		for _, r := range resolvers {
+			if r == nil {
+				continue
+			}
+			if path, env, ok := r(engineType); ok {
+				return path, env, true
+			}
+		}
+		return "", nil, false
+	}
+}
 
 // Manager owns the launched engine-plugin processes for a daemon: it resolves an
 // engine type to a plugin binary, launches it on first use, keeps it warm (config

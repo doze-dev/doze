@@ -28,6 +28,12 @@ type Manager struct {
 	HTTP *http.Client
 	Logf func(format string, args ...any)
 
+	// MirrorRoot, when set, is the base every artifact mirror is joined under
+	// (<root>/<name>), bypassing the DOZE_MIRROR/DOZE_<ENGINE>_MIRROR env lookups.
+	// The modules fetcher sets it so plugin modules resolve against doze-modules
+	// instead of doze-binaries while reusing this fetch/verify/cache machinery.
+	MirrorRoot string
+
 	manifests map[string]*Manifest // memoized per engine (each has its own release/index.json)
 }
 
@@ -77,9 +83,13 @@ func targetTriple(goos, goarch string) (string, error) {
 }
 
 // mirrorBase returns the mirror base URL for an engine. Each engine has its own
-// rolling release (tag = engine name), so the default is per-engine. Override
-// with DOZE_<ENGINE>_MIRROR, or DOZE_MIRROR (to which the engine name is joined).
-func mirrorBase(eng string) string {
+// rolling release (tag = engine name), so the default is per-engine. A Manager
+// with MirrorRoot set joins the name under it (the modules fetcher's path);
+// otherwise override with DOZE_<ENGINE>_MIRROR, or DOZE_MIRROR (name joined).
+func (m *Manager) mirrorBase(eng string) string {
+	if m.MirrorRoot != "" {
+		return strings.TrimRight(m.MirrorRoot, "/") + "/" + eng
+	}
 	if v := os.Getenv("DOZE_" + strings.ToUpper(eng) + "_MIRROR"); v != "" {
 		return v
 	}
@@ -95,7 +105,7 @@ func (m *Manager) fetchManifest(eng string) (*Manifest, error) {
 	if man, ok := m.manifests[eng]; ok {
 		return man, nil
 	}
-	url := strings.TrimRight(mirrorBase(eng), "/") + "/index.yaml"
+	url := strings.TrimRight(m.mirrorBase(eng), "/") + "/index.yaml"
 	body, err := m.get(url)
 	if err != nil {
 		return nil, fmt.Errorf("fetching mirror manifest %s: %w", url, err)
@@ -153,7 +163,7 @@ func (m *Manager) Ensure(ctx context.Context, eng, full string, plat engine.Plat
 	}
 	url := art.URL
 	if !strings.Contains(url, "://") {
-		url = strings.TrimRight(mirrorBase(eng), "/") + "/" + strings.TrimLeft(url, "/")
+		url = strings.TrimRight(m.mirrorBase(eng), "/") + "/" + strings.TrimLeft(url, "/")
 	}
 
 	m.logf("downloading %s %s (%s)…", eng, full, plat.Triple)
