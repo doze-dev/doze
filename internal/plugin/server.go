@@ -2,7 +2,10 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -73,6 +76,63 @@ func (s *engineServer) Capabilities(context.Context, *proto.Empty) (*proto.Capab
 	_, sp := s.drv.(engine.Spawner)
 	add(sp, capSpawner)
 	return &proto.CapabilitiesResponse{Capabilities: caps}, nil
+}
+
+// stripSchema removes the fields core consumes before an engine sees its body: the
+// meta-args (count/for_each/depends_on) and the common fields (version/listen). The
+// engine-specific remainder is what the driver decodes — identical to in-tree.
+var stripSchema = &hcl.BodySchema{Attributes: []hcl.AttributeSchema{
+	{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"},
+	{Name: "version"}, {Name: "listen"},
+}}
+
+// DecodeConfig re-parses the source file the plugin's block came from, isolates the
+// block by type+label, strips the fields core owns, reconstructs the eval context
+// from the wire variables, and runs the driver's own gohcl decode — then returns
+// the config gob-encoded. The plugin's ConfigDecoder is unchanged from in-tree.
+func (s *engineServer) DecodeConfig(_ context.Context, req *proto.DecodeRequest) (*proto.DecodeResponse, error) {
+	dec, ok := s.drv.(engine.ConfigDecoder)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "engine has no config decoder")
+	}
+	file, diags := hclparse.NewParser().ParseHCL(req.File, req.BlockLabel+".doze.hcl")
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("parsing config: %s", diags)
+	}
+	content, _, diags := file.Body.PartialContent(&hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{{Type: req.BlockType, LabelNames: []string{"name"}}},
+	})
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("reading config blocks: %s", diags)
+	}
+	var blockBody hcl.Body
+	for _, b := range content.Blocks {
+		if len(b.Labels) == 1 && b.Labels[0] == req.BlockLabel {
+			blockBody = b.Body
+			break
+		}
+	}
+	if blockBody == nil {
+		return nil, fmt.Errorf("block %s %q not found in source", req.BlockType, req.BlockLabel)
+	}
+	_, remain, diags := blockBody.PartialContent(stripSchema)
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("stripping config: %s", diags)
+	}
+	vars, err := varsFromJSON(req.Variables)
+	if err != nil {
+		return nil, fmt.Errorf("decoding variables: %w", err)
+	}
+	ctx := &hcl.EvalContext{Variables: vars}
+	spec, err := dec.DecodeConfig(remain, ctx, req.BaseDir)
+	if err != nil {
+		return nil, err
+	}
+	b, err := encodeSpec(spec)
+	if err != nil {
+		return nil, fmt.Errorf("encoding config: %w", err)
+	}
+	return &proto.DecodeResponse{Spec: b}, nil
 }
 
 func (s *engineServer) Resolve(ctx context.Context, req *proto.ResolveRequest) (*proto.ResolveResponse, error) {

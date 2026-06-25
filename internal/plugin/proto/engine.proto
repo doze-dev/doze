@@ -86,8 +86,14 @@ message Object { string kind = 1; string name = 2; string hash = 3; }
 message TypeResponse { string type = 1; }
 message CapabilitiesResponse { repeated string capabilities = 1; }
 
-message DecodeRequest { bytes hcl = 1; map<string, bytes> variables = 2; string base_dir = 3; }
-message DecodeResponse { bytes spec = 1; }
+message DecodeRequest {
+  bytes file = 1;                       // the full source file declaring the block
+  string block_type = 2;                // engine type (block keyword)
+  string block_label = 3;               // instance name (block label)
+  map<string, bytes> variables = 4;     // eval-context vars, each ctyjson-encoded
+  string base_dir = 5;
+}
+message DecodeResponse { bytes spec = 1; } // the plugin's gob-encoded config
 
 message ResolveRequest { string spec = 1; Platform platform = 2; Pin locked = 3; }
 message ResolveResponse { Toolchain toolchain = 1; Pin pin = 2; }

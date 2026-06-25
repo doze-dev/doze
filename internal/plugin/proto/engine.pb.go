@@ -937,9 +937,11 @@ func (x *CapabilitiesResponse) GetCapabilities() []string {
 
 type DecodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hcl           []byte                 `protobuf:"bytes,1,opt,name=hcl,proto3" json:"hcl,omitempty"`
-	Variables     map[string][]byte      `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	BaseDir       string                 `protobuf:"bytes,3,opt,name=base_dir,json=baseDir,proto3" json:"base_dir,omitempty"`
+	File          []byte                 `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`                                                                                     // the full source file declaring the block
+	BlockType     string                 `protobuf:"bytes,2,opt,name=block_type,json=blockType,proto3" json:"block_type,omitempty"`                                                          // engine type (block keyword)
+	BlockLabel    string                 `protobuf:"bytes,3,opt,name=block_label,json=blockLabel,proto3" json:"block_label,omitempty"`                                                       // instance name (block label)
+	Variables     map[string][]byte      `protobuf:"bytes,4,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // eval-context vars, each ctyjson-encoded
+	BaseDir       string                 `protobuf:"bytes,5,opt,name=base_dir,json=baseDir,proto3" json:"base_dir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -974,11 +976,25 @@ func (*DecodeRequest) Descriptor() ([]byte, []int) {
 	return file_internal_plugin_proto_engine_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *DecodeRequest) GetHcl() []byte {
+func (x *DecodeRequest) GetFile() []byte {
 	if x != nil {
-		return x.Hcl
+		return x.File
 	}
 	return nil
+}
+
+func (x *DecodeRequest) GetBlockType() string {
+	if x != nil {
+		return x.BlockType
+	}
+	return ""
+}
+
+func (x *DecodeRequest) GetBlockLabel() string {
+	if x != nil {
+		return x.BlockLabel
+	}
+	return ""
 }
 
 func (x *DecodeRequest) GetVariables() map[string][]byte {
@@ -2453,11 +2469,15 @@ const file_internal_plugin_proto_engine_proto_rawDesc = "" +
 	"\fTypeResponse\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\":\n" +
 	"\x14CapabilitiesResponse\x12\"\n" +
-	"\fcapabilities\x18\x01 \x03(\tR\fcapabilities\"\xc5\x01\n" +
-	"\rDecodeRequest\x12\x10\n" +
-	"\x03hcl\x18\x01 \x01(\fR\x03hcl\x12I\n" +
-	"\tvariables\x18\x02 \x03(\v2+.dozeplugin.v1.DecodeRequest.VariablesEntryR\tvariables\x12\x19\n" +
-	"\bbase_dir\x18\x03 \x01(\tR\abaseDir\x1a<\n" +
+	"\fcapabilities\x18\x01 \x03(\tR\fcapabilities\"\x87\x02\n" +
+	"\rDecodeRequest\x12\x12\n" +
+	"\x04file\x18\x01 \x01(\fR\x04file\x12\x1d\n" +
+	"\n" +
+	"block_type\x18\x02 \x01(\tR\tblockType\x12\x1f\n" +
+	"\vblock_label\x18\x03 \x01(\tR\n" +
+	"blockLabel\x12I\n" +
+	"\tvariables\x18\x04 \x03(\v2+.dozeplugin.v1.DecodeRequest.VariablesEntryR\tvariables\x12\x19\n" +
+	"\bbase_dir\x18\x05 \x01(\tR\abaseDir\x1a<\n" +
 	"\x0eVariablesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"$\n" +

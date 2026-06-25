@@ -3,9 +3,21 @@ package plugin
 import (
 	"context"
 
+	"github.com/zclconf/go-cty/cty"
+
 	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/plugin/proto"
 )
+
+// RemoteDecoder is implemented by a plugin driver: it decodes its own HCL block
+// out-of-process. The config evaluator calls this instead of engine.ConfigDecoder
+// for plugin engines, handing over the source file, the block's address, and the
+// flattened eval-context variables; the result is an opaque *RawSpec.
+type RemoteDecoder interface {
+	DecodeRemote(file []byte, blockType, blockLabel string, vars map[string]cty.Value, baseDir string) (any, error)
+}
+
+var _ RemoteDecoder = (*pluginDriver)(nil)
 
 // pluginDriver adapts a plugin's Engine gRPC client back to the in-tree
 // engine.Driver + capability interfaces. It implements every optional capability
@@ -92,6 +104,22 @@ func (d *pluginDriver) ConnString(inst engine.Instance, ep engine.Endpoint) (str
 		return "", ""
 	}
 	return resp.EnvVar, resp.Url
+}
+
+// DecodeRemote sends the block's source file + flattened variables to the plugin,
+// which decodes its own config and returns it as opaque gob bytes (a RawSpec).
+func (d *pluginDriver) DecodeRemote(file []byte, blockType, blockLabel string, vars map[string]cty.Value, baseDir string) (any, error) {
+	vj, err := varsToJSON(vars)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.client.DecodeConfig(context.Background(), &proto.DecodeRequest{
+		File: file, BlockType: blockType, BlockLabel: blockLabel, Variables: vj, BaseDir: baseDir,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &RawSpec{Bytes: resp.Spec}, nil
 }
 
 // ── engine.Spawner ───────────────────────────────────────────────────────────

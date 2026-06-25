@@ -76,9 +76,17 @@ func endpointFromProto(e *proto.Endpoint) engine.Endpoint {
 }
 
 func instanceToProto(inst engine.Instance) (*proto.Instance, error) {
-	spec, err := encodeSpec(inst.Spec)
-	if err != nil {
-		return nil, err
+	// A plugin's config is already serialized (RawSpec) — ship it verbatim;
+	// otherwise gob-encode an in-tree value.
+	var spec []byte
+	if rs, ok := inst.Spec.(*RawSpec); ok {
+		spec = rs.Bytes
+	} else {
+		b, err := encodeSpec(inst.Spec)
+		if err != nil {
+			return nil, err
+		}
+		spec = b
 	}
 	deps := map[string]*proto.Dep{}
 	for k, d := range inst.Deps {
