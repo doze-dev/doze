@@ -53,5 +53,8 @@ func Launch(path string, env []string) (*Host, error) {
 // Driver returns the adapted driver.
 func (h *Host) Driver() engine.Driver { return h.driver }
 
+// Alive reports whether the plugin process is still running.
+func (h *Host) Alive() bool { return !h.client.Exited() }
+
 // Close terminates the plugin process.
 func (h *Host) Close() { h.client.Kill() }
