@@ -3,6 +3,7 @@ package awslocal
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -87,6 +88,24 @@ func Serve(name, socket, datadir string) error {
 		_ = closer.Close()
 	}
 	return nil
+}
+
+// ServeFromArgs runs the `__serve` subcommand straight from a plugin's os.Args
+// ([bin, "__serve", <name>, "--socket", s, "--datadir", d]). An engine plugin
+// calls it so the same binary that speaks the plugin protocol can also be the
+// service it self-execs to run (BaseDriver.Plan spawns os.Executable()).
+func ServeFromArgs(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("usage: __serve <service> --socket <path> --datadir <dir>")
+	}
+	name := args[2]
+	fs := flag.NewFlagSet("__serve", flag.ContinueOnError)
+	socket := fs.String("socket", "", "unix socket to listen on")
+	datadir := fs.String("datadir", "", "service data directory")
+	if err := fs.Parse(args[3:]); err != nil {
+		return err
+	}
+	return Serve(name, *socket, *datadir)
 }
 
 // withHealth answers HealthPath itself (200 "ok") and delegates everything else

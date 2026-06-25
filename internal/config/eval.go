@@ -25,6 +25,7 @@ type pendingInstance struct {
 	ctx          *hcl.EvalContext            // the context this stamp decodes against (carries each/count)
 	explicitDeps map[string]engine.Condition // explicit depends_on: instance name -> condition
 	defRange     hcl.Range
+	blockLabel   string // the source block's label (the count/for_each base, e.g. "assets")
 	baseDir      string
 }
 
@@ -105,7 +106,9 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance,
 			if src == nil {
 				return fmt.Errorf("%s %q: cannot locate source for remote decode", p.decl.Type, p.decl.Name)
 			}
-			spec, err := dec.DecodeRemote(src, p.decl.Type, p.decl.Name, mergedVars(ctx, decodeCtx), p.baseDir)
+			// Find the block by its source label (the count/for_each base), not the
+			// expanded instance name; the each/count vars in decodeCtx differentiate stamps.
+			spec, err := dec.DecodeRemote(src, p.decl.Type, p.blockLabel, mergedVars(ctx, decodeCtx), p.baseDir)
 			if err != nil {
 				return fmt.Errorf("%s %q: %w", p.decl.Type, p.decl.Name, err)
 			}

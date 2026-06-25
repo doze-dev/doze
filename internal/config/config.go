@@ -520,13 +520,14 @@ func (cfg *Config) buildPending(parser *hclparse.Parser, block *hcl.Block, restB
 	cfg.index[name] = inst
 	cfg.Instances = append(cfg.Instances, inst)
 	return &pendingInstance{
-		decl:     inst,
-		drv:      drv,
-		body:     restBody,
-		remain:   c.Remain,
-		ctx:      stampCtx,
-		defRange: block.DefRange,
-		baseDir:  baseDir,
+		decl:       inst,
+		drv:        drv,
+		body:       restBody,
+		remain:     c.Remain,
+		ctx:        stampCtx,
+		defRange:   block.DefRange,
+		blockLabel: block.Labels[0], // the count/for_each base; the plugin locates the source block by this, not the expanded name
+		baseDir:    baseDir,
 	}, nil
 }
 

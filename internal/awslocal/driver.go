@@ -55,6 +55,36 @@ func (d BaseDriver) Provisioned(dataDir string) bool {
 	return err == nil && fi.IsDir()
 }
 
+// Plan implements engine.Spawner: a one-spec SpawnPlan core supervises, gated on
+// the service's unix socket (the listener binds only after the handler is built,
+// so an accepting socket means ready). The spawned binary is this process's own
+// executable re-run as `__serve <name>` — the doze binary in-tree, or the engine's
+// plugin binary out-of-process (which dispatches __serve to awslocal.ServeFromArgs).
+func (d BaseDriver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) (engine.SpawnPlan, error) {
+	if err := os.MkdirAll(inst.SocketDir, 0o700); err != nil {
+		return engine.SpawnPlan{}, fmt.Errorf("creating socket dir: %w", err)
+	}
+	socket := d.socket(inst.SocketDir)
+	_ = os.Remove(socket) // clear any stale socket from a crash
+	self, err := os.Executable()
+	if err != nil {
+		return engine.SpawnPlan{}, fmt.Errorf("locating service binary: %w", err)
+	}
+	env := os.Environ()
+	if d.ChildEnv != nil {
+		if extra := d.ChildEnv(inst); len(extra) > 0 {
+			env = append(env, extra...)
+		}
+	}
+	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
+		Name:  inst.Name,
+		Bin:   self,
+		Args:  []string{"__serve", d.Name, "--socket", socket, "--datadir", inst.DataDir},
+		Env:   env,
+		Ready: &engine.Ready{Kind: "socket", Target: socket},
+	}}}, nil
+}
+
 // Spawn implements engine.Driver: re-exec the doze binary as the hidden
 // `__serve` subcommand, serving this instance on its own unix socket.
 func (d BaseDriver) Spawn(_ context.Context, inst engine.Instance, _ engine.Toolchain) (engine.Process, error) {
@@ -109,7 +139,7 @@ func (d BaseDriver) socket(socketDir string) string {
 // ConnString implements engine.Driver: the SDK endpoint URL for this service,
 // pointed at the doze-owned TCP endpoint.
 func (d BaseDriver) ConnString(_ engine.Instance, ep engine.Endpoint) (string, string) {
-	return d.EndpointEnv, "http://"+clientHost(ep)
+	return d.EndpointEnv, "http://" + clientHost(ep)
 }
 
 // Env implements engine.EnvProvider: AWS SDKs need dummy credentials and a
