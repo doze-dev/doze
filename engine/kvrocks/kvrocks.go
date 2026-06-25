@@ -77,6 +77,27 @@ func (Driver) Provisioned(dataDir string) bool {
 	return err == nil && fi.IsDir()
 }
 
+// Plan implements engine.Spawner: a one-spec SpawnPlan core supervises, gated on
+// the RESP socket. It does the same pre-spawn prep Spawn did (socket dir + conf
+// file). Spawn/WaitReady remain for the in-tree LegacySpawner fallback.
+func (Driver) Plan(_ context.Context, inst engine.Instance, tc engine.Toolchain) (engine.SpawnPlan, error) {
+	if err := os.MkdirAll(inst.SocketDir, 0o700); err != nil {
+		return engine.SpawnPlan{}, fmt.Errorf("creating socket dir: %w", err)
+	}
+	socket := socketPath(inst.SocketDir)
+	_ = os.Remove(socket) // clear any stale socket from a crash
+	confPath := filepath.Join(inst.DataDir, "kvrocks.conf")
+	if err := writeConf(confPath, inst, socket); err != nil {
+		return engine.SpawnPlan{}, err
+	}
+	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
+		Name:  inst.Name,
+		Bin:   tc.Path("kvrocks"),
+		Args:  []string{"-c", confPath},
+		Ready: &engine.Ready{Kind: "socket", Target: socket},
+	}}}, nil
+}
+
 // Spawn implements engine.Driver: start kvrocks with a generated config that
 // binds a private unix socket (TCP disabled); doze splices clients to it.
 func (Driver) Spawn(_ context.Context, inst engine.Instance, tc engine.Toolchain) (engine.Process, error) {
