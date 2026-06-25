@@ -119,6 +119,49 @@ func (Driver) Spawn(_ context.Context, inst engine.Instance, tc engine.Toolchain
 	return supervisor.Start(exec.Command(tc.Path("valkey-server"), args...))
 }
 
+// Plan implements engine.Spawner: a single supervised valkey-server, gated on its
+// unix socket accepting connections. Core executes and supervises it — this is the
+// path used when valkey runs as an out-of-process plugin (the Spawn/WaitReady above
+// remain for the in-tree LegacySpawner fallback).
+func (Driver) Plan(_ context.Context, inst engine.Instance, tc engine.Toolchain) (engine.SpawnPlan, error) {
+	if err := os.MkdirAll(inst.SocketDir, 0o700); err != nil {
+		return engine.SpawnPlan{}, fmt.Errorf("creating socket dir: %w", err)
+	}
+	socket := socketPath(inst.SocketDir)
+	_ = os.Remove(socket) // clear any stale socket from a crash
+	args := []string{"--port", "0", "--unixsocket", socket, "--dir", inst.DataDir, "--daemonize", "no"}
+	save, appendonly := "", "no"
+	if cfg, ok := inst.Spec.(*Config); ok && cfg != nil {
+		if cfg.Save != "" {
+			save = cfg.Save
+		}
+		if cfg.Appendonly {
+			appendonly = "yes"
+		}
+		args = append(args, "--save", save, "--appendonly", appendonly)
+		if cfg.Password != "" {
+			args = append(args, "--requirepass", cfg.Password)
+		}
+		if cfg.Maxmemory != "" {
+			args = append(args, "--maxmemory", cfg.Maxmemory)
+		}
+		if cfg.MaxmemoryPolicy != "" {
+			args = append(args, "--maxmemory-policy", cfg.MaxmemoryPolicy)
+		}
+		for _, k := range sortedKeys(cfg.Settings) {
+			args = append(args, "--"+k, cfg.Settings[k])
+		}
+	} else {
+		args = append(args, "--save", save, "--appendonly", appendonly)
+	}
+	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
+		Name:  inst.Name,
+		Bin:   tc.Path("valkey-server"),
+		Args:  args,
+		Ready: &engine.Ready{Kind: "socket", Target: socket},
+	}}}, nil
+}
+
 // WaitReady implements engine.Driver: poll the unix socket with a RESP PING.
 func (Driver) WaitReady(ctx context.Context, inst engine.Instance, _ engine.Toolchain, p engine.Process) error {
 	ctx, cancel := context.WithTimeout(ctx, bootTimeout)

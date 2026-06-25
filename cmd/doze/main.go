@@ -19,6 +19,8 @@ import (
 	"github.com/nerdmenot/doze/engine/sqs"
 	_ "github.com/nerdmenot/doze/engine/valkey" // register the valkey driver
 	"github.com/nerdmenot/doze/internal/config"
+	"github.com/nerdmenot/doze/internal/engine"
+	"github.com/nerdmenot/doze/internal/plugin"
 	"github.com/nerdmenot/doze/internal/ui"
 )
 
@@ -35,6 +37,13 @@ func main() {
 	s3.Logf = stderrLogger
 	sqs.Logf = stderrLogger
 	sns.Logf = stderrLogger
+
+	// Out-of-process engine modules: resolve DOZE_<TYPE>_PLUGIN overrides and keep
+	// them warm for config eval + boot, reaping them when the command returns.
+	pluginMgr := plugin.NewManager(plugin.EnvResolver())
+	engine.SetPluginResolver(pluginMgr.Lookup)
+	defer pluginMgr.Close()
+
 	if err := rootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

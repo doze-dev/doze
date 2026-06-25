@@ -32,7 +32,7 @@ func TestRemoteDecode(t *testing.T) {
 	defer h.Close()
 	drv := h.Driver()
 
-	rd, ok := drv.(RemoteDecoder)
+	rd, ok := drv.(engine.RemoteDecoder)
 	if !ok {
 		t.Fatal("plugin driver is not a RemoteDecoder")
 	}

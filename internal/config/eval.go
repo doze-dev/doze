@@ -34,6 +34,29 @@ type pendingInstance struct {
 // evaluation context that already holds the attributes of every instance it
 // references — so `sqs = sqs.jobs.name` resolves to a value and the dependency is
 // recorded without any hand-declared DependsOn.
+// fileBytes returns the raw source of a parsed file (for a plugin's remote decode).
+func fileBytes(parser *hclparse.Parser, filename string) []byte {
+	if f := parser.Files()[filename]; f != nil {
+		return f.Bytes
+	}
+	return nil
+}
+
+// mergedVars flattens the global eval context with a stamp's (each/count) variables
+// so a plugin receives every variable a reference in its block could resolve.
+func mergedVars(global, stamp *hcl.EvalContext) map[string]cty.Value {
+	out := make(map[string]cty.Value, len(global.Variables))
+	for k, v := range global.Variables {
+		out[k] = v
+	}
+	if stamp != nil && stamp != global {
+		for k, v := range stamp.Variables {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance, ctx *hcl.EvalContext) error {
 	knownTypes := map[string]bool{}
 	for _, t := range engine.Types() {
@@ -70,8 +93,19 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance,
 		if decodeCtx == nil {
 			decodeCtx = ctx
 		}
-		if dec, ok := p.drv.(engine.ConfigDecoder); ok {
+		switch dec := p.drv.(type) {
+		case engine.ConfigDecoder: // in-tree engine
 			spec, err := dec.DecodeConfig(p.remain, decodeCtx, p.baseDir)
+			if err != nil {
+				return fmt.Errorf("%s %q: %w", p.decl.Type, p.decl.Name, err)
+			}
+			p.decl.Spec = spec
+		case engine.RemoteDecoder: // out-of-process plugin: it decodes its own block
+			src := fileBytes(parser, p.defRange.Filename)
+			if src == nil {
+				return fmt.Errorf("%s %q: cannot locate source for remote decode", p.decl.Type, p.decl.Name)
+			}
+			spec, err := dec.DecodeRemote(src, p.decl.Type, p.decl.Name, mergedVars(ctx, decodeCtx), p.baseDir)
 			if err != nil {
 				return fmt.Errorf("%s %q: %w", p.decl.Type, p.decl.Name, err)
 			}

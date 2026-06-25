@@ -9,15 +9,7 @@ import (
 	"github.com/nerdmenot/doze/internal/plugin/proto"
 )
 
-// RemoteDecoder is implemented by a plugin driver: it decodes its own HCL block
-// out-of-process. The config evaluator calls this instead of engine.ConfigDecoder
-// for plugin engines, handing over the source file, the block's address, and the
-// flattened eval-context variables; the result is an opaque *RawSpec.
-type RemoteDecoder interface {
-	DecodeRemote(file []byte, blockType, blockLabel string, vars map[string]cty.Value, baseDir string) (any, error)
-}
-
-var _ RemoteDecoder = (*pluginDriver)(nil)
+var _ engine.RemoteDecoder = (*pluginDriver)(nil)
 
 // pluginDriver adapts a plugin's Engine gRPC client back to the in-tree
 // engine.Driver + capability interfaces. It implements every optional capability

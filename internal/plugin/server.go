@@ -3,12 +3,15 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/nerdmenot/doze/internal/binaries"
 	"github.com/nerdmenot/doze/internal/engine"
 	"github.com/nerdmenot/doze/internal/plugin/proto"
 )
@@ -137,7 +140,7 @@ func (s *engineServer) DecodeConfig(_ context.Context, req *proto.DecodeRequest)
 
 func (s *engineServer) Resolve(ctx context.Context, req *proto.ResolveRequest) (*proto.ResolveResponse, error) {
 	lk := &capturingLocker{in: pinFromProto(req.Locked), inOK: req.Locked != nil}
-	tc, err := s.drv.Resolve(ctx, engine.VersionSpec(req.Spec), platformFromProto(req.Platform), lk, stubFetcher{})
+	tc, err := s.drv.Resolve(ctx, engine.VersionSpec(req.Spec), platformFromProto(req.Platform), lk, binaries.NewManager(dozeHome()))
 	if err != nil {
 		return nil, err
 	}
@@ -337,13 +340,13 @@ func (l *capturingLocker) Record(_ string, _ engine.VersionSpec, _ engine.Platfo
 	l.out, l.recorded = pin, true
 }
 
-// stubFetcher is a placeholder until plugins fetch via the doze-binaries module
-// (Phase 1). A plugin that does not download (the echo test plugin) never calls it.
-type stubFetcher struct{}
-
-func (stubFetcher) ResolveMajor(string, string) (string, error) {
-	return "", status.Error(codes.Unimplemented, "fetch not wired in this build")
-}
-func (stubFetcher) Ensure(context.Context, string, string, engine.Platform, string) (string, string, error) {
-	return "", "", status.Error(codes.Unimplemented, "fetch not wired in this build")
+// dozeHome is where the shared binary cache + lock live; a plugin fetches its
+// engine binary into the same place core's engines do. Inherited from the launching
+// daemon's environment.
+func dozeHome() string {
+	if h := os.Getenv("DOZE_HOME"); h != "" {
+		return h
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".doze")
 }

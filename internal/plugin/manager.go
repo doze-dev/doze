@@ -2,10 +2,28 @@ package plugin
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/nerdmenot/doze/internal/engine"
 )
+
+// EnvResolver resolves an engine type to a plugin binary via DOZE_<TYPE>_PLUGIN —
+// the v1 local override for developing a module before the doze-modules monorepo
+// (Phase 5) supplies it. Engines without the env var are treated as compiled-in.
+func EnvResolver() Resolver {
+	return func(engineType string) (string, []string, bool) {
+		p := os.Getenv("DOZE_" + strings.ToUpper(engineType) + "_PLUGIN")
+		if p == "" {
+			return "", nil, false
+		}
+		if fi, err := os.Stat(p); err != nil || fi.IsDir() {
+			return "", nil, false
+		}
+		return p, nil, true // inherit the daemon's env (DOZE_HOME, PATH, …)
+	}
+}
 
 // Resolver locates the plugin binary for an engine type, returning ok=false when
 // that engine is compiled in (not a plugin). For v1 a path comes from a local
@@ -50,6 +68,18 @@ func (m *Manager) Driver(engineType string) (drv engine.Driver, found bool, err 
 	}
 	m.hosts[engineType] = h
 	return h.Driver(), true, nil
+}
+
+// Lookup adapts Driver to engine.SetPluginResolver's signature: a launch failure
+// is surfaced (to stderr) and reported as "not a plugin" so the caller falls back
+// to any in-tree registration rather than hanging.
+func (m *Manager) Lookup(engineType string) (engine.Driver, bool) {
+	drv, found, err := m.Driver(engineType)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "doze: %v\n", err)
+		return nil, false
+	}
+	return drv, found
 }
 
 // Close reaps every launched plugin.
