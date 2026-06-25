@@ -248,18 +248,32 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		}
 	}
 
-	proc, err := drv.Spawn(ctx, inst, tc)
-	if err != nil {
-		return fail(err)
-	}
-	// Healthy waits the readiness gate; Started returns once spawned (the driver's
-	// WaitReady still ran nothing, so a brief liveness check is the process driver's
-	// job when it has no health block).
-	if cond != engine.Started {
-		if err := drv.WaitReady(ctx, inst, tc, proc); err != nil {
-			_ = proc.Stop(context.Background())
+	// Spawn: a Spawner returns a declarative SpawnPlan that core executes and
+	// supervises (readiness baked into the plan); otherwise the legacy Spawn +
+	// WaitReady path, where Healthy waits the readiness gate and Started returns
+	// once spawned.
+	var proc engine.Process
+	switch s := drv.(type) {
+	case engine.Spawner:
+		var plan engine.SpawnPlan
+		if plan, err = s.Plan(ctx, inst, tc); err != nil {
 			return fail(err)
 		}
+		if proc, err = r.executePlan(ctx, plan); err != nil {
+			return fail(err)
+		}
+	case engine.LegacySpawner:
+		if proc, err = s.Spawn(ctx, inst, tc); err != nil {
+			return fail(err)
+		}
+		if cond != engine.Started {
+			if err = s.WaitReady(ctx, inst, tc, proc); err != nil {
+				_ = proc.Stop(context.Background())
+				return fail(err)
+			}
+		}
+	default:
+		return fail(fmt.Errorf("engine %q implements neither Spawner nor LegacySpawner", decl.Type))
 	}
 
 	r.mu.Lock()

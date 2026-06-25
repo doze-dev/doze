@@ -1,15 +1,10 @@
 package process
 
 import (
-	"context"
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/hcl/v2/hclparse"
 
@@ -141,63 +136,5 @@ func TestMergedEnvPrecedence(t *testing.T) {
 		if got[k] != want {
 			t.Errorf("%s = %q, want %q", k, got[k], want)
 		}
-	}
-}
-
-func TestProbeHTTP(t *testing.T) {
-	ok := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ok.Close()
-	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}))
-	defer bad.Close()
-
-	h := &Health{Kind: "http", Target: ok.URL, Timeout: time.Second}
-	if err := h.probe(context.Background(), nil); err != nil {
-		t.Fatalf("2xx should pass: %v", err)
-	}
-	h.Target = bad.URL
-	if err := h.probe(context.Background(), nil); err == nil {
-		t.Fatal("5xx should fail the http probe")
-	}
-}
-
-func TestProbeTCP(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	h := &Health{Kind: "tcp", Target: ln.Addr().String(), Timeout: time.Second}
-	if err := h.probe(context.Background(), nil); err != nil {
-		t.Fatalf("listening port should accept: %v", err)
-	}
-	_ = ln.Close()
-	h2 := &Health{Kind: "tcp", Target: "127.0.0.1:1", Timeout: 200 * time.Millisecond}
-	if err := h2.probe(context.Background(), nil); err == nil {
-		t.Fatal("a closed port should fail the tcp probe")
-	}
-}
-
-func TestProbeExec(t *testing.T) {
-	pass := &Health{Kind: "exec", Target: "true", Timeout: time.Second}
-	if err := pass.probe(context.Background(), nil); err != nil {
-		t.Fatalf("`true` should pass: %v", err)
-	}
-	fail := &Health{Kind: "exec", Target: "false", Timeout: time.Second}
-	if err := fail.probe(context.Background(), nil); err == nil {
-		t.Fatal("`false` should fail the exec probe")
-	}
-}
-
-func TestProbeLogLine(t *testing.T) {
-	h := &Health{Kind: "log_line", Target: "listening on", Timeout: time.Second}
-	if err := h.probe(context.Background(), []string{"starting up", "listening on :8080"}); err != nil {
-		t.Fatalf("matching line should pass: %v", err)
-	}
-	if err := h.probe(context.Background(), []string{"starting up"}); err == nil {
-		t.Fatal("no matching line should fail the log_line probe")
 	}
 }

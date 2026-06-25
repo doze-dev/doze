@@ -11,14 +11,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/nerdmenot/doze/internal/engine"
-	"github.com/nerdmenot/doze/internal/supervisor"
 )
 
 func init() { engine.Register(Driver{}) }
@@ -27,6 +24,7 @@ func init() { engine.Register(Driver{}) }
 // config discover by type assertion.
 var (
 	_ engine.Driver        = Driver{}
+	_ engine.Spawner       = Driver{}
 	_ engine.Versionless   = Driver{}
 	_ engine.Lifecycle     = Driver{}
 	_ engine.PortBinder    = Driver{}
@@ -36,10 +34,6 @@ var (
 	_ engine.Attributer    = Driver{}
 	_ engine.ConfigDecoder = Driver{}
 )
-
-// livenessGrace is how long Spawn-without-health waits to be sure the process did
-// not immediately exit (the "started" readiness signal).
-const livenessGrace = 750 * time.Millisecond
 
 // Driver is the process engine driver.
 type Driver struct{}
@@ -96,67 +90,42 @@ func (Driver) Provisioned(dataDir string) bool {
 	return err == nil && fi.IsDir()
 }
 
-// Spawn implements engine.Driver: run the command via `sh -c` in the configured
-// cwd with the fully merged environment, supervised in its own process group.
-func (Driver) Spawn(_ context.Context, inst engine.Instance, _ engine.Toolchain) (engine.Process, error) {
+// Plan implements engine.Spawner: a process is a single supervised spec — run the
+// command via `sh -c` in its cwd with the merged environment, killed as a process
+// group, gated on its health probe (or a brief liveness check for a worker). Core
+// executes and supervises it.
+func (Driver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) (engine.SpawnPlan, error) {
 	cfg, ok := inst.Spec.(*Config)
 	if !ok {
-		return nil, fmt.Errorf("process %q: missing config", inst.Name)
+		return engine.SpawnPlan{}, fmt.Errorf("process %q: missing config", inst.Name)
 	}
 	if fi, err := os.Stat(cfg.Cwd); err != nil || !fi.IsDir() {
-		return nil, fmt.Errorf("process %q: working dir %q does not exist", inst.Name, cfg.Cwd)
+		return engine.SpawnPlan{}, fmt.Errorf("process %q: working dir %q does not exist", inst.Name, cfg.Cwd)
 	}
-	cmd := exec.Command("sh", "-c", cfg.Command)
-	cmd.Dir = cfg.Cwd
-	cmd.Env = cfg.mergedEnv(inst.InjectedEnv)
-	// StartTree so a `go run`/`bun`/shell-pipeline command and all its children are
-	// reaped together (the process-group kill in supervisor.Stop).
-	return supervisor.StartTree(cmd)
+	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
+		Name:  inst.Name,
+		Dir:   cfg.Cwd,
+		Bin:   "sh",
+		Args:  []string{"-c", cfg.Command},
+		Env:   cfg.mergedEnv(inst.InjectedEnv),
+		Tree:  true, // reap `go run`/`bun` and all children as a group
+		Ready: cfg.readySpec(),
+	}}}, nil
 }
 
-// WaitReady implements engine.Driver: when a health block is set, poll it until it
-// passes (budget = interval*retries); otherwise confirm the process stayed alive
-// briefly (the "started" readiness signal for a worker with no endpoint).
-func (Driver) WaitReady(ctx context.Context, inst engine.Instance, _ engine.Toolchain, p engine.Process) error {
-	cfg, ok := inst.Spec.(*Config)
-	if !ok {
-		return fmt.Errorf("process %q: missing config", inst.Name)
+// readySpec translates the optional health block into a core readiness probe
+// (nil → a brief liveness check, for a worker with no endpoint).
+func (c *Config) readySpec() *engine.Ready {
+	if c.Health == nil {
+		return nil
 	}
-	if cfg.Health == nil {
-		return waitLiveness(ctx, inst.Name, p)
+	return &engine.Ready{
+		Kind:     c.Health.Kind,
+		Target:   c.Health.Target,
+		Interval: c.Health.Interval,
+		Timeout:  c.Health.Timeout,
+		Retries:  c.Health.Retries,
 	}
-	h := cfg.Health
-	ticker := time.NewTicker(h.Interval)
-	defer ticker.Stop()
-	for attempt := 0; attempt < h.Retries; attempt++ {
-		if !p.Alive() {
-			return fmt.Errorf("process %q exited during startup:\n%s", inst.Name, strings.Join(p.Logs(), "\n"))
-		}
-		if err := h.probe(ctx, p.Logs()); err == nil {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-	}
-	return fmt.Errorf("process %q did not become healthy within %s:\n%s",
-		inst.Name, time.Duration(h.Retries)*h.Interval, strings.Join(p.Logs(), "\n"))
-}
-
-// waitLiveness confirms the process is still running after a short grace period,
-// failing with its captured logs if it exited immediately.
-func waitLiveness(ctx context.Context, name string, p engine.Process) error {
-	select {
-	case <-time.After(livenessGrace):
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	if !p.Alive() {
-		return fmt.Errorf("process %q exited immediately:\n%s", name, strings.Join(p.Logs(), "\n"))
-	}
-	return nil
 }
 
 // BackendSocket implements engine.Driver: a process is not proxied, so there is no

@@ -41,14 +41,6 @@ type Driver interface {
 	// Provisioned reports whether dataDir already holds an initialized store.
 	Provisioned(dataDir string) bool
 
-	// Spawn starts the server bound to the instance's backend socket and returns
-	// a running handle. It does not block on readiness.
-	Spawn(ctx context.Context, inst Instance, tc Toolchain) (Process, error)
-
-	// WaitReady blocks until the backend accepts connections, the process dies,
-	// or ctx expires.
-	WaitReady(ctx context.Context, inst Instance, tc Toolchain, p Process) error
-
 	// BackendSocket returns the absolute path the proxy dials to reach a running
 	// backend, given its socket directory and nominal port.
 	BackendSocket(socketDir string, port int) string
@@ -57,6 +49,23 @@ type Driver interface {
 	// pointed at the doze-owned endpoint. envVar is the variable name family
 	// (DATABASE_URL, REDIS_URL, MONGODB_URI).
 	ConnString(inst Instance, ep Endpoint) (envVar, url string)
+
+	// A driver must also describe how to run: either Spawner (a declarative
+	// SpawnPlan core executes and supervises — preferred, and what plugins use) or
+	// LegacySpawner (the in-tree Spawn + WaitReady path). The runtime asserts for
+	// these; a driver implementing neither cannot boot.
+}
+
+// LegacySpawner is the pre-SpawnPlan run path: the driver starts the backend
+// itself and core supervises the returned Process. Preferred replacement is
+// Spawner (see spawn.go). The runtime uses Spawner when present, else this.
+type LegacySpawner interface {
+	// Spawn starts the server bound to the instance's backend socket and returns
+	// a running handle. It does not block on readiness.
+	Spawn(ctx context.Context, inst Instance, tc Toolchain) (Process, error)
+	// WaitReady blocks until the backend accepts connections, the process dies,
+	// or ctx expires.
+	WaitReady(ctx context.Context, inst Instance, tc Toolchain, p Process) error
 }
 
 // Fetcher resolves and downloads engine toolchains from the mirror. The
