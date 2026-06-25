@@ -35,8 +35,10 @@ type Manager struct {
 
 	lockPath func() string // resolves the project doze.lock path (lazily), for pinning
 
-	mu     sync.Mutex
-	misses map[string]bool // engine types with no published module (negative cache)
+	mu       sync.Mutex
+	enabled  bool              // fetch modules at all (env mirror set, or modules{} enabled)
+	versions map[string]string // engine type -> pinned module version (from modules{})
+	misses   map[string]bool   // engine types with no published module (negative cache)
 }
 
 // NewManager builds a module Manager caching under <home>/modules. The mirror is
@@ -53,7 +55,32 @@ func NewManager(home string) (*Manager, error) {
 	}
 	bm := binaries.NewManager(filepath.Join(home, "modules"))
 	bm.MirrorRoot = root
-	return &Manager{bin: bm, plat: plat, misses: map[string]bool{}}, nil
+	return &Manager{
+		bin:      bm,
+		plat:     plat,
+		enabled:  os.Getenv("DOZE_MODULES_MIRROR") != "",
+		versions: map[string]string{},
+		misses:   map[string]bool{},
+	}, nil
+}
+
+// Configure applies a decoded modules{} block: an optional mirror override,
+// whether fetching is enabled, and per-engine version pins. It runs before any
+// instance's driver is resolved (see config.SetModulesConfigurer).
+func (m *Manager) Configure(mirror string, enabled bool, versions map[string]string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if mirror != "" {
+		m.bin.MirrorRoot = mirror
+	}
+	if enabled {
+		m.enabled = true
+	}
+	for k, v := range versions {
+		if v != "" {
+			m.versions[k] = v
+		}
+	}
 }
 
 // SetLogger installs a progress logger for downloads.
@@ -138,12 +165,13 @@ func (m *Manager) recordPin(lock *binaries.Lock, name, spec, full, digest string
 // re-fetched every lookup, and the caller falls back to any in-tree driver.
 func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool) {
 	m.mu.Lock()
-	missed := m.misses[engineType]
-	m.mu.Unlock()
-	if missed {
+	if !m.enabled || m.misses[engineType] {
+		m.mu.Unlock()
 		return "", nil, false
 	}
-	p, err := m.Resolve(context.Background(), engineType, "")
+	version := m.versions[engineType]
+	m.mu.Unlock()
+	p, err := m.Resolve(context.Background(), engineType, version)
 	if err != nil {
 		m.mu.Lock()
 		m.misses[engineType] = true

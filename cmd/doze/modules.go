@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nerdmenot/doze/internal/binaries"
 	"github.com/nerdmenot/doze/internal/modules"
 )
 
@@ -36,13 +38,14 @@ func modulesListCmd() *cobra.Command {
 				return err
 			}
 			var mm *modules.Manager
-			if modules.Enabled() {
+			if mc := cfg.Modules; mc.Enabled || modules.Enabled() {
 				if mm, err = modules.NewManager(dozeHome()); err != nil {
 					return err
 				}
+				mm.Configure(mc.Mirror, mc.Enabled, mc.Versions)
 				fmt.Printf("module mirror: %s\n\n", mm.Mirror())
 			} else {
-				fmt.Printf("module fetching is off (set DOZE_MODULES_MIRROR to enable)\n\n")
+				fmt.Printf("module fetching is off (set DOZE_MODULES_MIRROR or a modules{} block to enable)\n\n")
 			}
 
 			seen := map[string]bool{}
@@ -89,15 +92,22 @@ func modulesWhichCmd() *cobra.Command {
 				fmt.Println(p)
 				return nil
 			}
-			if !modules.Enabled() {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			mc := cfg.Modules
+			if !mc.Enabled && !modules.Enabled() {
 				return fmt.Errorf("module fetching is off and no DOZE_%s_PLUGIN override is set", strings.ToUpper(engineType))
 			}
 			mm, err := modules.NewManager(dozeHome())
 			if err != nil {
 				return err
 			}
+			mm.Configure(mc.Mirror, mc.Enabled, mc.Versions)
 			mm.SetLogger(stderrLogger)
-			path, err := mm.Resolve(context.Background(), engineType, "")
+			mm.UseLock(func() string { return filepath.Join(configDir(cfg.Path()), binaries.LockFileName) })
+			path, err := mm.Resolve(context.Background(), engineType, mc.Versions[engineType])
 			if err != nil {
 				return err
 			}

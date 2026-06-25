@@ -45,18 +45,21 @@ func main() {
 	// override first, then a fetched-from-doze-modules module), keep it warm for
 	// config eval + boot, and reap it when the command returns.
 	resolvers := []plugin.Resolver{plugin.EnvResolver()}
-	if modules.Enabled() {
-		if modMgr, err := modules.NewManager(dozeHome()); err != nil {
-			fmt.Fprintln(os.Stderr, "doze: modules disabled:", err)
-		} else {
-			modMgr.SetLogger(stderrLogger)
-			// Pin fetched modules in the project doze.lock (resolved lazily — the
-			// config path isn't known until a command runs).
-			modMgr.UseLock(func() string {
-				return filepath.Join(configDir(configPath), binaries.LockFileName)
-			})
-			resolvers = append(resolvers, modMgr.Lookup)
-		}
+	if modMgr, err := modules.NewManager(dozeHome()); err != nil {
+		fmt.Fprintln(os.Stderr, "doze: modules disabled:", err)
+	} else {
+		modMgr.SetLogger(stderrLogger)
+		// Pin fetched modules in the project doze.lock (resolved lazily — the
+		// config path isn't known until a command runs).
+		modMgr.UseLock(func() string {
+			return filepath.Join(configDir(configPath), binaries.LockFileName)
+		})
+		// Apply the modules{} block (mirror/enable/version pins) before any driver
+		// is resolved. Fetching stays off unless the env mirror or the block enables it.
+		config.SetModulesConfigurer(func(mc config.ModulesConfig) {
+			modMgr.Configure(mc.Mirror, mc.Enabled, mc.Versions)
+		})
+		resolvers = append(resolvers, modMgr.Lookup)
 	}
 	pluginMgr := plugin.NewManager(plugin.Chain(resolvers...))
 	engine.SetPluginResolver(pluginMgr.Lookup)

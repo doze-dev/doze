@@ -48,6 +48,8 @@ type Config struct {
 	Defaults Defaults
 	// TLS configures client-facing TLS termination.
 	TLS TLSSettings
+	// Modules configures the out-of-process engine plugin fetcher (source + pins).
+	Modules ModulesConfig
 	// Instances preserves declaration order from the file.
 	Instances []*InstanceDecl
 	// Outputs are the declared output values, keyed by name (declaration order in
@@ -113,6 +115,17 @@ type hclTLS struct {
 
 type hclDefaults struct {
 	IdleTimeout string `hcl:"idle_timeout,optional"`
+}
+
+type hclModules struct {
+	Mirror  string      `hcl:"mirror,optional"`
+	Enabled bool        `hcl:"enabled,optional"`
+	Modules []hclModule `hcl:"module,block"`
+}
+
+type hclModule struct {
+	Name    string `hcl:"name,label"`
+	Version string `hcl:"version,optional"`
 }
 
 // Load reads and validates the doze configuration at path, with no variable
@@ -216,6 +229,7 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "defaults"},
 			{Type: "tls"},
+			{Type: "modules"},
 			{Type: "variable", LabelNames: []string{"name"}},
 			{Type: "locals"},
 			{Type: "output", LabelNames: []string{"name"}},
@@ -240,8 +254,8 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 	// Classify the top-level blocks. variable/locals/output are resolved before
 	// the resources so that var.*/local.* are available everywhere.
 	var varBlocks, localsBlocks, outputBlocks, instanceBlocks []*hcl.Block
-	seenDefaults, seenTLS := false, false
-	var defaultsBlock, tlsBlock *hcl.Block
+	seenDefaults, seenTLS, seenModules := false, false, false
+	var defaultsBlock, tlsBlock, modulesBlock *hcl.Block
 	for _, block := range content.Blocks {
 		switch block.Type {
 		case "defaults":
@@ -254,6 +268,11 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 				return nil, posErr(parser, block.DefRange, "duplicate tls block", "only one tls block is allowed across all config files")
 			}
 			seenTLS, tlsBlock = true, block
+		case "modules":
+			if seenModules {
+				return nil, posErr(parser, block.DefRange, "duplicate modules block", "only one modules block is allowed across all config files")
+			}
+			seenModules, modulesBlock = true, block
 		case "variable":
 			varBlocks = append(varBlocks, block)
 		case "locals":
@@ -304,6 +323,17 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 			return nil, err
 		}
 	}
+	// Decode + apply modules{} BEFORE instance expansion below — expanding an
+	// instance block resolves its driver (engine.Lookup), which for a plugin engine
+	// fetches the module, so the mirror/enable/version pins must already be set.
+	if modulesBlock != nil {
+		if err := cfg.decodeModules(parser, modulesBlock, ctx); err != nil {
+			return nil, err
+		}
+	}
+	if modulesConfigurer != nil {
+		modulesConfigurer(cfg.Modules)
+	}
 
 	// Instance shells (engine-agnostic fields), then the reference graph + driver
 	// bodies in dependency order, then outputs (which may reference everything).
@@ -336,7 +366,7 @@ func emptyIfNil(m map[string]cty.Value) map[string]cty.Value {
 // positioned diagnostic (with a "did you mean" suggestion) — better than HCL's
 // generic "Unsupported block type". Operates on native-syntax bodies.
 func checkBlockTypes(parser *hclparse.Parser, files []*hcl.File) error {
-	known := map[string]bool{"defaults": true, "tls": true, "variable": true, "locals": true, "output": true}
+	known := map[string]bool{"defaults": true, "tls": true, "modules": true, "variable": true, "locals": true, "output": true}
 	var candidates []string
 	for _, t := range engine.Types() {
 		known[t] = true
@@ -425,6 +455,42 @@ func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block, ctx *hcl
 	if (cfg.TLS.Cert == "") != (cfg.TLS.Key == "") {
 		return posErr(parser, block.DefRange, "incomplete tls block", "set both cert and key, or neither (to auto-generate a self-signed cert)")
 	}
+	return nil
+}
+
+// ModulesConfig is the decoded `modules {}` block: where to fetch out-of-process
+// engine plugins from and which versions to pin. It is applied to the plugin
+// resolver before instance decode (see modulesConfigurer).
+type ModulesConfig struct {
+	Mirror   string            // module mirror base (overrides DOZE_MODULES_MIRROR)
+	Enabled  bool              // fetch plugin modules (true also when a mirror is set)
+	Versions map[string]string // engine type -> pinned module version ("" = default channel)
+}
+
+// modulesConfigurer, when registered (by cmd/doze), is handed the decoded
+// modules{} block so it can point the plugin module fetcher at the configured
+// mirror/versions before any instance's driver is resolved. It lives as a package
+// hook to keep internal/config from importing the module fetcher.
+var modulesConfigurer func(ModulesConfig)
+
+// SetModulesConfigurer registers the callback invoked with the modules{} block
+// during config load (before instance decode).
+func SetModulesConfigurer(fn func(ModulesConfig)) { modulesConfigurer = fn }
+
+func (cfg *Config) decodeModules(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
+	var m hclModules
+	if diags := gohcl.DecodeBody(block.Body, ctx, &m); diags.HasErrors() {
+		return diagError(parser, diags)
+	}
+	mc := ModulesConfig{
+		Mirror:   m.Mirror,
+		Enabled:  m.Enabled || m.Mirror != "",
+		Versions: map[string]string{},
+	}
+	for _, md := range m.Modules {
+		mc.Versions[md.Name] = md.Version
+	}
+	cfg.Modules = mc
 	return nil
 }
 
