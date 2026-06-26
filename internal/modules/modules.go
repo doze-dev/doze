@@ -58,7 +58,7 @@ func NewManager(home string) (*Manager, error) {
 	return &Manager{
 		bin:      bm,
 		plat:     plat,
-		enabled:  os.Getenv("DOZE_MODULES_MIRROR") != "",
+		enabled:  os.Getenv("DOZE_MODULES") != "off", // default-on: core ships no backing engines
 		versions: map[string]string{},
 		misses:   map[string]bool{},
 	}, nil
@@ -181,13 +181,11 @@ func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool)
 	return p, nil, true
 }
 
-// Enabled reports whether the DOZE_MODULES_MIRROR env opts module fetching on (a
-// modules{} block can also enable it). Fetching is opt-in by design: the default
-// is the compiled-in engines, so running doze from source uses local engine code
-// (fetched modules would shadow it) and dev/CI/offline need no network. A project
-// turns modules on explicitly via the env mirror or `modules { enabled = true }`,
-// which then resolves against the public doze-modules releases.
-func Enabled() bool { return os.Getenv("DOZE_MODULES_MIRROR") != "" }
+// Enabled reports whether module fetching is on. It is default-on: core compiles
+// in only the process primitive, so every other engine is a module fetched from
+// doze-modules. Opt out with DOZE_MODULES=off (offline / process-only); override
+// the source with DOZE_MODULES_MIRROR or a modules{} block.
+func Enabled() bool { return os.Getenv("DOZE_MODULES") != "off" }
 
 // Mirror returns the configured module mirror base.
 func (m *Manager) Mirror() string { return m.bin.MirrorRoot }
