@@ -2,7 +2,7 @@
 // module registry, reusing the same download / verify / content-addressed cache
 // machinery as engine binaries (doze-sdk/binaries). A module is one plugin
 // executable published at a registry source address <namespace>/<name>. doze maps
-// an engine type to a source (default nerdmenot/<type>, overridable in a modules{}
+// an engine type to a source (default doze/<type>, overridable in a modules{}
 // block), pins the namespace's ed25519 publisher key on first use, and accepts an
 // artifact only if it carries a valid signature from that key — so a public
 // registry is signed by default and key rotation can't happen silently.
@@ -32,8 +32,8 @@ import (
 const DefaultRegistryBase = "https://doze.nerdmenot.in/registry"
 
 // DefaultNamespace is the namespace an engine type's source defaults to when no
-// explicit source is given: type "postgres" -> "nerdmenot/postgres".
-const DefaultNamespace = "nerdmenot"
+// explicit source is given: type "postgres" -> "doze/postgres".
+const DefaultNamespace = "doze"
 
 // DefaultVersion is the index channel used when a module isn't otherwise pinned —
 // the index maps it to a full version (versions: { default: "0.1.0" }).
@@ -126,7 +126,7 @@ func (m *Manager) SetLogger(f func(string, ...any)) { m.mu.Lock(); m.logf = f; m
 func (m *Manager) UseLock(lockPath func() string) { m.lockPath = lockPath }
 
 // sourceFor returns the registry source address for an engine type: an explicit
-// modules{} override, else nerdmenot/<type>.
+// modules{} override, else doze/<type>.
 func (m *Manager) sourceFor(engineType string) string {
 	if s := m.sources[engineType]; s != "" {
 		return s

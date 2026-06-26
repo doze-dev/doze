@@ -462,7 +462,7 @@ type ModulesConfig struct {
 	Mirror   string            // registry base (overrides DOZE_MODULES_MIRROR)
 	Enabled  bool              // fetch plugin modules (true also when a mirror is set)
 	Versions map[string]string // engine type -> pinned module version ("" = default channel)
-	Sources  map[string]string // engine type -> source address override ("" = nerdmenot/<type>)
+	Sources  map[string]string // engine type -> source address override ("" = doze/<type>)
 }
 
 // modulesConfigurer, when registered (by cmd/doze), is handed the decoded

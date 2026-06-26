@@ -103,7 +103,7 @@ func newTestManager(t *testing.T, base string) *Manager {
 
 func TestResolveSignedModule(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
-	base, pub := signedRegistry(t, "nerdmenot", "valkey", priv)
+	base, pub := signedRegistry(t, "doze", "valkey", priv)
 	m := newTestManager(t, base)
 
 	exe, err := m.Resolve(context.Background(), "valkey", "")
@@ -119,20 +119,20 @@ func TestResolveSignedModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := lock.GetKey("nerdmenot"); !ok || got != pub {
-		t.Fatalf("lock key for nerdmenot = %q (ok=%v), want %q", got, ok, pub)
+	if got, ok := lock.GetKey("doze"); !ok || got != pub {
+		t.Fatalf("lock key for doze = %q (ok=%v), want %q", got, ok, pub)
 	}
 	// And the module pin must be keyed by the source address.
-	if _, ok := lock.GetModule("nerdmenot/valkey", "default"); !ok {
-		t.Fatalf("module pin nerdmenot/valkey not recorded: %+v", lock.Modules)
+	if _, ok := lock.GetModule("doze/valkey", "default"); !ok {
+		t.Fatalf("module pin doze/valkey not recorded: %+v", lock.Modules)
 	}
 }
 
 func TestRejectUnsignedModule(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
-	base, _ := signedRegistry(t, "nerdmenot", "valkey", priv)
+	base, _ := signedRegistry(t, "doze", "valkey", priv)
 	// Strip the sig line from the index so the artifact is unsigned.
-	idx := filepath.Join(strings.TrimPrefix(base, "file://"), "nerdmenot", "valkey", "index.yaml")
+	idx := filepath.Join(strings.TrimPrefix(base, "file://"), "doze", "valkey", "index.yaml")
 	body, _ := os.ReadFile(idx)
 	var keep []string
 	for _, ln := range strings.Split(string(body), "\n") {
@@ -152,7 +152,7 @@ func TestRejectUnsignedModule(t *testing.T) {
 
 func TestRejectKeyRotation(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
-	base, _ := signedRegistry(t, "nerdmenot", "valkey", priv)
+	base, _ := signedRegistry(t, "doze", "valkey", priv)
 	m := newTestManager(t, base)
 	if _, err := m.Resolve(context.Background(), "valkey", ""); err != nil {
 		t.Fatalf("first resolve: %v", err)
@@ -161,8 +161,8 @@ func TestRejectKeyRotation(t *testing.T) {
 	// Swap the publisher key in the registry; the pinned key must now block it.
 	_, priv2, _ := ed25519.GenerateKey(nil)
 	pub2 := base64.StdEncoding.EncodeToString(priv2.Public().(ed25519.PublicKey))
-	keys, _ := json.Marshal(keysDoc{Namespace: "nerdmenot", Key: pub2})
-	os.WriteFile(filepath.Join(strings.TrimPrefix(base, "file://"), "nerdmenot", "keys.json"), keys, 0o644)
+	keys, _ := json.Marshal(keysDoc{Namespace: "doze", Key: pub2})
+	os.WriteFile(filepath.Join(strings.TrimPrefix(base, "file://"), "doze", "keys.json"), keys, 0o644)
 
 	// Fresh manager (cold key cache) so it re-reads keys.json against the lock.
 	m2 := newTestManager(t, base)
