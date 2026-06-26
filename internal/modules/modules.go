@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -164,6 +165,11 @@ func (m *Manager) recordPin(lock *binaries.Lock, name, spec, full, digest string
 // the same name. A type with no published module is remembered so it isn't
 // re-fetched every lookup, and the caller falls back to any in-tree driver.
 func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool) {
+	// Never fetch a module for an engine that's compiled in (process): the in-tree
+	// driver is authoritative, and a stray published module must not shadow it.
+	if isInTree(engineType) {
+		return "", nil, false
+	}
 	m.mu.Lock()
 	if !m.enabled || m.misses[engineType] {
 		m.mu.Unlock()
@@ -179,6 +185,12 @@ func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool)
 		return "", nil, false
 	}
 	return p, nil, true
+}
+
+// isInTree reports whether an engine type is compiled into doze core (registered
+// in-tree, e.g. process). Such types are never fetched as modules.
+func isInTree(engineType string) bool {
+	return slices.Contains(engine.Types(), engineType)
 }
 
 // Enabled reports whether module fetching is on. It is default-on: core compiles
