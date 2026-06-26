@@ -46,7 +46,7 @@ func main() {
 		// Apply the modules{} block (mirror/enable/version pins) before any driver
 		// is resolved. Fetching stays off unless the env mirror or the block enables it.
 		config.SetModulesConfigurer(func(mc config.ModulesConfig) {
-			modMgr.Configure(mc.Mirror, mc.Enabled, mc.Versions, mc.Sources)
+			modMgr.Configure(mc.Mirror, mc.Enabled, mc.Sources)
 		})
 		resolvers = append(resolvers, modMgr.Lookup)
 	}

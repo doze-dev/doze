@@ -29,20 +29,16 @@ func modulesCmd() *cobra.Command {
 
 func modulesInfoCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "info <source> [version]",
+		Use:     "info <source>",
 		Aliases: []string{"verify"},
 		Short:   "Fetch a registry source's index and verify its signatures",
 		Long: "info fetches the module index for a registry source (e.g. doze/postgres),\n" +
 			"pins the namespace's publisher key trust-on-first-use, and reports each\n" +
 			"platform artifact and whether its ed25519 signature verifies — the same\n" +
 			"check doze enforces before running a module. No archives are downloaded.",
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			source := args[0]
-			version := ""
-			if len(args) > 1 {
-				version = args[1]
-			}
 			// Pure inspection of a registry source — no project config is loaded, so
 			// it has no side effects on the working directory's stack. The mirror comes
 			// from DOZE_MODULES_MIRROR (else the public registry).
@@ -52,7 +48,7 @@ func modulesInfoCmd() *cobra.Command {
 			}
 			mm.SetLogger(stderrLogger)
 
-			insp, err := mm.Inspect(source, version)
+			insp, err := mm.Inspect(source, "")
 			if err != nil {
 				return err
 			}
@@ -92,7 +88,7 @@ func modulesListCmd() *cobra.Command {
 				if mm, err = modules.NewManager(dozeHome()); err != nil {
 					return err
 				}
-				mm.Configure(mc.Mirror, mc.Enabled, mc.Versions, mc.Sources)
+				mm.Configure(mc.Mirror, mc.Enabled, mc.Sources)
 				fmt.Printf("module mirror: %s\n\n", mm.Mirror())
 			} else {
 				fmt.Printf("module fetching is off (set DOZE_MODULES_MIRROR or a modules{} block to enable)\n\n")
@@ -154,10 +150,10 @@ func modulesWhichCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			mm.Configure(mc.Mirror, mc.Enabled, mc.Versions, mc.Sources)
+			mm.Configure(mc.Mirror, mc.Enabled, mc.Sources)
 			mm.SetLogger(stderrLogger)
 			mm.UseLock(func() string { return filepath.Join(configDir(cfg.Path()), binaries.LockFileName) })
-			path, err := mm.Resolve(context.Background(), engineType, mc.Versions[engineType])
+			path, err := mm.Resolve(context.Background(), engineType, "")
 			if err != nil {
 				return err
 			}

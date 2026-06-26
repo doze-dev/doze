@@ -128,9 +128,8 @@ type hclModules struct {
 }
 
 type hclModule struct {
-	Name    string `hcl:"name,label"`
-	Version string `hcl:"version,optional"`
-	Source  string `hcl:"source,optional"`
+	Name   string `hcl:"name,label"`
+	Source string `hcl:"source,optional"`
 }
 
 // Load reads and validates the doze configuration at path, with no variable
@@ -460,13 +459,14 @@ func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block, ctx *hcl
 }
 
 // ModulesConfig is the decoded `modules {}` block: where to fetch out-of-process
-// engine plugins from and which versions to pin. It is applied to the plugin
-// resolver before instance decode (see modulesConfigurer).
+// engine plugins from and any per-engine source overrides. It is applied to the
+// plugin resolver before instance decode (see modulesConfigurer). There is no
+// plugin-version knob — the registry serves the current build and doze.lock pins
+// it by content hash, so reproducibility costs the developer no cognitive load.
 type ModulesConfig struct {
-	Mirror   string            // registry base (overrides DOZE_MODULES_MIRROR)
-	Enabled  bool              // fetch plugin modules (true also when a mirror is set)
-	Versions map[string]string // engine type -> pinned module version ("" = default channel)
-	Sources  map[string]string // engine type -> source address override ("" = doze/<type>)
+	Mirror  string            // registry base (overrides DOZE_MODULES_MIRROR)
+	Enabled bool              // fetch plugin modules (true also when a mirror is set)
+	Sources map[string]string // engine type -> source address override ("" = doze/<type>)
 }
 
 // modulesConfigurer, when registered (by cmd/doze), is handed the decoded
@@ -485,13 +485,11 @@ func (cfg *Config) decodeModules(parser *hclparse.Parser, block *hcl.Block, ctx 
 		return diagError(parser, diags)
 	}
 	mc := ModulesConfig{
-		Mirror:   m.Mirror,
-		Enabled:  m.Enabled || m.Mirror != "",
-		Versions: map[string]string{},
-		Sources:  map[string]string{},
+		Mirror:  m.Mirror,
+		Enabled: m.Enabled || m.Mirror != "",
+		Sources: map[string]string{},
 	}
 	for _, md := range m.Modules {
-		mc.Versions[md.Name] = md.Version
 		mc.Sources[md.Name] = md.Source
 	}
 	cfg.Modules = mc

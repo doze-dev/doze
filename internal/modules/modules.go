@@ -58,12 +58,11 @@ type Manager struct {
 	lockPath func() string // resolves the project doze.lock path (lazily), for pinning
 	logf     func(string, ...any)
 
-	mu       sync.Mutex
-	enabled  bool              // fetch modules at all
-	base     string            // registry base URL (default or override)
-	versions map[string]string // engine type -> pinned module version (from modules{})
-	sources  map[string]string // engine type -> source address override (from modules{})
-	misses   map[string]bool   // engine types with no published module (negative cache)
+	mu      sync.Mutex
+	enabled bool              // fetch modules at all
+	base    string            // registry base URL (default or override)
+	sources map[string]string // engine type -> source address override (from modules{})
+	misses  map[string]bool   // engine types with no published module (negative cache)
 
 	nsm  map[string]*binaries.Manager // memoized per-namespace fetchers (keyed by namespace)
 	keys map[string]ed25519.PublicKey // verified publisher keys (keyed by namespace)
@@ -84,20 +83,19 @@ func NewManager(home string) (*Manager, error) {
 		home:     home,
 		plat:     plat,
 		logf:     func(string, ...any) {},
-		enabled:  os.Getenv("DOZE_MODULES") != "off", // default-on: core ships no backing engines
-		base:     base,
-		versions: map[string]string{},
-		sources:  map[string]string{},
-		misses:   map[string]bool{},
-		nsm:      map[string]*binaries.Manager{},
-		keys:     map[string]ed25519.PublicKey{},
+		enabled: os.Getenv("DOZE_MODULES") != "off", // default-on: core ships no backing engines
+		base:    base,
+		sources: map[string]string{},
+		misses:  map[string]bool{},
+		nsm:     map[string]*binaries.Manager{},
+		keys:    map[string]ed25519.PublicKey{},
 	}, nil
 }
 
 // Configure applies a decoded modules{} block: an optional registry override,
-// whether fetching is enabled, per-engine version pins, and per-engine source
-// overrides. It runs before any instance's driver is resolved.
-func (m *Manager) Configure(mirror string, enabled bool, versions, sources map[string]string) {
+// whether fetching is enabled, and per-engine source overrides. It runs before any
+// instance's driver is resolved.
+func (m *Manager) Configure(mirror string, enabled bool, sources map[string]string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if mirror != "" {
@@ -107,11 +105,6 @@ func (m *Manager) Configure(mirror string, enabled bool, versions, sources map[s
 	}
 	if enabled {
 		m.enabled = true
-	}
-	for k, v := range versions {
-		if v != "" {
-			m.versions[k] = v
-		}
 	}
 	for k, v := range sources {
 		if v != "" {
@@ -306,9 +299,8 @@ func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool)
 		m.mu.Unlock()
 		return "", nil, false
 	}
-	version := m.versions[engineType]
 	m.mu.Unlock()
-	p, err := m.Resolve(context.Background(), engineType, version)
+	p, err := m.Resolve(context.Background(), engineType, "")
 	if err != nil {
 		m.logf("module %s unavailable: %v", engineType, err)
 		m.mu.Lock()

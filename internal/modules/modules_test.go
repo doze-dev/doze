@@ -179,7 +179,7 @@ func TestSourceOverride(t *testing.T) {
 	base, _ := signedRegistry(t, "acme", "redis", priv)
 	m := newTestManager(t, base)
 	// Engine type "valkey" served by acme/redis via a modules{} source override.
-	m.Configure("", true, nil, map[string]string{"valkey": "acme/redis"})
+	m.Configure("", true, map[string]string{"valkey": "acme/redis"})
 
 	exe, err := m.Resolve(context.Background(), "valkey", "")
 	if err != nil {
