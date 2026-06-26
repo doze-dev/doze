@@ -120,14 +120,13 @@ func TestMergedEnvPrecedence(t *testing.T) {
 		Env:     map[string]string{"SHARED": "explicit", "FROM_ENV": "env"},
 	}
 	got := map[string]string{}
-	for _, kv := range c.mergedEnv(map[string]string{"INJECTED": "inj", "SHARED": "injected"}) {
+	for _, kv := range c.mergedEnv() {
 		k, v, _ := strings.Cut(kv, "=")
 		got[k] = v
 	}
-	// explicit env{} beats env_file beats injected; os.Environ is the floor.
+	// explicit env{} beats env_file; os.Environ is the floor. doze injects nothing.
 	checks := map[string]string{
 		"PROC_TEST_BASE": "base",
-		"INJECTED":       "inj",
 		"FROM_FILE":      "file",
 		"FROM_ENV":       "env",
 		"SHARED":         "explicit",

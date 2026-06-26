@@ -43,7 +43,7 @@ func (d Driver) runHooks(ctx context.Context, inst engine.Instance, phase string
 	case "pre_stop":
 		cmds = cfg.Hooks.PreStop
 	}
-	env := cfg.mergedEnv(inst.InjectedEnv)
+	env := cfg.mergedEnv()
 	for _, line := range cmds {
 		if strings.TrimSpace(line) == "" {
 			continue

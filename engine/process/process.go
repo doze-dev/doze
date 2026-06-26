@@ -107,7 +107,7 @@ func (Driver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) 
 		Dir:   cfg.Cwd,
 		Bin:   "sh",
 		Args:  []string{"-c", cfg.Command},
-		Env:   cfg.mergedEnv(inst.InjectedEnv),
+		Env:   cfg.mergedEnv(),
 		Tree:  true, // reap `go run`/`bun` and all children as a group
 		Ready: cfg.readySpec(),
 	}}}, nil
@@ -138,17 +138,15 @@ func (Driver) BackendSocket(string, int) string { return "" }
 func (Driver) ConnString(engine.Instance, engine.Endpoint) (string, string) { return "", "" }
 
 // mergedEnv builds the child environment, lowest precedence first: the daemon's
-// own environment (PATH, HOME, …), then doze-injected connection vars, then the
-// env_file, then the explicit env{} block.
-func (c *Config) mergedEnv(injected map[string]string) []string {
+// own environment (PATH, HOME, …), then the env_file, then the explicit env{}
+// block. doze does not inject anything — a process gets exactly the env it
+// declares (the env block can reference peers, e.g. DATABASE_URL = postgres.app.url).
+func (c *Config) mergedEnv() []string {
 	merged := map[string]string{}
 	for _, kv := range os.Environ() {
 		if k, v, ok := strings.Cut(kv, "="); ok {
 			merged[k] = v
 		}
-	}
-	for k, v := range injected {
-		merged[k] = v
 	}
 	for k, v := range parseEnvFile(c.EnvFile) {
 		merged[k] = v

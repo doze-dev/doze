@@ -19,9 +19,8 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/nerdmenot/doze-sdk/binaries"
-	"github.com/nerdmenot/doze/internal/config"
-	"github.com/nerdmenot/doze/internal/endpoints"
 	"github.com/nerdmenot/doze-sdk/engine"
+	"github.com/nerdmenot/doze/internal/config"
 	"github.com/nerdmenot/doze/internal/registry"
 	"github.com/nerdmenot/doze/internal/state"
 	"github.com/nerdmenot/doze/internal/supervisor"
@@ -232,13 +231,6 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		return fail(err)
 	}
 
-	// Supervised processes run with the same environment `doze run` injects
-	// (connection strings, AWS creds/region, DOZE_<NAME>_URL); their config also
-	// references peers directly, so this is the floor, not the only source.
-	if r.isSupervised(drv, inst) {
-		inst.InjectedEnv = r.injectedEnv()
-	}
-
 	// Lifecycle hooks run around the start: pre_start (e.g. migrations) after deps
 	// are up but before the process spawns. A failure aborts and taints the boot.
 	if h, ok := drv.(engine.Hooked); ok {
@@ -431,9 +423,6 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 			if drv, ok := engine.Lookup(decl.Type); ok {
 				if h, ok := drv.(engine.Hooked); ok {
 					inst := r.instanceFor(decl, drv)
-					if r.isSupervised(drv, inst) {
-						inst.InjectedEnv = r.injectedEnv()
-					}
 					if e := h.PreStop(ctx, inst); e != nil {
 						r.logf("pre_stop for %q failed: %v", name, e)
 					}
@@ -748,17 +737,6 @@ func (r *Runtime) supervised(name string) bool {
 func (r *Runtime) isSupervised(drv engine.Driver, inst engine.Instance) bool {
 	lc, ok := drv.(engine.Lifecycle)
 	return ok && lc.Supervised(inst)
-}
-
-// injectedEnv is the doze-managed environment handed to a supervised process: the
-// same connection strings + AWS creds/region + DOZE_<NAME>_URL that `doze run`
-// injects, derived from every declared instance's endpoint. Best-effort.
-func (r *Runtime) injectedEnv() map[string]string {
-	eps, err := endpoints.For(r.cfg)
-	if err != nil {
-		return nil
-	}
-	return endpoints.EnvVars(eps)
 }
 
 // RunHealthProber periodically probes running supervised instances that expose an
