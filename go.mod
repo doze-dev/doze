@@ -9,7 +9,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/hashicorp/hcl/v2 v2.24.0
-	github.com/nerdmenot/doze-sdk v0.0.0-20260626131203-f59ea1c235cf
+	github.com/nerdmenot/doze-sdk v0.1.0
 	github.com/spf13/cobra v1.10.2
 	github.com/zclconf/go-cty v1.18.1
 	golang.org/x/sync v0.21.0
