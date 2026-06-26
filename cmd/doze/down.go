@@ -4,35 +4,27 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/doze-dev/doze/internal/control"
-	"github.com/doze-dev/doze/internal/daemon"
 )
 
 func downCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "down [process…]",
-		Short: "Stop processes in reverse dependency order",
-		Long: "down stops application processes (the counterpart to `doze up`), in reverse\n" +
-			"dependency order so dependents drain before their dependencies. Name one or\n" +
-			"more processes, or omit to stop every declared process. The databases they\n" +
-			"used are left to reap on idle, and the daemon keeps running.",
-		Args: cobra.ArbitraryArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:   "down",
+		Short: "Bring the whole stack down: sleep every service and stop the daemon",
+		Long: "down is the counterpart to `doze up`: it sleeps every service and stops the\n" +
+			"background daemon, so nothing is left running or listening. To sleep\n" +
+			"services while keeping the daemon up (so they can wake on the next\n" +
+			"connection), use `doze sleep` instead.",
+		Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
-			targets, err := processTargets(cfg, args)
-			if err != nil {
-				return err
-			}
-			client := control.NewClient(daemon.ControlSocketPath(cfg))
-			if !client.Available() {
+			if !daemonRunning(cfg) {
 				fmt.Println("doze is not running")
 				return nil
 			}
-			return shutdown(cfg, client, targets)
+			return stopDaemon(cfg) // shutting the daemon down reaps every backend
 		},
 	}
 }

@@ -84,6 +84,21 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance,
 		return err
 	}
 
+	// 2b. An enabled instance must not depend on a disabled (paused) one — it could
+	// never boot. Fail loud so `enabled = false` can't silently break the stack.
+	for _, p := range pending {
+		if !p.decl.Enabled {
+			continue
+		}
+		for _, d := range p.decl.Deps {
+			if dep, ok := byName[d.Name]; ok && !dep.decl.Enabled {
+				return posErr(parser, p.defRange,
+					fmt.Sprintf("%s %q depends on %q, which is disabled", p.decl.Type, p.decl.Name, d.Name),
+					fmt.Sprintf("enable %q, or disable %q as well", d.Name, p.decl.Name))
+			}
+		}
+	}
+
 	// 3. Decode each driver body in order, growing the evaluation context (which
 	// already holds var.*/local.*) with each instance's attribute object under
 	// <type>.<name>.

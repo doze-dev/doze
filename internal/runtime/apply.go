@@ -23,8 +23,11 @@ func (r *Runtime) Apply(ctx context.Context, name string) error {
 		return err
 	}
 	for _, n := range r.targetNames(name) {
+		if decl := r.cfg.Lookup(n); decl != nil && !decl.Enabled {
+			continue // paused (enabled = false): not converged, and its data is left intact
+		}
 		if !r.hasStructure(n) {
-			continue // no structure to apply; it boots lazily or via `doze start <instance>`
+			continue // no structure to apply; it boots lazily or via `doze wake <instance>`
 		}
 		if err := r.Up(ctx, n); err != nil { // boot + converge (creates/updates)
 			return err

@@ -97,6 +97,10 @@ type InstanceDecl struct {
 	// and any explicit `depends_on`; the runtime boots and holds them first.
 	Index int                 // declaration order, used for endpoint address assignment
 	Deps  []engine.Dependency // dependencies, in reference order
+	// Enabled defaults to true; `enabled = false` declares the instance but leaves it
+	// paused — not booted by up/wake, not converged or pruned by sync (its data is
+	// preserved), shown as "disabled" in the tree. Re-enabling brings it back as-is.
+	Enabled bool
 }
 
 // common is the partial-decode target for the fields config reads from every
@@ -500,7 +504,7 @@ func (cfg *Config) decodeModules(parser *hclparse.Parser, block *hcl.Block, ctx 
 // context exposing each.key/each.value or count.index. The meta-args are stripped
 // before the driver decode so the engine's strict schema never sees them.
 func (cfg *Config) expandInstanceBlock(parser *hclparse.Parser, block *hcl.Block, declRanges map[string]hcl.Range, ctx *hcl.EvalContext) ([]*pendingInstance, error) {
-	metaSchema := &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"}}}
+	metaSchema := &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"}, {Name: "enabled"}}}
 	meta, restBody, diags := block.Body.PartialContent(metaSchema)
 	if diags.HasErrors() {
 		return nil, diagError(parser, diags)
@@ -509,6 +513,17 @@ func (cfg *Config) expandInstanceBlock(parser *hclparse.Parser, block *hcl.Block
 	forEachAttr, hasForEach := meta.Attributes["for_each"]
 	if hasCount && hasForEach {
 		return nil, posErr(parser, block.DefRange, fmt.Sprintf("%s %q: set either count or for_each, not both", block.Type, block.Labels[0]), "")
+	}
+	enabled := true
+	if en, ok := meta.Attributes["enabled"]; ok {
+		v, ediags := en.Expr.Value(ctx)
+		if ediags.HasErrors() {
+			return nil, diagError(parser, ediags)
+		}
+		if v.IsNull() || v.Type() != cty.Bool {
+			return nil, posErr(parser, en.Range, fmt.Sprintf("%s %q: enabled must be a boolean", block.Type, block.Labels[0]), "")
+		}
+		enabled = v.True()
 	}
 	var explicit map[string]engine.Condition
 	if dep, ok := meta.Attributes["depends_on"]; ok {
@@ -534,6 +549,7 @@ func (cfg *Config) expandInstanceBlock(parser *hclparse.Parser, block *hcl.Block
 		if err != nil {
 			return nil, err
 		}
+		p.decl.Enabled = enabled
 		p.explicitDeps = explicit
 		out = append(out, p)
 	}

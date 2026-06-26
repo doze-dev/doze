@@ -90,11 +90,22 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	disabled := map[string]bool{}
+	for _, decl := range d.cfg.Instances {
+		if !decl.Enabled {
+			disabled[decl.Name] = true
+		}
+	}
 	var wg sync.WaitGroup
 	for _, ep := range eps {
 		drv, ok := engine.Lookup(ep.Engine)
 		if !ok {
 			return fmt.Errorf("no driver registered for engine %q (instance %q)", ep.Engine, ep.Name)
+		}
+		// A disabled (paused) instance gets no listener: no endpoint, no lazy-boot.
+		if disabled[ep.Name] {
+			d.logf("%s/%s is disabled; no proxy listener", ep.Engine, ep.Name)
+			continue
 		}
 		// Supervised processes bind their own port — doze does not front them with a
 		// proxy. They boot eagerly via `doze up`/`doze start`, not on a connection.
@@ -167,6 +178,9 @@ func (h *handler) Status() control.Response {
 			engineType, version, declared = decl.Type, decl.Version.String(), true
 		}
 		v := control.ViewFromRegistry(inst, engineType, version, declared)
+		if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
+			v.Disabled = true
+		}
 		hydrateEndpoint(&v, eps[inst.Name])
 		v.DataDir = h.dataDir(inst.Name)
 		if st, ok := stats[inst.PID]; ok {
@@ -177,9 +191,13 @@ func (h *handler) Status() control.Response {
 	}
 	for _, decl := range h.d.cfg.Instances {
 		if !seen[decl.Name] {
+			state := "reaped"
+			if !decl.Enabled {
+				state = "disabled"
+			}
 			v := control.InstanceView{
-				Name: decl.Name, Engine: decl.Type, State: "reaped",
-				Version: decl.Version.String(), Declared: true,
+				Name: decl.Name, Engine: decl.Type, State: state,
+				Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
 			}
 			hydrateEndpoint(&v, eps[decl.Name])
 			v.DataDir = h.dataDir(decl.Name)
@@ -214,6 +232,9 @@ func (h *handler) endpointsByName() map[string]endpoints.Endpoint {
 }
 
 func (h *handler) Boot(ctx context.Context, name string) error {
+	if decl := h.d.cfg.Lookup(name); decl != nil && !decl.Enabled {
+		return fmt.Errorf("instance %q is disabled (enabled = false); enable it in the config to wake it", name)
+	}
 	_, err := h.d.rt.Boot(ctx, name)
 	return err
 }
@@ -229,6 +250,9 @@ func (h *handler) Restart(ctx context.Context, name string) error {
 func (h *handler) Up(ctx context.Context, name string) error {
 	if name == "" {
 		for _, decl := range h.d.cfg.Instances {
+			if !decl.Enabled {
+				continue // paused: skip disabled instances on a whole-stack up
+			}
 			if err := h.d.rt.Up(ctx, decl.Name); err != nil {
 				return err
 			}

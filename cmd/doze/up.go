@@ -24,22 +24,37 @@ const bootBudget = 5 * time.Minute
 func upCmd() *cobra.Command {
 	var detach bool
 	cmd := &cobra.Command{
-		Use:   "up [process…]",
-		Short: "Bring processes (and their dependencies) up, then stream their logs",
-		Long: "up boots application processes declared with `process` blocks — and the\n" +
-			"databases/queues they depend on — in dependency order, gating on each\n" +
-			"health probe, then streams their interleaved logs. Ctrl-C stops the\n" +
-			"processes in reverse order. Name one or more processes, or omit to bring up\n" +
-			"every declared process. Use --detach to return once everything is up.",
+		Use:   "up [service…]",
+		Short: "Bring the stack up: converge structure, wake every service, stream process logs",
+		Long: "up brings the whole stack up — it converges declared structure and wakes\n" +
+			"every enabled service in dependency order, gating on each health probe, then\n" +
+			"streams the interleaved logs of any process services. Ctrl-C sleeps the\n" +
+			"processes in reverse order (databases reap on idle). Name one or more\n" +
+			"services to bring up just their closure, or omit for the whole stack.\n" +
+			"--detach returns once everything is up. Disabled services are skipped.",
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
-			targets, err := processTargets(cfg, args)
-			if err != nil {
-				return err
+			var targets []string
+			if len(args) > 0 {
+				for _, n := range args {
+					if cfg.Lookup(n) == nil {
+						return instanceNotFound(cfg, n)
+					}
+				}
+				targets = args
+			} else {
+				for _, d := range cfg.Instances {
+					if d.Enabled {
+						targets = append(targets, d.Name)
+					}
+				}
+				if len(targets) == 0 {
+					return fmt.Errorf("nothing to bring up (no enabled services declared)")
+				}
 			}
 			return runUp(cfg, targets, detach)
 		},
@@ -66,7 +81,7 @@ func runUp(cfg *config.Config, targets []string, detach bool) error {
 	for _, name := range order {
 		fmt.Println(ui.Muted("→") + " " + name + " starting…")
 		bootCtx, cancel := context.WithTimeout(ctx, bootBudget)
-		_, err := client.DoContext(bootCtx, control.Request{Op: "boot", DB: name})
+		_, err := client.DoContext(bootCtx, control.Request{Op: "up", DB: name}) // boot + converge
 		cancel()
 		if err != nil {
 			if ctx.Err() != nil { // interrupted mid-boot

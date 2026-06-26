@@ -75,32 +75,33 @@ func rootCmd() *cobra.Command {
 	root.PersistentFlags().StringArrayVar(&varFlags, "var", nil, "set a config variable: --var name=value (repeatable)")
 
 	root.AddCommand(
-		// Structure (declarative)
-		planCmd(),
-		applyCmd(),
-		destroyCmd(),
-		outputCmd(),
-		// Run / connect
-		runCmd(),
-		shellCmd(),
-		// Lifecycle (daemon, or a single instance)
+		// Stack lifecycle
 		upCmd(),
 		downCmd(),
-		startCmd(),
-		stopCmd(),
-		restartCmd(),
+		// Per-service (wake/sleep cascade dependencies/dependents)
+		wakeCmd(),
+		sleepCmd(),
+		// Reconcile declared structure
+		syncCmd(),
 		// Inspect
-		statusCmd(),
-		dashCmd(),
+		treeCmd(),
 		logsCmd(),
-		doctorCmd(),
-		// Setup / manage
-		initCmd(),
+		dashCmd(),
+		// Wipe data
 		resetCmd(),
+		// Validate / scaffold / diagnose
+		lintCmd(),
+		initCmd(),
+		doctorCmd(),
+		// Connect / run
+		shellCmd(),
+		runCmd(),
+		// Toolchains / registry
 		binariesCmd(),
 		modulesCmd(),
 		versionCmd(),
-		// Internal (hidden)
+		// Hidden: the daemon self-exec entry point
+		daemonCmd(),
 	)
 	return root
 }
