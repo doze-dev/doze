@@ -14,21 +14,18 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/nerdmenot/doze/internal/config"
 	"github.com/nerdmenot/doze-sdk/engine"
+	"github.com/nerdmenot/doze/internal/config"
 )
 
-// Endpoint is one instance's client-facing endpoint plus its injectable
-// connection string.
+// Endpoint is one instance's client-facing endpoint plus its connection string
+// (shown by status/dash; doze does not inject it anywhere).
 type Endpoint struct {
 	Name    string `yaml:"name"`
 	Engine  string `yaml:"engine"`
 	Address string `yaml:"address"` // "host:port" or "unix:/path"
 	EnvVar  string `yaml:"env_var,omitempty"`
 	URL     string `yaml:"url,omitempty"`
-	// Extra is engine-contributed environment beyond the ConnString pair (an
-	// engine.EnvProvider), e.g. the AWS services' endpoint URL + dummy creds.
-	Extra map[string]string `yaml:"extra,omitempty"`
 }
 
 // For computes the endpoints for every declared instance.
@@ -44,9 +41,6 @@ func For(cfg *config.Config) ([]Endpoint, error) {
 			eep := engineEndpoint(addr)
 			inst := engine.Instance{Name: decl.Name, Type: decl.Type, Version: decl.Version, Endpoint: eep}
 			ep.EnvVar, ep.URL = drv.ConnString(inst, eep)
-			if envp, ok := drv.(engine.EnvProvider); ok {
-				ep.Extra = envp.Env(inst, eep)
-			}
 		}
 		out = append(out, ep)
 	}
@@ -66,46 +60,6 @@ func engineEndpoint(addr string) engine.Endpoint {
 		return engine.Endpoint{UnixSocket: path}
 	}
 	return engine.Endpoint{TCPAddr: addr}
-}
-
-// EnvVars builds the environment doze injects: a unique DOZE_<NAME>_URL for
-// every instance, plus the conventional engine variable (DATABASE_URL, …) when
-// exactly one instance claims it (so it stays unambiguous).
-func EnvVars(eps []Endpoint) map[string]string {
-	convCount := map[string]int{}
-	for _, ep := range eps {
-		if ep.EnvVar != "" && ep.URL != "" {
-			convCount[ep.EnvVar]++
-		}
-	}
-	m := map[string]string{}
-	for _, ep := range eps {
-		// Engine-contributed extras (e.g. AWS creds + region) apply even when the
-		// instance has no single ConnString URL.
-		for k, v := range ep.Extra {
-			m[k] = v
-		}
-		if ep.URL == "" {
-			continue
-		}
-		m["DOZE_"+sanitizeEnv(ep.Name)+"_URL"] = ep.URL
-		if ep.EnvVar != "" && convCount[ep.EnvVar] == 1 {
-			m[ep.EnvVar] = ep.URL
-		}
-	}
-	return m
-}
-
-func sanitizeEnv(name string) string {
-	var b strings.Builder
-	for _, r := range strings.ToUpper(name) {
-		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('_')
-		}
-	}
-	return b.String()
 }
 
 // ManifestPath returns the .doze/endpoints.yaml path beside the config file.

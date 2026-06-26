@@ -99,7 +99,6 @@ func rootCmd() *cobra.Command {
 		resetCmd(),
 		binariesCmd(),
 		modulesCmd(),
-		ephemeralCmd(),
 		versionCmd(),
 		// Internal (hidden)
 	)
