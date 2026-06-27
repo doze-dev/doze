@@ -678,8 +678,10 @@ func (c *Config) InstanceAddr(decl *InstanceDecl) (string, error) {
 	// A supervised process may be portless — a background worker with no endpoint
 	// binds nothing and doze fronts nothing, so it needs no port. Any other engine
 	// must declare one: doze opens a proxy listener for it and won't guess a port.
+	// (Supervised is the daemon's own "no proxy" signal — unlike PortBinder, the
+	// module adapter doesn't satisfy it unless the plugin actually advertises it.)
 	if drv, ok := engine.Lookup(decl.Type); ok {
-		if _, isProcess := drv.(engine.PortBinder); isProcess {
+		if lc, ok := drv.(engine.Lifecycle); ok && lc.Supervised(engine.Instance{Name: decl.Name, Type: decl.Type, Spec: decl.Spec}) {
 			return "", nil
 		}
 	}
