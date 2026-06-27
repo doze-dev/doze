@@ -38,9 +38,9 @@ func initCmd() *cobra.Command {
 				return fmt.Errorf("%s already exists (use --force to overwrite)", configPath)
 			}
 
-			picks, app := []string{"postgres"}, ""
+			picks, app, doLint := []string{"postgres"}, "", false
 			if isInteractive() {
-				picks, app = runWizard()
+				picks, app, doLint = runWizard()
 			}
 			if len(picks) == 0 && app == "" {
 				fmt.Println("Nothing selected — run `doze init` again to pick services.")
@@ -53,7 +53,7 @@ func initCmd() *cobra.Command {
 			fmt.Println(ui.OK("✓") + " wrote " + configPath + " — " + strings.Join(append(append([]string{}, picks...), appLabel(app)...), ", "))
 			fmt.Println(ui.Muted("  next:") + " doze lint   ·   doze up   ·   doze tree")
 
-			if isInteractive() && confirm("Validate it now with `doze lint`?") {
+			if doLint {
 				if cfg, err := loadConfig(); err != nil {
 					fmt.Println(ui.Fail("✗") + " " + err.Error())
 				} else {
@@ -67,8 +67,9 @@ func initCmd() *cobra.Command {
 	return cmd
 }
 
-// runWizard asks two short questions: which engines, and an optional app command.
-func runWizard() (picks []string, app string) {
+// runWizard asks three short questions (one shared reader, so no line is
+// buffer-swallowed): which engines, an optional app command, and whether to lint.
+func runWizard() (picks []string, app string, lint bool) {
 	fmt.Println(ui.Title("Let's scaffold a doze stack.") + " " + ui.Muted("(Ctrl-C to bail)"))
 	fmt.Println()
 	for i, e := range initEngines {
@@ -84,7 +85,11 @@ func runWizard() (picks []string, app string) {
 	fmt.Print(ui.Title("App command") + ui.Muted(" — e.g. 'go run . serve' (Enter to skip): "))
 	cmd, _ := r.ReadString('\n')
 	app = strings.TrimSpace(cmd)
-	return picks, app
+
+	fmt.Print(ui.Title("Validate") + ui.Muted(" it now with `doze lint`? [y/N]: "))
+	ans, _ := r.ReadString('\n')
+	lint = strings.EqualFold(strings.TrimSpace(ans), "y") || strings.EqualFold(strings.TrimSpace(ans), "yes")
+	return picks, app, lint
 }
 
 // parsePicks turns "1 3 valkey" into a deduped, order-preserving engine list.
@@ -129,7 +134,7 @@ func scaffoldFor(picks []string, app string) string {
 		}
 	}
 	if app != "" {
-		b.WriteString("\nprocess \"app\" {\n  command = " + hclString(app) + "\n  port    = 8080\n\n  env = {\n")
+		b.WriteString("\nprocess \"api\" {\n  command = " + hclString(app) + "\n  port    = 8080\n\n  env = {\n")
 		if hasPostgres {
 			b.WriteString("    DATABASE_URL = postgres.app.url\n")
 		}
@@ -142,7 +147,7 @@ func appLabel(app string) []string {
 	if app == "" {
 		return nil
 	}
-	return []string{"app"}
+	return []string{"api"}
 }
 
 func hclString(s string) string { return "\"" + strings.ReplaceAll(s, "\"", "\\\"") + "\"" }
