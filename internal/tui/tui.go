@@ -22,7 +22,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/doze-dev/doze/internal/control"
-	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -614,24 +613,22 @@ func (m model) visible() []int {
 	return idx
 }
 
-// groupOf is the display heading an instance falls under (explicit group wins,
-// else its engine category).
+// groupOf is the display heading an instance falls under: just two divisions —
+// your own supervised apps are "processes", everything else (the engine modules:
+// databases, caches, queues, buckets, topics) is "modules".
 func groupOf(in control.InstanceView) string {
-	if in.Group != "" {
-		return in.Group
+	if in.Engine == "process" {
+		return "processes"
 	}
-	return engine.Category(in.Engine)
+	return "modules"
 }
 
-// groupRank orders the fixed engine categories; unknown groups (e.g. modules)
-// sort after them, alphabetically via the stable name tiebreak.
+// groupRank orders the two divisions: modules first, processes last.
 func groupRank(cat string) int {
-	for i, c := range engine.CategoryOrder {
-		if c == cat {
-			return i
-		}
+	if cat == "processes" {
+		return 1
 	}
-	return len(engine.CategoryOrder)
+	return 0
 }
 
 // sbLine is one rendered sidebar line: a group header, or an instance at display
@@ -2096,6 +2093,9 @@ func (m model) tabLabels() []string {
 		if b := resBadges(r); b != "" {
 			label += " " + b
 		}
+		if r.Info["dlq"] == "true" { // a dead-letter companion of the primary queue
+			label = "↳ " + label
+		}
 		out[i] = label
 	}
 	return out
@@ -2115,9 +2115,12 @@ func (m model) consoleTabs() string {
 	labels := m.tabLabels()
 	tabs := make([]string, len(labels))
 	for i, label := range labels {
-		if i == m.adminCursor {
-			tabs[i] = stAccent.Bold(true).Render("‹"+label+"›")
-		} else {
+		switch {
+		case i == m.adminCursor:
+			tabs[i] = stAccent.Bold(true).Render("‹" + label + "›")
+		case m.adminRes[i].Info["dlq"] == "true": // dead-letter companion — de-emphasized
+			tabs[i] = stFaint.Render(" " + label + " ")
+		default:
 			tabs[i] = stDim.Render(" " + label + " ")
 		}
 	}

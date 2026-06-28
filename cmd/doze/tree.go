@@ -51,37 +51,22 @@ func treeCmd() *cobra.Command {
 	return cmd
 }
 
-// category groups: a stable display order and a human heading for each.
-var categoryOrder = []string{"database", "cache", "storage", "queue", "topic", "process", "other"}
+// category groups: just two divisions — modules (the engines) and processes (your
+// own supervised apps).
+var categoryOrder = []string{"module", "process"}
 
 var categoryLabel = map[string]string{
-	"database": "Databases",
-	"cache":    "Cache & key-value",
-	"storage":  "Object storage",
-	"queue":    "Queues",
-	"topic":    "Topics",
-	"process":  "Processes",
-	"other":    "Other",
+	"module":  "Modules",
+	"process": "Processes",
 }
 
-// categoryOf maps an engine type to its display group.
+// categoryOf maps an engine type to its display group: your `process` apps are
+// "process", every engine module is "module".
 func categoryOf(engineType string) string {
-	switch engineType {
-	case "postgres", "mysql", "documentdb", "ferretdb", "mongodb":
-		return "database"
-	case "valkey", "redis", "kvrocks":
-		return "cache"
-	case "s3":
-		return "storage"
-	case "sqs":
-		return "queue"
-	case "sns":
-		return "topic"
-	case "process":
+	if engineType == "process" {
 		return "process"
-	default:
-		return "other"
 	}
+	return "module"
 }
 
 // renderTable prints the stack as a grouped, column-aligned table: one section per
