@@ -144,21 +144,38 @@ func stopByPidFile(cfg *config.Config, name string) (bool, error) {
 }
 
 func logsCmd() *cobra.Command {
-	var follow bool
+	var follow, daemonLog bool
 	cmd := &cobra.Command{
-		Use:   "logs [instance]",
-		Short: "Show daemon logs, or an instance's backend logs",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:   "logs [service]",
+		Short: "Show the logs of your services (databases, caches, queues, processes)",
+		Long: "logs shows the output of your running services — the engine backends and\n" +
+			"your processes, never doze's own supervisor chatter. With no service named\n" +
+			"it aggregates them all, each line prefixed with its instance; name one to\n" +
+			"see just that service's raw output. -f follows. --daemon shows doze's own\n" +
+			"operational log instead (booting/reaping/listeners) — for debugging doze.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
-			// Backend logs for a specific database come from the daemon.
+			// doze's own supervisor log is opt-in — it's not a service log.
+			if daemonLog {
+				if len(args) == 1 {
+					return fmt.Errorf("--daemon shows doze's own log; drop the service name")
+				}
+				return tailFile(daemon.LogFilePath(cfg), follow)
+			}
+
+			client := control.NewClient(daemon.ControlSocketPath(cfg))
+			if !client.Available() {
+				return fmt.Errorf("no services are running — `doze up` first (or `doze logs --daemon` for doze's own log)")
+			}
+
+			// A single named service: its raw output, optionally followed.
 			if len(args) == 1 {
-				client := control.NewClient(daemon.ControlSocketPath(cfg))
-				if !client.Available() {
-					return fmt.Errorf("the daemon is not running; boot an instance first (e.g. `doze start <instance>` or `doze run`)")
+				if cfg.Lookup(args[0]) == nil {
+					return instanceNotFound(cfg, args[0])
 				}
 				if follow {
 					ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -175,11 +192,32 @@ func logsCmd() *cobra.Command {
 				}
 				return nil
 			}
-			// Otherwise tail the daemon's own log file.
-			return tailFile(daemon.LogFilePath(cfg), follow)
+
+			// Every service, each line prefixed with its instance.
+			if follow {
+				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+				defer stop()
+				return client.Stream(ctx, control.Request{Op: "logs", Follow: true}, printLogLine)
+			}
+			printed := 0
+			for _, d := range cfg.Instances {
+				resp, err := client.Do(control.Request{Op: "logs", DB: d.Name})
+				if err != nil {
+					continue // not running — skip silently
+				}
+				for _, line := range resp.Lines {
+					printLogLine(control.LogFrame{Instance: d.Name, Line: line})
+					printed++
+				}
+			}
+			if printed == 0 {
+				fmt.Println(ui.Muted("no service logs yet — `doze up` to start them, or `doze logs -f` to follow"))
+			}
+			return nil
 		},
 	}
-	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow the log (like tail -f)")
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow the logs (like tail -f)")
+	cmd.Flags().BoolVar(&daemonLog, "daemon", false, "show doze's own supervisor log instead (for debugging doze)")
 	return cmd
 }
 
