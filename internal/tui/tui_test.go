@@ -126,10 +126,10 @@ func TestConsoleCommandParsing(t *testing.T) {
 	if m.adminPending != "purge" {
 		t.Fatalf("purge should stage a confirm, got pending=%q", m.adminPending)
 	}
-	// An input verb with no body errors with a usage hint.
+	// A rich verb with no args opens the composer.
 	m = run(consoleModel(), "send")
-	if b := lastTx(m); b.kind != txErr || !strings.Contains(b.text, "usage") {
-		t.Fatalf("send with no body should error with usage, got %+v", b)
+	if !m.composerMode || m.composerVerb != "send" {
+		t.Fatalf("send with no args should open the composer, got mode=%v verb=%q", m.composerMode, m.composerVerb)
 	}
 	// An unknown verb errors.
 	m = run(consoleModel(), "frobnicate")
@@ -146,6 +146,45 @@ func TestConsoleCommandParsing(t *testing.T) {
 	m = run(consoleModel(), "use dlq")
 	if r, _ := m.selectedResource(); r.Name != "dlq" {
 		t.Fatalf("use dlq should select dlq, got %q", r.Name)
+	}
+}
+
+func TestInlinePayloadParsing(t *testing.T) {
+	// publish: body tokens + k=v attributes + subject.
+	got := inlinePayload("publish", `Welcome aboard tier=gold subject=Hi`)
+	if !strings.Contains(got, `"message":"Welcome aboard"`) ||
+		!strings.Contains(got, `"tier":"gold"`) || !strings.Contains(got, `"subject":"Hi"`) {
+		t.Fatalf("publish inline payload = %s", got)
+	}
+	// send: group= maps to the group field.
+	got = inlinePayload("send", `hello group=orders`)
+	if !strings.Contains(got, `"body":"hello"`) || !strings.Contains(got, `"group":"orders"`) {
+		t.Fatalf("send inline payload = %s", got)
+	}
+	// put: first token key, rest body.
+	got = inlinePayload("put", `report.txt the body here`)
+	if !strings.Contains(got, `"key":"report.txt"`) || !strings.Contains(got, `"body":"the body here"`) {
+		t.Fatalf("put inline payload = %s", got)
+	}
+}
+
+func TestComposerFlow(t *testing.T) {
+	m := run(consoleModel(), "send") // no args → composer (body/group/attributes)
+	if !m.composerMode || len(m.composerFlds) != 3 {
+		t.Fatalf("send should open a 3-field composer, got mode=%v n=%d", m.composerMode, len(m.composerFlds))
+	}
+	// Fill body, Tab past group, fill attributes, submit.
+	m.cmd.SetValue("hello")
+	m = send(m, key("tab")) // save body, move to group
+	m = send(m, key("tab")) // move to attributes
+	m.cmd.SetValue("tier=gold")
+	next, _ := m.composerSubmit()
+	m = next.(model)
+	if m.composerMode {
+		t.Fatal("submit should close the composer")
+	}
+	if b := lastTx(m); b.kind != txEcho || !strings.Contains(b.text, "send") {
+		t.Fatalf("composer submit should echo send, got %+v", b)
 	}
 }
 

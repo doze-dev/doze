@@ -5,6 +5,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -250,6 +251,46 @@ const (
 	txErr
 )
 
+// richPrefix marks an Admin input string as a structured (JSON) payload — for
+// multi-field actions (publish/send/put) composed via the form or parsed from
+// inline `k=v` syntax. Kept in sync with each engine's admin.richPrefix.
+const richPrefix = "\x01"
+
+// composerField is one labeled field of the multi-field composer.
+type composerField struct {
+	key   string // payload key (message/subject/attributes/body/group/key)
+	label string
+	hint  string
+	value string
+}
+
+// richVerbs take a structured payload (a composer form, or inline `k=v` parsing).
+var richVerbs = map[string]bool{"publish": true, "send": true, "put": true}
+
+// composerSchema is the field set the composer presents for a rich verb.
+func composerSchema(verb string) []composerField {
+	switch verb {
+	case "publish":
+		return []composerField{
+			{key: "message", label: "message", hint: "the notification body"},
+			{key: "subject", label: "subject", hint: "optional"},
+			{key: "attributes", label: "attributes", hint: "key=value, space-separated — routed by subscription filter policies"},
+		}
+	case "send":
+		return []composerField{
+			{key: "body", label: "body", hint: "the message body"},
+			{key: "group", label: "group", hint: "FIFO MessageGroupId (optional)"},
+			{key: "attributes", label: "attributes", hint: "key=value, space-separated"},
+		}
+	case "put":
+		return []composerField{
+			{key: "key", label: "key", hint: "object key"},
+			{key: "body", label: "body", hint: "object contents"},
+		}
+	}
+	return nil
+}
+
 // ── model ─────────────────────────────────────────────────────────────────
 type model struct {
 	client *control.Client
@@ -300,6 +341,13 @@ type model struct {
 	adminHist    []string       // command history (most recent last)
 	adminHistIdx int            // index into adminHist while recalling; len = fresh line
 	adminPending string         // a destructive verb awaiting y/n confirmation
+
+	// composer: a multi-field form for rich actions (publish/send/put). The active
+	// field is edited in cmd; Tab cycles fields, Enter submits.
+	composerMode bool
+	composerVerb string
+	composerFlds []composerField
+	composerAt   int
 
 	cmd textinput.Model // the console prompt
 
@@ -980,6 +1028,9 @@ func (m *model) txPush(b txBlock) {
 // history, PgUp/Dn scroll, Enter runs, Esc exits). A pending destructive confirm
 // intercepts y/n first.
 func (m model) handleAdminKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.composerMode { // multi-field form for publish/send/put
+		return m.handleComposerKey(msg)
+	}
 	if m.adminPending != "" { // destructive confirm
 		switch msg.String() {
 		case "y", "Y", "enter":
@@ -1094,6 +1145,14 @@ func (m model) runConsoleCommand() (tea.Model, tea.Cmd) {
 		m.txPush(txBlock{kind: txErr, text: "no resource here to act on"})
 		return m, nil
 	}
+	// Rich verbs (publish/send/put): no args opens the guided composer; inline
+	// args are parsed into a structured payload (`publish "hi" tier=gold`).
+	if richVerbs[verb] {
+		if args == "" {
+			return m.openComposer(verb)
+		}
+		return m, runAdmin(m.client, m.adminName, verb, resName, richPrefix+inlinePayload(verb, args))
+	}
 	if act.InputHint != "" && args == "" {
 		m.txPush(txBlock{kind: txErr, text: "usage: " + verb + " <" + act.InputHint + ">"})
 		return m, nil
@@ -1104,6 +1163,165 @@ func (m model) runConsoleCommand() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, runAdmin(m.client, m.adminName, verb, resName, args)
+}
+
+// inlinePayload turns inline `<body> k=v k2=v2` args into the JSON payload an
+// engine expects (the body is every non-`k=v` token; `subject=`/`group=` map to
+// their fields, the rest are attributes). `put` is `<key> <body…>`.
+func inlinePayload(verb, args string) string {
+	if verb == "put" {
+		parts := strings.SplitN(args, " ", 2)
+		p := map[string]string{"key": parts[0]}
+		if len(parts) == 2 {
+			p["body"] = parts[1]
+		}
+		return mustJSON(p)
+	}
+	var body []string
+	attrs := map[string]string{}
+	payload := map[string]any{}
+	for _, tok := range strings.Fields(args) {
+		if k, v, ok := strings.Cut(tok, "="); ok && k != "" && !strings.ContainsAny(k, `"'`) {
+			switch k {
+			case "subject", "group":
+				payload[k] = v
+			default:
+				attrs[k] = v
+			}
+			continue
+		}
+		body = append(body, tok)
+	}
+	if verb == "send" {
+		payload["body"] = strings.Join(body, " ")
+	} else {
+		payload["message"] = strings.Join(body, " ")
+	}
+	if len(attrs) > 0 {
+		payload["attributes"] = attrs
+	}
+	return mustJSON(payload)
+}
+
+func mustJSON(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// parseAttrs turns "k=v k2=v2" into a map (composer attributes field).
+func parseAttrs(s string) map[string]string {
+	out := map[string]string{}
+	for _, tok := range strings.Fields(s) {
+		if k, v, ok := strings.Cut(tok, "="); ok && k != "" {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// ── composer (multi-field forms for publish/send/put) ───────────────────────
+
+func (m model) openComposer(verb string) (tea.Model, tea.Cmd) {
+	m.composerMode, m.composerVerb = true, verb
+	m.composerFlds = composerSchema(verb)
+	m.composerAt = 0
+	m.cmd.SetValue("")
+	m.cmd.SetSuggestions(nil)
+	return m, m.cmd.Focus()
+}
+
+func (m *model) composerSave() {
+	if m.composerAt >= 0 && m.composerAt < len(m.composerFlds) {
+		m.composerFlds[m.composerAt].value = m.cmd.Value()
+	}
+}
+
+func (m model) handleComposerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.composerMode = false
+		m.cmd.SetValue("")
+		m.refreshSuggestions()
+		m.txPush(txBlock{kind: txInfo, text: "cancelled"})
+		return m, nil
+	case "tab", "down":
+		m.composerSave()
+		m.composerAt = (m.composerAt + 1) % len(m.composerFlds)
+		m.cmd.SetValue(m.composerFlds[m.composerAt].value)
+		m.cmd.CursorEnd()
+		return m, nil
+	case "shift+tab", "up":
+		m.composerSave()
+		m.composerAt = (m.composerAt - 1 + len(m.composerFlds)) % len(m.composerFlds)
+		m.cmd.SetValue(m.composerFlds[m.composerAt].value)
+		m.cmd.CursorEnd()
+		return m, nil
+	case "enter":
+		m.composerSave()
+		return m.composerSubmit()
+	}
+	var cmd tea.Cmd
+	m.cmd, cmd = m.cmd.Update(msg)
+	return m, cmd
+}
+
+// composerSubmit assembles the form into the engine payload and dispatches it.
+func (m model) composerSubmit() (tea.Model, tea.Cmd) {
+	vals := map[string]string{}
+	for _, f := range m.composerFlds {
+		vals[f.key] = f.value
+	}
+	payload := map[string]any{}
+	switch m.composerVerb {
+	case "publish":
+		payload["message"] = vals["message"]
+		if vals["subject"] != "" {
+			payload["subject"] = vals["subject"]
+		}
+		if a := parseAttrs(vals["attributes"]); len(a) > 0 {
+			payload["attributes"] = a
+		}
+	case "send":
+		payload["body"] = vals["body"]
+		if vals["group"] != "" {
+			payload["group"] = vals["group"]
+		}
+		if a := parseAttrs(vals["attributes"]); len(a) > 0 {
+			payload["attributes"] = a
+		}
+	case "put":
+		payload["key"] = vals["key"]
+		payload["body"] = vals["body"]
+	}
+	verb := m.composerVerb
+	m.composerMode = false
+	m.cmd.SetValue("")
+	m.refreshSuggestions()
+	r, ok := m.selectedResource()
+	if !ok {
+		return m, nil
+	}
+	m.txPush(txBlock{kind: txEcho, res: r.Name, text: verb + composerEcho(verb, vals)})
+	return m, runAdmin(m.client, m.adminName, verb, r.Name, richPrefix+mustJSON(payload))
+}
+
+// composerEcho is a compact human echo of what was composed.
+func composerEcho(verb string, vals map[string]string) string {
+	primary := vals["message"]
+	if verb != "publish" {
+		primary = vals["body"]
+	}
+	if verb == "put" {
+		primary = vals["key"]
+	}
+	out := ""
+	if primary != "" {
+		out = " " + truncate(primary, 40)
+	}
+	if a := vals["attributes"]; a != "" {
+		out += "  " + a
+	}
+	return out
 }
 
 // ── console helpers ─────────────────────────────────────────────────────────
@@ -1709,6 +1927,16 @@ func (m model) consoleRight(w, h int) string {
 // consolePrompt is the input line: the live command with a faint verb hint, or a
 // destructive confirmation.
 func (m model) consolePrompt(w int) string {
+	if m.composerMode && m.composerAt < len(m.composerFlds) {
+		f := m.composerFlds[m.composerAt]
+		left := stLabel.Render(f.label) + "  " + m.cmd.View()
+		hint := stFaint.Render(f.hint)
+		gap := w - lipgloss.Width(left) - lipgloss.Width(hint)
+		if gap < 3 {
+			return left
+		}
+		return left + strings.Repeat(" ", gap) + hint
+	}
 	if m.adminPending != "" {
 		return stErr.Render("⚠ "+m.adminPending+"?  ") + stAccent.Render("y") + stFaint.Render(" confirm · any other key cancel")
 	}
@@ -1728,8 +1956,31 @@ func (m model) consolePrompt(w int) string {
 	return left + strings.Repeat(" ", gap) + hint
 }
 
-// consoleFooter shows the active resource's live status and the navigation keys.
+// consoleFooter shows the active resource's live status and the navigation keys —
+// or, while composing, the form's field progress.
 func (m model) consoleFooter() string {
+	if m.composerMode {
+		left := stDim.Render("compose " + m.composerVerb)
+		for i, f := range m.composerFlds {
+			v := f.value
+			if i == m.composerAt {
+				v = m.cmd.Value()
+			}
+			mark := "·"
+			if strings.TrimSpace(v) != "" {
+				mark = "✓"
+			}
+			seg := f.label + " " + mark
+			if i == m.composerAt {
+				left += "  " + stAccent.Render(seg)
+			} else {
+				left += "  " + stFaint.Render(seg)
+			}
+		}
+		hints := stFaint.Render("⇥ next field · ↵ " + m.composerVerb + " · esc cancel")
+		gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(hints)-2)
+		return " " + left + strings.Repeat(" ", gap) + hints
+	}
 	left := ""
 	if r, ok := m.selectedResource(); ok {
 		left = stText.Render(r.Name)
