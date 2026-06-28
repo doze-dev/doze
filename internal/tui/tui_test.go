@@ -138,6 +138,38 @@ func TestParseItems(t *testing.T) {
 	if len(items) != 1 || !strings.Contains(items[0].title, "emails") || !strings.Contains(items[0].meta, "eventType") {
 		t.Fatalf("topic item = %+v", items[0])
 	}
+	// a test publish annotates each subscription with whether it matched.
+	items, _ = parseItems("topic", `[{"protocol":"sqs","endpoint":"emails","filter":"eventType ∈ [created]","matched":true},{"protocol":"http","endpoint":"hook","filter":"eventType ∈ [deleted]","matched":false}]`)
+	if len(items) != 2 || !strings.HasPrefix(items[0].title, "✓") || !strings.HasPrefix(items[1].title, "✗") {
+		t.Fatalf("routing badges = %q / %q", items[0].title, items[1].title)
+	}
+	if !strings.Contains(items[0].meta, "MATCHED") || !strings.Contains(items[1].meta, "filtered out") {
+		t.Fatalf("routing meta = %q / %q", items[0].meta, items[1].meta)
+	}
+}
+
+func TestPrettyJSON(t *testing.T) {
+	// a JSON body is indented for the detail pane.
+	got := prettyJSON(`{"to":"a@x.com","tmpl":"welcome"}`)
+	if !strings.Contains(got, "\n  \"to\": \"a@x.com\"") {
+		t.Fatalf("prettyJSON did not indent: %q", got)
+	}
+	// non-JSON is returned verbatim.
+	if got := prettyJSON("just a plain string"); got != "just a plain string" {
+		t.Fatalf("prettyJSON mangled plain text: %q", got)
+	}
+}
+
+func TestResBadges(t *testing.T) {
+	if b := resBadges(control.ResourceView{Info: map[string]string{"fifo": "true"}}); b != "FIFO" {
+		t.Fatalf("fifo badge = %q", b)
+	}
+	if b := resBadges(control.ResourceView{Info: map[string]string{"redrive": "→dlq"}}); b != "DLQ↩" {
+		t.Fatalf("dlq badge = %q", b)
+	}
+	if b := resBadges(control.ResourceView{}); b != "" {
+		t.Fatalf("no-info badge = %q, want empty", b)
+	}
 }
 
 func TestInspectorNav(t *testing.T) {

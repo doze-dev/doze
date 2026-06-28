@@ -228,7 +228,7 @@ func parseItems(kind, jsonStr string) ([]inspItem, error) {
 			if rc := jstr(r["received"]); rc != "" && rc != "1" {
 				meta = append(meta, "recv×"+rc)
 			}
-			detail := body
+			detail := prettyJSON(body)
 			if a, ok := r["attrs"].(map[string]any); ok && len(a) > 0 {
 				detail += "\n\nattributes"
 				for _, k := range sortedAnyKeys(a) {
@@ -244,8 +244,9 @@ func parseItems(kind, jsonStr string) ([]inspItem, error) {
 				detail: key, delArg: key,
 			})
 		case "topic":
-			title := jstr(r["protocol"]) + " → " + jstr(r["endpoint"])
+			proto, ep := jstr(r["protocol"]), jstr(r["endpoint"])
 			filt := jstr(r["filter"])
+			title := proto + " → " + ep
 			meta := "filter: " + orNoneStr(filt)
 			if b, _ := r["raw"].(bool); b {
 				meta += "  ·  raw"
@@ -253,7 +254,19 @@ func parseItems(kind, jsonStr string) ([]inspItem, error) {
 			if c, _ := r["confirmed"].(bool); !c {
 				meta += "  ·  pending"
 			}
-			out = append(out, inspItem{title: title, meta: meta, detail: title + "\nfilter: " + orNoneStr(filt)})
+			detail := "endpoint: " + ep + "\nfilter: " + orNoneStr(filt)
+			// After a test publish each subscription is annotated with whether this
+			// event's attributes matched its filter policy — the routing made visible.
+			if mv, ok := r["matched"]; ok {
+				if b, _ := mv.(bool); b {
+					title = "✓ " + title
+					meta = "MATCHED — receives this event  ·  " + meta
+				} else {
+					title = "✗ " + title
+					meta = "filtered out — " + meta
+				}
+			}
+			out = append(out, inspItem{title: title, meta: meta, detail: detail})
 		}
 	}
 	return out, nil
@@ -291,6 +304,24 @@ func sortedAnyKeys(m map[string]any) []string {
 	}
 	sort.Strings(ks)
 	return ks
+}
+
+// prettyJSON indents a JSON body for the expanded detail pane (developers send
+// JSON messages — a one-line blob is unreadable). Non-JSON is returned verbatim.
+func prettyJSON(s string) string {
+	t := strings.TrimSpace(s)
+	if t == "" || (t[0] != '{' && t[0] != '[') {
+		return s
+	}
+	var v any
+	if json.Unmarshal([]byte(t), &v) != nil {
+		return s
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return s
+	}
+	return string(b)
 }
 
 func oneLine(s string) string {
@@ -482,6 +513,7 @@ type model struct {
 	inspCursor   int  // selected item
 	inspExpanded bool // detail pane open for the selected item
 	inspErr      string
+	inspRouting  bool // topic: showing a test publish's routing — pause live reload
 
 	// composer: a multi-field form for create actions (send/publish/put). The
 	// active field is edited in cmd; Tab cycles fields, Enter submits.
@@ -658,8 +690,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds := []tea.Cmd{refresh(m.client), tick()}
 		if m.adminMode && m.adminName != "" { // keep the inspector live while managing
 			cmds = append(cmds, fetchResources(m.client, m.adminName))
-			if c := m.loadItems(); c != nil {
-				cmds = append(cmds, c)
+			if !m.inspRouting { // a routing snapshot is held until the user moves on
+				if c := m.loadItems(); c != nil {
+					cmds = append(cmds, c)
+				}
 			}
 		}
 		return m, tea.Batch(cmds...)
@@ -767,6 +801,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// reload the live list + resource counts.
 		if msg.err != nil {
 			m.setFlash(stErr.Render("✗ " + cleanErr(msg.err)))
+		} else if msg.action == "publish" && m.adminMode && strings.HasPrefix(strings.TrimSpace(msg.result), "[") {
+			// A test publish returns per-subscription routing — show which subscriptions
+			// the event reached, and hold that snapshot (pause live reload) so it can be
+			// read and iterated on.
+			if items, perr := parseItems("topic", msg.result); perr == nil {
+				matched := 0
+				for _, it := range items {
+					if strings.HasPrefix(it.title, "✓") {
+						matched++
+					}
+				}
+				m.inspItems, m.inspCursor, m.inspExpanded, m.inspRouting = items, 0, false, true
+				m.refreshItemView()
+				m.setFlash(stGreen.Render(fmt.Sprintf("✓ routed to %d of %d subscription(s)", matched, len(items))))
+				return m, fetchResources(m.client, m.adminName)
+			}
 		} else if head := firstLine(msg.result); head != "" {
 			m.setFlash(stGreen.Render("✓ " + head))
 		}
@@ -1214,7 +1264,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) openConsole(v control.InstanceView) (tea.Model, tea.Cmd) {
 	m.adminMode, m.adminErr, m.adminLoaded = true, "", false
 	m.adminCursor, m.adminPending = 0, ""
-	m.inspItems, m.inspCursor, m.inspExpanded, m.inspErr = nil, 0, false, ""
+	m.inspItems, m.inspCursor, m.inspExpanded, m.inspErr, m.inspRouting = nil, 0, false, "", false
 	m.itemVP.SetContent(stFaint.Render("loading…"))
 	m.itemVP.GotoTop()
 	return m, fetchResources(m.client, v.Name)
@@ -1293,6 +1343,7 @@ func (m model) handleAdminKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cycleResource(-1)
 		return m, m.loadItems()
 	case "r":
+		m.inspRouting = false // a manual refresh drops the routing snapshot
 		return m, m.loadItems()
 	case "n": // compose a new item (send/publish/put)
 		if v := composeVerb(kind); v != "" {
@@ -1547,7 +1598,7 @@ func (m *model) cycleResource(dir int) {
 		return
 	}
 	m.adminCursor = (m.adminCursor + dir + len(m.adminRes)) % len(m.adminRes)
-	m.inspCursor, m.inspExpanded, m.inspItems = 0, false, nil
+	m.inspCursor, m.inspExpanded, m.inspItems, m.inspRouting = 0, false, nil, false
 	m.itemVP.SetContent(stFaint.Render("loading…"))
 	m.itemVP.GotoTop()
 }
@@ -1558,7 +1609,7 @@ func (m *model) selectResourceByIndex(i int) bool {
 		return false
 	}
 	m.adminCursor = i
-	m.inspCursor, m.inspExpanded, m.inspItems = 0, false, nil
+	m.inspCursor, m.inspExpanded, m.inspItems, m.inspRouting = 0, false, nil, false
 	m.itemVP.SetContent(stFaint.Render("loading…"))
 	m.itemVP.GotoTop()
 	return true
@@ -2023,8 +2074,15 @@ func (m model) consoleRail(w, h int) string {
 			} else {
 				rows = append(rows, "  "+stText.Render(name))
 			}
-			if r.Status != "" {
-				rows = append(rows, stFaint.Render("  "+truncate(r.Status, w-2)))
+			status := r.Status
+			if badge := resBadges(r); badge != "" {
+				if status != "" {
+					status += "  "
+				}
+				status += badge
+			}
+			if status != "" {
+				rows = append(rows, stFaint.Render("  "+truncate(status, w-2)))
 			}
 		}
 	}
@@ -2035,6 +2093,19 @@ func (m model) consoleRail(w, h int) string {
 		rows = rows[:h]
 	}
 	return lipgloss.NewStyle().Width(w).Render(strings.Join(rows, "\n"))
+}
+
+// resBadges renders a resource's salient traits (FIFO, dead-letter protection)
+// from its engine Info, so the queue's nature is visible at a glance.
+func resBadges(r control.ResourceView) string {
+	var bs []string
+	if r.Info["fifo"] == "true" {
+		bs = append(bs, "FIFO")
+	}
+	if r.Info["redrive"] != "" {
+		bs = append(bs, "DLQ↩")
+	}
+	return strings.Join(bs, " ")
 }
 
 // inspectorMain is the right column: the live item list, or — while composing — a
@@ -2098,11 +2169,16 @@ func (m model) inspectorFooter() string {
 	case "bucket":
 		parts = append(parts, key("n", "put"), key("d", "delete"), key("P", "empty"))
 	case "topic":
-		parts = append(parts, key("n", "publish"))
+		parts = append(parts, key("n", "test publish"))
 	}
 	parts = append(parts, key("⇥", "switch"), key("r", "refresh"), key("esc", "exit"))
 	left := strings.Join(parts, sep)
-	right := stFaint.Render(fmt.Sprintf("%d %s", len(m.inspItems), itemNoun(kind)+"s"))
+	var right string
+	if m.inspRouting {
+		right = stGreen.Render("routing of last publish — ") + stDim.Render("r resets")
+	} else {
+		right = stFaint.Render(fmt.Sprintf("%d %s", len(m.inspItems), itemNoun(kind)+"s"))
+	}
 	gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(right)-2)
 	return " " + left + strings.Repeat(" ", gap) + right
 }
