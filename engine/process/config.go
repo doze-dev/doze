@@ -180,10 +180,13 @@ func decodeHealth(h *healthBlock) (*Health, error) {
 	return out, nil
 }
 
-// decodeRestart validates the restart block, applying defaults. A nil block means
-// no restart (today's crashed-backend behavior).
+// decodeRestart validates the restart block, applying defaults. A process is a
+// supervised service, so the default is to restart it when it crashes (a non-zero
+// exit), with a backoff + bounded retries to guard against a crash loop — a clean
+// exit 0 (a one-shot command) is left down. Override per process with a
+// `restart { policy = "always" | "no" }` block. A nil block keeps the defaults.
 func decodeRestart(r *restartBlock) (Restart, error) {
-	out := Restart{Policy: engine.RestartNo, Backoff: defaultBackoff}
+	out := Restart{Policy: engine.RestartOnFailure, Backoff: defaultBackoff, MaxRetries: defaultMaxRetries}
 	if r == nil {
 		return out, nil
 	}
@@ -205,13 +208,13 @@ func decodeRestart(r *restartBlock) (Restart, error) {
 		}
 		out.Backoff = d
 	}
-	// A positive retry budget is required for a restarting policy (the runtime treats
-	// MaxRetries==0 as "no attempts"); default it when the user left it unset.
-	if out.Policy != engine.RestartNo {
-		out.MaxRetries = defaultMaxRetries
-		if r.MaxRetries > 0 {
-			out.MaxRetries = r.MaxRetries
-		}
+	if r.MaxRetries > 0 {
+		out.MaxRetries = r.MaxRetries
+	}
+	// `policy = "no"` opts out entirely: a zero retry budget satisfies the runtime's
+	// "MaxRetries == 0 means no attempts" contract.
+	if out.Policy == engine.RestartNo {
+		out.MaxRetries = 0
 	}
 	return out, nil
 }

@@ -32,8 +32,11 @@ func TestDecodeMinimal(t *testing.T) {
 	if c.Command != "go run ./..." {
 		t.Fatalf("command = %q", c.Command)
 	}
-	if c.Restart.Policy != engine.RestartNo {
-		t.Fatalf("default restart policy = %q, want no", c.Restart.Policy)
+	if c.Restart.Policy != engine.RestartOnFailure {
+		t.Fatalf("default restart policy = %q, want on_failure", c.Restart.Policy)
+	}
+	if c.Restart.MaxRetries <= 0 {
+		t.Fatalf("default restart should have a positive retry budget, got %d", c.Restart.MaxRetries)
 	}
 	if c.Health != nil {
 		t.Fatalf("no health block should leave Health nil")
@@ -90,6 +93,18 @@ func TestDecodeRestartDefaults(t *testing.T) {
 	}
 	if c.Restart.MaxRetries != defaultMaxRetries {
 		t.Fatalf("max_retries default = %d, want %d", c.Restart.MaxRetries, defaultMaxRetries)
+	}
+
+	// `policy = "no"` opts out: zero retry budget so the runtime never restarts.
+	off, err := decode(t, `
+		command = "x"
+		restart { policy = "no" }
+	`)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if off.Restart.Policy != engine.RestartNo || off.Restart.MaxRetries != 0 {
+		t.Fatalf("policy=no should zero retries, got policy=%q retries=%d", off.Restart.Policy, off.Restart.MaxRetries)
 	}
 	if _, err := decode(t, `command = "x"
 		restart { policy = "sometimes" }`); err == nil {
