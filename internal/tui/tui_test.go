@@ -98,51 +98,75 @@ func sqsActs() []control.ActionView {
 	}
 }
 
-func TestViewerActionAndKeys(t *testing.T) {
-	m := model{adminActs: sqsActs()}
-	if v := m.viewerActionID(); v != "peek" {
-		t.Fatalf("viewer = %q, want peek (first non-destructive, no-input)", v)
-	}
-	km := m.adminActionKeys()
-	for id, want := range map[string]string{"send": "s", "purge": "p", "redrive": "r"} {
-		if km[id] != want {
-			t.Fatalf("key for %q = %q, want %q", id, km[id], want)
-		}
-	}
-	if _, ok := km["peek"]; ok {
-		t.Fatal("the viewer action should not get a letter key (it's enter)")
-	}
-	if a, ok := m.actionForKey("p"); !ok || a.ID != "purge" {
-		t.Fatalf("key p → %v/%v, want purge", a.ID, ok)
+// consoleModel builds a console scoped to a sqs instance with one queue selected.
+func consoleModel() model {
+	return model{
+		width: 110, height: 30,
+		cmd:         textinput.New(),
+		adminMode:   true,
+		adminLoaded: true,
+		adminName:   "jobs_sqs",
+		adminActs:   sqsActs(),
+		adminRes:    []control.ResourceView{{Kind: "queue", Name: "emails", Status: "3 msgs"}, {Kind: "queue", Name: "dlq"}},
+		adminCursor: 0,
 	}
 }
 
-func TestInvokeActionStaging(t *testing.T) {
-	m := model{
-		cmd:         textinput.New(),
-		adminMode:   true,
-		adminActs:   sqsActs(),
-		adminRes:    []control.ResourceView{{Kind: "queue", Name: "emails"}},
-		adminCursor: 0,
+func run(m model, line string) model {
+	m.cmd.SetValue(line)
+	next, _ := m.runConsoleCommand()
+	return next.(model)
+}
+
+func lastTx(m model) txBlock { return m.adminTx[len(m.adminTx)-1] }
+
+func TestConsoleCommandParsing(t *testing.T) {
+	// A destructive verb stages a y/n confirm rather than running immediately.
+	m := run(consoleModel(), "purge")
+	if m.adminPending != "purge" {
+		t.Fatalf("purge should stage a confirm, got pending=%q", m.adminPending)
 	}
-	get := func(id string) control.ActionView {
-		for _, a := range m.adminActs {
-			if a.ID == id {
-				return a
-			}
-		}
-		t.Fatalf("no action %q", id)
-		return control.ActionView{}
+	// An input verb with no body errors with a usage hint.
+	m = run(consoleModel(), "send")
+	if b := lastTx(m); b.kind != txErr || !strings.Contains(b.text, "usage") {
+		t.Fatalf("send with no body should error with usage, got %+v", b)
 	}
-	// Destructive → confirm prompt, not an immediate run.
-	nm, _ := m.invokeAction(get("purge"))
-	if mm := nm.(model); mm.adminConfirm != "purge" {
-		t.Fatalf("purge should stage a confirm, got %q", mm.adminConfirm)
+	// An unknown verb errors.
+	m = run(consoleModel(), "frobnicate")
+	if b := lastTx(m); b.kind != txErr {
+		t.Fatalf("unknown verb should error, got %+v", b)
 	}
-	// Input action → input prompt.
-	nm, _ = m.invokeAction(get("send"))
-	if mm := nm.(model); mm.adminInput != "send" {
-		t.Fatalf("send should open an input prompt, got %q", mm.adminInput)
+	// A known non-destructive verb with an arg dispatches (no error block; the echo
+	// is the last block, the result arrives async).
+	m = run(consoleModel(), "peek 5")
+	if b := lastTx(m); b.kind != txEcho || b.text != "peek 5" {
+		t.Fatalf("peek 5 should echo and dispatch, got %+v", b)
+	}
+	// `use` switches the active resource.
+	m = run(consoleModel(), "use dlq")
+	if r, _ := m.selectedResource(); r.Name != "dlq" {
+		t.Fatalf("use dlq should select dlq, got %q", r.Name)
+	}
+}
+
+func TestConsoleHistoryAndCompletion(t *testing.T) {
+	m := run(consoleModel(), "peek 3")
+	m = run(m, "send hi")
+	// ↑ recalls the most recent command.
+	m.recallHistory(-1)
+	if m.cmd.Value() != "send hi" {
+		t.Fatalf("history up = %q, want 'send hi'", m.cmd.Value())
+	}
+	m.recallHistory(-1)
+	if m.cmd.Value() != "peek 3" {
+		t.Fatalf("history up×2 = %q, want 'peek 3'", m.cmd.Value())
+	}
+	// Tab completes a verb prefix.
+	m2 := consoleModel()
+	m2.cmd.SetValue("pu")
+	m2.completeVerb()
+	if m2.cmd.Value() != "purge " {
+		t.Fatalf("completion of 'pu' = %q, want 'purge '", m2.cmd.Value())
 	}
 }
 
@@ -168,21 +192,26 @@ func TestCharSelectionText(t *testing.T) {
 	}
 }
 
-func TestWorkspaceRenders(t *testing.T) {
+func TestConsoleRenders(t *testing.T) {
 	m := threeInstances()
 	m.cursor = 2 // media (s3)
+	m.cmd = textinput.New()
 	m.adminMode = true
+	m.adminLoaded = true
 	m.adminName = "media"
 	m.adminActs = []control.ActionView{
 		{ID: "browse", Label: "Browse", Kind: "bucket"},
 		{ID: "empty", Label: "Empty", Kind: "bucket", Destructive: true},
 	}
 	m.adminRes = []control.ResourceView{{Kind: "bucket", Name: "uploads", Status: "3 objects"}}
-	m.adminVP = viewport.New(40, 8)
+	m.adminVP = viewport.New(60, 8)
+	m.adminTx = []txBlock{{kind: txInfo, text: "connected to media"}}
+	m.adminVP.SetContent(m.renderTranscript(m.adminVP.Width))
 	out := m.View()
+	// header instance, resource rail, verb hint, and the exit affordance.
 	for _, want := range []string{"media", "uploads", "browse", "empty", "esc"} {
 		if !strings.Contains(out, want) {
-			t.Fatalf("workspace view missing %q:\n%s", want, out)
+			t.Fatalf("console view missing %q:\n%s", want, out)
 		}
 	}
 }

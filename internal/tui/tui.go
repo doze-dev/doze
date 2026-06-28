@@ -235,6 +235,21 @@ func runAdmin(c *control.Client, name, action, resource, input string) tea.Cmd {
 	}
 }
 
+// txBlock is one entry in the console transcript: a typed command echo, a result,
+// an info note, or an error. Text is stored unstyled and colored at render time.
+type txBlock struct {
+	kind int    // txEcho | txResult | txInfo | txErr
+	res  string // the resource the command targeted (echo lines only)
+	text string
+}
+
+const (
+	txEcho = iota
+	txResult
+	txInfo
+	txErr
+)
+
 // ── model ─────────────────────────────────────────────────────────────────
 type model struct {
 	client *control.Client
@@ -277,15 +292,16 @@ type model struct {
 	adminName    string // instance the workspace belongs to
 	adminRes     []control.ResourceView
 	adminActs    []control.ActionView
-	adminErr     string // resource-fetch error (shown in the workspace header)
-	adminCursor  int    // selected resource index
-	adminLoaded  bool   // resources have been fetched at least once (vs still loading)
-	adminVP      viewport.Model // inspector: the viewer action's result, scrollable
-	adminView    string // resource name the inspector currently shows ("" = loading)
-	adminInput   string // action id awaiting text input (send/publish); "" = none
-	adminConfirm string // action id awaiting y/n confirmation; "" = none
+	adminErr     string         // resource-fetch error (shown in the console header)
+	adminCursor  int            // active resource — the command target
+	adminLoaded  bool           // resources fetched at least once (vs still loading)
+	adminVP      viewport.Model // the transcript, scrollable
+	adminTx      []txBlock      // REPL transcript: command echoes + results
+	adminHist    []string       // command history (most recent last)
+	adminHistIdx int            // index into adminHist while recalling; len = fresh line
+	adminPending string         // a destructive verb awaiting y/n confirmation
 
-	cmd textinput.Model // reused as the input field for send/publish
+	cmd textinput.Model // the console prompt
 
 	hist       map[string]*history
 	frame      int
@@ -432,8 +448,10 @@ func (m *model) layout() {
 	m.logVP.Width = max(4, m.rightW()-6)
 	m.logVP.Height = max(3, m.bodyH()-detailH-6)
 	// admin inspector: the right column of the full-screen workspace.
+	// console transcript: the right column minus the rail, full height minus the
+	// header/rules/footer/prompt chrome.
 	m.adminVP.Width = max(10, m.width-m.adminLeftW()-5)
-	m.adminVP.Height = max(3, m.bodyH()-4)
+	m.adminVP.Height = max(3, m.height-5)
 }
 
 // adminLeftW is the width of the workspace's resource list column.
@@ -527,57 +545,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.adminCursor >= len(m.adminRes) {
 					m.adminCursor = max(0, len(m.adminRes)-1)
 				}
-				switch {
-				case m.adminErr != "":
-					m.adminVP.SetContent(stErr.Render("✕ " + m.adminErr))
-				case len(m.adminActs) == 0:
-					// The engine exposes no management actions — e.g. an out-of-process
-					// plugin that doesn't forward the Admin capability yet.
-					m.adminVP.SetContent(stDim.Render("Management isn't available for this engine.\n\n") +
-						stFaint.Render("doze runs it, but its plugin doesn't expose data\noperations over the management protocol."))
-				case len(m.adminRes) == 0:
-					m.adminVP.SetContent(stFaint.Render("No resources declared for this instance."))
-				default:
-					if r, ok := m.selectedResource(); ok && m.adminView != r.Name {
-						return m, m.viewerCmd()
-					}
-				}
 			}
 		}
 		return m, nil
 
 	case adminResultMsg:
-		// The viewer (read) action fills the inspector; everything else is a mutation
-		// that flashes a result and refreshes the inspector + resource list.
-		if msg.action == m.viewerActionID() {
-			if r, ok := m.selectedResource(); ok && r.Name == msg.resource {
-				m.adminView = msg.resource
-				if msg.err != nil {
-					m.adminVP.SetContent(stErr.Render("✕ " + msg.err.Error()))
-				} else {
-					m.adminVP.SetContent(renderInspector(msg.result, m.adminVP.Width))
-					m.adminVP.GotoTop()
-				}
-			}
-			return m, nil
-		}
+		// Every command's result lands in the transcript; a mutation also refreshes
+		// the resource list (depths/counts) underneath.
 		if msg.err != nil {
-			m.setFlash(stErr.Render("✗ " + msg.action + " " + msg.resource + ": " + msg.err.Error()))
+			m.txPush(txBlock{kind: txErr, text: msg.err.Error()})
 		} else {
-			head := strings.SplitN(strings.TrimSpace(msg.result), "\n", 2)[0]
-			if head == "" {
-				head = msg.action + " " + msg.resource
-			}
-			m.setFlash(stGreen.Render("✓ " + head))
-		}
-		var cmds []tea.Cmd
-		if c := m.viewerCmd(); c != nil {
-			cmds = append(cmds, c)
+			m.txPush(txBlock{kind: txResult, text: strings.TrimRight(msg.result, "\n")})
 		}
 		if m.adminName != "" {
-			cmds = append(cmds, fetchResources(m.client, m.adminName))
+			return m, fetchResources(m.client, m.adminName)
 		}
-		return m, tea.Batch(cmds...)
+		return m, nil
 
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
@@ -929,7 +912,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if v, ok := m.selected(); ok {
 		switch msg.String() {
-		case "enter", "b":
+		case "enter":
+			// Enter "opens" a running builtin into its console (s3/sqs/sns); for
+			// anything else (or a sleeping one) it boots, like b.
+			if builtinAdmin(v.Engine) && v.PID != 0 {
+				return m.openConsole(v)
+			}
+			m.setFlash(stDim.Render("booting " + v.Name + "…"))
+			return m, do(m.client, "boot", v.Name)
+		case "b":
 			m.setFlash(stDim.Render("booting " + v.Name + "…"))
 			return m, do(m.client, "boot", v.Name)
 		case "d":
@@ -946,124 +937,325 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.setFlash(stAccent.Render("▲ keeping " + v.Name + " awake"))
 			}
 			return m, refresh(m.client)
-		case "a": // open the full-screen management workspace for a running builtin
-			if !builtinAdmin(v.Engine) {
-				return m, nil
+		case "a": // legacy shortcut → open the console (now the Enter affordance)
+			if builtinAdmin(v.Engine) && v.PID != 0 {
+				return m.openConsole(v)
 			}
-			if v.PID == 0 {
-				m.setFlash(stDim.Render("boot " + v.Name + " first to manage it"))
-				return m, nil
-			}
-			m.adminMode, m.adminErr, m.adminLoaded = true, "", false
-			m.adminCursor, m.adminView = 0, ""
-			m.adminInput, m.adminConfirm = "", ""
-			m.adminVP.SetContent(stFaint.Render("loading…"))
-			m.adminVP.GotoTop()
-			return m, fetchResources(m.client, v.Name)
+			return m, nil
 		}
 	}
 	return m, nil
 }
 
-// handleAdminKey drives the management workspace: ↑↓ moves between resources
-// (reloading the inspector), Enter refreshes it, action keys run the engine's
-// operations (confirming destructive ones, prompting for input ones), and Esc
-// backs out. An active input or confirm prompt captures keys until it resolves.
-func (m model) handleAdminKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Input prompt (send/publish): type a message, Enter dispatches, Esc cancels.
-	if m.adminInput != "" {
-		switch msg.String() {
-		case "esc":
-			m.adminInput = ""
-			m.cmd.Blur()
-			m.cmd.SetValue("")
-			return m, nil
-		case "enter":
-			act, input := m.adminInput, strings.TrimSpace(m.cmd.Value())
-			m.adminInput = ""
-			m.cmd.Blur()
-			m.cmd.SetValue("")
-			if r, ok := m.selectedResource(); ok && input != "" {
-				return m, runAdmin(m.client, m.adminName, act, r.Name, input)
-			}
-			return m, nil
-		}
-		var cmd tea.Cmd
-		m.cmd, cmd = m.cmd.Update(msg)
-		return m, cmd
+// openConsole drops into the resource console for a running builtin: a REPL scoped
+// to the instance's sub-resources. Seeds the transcript with a greeting and focuses
+// the prompt.
+func (m model) openConsole(v control.InstanceView) (tea.Model, tea.Cmd) {
+	m.adminMode, m.adminErr, m.adminLoaded = true, "", false
+	m.adminCursor, m.adminPending = 0, ""
+	m.adminHist, m.adminHistIdx = nil, 0
+	m.adminTx = []txBlock{{kind: txInfo, text: "connected to " + v.Name + " · " + v.Engine + " — type a command (try `peek`), or `help`"}}
+	m.adminVP.SetContent(m.renderTranscript(m.adminVP.Width))
+	m.adminVP.GotoBottom()
+	m.cmd.SetValue("")
+	m.cmd.Placeholder = ""
+	return m, tea.Batch(fetchResources(m.client, v.Name), m.cmd.Focus())
+}
+
+// txPush appends a transcript block (bounded) and snaps the view to the bottom.
+func (m *model) txPush(b txBlock) {
+	m.adminTx = append(m.adminTx, b)
+	if len(m.adminTx) > 400 {
+		m.adminTx = m.adminTx[len(m.adminTx)-400:]
 	}
-	// Confirm prompt for a destructive action: y/enter runs it, anything else cancels.
-	if m.adminConfirm != "" {
+	m.adminVP.SetContent(m.renderTranscript(m.adminVP.Width))
+	m.adminVP.GotoBottom()
+}
+
+// handleAdminKey drives the resource console — a prompt-first REPL. Most keys edit
+// the command line; a few navigate (Tab switches resource / completes, ↑↓ recall
+// history, PgUp/Dn scroll, Enter runs, Esc exits). A pending destructive confirm
+// intercepts y/n first.
+func (m model) handleAdminKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.adminPending != "" { // destructive confirm
 		switch msg.String() {
 		case "y", "Y", "enter":
-			act := m.adminConfirm
-			m.adminConfirm = ""
+			verb := m.adminPending
+			m.adminPending = ""
 			if r, ok := m.selectedResource(); ok {
-				return m, runAdmin(m.client, m.adminName, act, r.Name, "")
+				return m, runAdmin(m.client, m.adminName, verb, r.Name, "")
 			}
 			return m, nil
 		default:
-			m.adminConfirm = ""
+			m.adminPending = ""
+			m.txPush(txBlock{kind: txInfo, text: "cancelled"})
 			return m, nil
 		}
 	}
 
 	switch msg.String() {
-	case "esc", "a", "q":
+	case "esc":
 		m.adminMode = false
+		m.cmd.Blur()
 		return m, nil
-	case "up", "k":
-		if m.adminCursor > 0 {
-			m.adminCursor--
-			m.adminView = ""
-			m.adminVP.SetContent(stFaint.Render("loading…"))
-			return m, m.viewerCmd()
+	case "tab":
+		if strings.TrimSpace(m.cmd.Value()) == "" {
+			m.cycleResource(1)
+		} else {
+			m.completeVerb()
 		}
 		return m, nil
-	case "down", "j":
-		if m.adminCursor < len(m.adminRes)-1 {
-			m.adminCursor++
-			m.adminView = ""
-			m.adminVP.SetContent(stFaint.Render("loading…"))
-			return m, m.viewerCmd()
-		}
+	case "shift+tab":
+		m.cycleResource(-1)
 		return m, nil
-	case "enter": // refresh the inspector for the current resource
-		m.adminView = ""
-		return m, m.viewerCmd()
+	case "up":
+		m.recallHistory(-1)
+		return m, nil
+	case "down":
+		m.recallHistory(1)
+		return m, nil
 	case "pgup", "ctrl+u":
 		m.adminVP.HalfViewUp()
 		return m, nil
 	case "pgdown", "ctrl+d":
 		m.adminVP.HalfViewDown()
 		return m, nil
+	case "ctrl+l":
+		m.adminTx = nil
+		m.adminVP.SetContent("")
+		return m, nil
+	case "enter":
+		return m.runConsoleCommand()
 	}
-	if a, ok := m.actionForKey(msg.String()); ok {
-		return m.invokeAction(a)
-	}
-	return m, nil
+	var cmd tea.Cmd
+	m.cmd, cmd = m.cmd.Update(msg)
+	return m, cmd
 }
 
-// invokeAction runs (or stages) a builtin action against the selected resource:
-// destructive actions ask to confirm, input actions open the prompt, the rest
-// dispatch immediately.
-func (m model) invokeAction(a control.ActionView) (tea.Model, tea.Cmd) {
-	r, ok := m.selectedResource()
-	if !ok {
+// runConsoleCommand parses the prompt as "<verb> [args]" against the active
+// resource and dispatches it: a built-in console verb (help/use/ls/clear), an
+// engine action (peek/send/purge/…), or an error. Destructive verbs stage a
+// y/n confirm. The implicit target is the active resource, so you type `peek 5`,
+// not `peek emails 5`.
+func (m model) runConsoleCommand() (tea.Model, tea.Cmd) {
+	raw := strings.TrimSpace(m.cmd.Value())
+	m.cmd.SetValue("")
+	if raw == "" {
 		return m, nil
 	}
-	switch {
-	case a.Destructive:
-		m.adminConfirm = a.ID
+	m.adminHist = append(m.adminHist, raw)
+	m.adminHistIdx = len(m.adminHist)
+
+	r, hasRes := m.selectedResource()
+	resName := ""
+	if hasRes {
+		resName = r.Name
+	}
+	m.txPush(txBlock{kind: txEcho, res: resName, text: raw})
+
+	fields := strings.Fields(raw)
+	verb := strings.ToLower(fields[0])
+	args := strings.TrimSpace(raw[len(fields[0]):])
+
+	switch verb {
+	case "help", "?":
+		m.txPush(txBlock{kind: txResult, text: m.consoleHelp()})
 		return m, nil
-	case a.InputHint != "":
-		m.adminInput = a.ID
+	case "clear", "cls":
+		m.adminTx = nil
+		m.adminVP.SetContent("")
+		return m, nil
+	case "ls", "resources", "queues", "buckets", "topics":
+		m.txPush(txBlock{kind: txResult, text: m.resourceListText()})
+		return m, nil
+	case "use", "cd":
+		if m.selectResourceByName(args) {
+			m.txPush(txBlock{kind: txInfo, text: "→ " + args})
+		} else {
+			m.txPush(txBlock{kind: txErr, text: "no such resource: " + args})
+		}
+		return m, nil
+	case "exit", "quit":
+		m.adminMode = false
+		m.cmd.Blur()
+		return m, nil
+	}
+
+	act, found := m.actionByID(verb)
+	if !found {
+		m.txPush(txBlock{kind: txErr, text: "unknown command — try: " + strings.Join(m.verbList(), " ")})
+		return m, nil
+	}
+	if !hasRes {
+		m.txPush(txBlock{kind: txErr, text: "no resource here to act on"})
+		return m, nil
+	}
+	if act.InputHint != "" && args == "" {
+		m.txPush(txBlock{kind: txErr, text: "usage: " + verb + " <" + act.InputHint + ">"})
+		return m, nil
+	}
+	if act.Destructive {
+		m.adminPending = verb
+		m.txPush(txBlock{kind: txInfo, text: "⚠ " + verb + " " + resName + "? — y to confirm, any key to cancel"})
+		return m, nil
+	}
+	return m, runAdmin(m.client, m.adminName, verb, resName, args)
+}
+
+// ── console helpers ─────────────────────────────────────────────────────────
+
+func (m model) actionByID(id string) (control.ActionView, bool) {
+	for _, a := range m.adminActs {
+		if a.ID == id {
+			return a, true
+		}
+	}
+	return control.ActionView{}, false
+}
+
+// verbList is the full command vocabulary (engine actions + built-ins) for hints
+// and completion.
+func (m model) verbList() []string {
+	out := make([]string, 0, len(m.adminActs)+3)
+	for _, a := range m.adminActs {
+		out = append(out, a.ID)
+	}
+	out = append(out, "use", "ls", "help")
+	return out
+}
+
+// consoleHelp documents the engine's verbs with their grammar.
+func (m model) consoleHelp() string {
+	var b strings.Builder
+	for _, a := range m.adminActs {
+		line := a.ID
+		if a.InputHint != "" {
+			line += " <" + a.InputHint + ">"
+		} else if a.ID == "peek" || a.ID == "browse" {
+			line += " [n]"
+		}
+		for len(line) < 18 {
+			line += " "
+		}
+		line += a.Label
+		if a.Destructive {
+			line += " (confirms)"
+		}
+		b.WriteString(line + "\n")
+	}
+	b.WriteString("use <name>        switch the active resource (or Tab)\n")
+	b.WriteString("ls                list resources    clear   wipe scrollback\n")
+	b.WriteString("esc               exit the console")
+	return b.String()
+}
+
+func (m model) resourceListText() string {
+	if len(m.adminRes) == 0 {
+		return "(no resources)"
+	}
+	var b strings.Builder
+	for i, r := range m.adminRes {
+		mark := "  "
+		if i == m.adminCursor {
+			mark = "▸ "
+		}
+		b.WriteString(mark + r.Name)
+		if r.Status != "" {
+			b.WriteString("   " + r.Status)
+		}
+		b.WriteByte('\n')
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func (m *model) selectResourceByName(name string) bool {
+	for i, r := range m.adminRes {
+		if r.Name == name {
+			m.adminCursor = i
+			return true
+		}
+	}
+	return false
+}
+
+func (m *model) cycleResource(dir int) {
+	if len(m.adminRes) == 0 {
+		return
+	}
+	m.adminCursor = (m.adminCursor + dir + len(m.adminRes)) % len(m.adminRes)
+	m.txPush(txBlock{kind: txInfo, text: "→ " + m.adminRes[m.adminCursor].Name})
+}
+
+// recallHistory walks the command history into the prompt (dir -1 = older).
+func (m *model) recallHistory(dir int) {
+	if len(m.adminHist) == 0 {
+		return
+	}
+	m.adminHistIdx += dir
+	if m.adminHistIdx < 0 {
+		m.adminHistIdx = 0
+	}
+	if m.adminHistIdx >= len(m.adminHist) {
+		m.adminHistIdx = len(m.adminHist)
 		m.cmd.SetValue("")
-		m.cmd.Placeholder = a.InputHint
-		return m, m.cmd.Focus()
-	default:
-		return m, runAdmin(m.client, m.adminName, a.ID, r.Name, "")
+		m.cmd.CursorEnd()
+		return
 	}
+	m.cmd.SetValue(m.adminHist[m.adminHistIdx])
+	m.cmd.CursorEnd()
+}
+
+// completeVerb completes the first word of the prompt against the verb list.
+func (m *model) completeVerb() {
+	val := m.cmd.Value()
+	if strings.Contains(strings.TrimRight(val, " "), " ") {
+		return // past the verb — nothing to complete
+	}
+	prefix := strings.TrimSpace(val)
+	for _, v := range m.verbList() {
+		if strings.HasPrefix(v, prefix) {
+			m.cmd.SetValue(v + " ")
+			m.cmd.CursorEnd()
+			return
+		}
+	}
+}
+
+// renderTranscript lays the REPL scrollback out for the viewport: command echoes
+// with an accent caret, results plain, info faint, errors red, a blank line before
+// each new command.
+func (m model) renderTranscript(w int) string {
+	if w < 4 {
+		w = 4
+	}
+	var b strings.Builder
+	for i, t := range m.adminTx {
+		if t.kind == txEcho && i > 0 {
+			b.WriteByte('\n')
+		}
+		switch t.kind {
+		case txEcho:
+			line := ""
+			if t.res != "" {
+				line += stFaint.Render(t.res + " ")
+			}
+			b.WriteString(line + stAccent.Render("❯ ") + stText.Render(truncate(t.text, max(1, w-4))) + "\n")
+		case txResult:
+			body := strings.TrimRight(t.text, "\n")
+			if body == "" {
+				b.WriteString(stFaint.Render("(empty)") + "\n")
+				break
+			}
+			for _, ln := range strings.Split(body, "\n") {
+				b.WriteString(stText.Render(truncate(ln, w)) + "\n")
+			}
+		case txInfo:
+			b.WriteString(stFaint.Render(truncate(t.text, w)) + "\n")
+		case txErr:
+			b.WriteString(stErr.Render(truncate("✕ "+t.text, w)) + "\n")
+		}
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // selectedResource is the resource the workspace cursor is on.
@@ -1072,102 +1264,6 @@ func (m model) selectedResource() (control.ResourceView, bool) {
 		return control.ResourceView{}, false
 	}
 	return m.adminRes[m.adminCursor], true
-}
-
-// viewerActionID is the engine's read action — the first non-destructive action
-// that needs no input (peek / browse / subs). Its result fills the inspector.
-func (m model) viewerActionID() string {
-	for _, a := range m.adminActs {
-		if a.InputHint == "" && !a.Destructive {
-			return a.ID
-		}
-	}
-	return ""
-}
-
-// viewerCmd loads the inspector for the selected resource (nil if there's no
-// viewer action or nothing is selected).
-func (m model) viewerCmd() tea.Cmd {
-	vid := m.viewerActionID()
-	r, ok := m.selectedResource()
-	if vid == "" || !ok {
-		return nil
-	}
-	return runAdmin(m.client, m.adminName, vid, r.Name, "")
-}
-
-// adminActionKeys assigns each non-viewer action a single-letter shortcut — the
-// first free letter of its id, skipping nav-reserved keys. Deterministic, so the
-// action bar and the key handler always agree.
-func (m model) adminActionKeys() map[string]string {
-	viewer := m.viewerActionID()
-	used := map[byte]bool{'j': true, 'k': true, 'q': true, 'g': true}
-	keys := map[string]string{}
-	for _, a := range m.adminActs {
-		if a.ID == viewer {
-			continue
-		}
-		var k byte
-		for i := 0; i < len(a.ID) && k == 0; i++ {
-			if c := lowerByte(a.ID[i]); c >= 'a' && c <= 'z' && !used[c] {
-				k = c
-			}
-		}
-		for c := byte('a'); c <= 'z' && k == 0; c++ {
-			if !used[c] {
-				k = c
-			}
-		}
-		if k != 0 {
-			used[k] = true
-			keys[a.ID] = string(k)
-		}
-	}
-	return keys
-}
-
-// actionForKey resolves a pressed key to the action it triggers.
-func (m model) actionForKey(key string) (control.ActionView, bool) {
-	if len(key) != 1 {
-		return control.ActionView{}, false
-	}
-	km := m.adminActionKeys()
-	for _, a := range m.adminActs {
-		if km[a.ID] == key {
-			return a, true
-		}
-	}
-	return control.ActionView{}, false
-}
-
-// actionLabel is the human label for an action id.
-func (m model) actionLabel(id string) string {
-	for _, a := range m.adminActs {
-		if a.ID == id {
-			return a.Label
-		}
-	}
-	return id
-}
-
-func lowerByte(b byte) byte {
-	if b >= 'A' && b <= 'Z' {
-		return b + ('a' - 'A')
-	}
-	return b
-}
-
-// renderInspector styles the viewer action's text result for the inspector pane.
-func renderInspector(result string, w int) string {
-	if strings.TrimSpace(result) == "" {
-		return stFaint.Render("(empty)")
-	}
-	var b strings.Builder
-	for _, ln := range strings.Split(strings.TrimRight(result, "\n"), "\n") {
-		b.WriteString(stText.Render(truncate(ln, max(1, w))))
-		b.WriteByte('\n')
-	}
-	return strings.TrimRight(b.String(), "\n")
 }
 
 // sortedInfoKeys returns a resource's Info keys in stable order.
@@ -1442,9 +1538,9 @@ func (m *model) refreshCopyView() {
 func (m *model) onSelect() tea.Cmd {
 	m.logVP.SetContent("")
 	m.logErr = ""
-	// Moving off the previous instance invalidates its cached resources/workspace.
+	// Moving off the previous instance invalidates its cached resources/console.
 	m.adminRes, m.adminActs, m.adminName, m.adminErr = nil, nil, "", ""
-	m.adminCursor, m.adminView = 0, ""
+	m.adminCursor = 0
 	v, ok := m.selected()
 	if !ok || v.PID == 0 {
 		return nil
@@ -1474,7 +1570,7 @@ func (m model) viewHelp() string {
 		k("d", "reap — sleep, keeps data"),
 		k("R", "restart"),
 		k("p", "keep awake (no auto-sleep)"),
-		k("a", "manage (s3/sqs/sns)"),
+		k("enter", "console (s3/sqs/sns)"),
 	}, "\n")
 	col2 := strings.Join([]string{
 		sec("Logs"),
@@ -1508,30 +1604,34 @@ func (m model) viewHelp() string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
 
-// viewAdmin is the full-screen management workspace for a builtin: a resource
-// list on the left, the selected resource's inspector (the engine's read action)
-// on the right, and a labelled action bar (or an input/confirm prompt) below.
-func (m model) viewAdmin() string {
-	leftW := m.adminLeftW()
-	rightW := max(10, m.width-leftW-3)
+// viewConsole is the resource console: a thin resource rail on the left, the REPL
+// transcript + live prompt on the right, framed by a breadcrumb header and a
+// status/hints footer. The prompt is the focus — you drive it by typing.
+func (m model) viewConsole() string {
+	railW := m.adminLeftW()
+	rightW := max(12, m.width-railW-3)
+	bodyH := max(4, m.height-4)
 
 	v, _ := m.selected()
 	title := stTitle.Render("◆ "+m.adminName) + stDim.Render("  "+v.Engine)
-	back := stFaint.Render("esc ← back")
+	if r, ok := m.selectedResource(); ok {
+		title += stFaint.Render("  ▸ ") + stText.Render(r.Name)
+	}
+	back := stFaint.Render("esc exit")
 	gap := max(1, m.width-lipgloss.Width(title)-lipgloss.Width(back))
 	header := title + strings.Repeat(" ", gap) + back
 	rule := stFaint.Render(strings.Repeat("─", max(1, m.width)))
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.viewAdminResources(leftW),
-		" "+stFaint.Render("│")+" ",
-		m.viewAdminInspector(rightW))
+		m.consoleRail(railW, bodyH),
+		stFaint.Render(" │ "),
+		m.consoleRight(rightW, bodyH))
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, rule, body, rule, m.viewAdminBar())
+	return lipgloss.JoinVertical(lipgloss.Left, header, rule, body, rule, m.consoleFooter())
 }
 
-// viewAdminResources is the left column: the selectable list of resources.
-func (m model) viewAdminResources(w int) string {
+// consoleRail is the resource list, the active one marked and bright.
+func (m model) consoleRail(w, h int) string {
 	kind := "resources"
 	if len(m.adminRes) > 0 {
 		kind = m.adminRes[0].Kind + "s"
@@ -1539,25 +1639,24 @@ func (m model) viewAdminResources(w int) string {
 	rows := []string{stLabel.Render(strings.ToUpper(kind)), ""}
 	switch {
 	case m.adminErr != "" && len(m.adminRes) == 0:
-		rows = append(rows, stErr.Render("✕ "+truncate(m.adminErr, w-2)))
+		rows = append(rows, stErr.Render("✕ "+truncate(m.adminErr, w-1)))
 	case !m.adminLoaded:
-		rows = append(rows, stFaint.Render("  loading…"))
+		rows = append(rows, stFaint.Render("loading…"))
 	case len(m.adminRes) == 0:
-		rows = append(rows, stFaint.Render("  (none)"))
+		rows = append(rows, stFaint.Render("(none)"))
 	default:
 		for i, r := range m.adminRes {
-			name := truncate(r.Name, w-3)
+			name := truncate(r.Name, w-2)
 			if i == m.adminCursor {
 				rows = append(rows, stAccent.Render("▸ ")+stAccent.Bold(true).Render(name))
 			} else {
 				rows = append(rows, "  "+stText.Render(name))
 			}
 			if r.Status != "" {
-				rows = append(rows, stFaint.Render("  "+truncate(r.Status, w-3)))
+				rows = append(rows, stFaint.Render("  "+truncate(r.Status, w-2)))
 			}
 		}
 	}
-	h := m.bodyH()
 	for len(rows) < h {
 		rows = append(rows, "")
 	}
@@ -1567,61 +1666,39 @@ func (m model) viewAdminResources(w int) string {
 	return lipgloss.NewStyle().Width(w).Render(strings.Join(rows, "\n"))
 }
 
-// viewAdminInspector is the right column: the selected resource's detail header
-// (status + info) above the scrollable result of the engine's read action.
-func (m model) viewAdminInspector(w int) string {
-	r, ok := m.selectedResource()
-	head := stFaint.Render("—")
-	if ok {
-		head = stLabel.Render(r.Kind+" ") + stText.Bold(true).Render(r.Name)
-		if r.Status != "" {
-			head += stDim.Render("   " + r.Status)
-		}
-	}
-	lines := []string{head}
-	if ok && len(r.Info) > 0 {
-		var kv []string
-		for _, k := range sortedInfoKeys(r.Info) {
-			kv = append(kv, stLabel.Render(k+" ")+stText.Render(r.Info[k]))
-		}
-		lines = append(lines, stFaint.Render("")+strings.Join(kv, stFaint.Render("   ")))
-	}
-	lines = append(lines, stFaint.Render(strings.Repeat("╌", max(1, w))), m.adminVP.View())
-	out := strings.Join(lines, "\n")
-	return lipgloss.NewStyle().Width(w).Height(m.bodyH()).Render(out)
+// consoleRight stacks the scrollable transcript above the live prompt.
+func (m model) consoleRight(w, h int) string {
+	transcript := lipgloss.NewStyle().Width(w).Height(h-1).MaxHeight(h-1).Render(m.adminVP.View())
+	return transcript + "\n" + m.consolePrompt(w)
 }
 
-// viewAdminBar is the bottom context line: an input prompt, a destructive
-// confirm, or the labelled list of available actions.
-func (m model) viewAdminBar() string {
-	r, _ := m.selectedResource()
-	if m.adminInput != "" {
-		return stAccent.Render(m.actionLabel(m.adminInput)+" → "+r.Name+"  ") +
-			m.cmd.View() + stFaint.Render("   enter send · esc cancel")
+// consolePrompt is the input line: the live command with a faint verb hint, or a
+// destructive confirmation.
+func (m model) consolePrompt(w int) string {
+	if m.adminPending != "" {
+		return stErr.Render("⚠ "+m.adminPending+"?  ") + stAccent.Render("y") + stFaint.Render(" confirm · any other key cancel")
 	}
-	if m.adminConfirm != "" {
-		return stErr.Render("⚠ "+m.actionLabel(m.adminConfirm)+" "+r.Name+"?") +
-			stDim.Render("  can't be undone   ") +
-			stAccent.Render("y") + stDim.Render(" yes · ") + stAccent.Render("n") + stDim.Render(" no")
+	left := m.cmd.View()
+	hint := stFaint.Render(strings.Join(m.verbList(), "  "))
+	gap := w - lipgloss.Width(left) - lipgloss.Width(hint)
+	if gap < 3 {
+		return left
 	}
-	km := m.adminActionKeys()
-	var parts []string
-	if vid := m.viewerActionID(); vid != "" {
-		parts = append(parts, stAccent.Render("enter")+stDim.Render(" "+strings.ToLower(m.actionLabel(vid))))
-	}
-	for _, a := range m.adminActs {
-		k := km[a.ID]
-		if k == "" {
-			continue
+	return left + strings.Repeat(" ", gap) + hint
+}
+
+// consoleFooter shows the active resource's live status and the navigation keys.
+func (m model) consoleFooter() string {
+	left := ""
+	if r, ok := m.selectedResource(); ok {
+		left = stText.Render(r.Name)
+		if r.Status != "" {
+			left += stDim.Render("  "+r.Status)
 		}
-		part := stAccent.Render(k) + stDim.Render(" "+strings.ToLower(a.Label))
-		if a.Destructive {
-			part += stErr.Render("⚠")
-		}
-		parts = append(parts, part)
 	}
-	parts = append(parts, stAccent.Render("esc")+stDim.Render(" back"))
-	return strings.Join(parts, stFaint.Render("  ·  "))
+	hints := stFaint.Render("↹ switch · ↑↓ history · pgup/pgdn scroll · esc exit")
+	gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(hints)-2)
+	return " " + left + strings.Repeat(" ", gap) + hints
 }
 
 func (m model) View() string {
@@ -1643,7 +1720,7 @@ func (m model) render() string {
 		return m.viewHelp()
 	}
 	if m.adminMode {
-		return m.viewAdmin()
+		return m.viewConsole()
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.viewSidebar(), "  ", m.viewRight())
 	return lipgloss.JoinVertical(lipgloss.Left, m.viewHeader(), body, m.viewFooter())
@@ -1948,9 +2025,9 @@ func (m model) viewDetail(v control.InstanceView, w int) string {
 	}
 
 	// For a running builtin, the connection count is less interesting than its
-	// resources — surface the count and the `a` affordance right on the status line.
+	// resources — surface the count and the console affordance on the status line.
 	if builtinAdmin(v.Engine) && v.PID != 0 {
-		hint := stFaint.Render("press ") + stAccent.Render("a") + stFaint.Render(" to manage")
+		hint := stFaint.Render("press ") + stAccent.Render("enter") + stFaint.Render(" for the console")
 		if m.adminName == v.Name && len(m.adminRes) > 0 {
 			kind := m.adminRes[0].Kind + "s"
 			status = stGreen.Render("● ") + stAccent.Render(fmt.Sprintf("%d %s", len(m.adminRes), kind)) +
@@ -2167,8 +2244,8 @@ func (m model) viewFooter() string {
 		}, sep)
 	}
 	parts := []string{key("↑↓", "select"), key("b", "boot"), key("d", "reap")}
-	if v, ok := m.selected(); ok && builtinAdmin(v.Engine) {
-		parts = append(parts, key("a", "manage"))
+	if v, ok := m.selected(); ok && builtinAdmin(v.Engine) && v.PID != 0 {
+		parts = append(parts, key("↵", "console"))
 	}
 	parts = append(parts,
 		key("f", "follow"), key("c", "copy"), key("/", "filter"),
