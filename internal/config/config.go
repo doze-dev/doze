@@ -605,6 +605,15 @@ var lookupErrorReporter func(engineType string) error
 // SetLookupErrorReporter registers the module-load failure reporter.
 func SetLookupErrorReporter(fn func(engineType string) error) { lookupErrorReporter = fn }
 
+// engineNamesProvider, when registered (by cmd/doze), returns the engine-type
+// names the registry catalog offers — so a typo'd block type gets a "did you
+// mean postgres?" even when nothing but `process` is compiled in. Best-effort,
+// consulted only on the unknown-engine error path.
+var engineNamesProvider func() []string
+
+// SetEngineNamesProvider registers the catalog-backed name source.
+func SetEngineNamesProvider(fn func() []string) { engineNamesProvider = fn }
+
 // remoteDecodeHint, when registered (by cmd/doze), describes the module that
 // decodes an engine type's blocks (identity + pinned version) and, best-effort,
 // whether a newer release exists — appended to remote-decode errors only. It
@@ -733,9 +742,15 @@ func (cfg *Config) buildPending(parser *hclparse.Parser, block *hcl.Block, restB
 			}
 		}
 		// The type passed the schema (any labeled block is a candidate engine) but
-		// resolves to no driver — not built in, and no module provides it.
+		// resolves to no driver — not built in, and no module provides it. Suggest
+		// from the registry catalog too: at this point almost nothing is compiled
+		// in, so the catalog is where the real candidates live.
+		candidates := engine.Types()
+		if engineNamesProvider != nil {
+			candidates = append(candidates, engineNamesProvider()...)
+		}
 		detail := "no engine of this type is built in or provided by a module"
-		if s := nearest(block.Type, engine.Types()); s != "" {
+		if s := nearest(block.Type, candidates); s != "" {
 			detail = fmt.Sprintf("did you mean %q?", s)
 		}
 		return nil, posErr(parser, block.DefRange, fmt.Sprintf("unknown engine %q", block.Type), detail)

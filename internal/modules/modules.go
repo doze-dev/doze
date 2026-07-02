@@ -14,12 +14,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze-sdk/engine"
@@ -83,6 +85,8 @@ type Manager struct {
 
 	nsm  map[string]*binaries.Manager // memoized per-namespace fetchers (keyed by namespace)
 	keys map[string]ed25519.PublicKey // verified publisher keys (keyed by namespace)
+
+	knownTypes *[]string // memoized catalog type names for suggestions (nil = not yet fetched)
 }
 
 // NewManager builds a module Manager caching under <home>/modules. The registry
@@ -313,6 +317,13 @@ func (m *Manager) fetchIndex(bm *binaries.Manager, ns, name string) (*modindex.I
 	if err != nil {
 		return nil, fmt.Errorf("fetching module index %s: %w", url, err)
 	}
+	// A static registry (Cloudflare Pages) answers a missing path with its HTML
+	// 404 page — which can arrive with a success status. That is "no such
+	// module", not a corrupt index; classify it as a miss so the caller falls
+	// back to the unknown-engine path (and its did-you-mean).
+	if looksLikeHTML(body) {
+		return nil, fmt.Errorf("module %s/%s is not published in the registry (%s serves no index)", ns, name, url)
+	}
 	idx, err := modindex.Parse(body)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", url, err)
@@ -388,6 +399,9 @@ func (m *Manager) keyForLocked(ns string, lock *binaries.Lock) (ed25519.PublicKe
 	if err != nil {
 		return nil, fmt.Errorf("fetching publisher key for namespace %q (%s): %w", ns, url, err)
 	}
+	if looksLikeHTML(body) {
+		return nil, fmt.Errorf("namespace %q is not published in the registry (%s serves no keys.json)", ns, url)
+	}
 	var doc keysDoc
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", url, err)
@@ -410,6 +424,17 @@ func (m *Manager) keyForLocked(ns string, lock *binaries.Lock) (ed25519.PublicKe
 	}
 	m.keys[ns] = key
 	return key, nil
+}
+
+// looksLikeHTML sniffs a response body that should have been YAML/JSON but is a
+// web page — a static host's 404 fallback.
+func looksLikeHTML(body []byte) bool {
+	trimmed := strings.TrimSpace(string(body))
+	if len(trimmed) > 64 {
+		trimmed = trimmed[:64]
+	}
+	lower := strings.ToLower(trimmed)
+	return strings.HasPrefix(lower, "<!doctype") || strings.HasPrefix(lower, "<html")
 }
 
 func short(b64 string) string {
@@ -446,11 +471,14 @@ func (m *Manager) loadLock() *binaries.Lock {
 
 // recordPin freezes a module source to the selected release: version, protocol,
 // engine support, and every published triple's checksum (from the verified
-// index, so teammates on other platforms verify against the same pin).
+// index, so teammates on other platforms verify against the same pin). A brand
+// new pin gets a commit nudge — the lock is the team's reproducibility contract,
+// and the moment it's born is the moment to say so.
 func (m *Manager) recordPin(lock *binaries.Lock, source, version string, rel modindex.Release) {
 	if lock == nil {
 		return
 	}
+	_, existed := lock.GetModule(source)
 	hashes := make(map[string]string, len(rel.Artifacts))
 	for triple, art := range rel.Artifacts {
 		hashes[triple] = "sha256:" + strings.ToLower(art.SHA256)
@@ -462,6 +490,9 @@ func (m *Manager) recordPin(lock *binaries.Lock, source, version string, rel mod
 		Hashes:   hashes,
 	})
 	_ = lock.Save()
+	if !existed {
+		m.logf("pinned %s %s in %s — commit the lockfile so your team and CI get this exact build", source, version, filepath.Base(lock.Path()))
+	}
 }
 
 // Pinned returns the doze.lock pin for an engine type's source, with the source
@@ -630,7 +661,7 @@ func notPublished(err error) bool {
 			return false // a real verification failure, not a plain miss
 		}
 	}
-	for _, miss := range []string{"not found", "404", "no such", "no module", "does not exist", "unknown engine"} {
+	for _, miss := range []string{"not published", "not found", "404", "no such", "no module", "does not exist", "unknown engine"} {
 		if strings.Contains(s, miss) {
 			return true
 		}
@@ -696,6 +727,9 @@ func (m *Manager) Inspect(source, version string) (*Inspection, error) {
 	body, err := bm.Fetch(url)
 	if err != nil {
 		return nil, fmt.Errorf("fetching module index %s: %w", url, err)
+	}
+	if looksLikeHTML(body) {
+		return nil, fmt.Errorf("module %s is not published in the registry (%s serves no index)", source, url)
 	}
 	idx, err := modindex.Parse(body)
 	if err != nil {
@@ -797,6 +831,39 @@ type CatalogEntry struct {
 	Namespace string
 	Name      string
 	Official  bool
+}
+
+// KnownTypes returns the engine-type names the registry catalog offers, for
+// "did you mean" suggestions on a typo'd block type. Best-effort with a short
+// timeout (it runs on an error path) and memoized: one network attempt per
+// process, empty on any failure.
+func (m *Manager) KnownTypes() []string {
+	m.mu.Lock()
+	if m.knownTypes != nil {
+		defer m.mu.Unlock()
+		return *m.knownTypes
+	}
+	base := m.base
+	m.mu.Unlock()
+
+	names := []string{}
+	bm := binaries.NewManager(m.home)
+	bm.HTTP = &http.Client{Timeout: 3 * time.Second}
+	if body, err := bm.Fetch(strings.TrimRight(base, "/") + "/index.json"); err == nil {
+		var c Catalog
+		if json.Unmarshal(body, &c) == nil {
+			for _, ns := range c.Namespaces {
+				for name := range ns.Modules {
+					names = append(names, name)
+				}
+			}
+		}
+	}
+	sort.Strings(names)
+	m.mu.Lock()
+	m.knownTypes = &names
+	m.mu.Unlock()
+	return names
 }
 
 // CatalogModules returns every module across all namespaces, official first then

@@ -56,6 +56,7 @@ func main() {
 		config.SetEngineRequirer(modMgr.Require)
 		config.SetModuleSupportChecker(modMgr.CheckSupport)
 		config.SetLookupErrorReporter(modMgr.LastError)
+		config.SetEngineNamesProvider(modMgr.KnownTypes)
 		config.SetRemoteDecodeHint(func(engineType string) string {
 			pin, source, ok := modMgr.Pinned(engineType)
 			if !ok {
@@ -142,7 +143,13 @@ func loadConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return config.LoadWithVars(configPath, cliVars)
+	cfg, err := config.LoadWithVars(configPath, cliVars)
+	if err != nil && os.IsNotExist(err) {
+		// The very first command in a new project shouldn't greet anyone with a
+		// stat error — point at the way in.
+		return nil, fmt.Errorf("no %s in this directory — run `doze init` to scaffold one, or point --config at your config", configPath)
+	}
+	return cfg, err
 }
 
 // parseVarFlags turns repeated --var name=value flags into a map.
