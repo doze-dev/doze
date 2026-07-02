@@ -13,10 +13,18 @@ export default defineConfig({
         "docker-compose for local development, without the virtualization. Real engines as native processes — your machine stays cool, your debugger just attaches.",
       logo: { src: "./src/assets/logo.png", alt: "doze" },
       favicon: "/favicon-32.png",
+      // Code blocks read as terminals — one dark theme in BOTH light and dark
+      // site modes, so syntax is always high-contrast (a light syntax theme on
+      // our warm-paper light mode washed the text out to near-invisible).
+      expressiveCode: {
+        themes: ["github-dark"],
+        styleOverrides: { borderRadius: "0.5rem", borderColor: "transparent" },
+      },
       components: {
-        // Add the registry portal's nav links (Modules) into the docs header,
-        // so both halves of doze.nerdmenot.in share the same top navigation.
+        // Share the registry portal's nav links, and swap the theme dropdown
+        // for a three-segment System/Light/Dark toggle.
         SocialIcons: "./src/components/HeaderNav.astro",
+        ThemeSelect: "./src/components/ThemeSelect.astro",
       },
       customCss: ["./src/styles/theme.css"],
       social: [

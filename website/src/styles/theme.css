@@ -38,29 +38,33 @@
   --sl-color-bg-inline-code: #15181f;
 }
 
-/* ── light: warm paper + deepened amber ── */
+/* ── light: warm paper + deepened amber. Text tones are contrast-checked
+   against the paper background (AA for body): gray-2 body text and gray-3
+   muted text both clear 4.5:1 and ~4:1 respectively — the earlier set was
+   too pale to read. ── */
 :root[data-theme="light"] {
-  --sl-color-accent-low: #f7e6c9;
-  --sl-color-accent: #a36a10;
-  --sl-color-accent-high: #7a4e08;
+  --sl-color-accent-low: #f3e2c2;
+  --sl-color-accent: #9a6410;
+  --sl-color-accent-high: #6d4407;
 
-  --sl-color-white: #1c1b18;
-  --sl-color-gray-1: #33322d;
-  --sl-color-gray-2: #5c5a52;
-  --sl-color-gray-3: #8a877c;
-  --sl-color-gray-4: #d9d4c7;
-  --sl-color-gray-5: #e7e2d6;
-  --sl-color-gray-6: #f3efe6;
+  --sl-color-white: #191814; /* highest-contrast text: headings */
+  --sl-color-gray-1: #2b2a24;
+  --sl-color-gray-2: #4a483f; /* body text — ~8:1 on paper */
+  --sl-color-gray-3: #6a675c; /* muted text — ~4.4:1 on paper */
+  --sl-color-gray-4: #cfc9ba;
+  --sl-color-gray-5: #e4dece;
+  --sl-color-gray-6: #f1ece0;
   --sl-color-black: #faf7f0;
 
   --sl-color-bg: #faf7f0;
   --sl-color-bg-nav: color-mix(in oklab, #faf7f0 92%, transparent);
-  --sl-color-bg-sidebar: #f5f1e8;
-  --sl-color-hairline: #e2ddd0;
-  --sl-color-hairline-light: #d9d4c7;
+  --sl-color-bg-sidebar: #f4efe4;
+  --sl-color-hairline: #ddd6c6;
+  --sl-color-hairline-light: #cfc9ba;
 
-  --sl-color-text-accent: #a36a10;
-  --sl-color-bg-inline-code: #efeadd;
+  --sl-color-text: #2b2a24; /* default body text */
+  --sl-color-text-accent: #9a6410;
+  --sl-color-bg-inline-code: #ece5d4;
 }
 
 /* the nightlight: a faint amber bloom up top (both modes, subtler in light) */
@@ -98,9 +102,11 @@ h1,
   line-height: 1.65;
 }
 
-/* code blocks: keep them inky in both modes (terminal is terminal) */
-:root[data-theme="light"] .expressive-code .frame pre {
-  --code-background: #14161b;
+/* Code blocks are handled by Expressive Code's single dark theme (configured
+   in astro.config) — always dark bg + light syntax, readable in both modes.
+   Give the inline-code chip a touch more contrast on paper. */
+:root[data-theme="light"] code:not(:where(.expressive-code *)) {
+  color: #6d4407;
 }
 
 /* tables breathe a little */
