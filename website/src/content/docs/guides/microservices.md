@@ -173,7 +173,9 @@ Each `process` block gives you the orchestration a Procfile doesn't:
 - **`depends_on`** — explicit ordering when there's no env reference to imply it.
 
 The full field-by-field reference is in
-[configuration → process](/reference/configuration/#process).
+[configuration → process](/reference/configuration/#process), and there's a
+complete, copy-pasteable [microservices stack recipe](/guides/recipes/microservices-stack/)
+— API, auth, worker, frontend, and their stores — ready to adapt.
 
 ## When doze *isn't* your process runner
 

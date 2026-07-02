@@ -91,6 +91,7 @@ export default defineConfig({
               label: "Engine recipes",
               collapsed: true,
               items: [
+                { slug: "guides/recipes/microservices-stack" },
                 { slug: "guides/recipes/postgres" },
                 { slug: "guides/recipes/valkey-kvrocks" },
                 { slug: "guides/recipes/documentdb" },
