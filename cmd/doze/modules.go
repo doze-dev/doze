@@ -23,7 +23,7 @@ func modulesCmd() *cobra.Command {
 			"local DOZE_<TYPE>_PLUGIN override, or a plugin module fetched from\n" +
 			"doze-modules (DOZE_MODULES_MIRROR) and cached under ~/.doze/modules.",
 	}
-	cmd.AddCommand(modulesListCmd(), modulesWhichCmd(), modulesInfoCmd(), modulesSearchCmd(), modulesUpgradeCmd())
+	cmd.AddCommand(modulesListCmd(), modulesWhichCmd(), modulesInfoCmd(), modulesSearchCmd(), modulesUpgradeCmd(), modulesDocsCmd())
 	return cmd
 }
 

@@ -833,6 +833,24 @@ type CatalogEntry struct {
 	Official  bool
 }
 
+// Meta fetches a module's generated meta.yaml from the registry — the
+// documentation `doze modules docs` renders. Raw bytes: the CLI owns the shape.
+func (m *Manager) Meta(source string) ([]byte, error) {
+	ns, name, err := splitSource(source)
+	if err != nil {
+		return nil, err
+	}
+	url := strings.TrimRight(m.base, "/") + "/" + ns + "/" + name + "/meta.yaml"
+	body, err := binaries.NewManager(m.home).Fetch(url)
+	if err != nil {
+		return nil, fmt.Errorf("fetching module docs (%s): %w", url, err)
+	}
+	if looksLikeHTML(body) {
+		return nil, fmt.Errorf("module %s has no published docs (%s) — is the source spelled right? try `doze modules search`", source, url)
+	}
+	return body, nil
+}
+
 // KnownTypes returns the engine-type names the registry catalog offers, for
 // "did you mean" suggestions on a typo'd block type. Best-effort with a short
 // timeout (it runs on an error path) and memoized: one network attempt per
