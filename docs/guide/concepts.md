@@ -128,6 +128,34 @@ software. A bare major (`version = 16`) resolves to the newest minor and pins it
 a dotted string (`version = "16.14"`) pins exactly. See
 [Managing binaries](../BINARIES.md).
 
+## Engines are modules
+
+The doze binary you install contains no databases — every engine (except the
+`process` primitive) is a **module**: a separately-versioned plugin fetched from
+the signed registry the first time your config names its type. Think Terraform
+providers. What keeps this invisible day to day:
+
+- **You never pick a module version.** `version = 18` names the *engine*; doze
+  selects the newest module release that supports it and speaks this doze's
+  plugin protocol, then pins the choice — release, supported engine versions,
+  per-platform checksums — in `doze.lock`.
+- **Nothing runs unverified.** The registry index carrying each module's
+  compatibility metadata is ed25519-signed; each archive's checksum is signed;
+  the publisher's key is pinned on first use in your lock. A tampered index, a
+  swapped archive, or a rotated key is a hard error, not a warning.
+- **Pins move only when you say so.** `doze modules upgrade --check` reports
+  waiting updates (exit 1 in CI); `doze modules upgrade` moves the pins. When a
+  config needs a newer module — you declared `version = 19`, or used an
+  argument added in a later release — the error names that exact command.
+- **Everything is inspectable.** `doze modules search` (discovery),
+  `doze modules docs <type>` (the config reference, generated from the module),
+  `doze modules info <source>` (signatures + compatibility),
+  `doze modules list` (what this project runs).
+
+Offline behavior matches the lockfile promise: a pinned, cached module resolves
+with zero network. Writing your own engine? Start at
+[module-template](https://github.com/doze-dev/module-template).
+
 ## Per-instance isolation
 
 Each instance is its own real server with its own data directory, namespaced

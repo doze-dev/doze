@@ -73,7 +73,10 @@ only the filtered subset.
 ## Mongo-style service
 
 ```hcl
-documentdb "docs" {}
+ferret "docs" {
+  version = "2.7"
+  port    = 27017
+}
 ```
 
 `doze run -- ./svc` injects `MONGODB_URI`; doze runs the private Postgres + Mongo
@@ -95,7 +98,10 @@ kvrocks "kv"    { version = 2 }
 ```
 ```hcl
 # mongo.doze.hcl
-documentdb "mongo" {}
+ferret "mongo" {
+  version = "2.7"
+  port    = 27017
+}
 ```
 ```hcl
 # aws.doze.hcl

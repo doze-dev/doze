@@ -2,138 +2,128 @@
 
 doze is a single Go binary that is both a CLI and a long-running daemon. The
 daemon is a thin proxy in front of many real backing-service instances — one per
-declared block — that it boots on demand and reaps when idle. Most are unmodified
-database binaries (Postgres, Valkey, Kvrocks, DocumentDB); the local **AWS
-services (S3, SQS, SNS)** are built into the doze binary and run as self-exec'd
-child processes behind the same proxy.
+declared block — that it boots on demand and reaps when idle.
 
-Its shape is two layers: a **generic, engine-agnostic core** and a **driver per
-engine** behind a small interface. Adding an engine is a driver package plus one
-registration line; the core never changes.
+Its shape is two layers: a **generic, engine-blind core** (this repo) and a
+**driver per engine** behind a small interface. The core compiles in exactly one
+driver — `process`, the supervision primitive for host applications. Every other
+engine (postgres, valkey, kvrocks, ferret, mariadb, temporal, s3, sqs, sns) is
+an **out-of-process plugin module**: a separate binary implementing the
+[doze-sdk](https://github.com/doze-dev/doze-sdk) driver contract over gRPC
+(HashiCorp go-plugin), fetched from the signed registry, pinned in `doze.lock`,
+and kept warm for the daemon's lifetime. Adding an engine is publishing a
+module; the core never changes.
 
 ```
-        ┌───────────────────────── doze daemon process ─────────────────────────┐
+        ┌───────────────────────── doze daemon process ──────────────────────────┐
 clients │  proxy (one listener per instance)                                      │
-  │     │     │ accept ─▶ runtime.Boot ─▶ driver ──┬─ Resolve  (toolchain)        │
-  └─────▶     │  [optional ProxyFilter: TLS/        ├─ Provision (init / clone)    │
-              │   startup/cancel for Postgres]      ├─ Spawn + WaitReady           │
-              │     ▼                               └─ Converge  (Postgres only)   │
-              │  splice ──▶ backend @instance (unix socket)                        │
-        │     │  reaper (idle, by connection count)   control IPC   pidfile/log    │
-        └───────────────────────────────────────────────────────────────────────┘
+  │     │     │ accept ─▶ runtime.Boot ─▶ driver ──┬─ Resolve  (engine binary)    │
+  └─────▶     │  [optional wire filter: TLS/        ├─ Provision (init / clone)    │
+              │   startup/cancel, e.g. Postgres —   ├─ Plan → supervised spawn     │
+              │   runs IN the plugin via fd handoff]└─ Converge (structural)      │
+              │     ▼                                                             │
+              │  splice ──▶ backend @instance (unix socket)                       │
+        │     │  reaper (idle, by connection count)   control IPC   pidfile/log   │
+        └────────│────────────────────────────────────────────────────────────────┘
+                 │ gRPC (go-plugin)
+        ┌────────▼─────────┐   fetched from the signed registry, one process per
+        │  engine modules   │   engine type: postgres-plugin, valkey-plugin, …
+        └───────────────────┘
 ```
 
-## The driver contract (`internal/engine`)
+## The five repos
 
-Every engine implements a small required interface; richer behavior is opt-in
-via capability interfaces the core discovers with a type assertion. So Valkey
-implements ~8 methods, while Postgres adds convergence, a protocol filter, and
-templating — without the core knowing which is which.
+| Repo | Role |
+|---|---|
+| **doze** (this one) | The core: CLI, daemon, config evaluator, proxy, supervisor, runtime, module fetcher. Engine-blind. |
+| **doze-sdk** | The public contract: `engine.Driver` + capability interfaces, the go-plugin gRPC transport, the `modindex` signed-index schema + selection policy, the `binaries` fetch/verify/cache library, the `modtool` release toolchain, and the `enginetest` harness. |
+| **doze-modules** | The official engine modules, one Go package + tiny `plugin/main.go` each. Built/released by `dzm` (a thin loop over `modtool`). |
+| **doze-registry** | The signed discovery layer (static files on Cloudflare Pages): per-namespace ed25519 keys, per-module signed indexes, the catalog, and the browsable docs site. |
+| **doze-binaries** | The engine-binaries mirror: real upstream Postgres/Valkey/… built from source, append-only rolling releases. |
 
-```go
-type Driver interface {
-    Type() string
-    Resolve(ctx, spec, plat, lock, fetch) (Toolchain, error) // fetch/cache binaries
-    Provision(ctx, inst, tc) error                            // init the data dir (idempotent)
-    Provisioned(dataDir) bool
-    Spawn(ctx, inst, tc) (Process, error)                     // start the backend
-    WaitReady(ctx, inst, tc, p) error                         // engine-specific health probe
-    BackendSocket(socketDir, port) string                     // path the proxy dials
-    ConnString(inst, ep) (envVar, url string)                 // for doze run/env
-}
+## The driver contract (doze-sdk/engine)
 
-// Optional, discovered by type assertion:
-type Converger       interface { Converge(...) error }            // roles/db/schema/grants (Postgres)
-type Inventory       interface { Objects(inst) []Object }         // tracked structure (plan/apply/destroy)
-type Pruner          interface { Prune(...) error }               // drop removed objects (apply/destroy)
-type Attributer      interface { Attributes(inst, ep) map[...] }  // attrs exposed for config references
-type ProxyFilter     interface { Preamble(...); Handshake(...) }  // startup/TLS/cancel (Postgres)
-type Templater       interface { EnsureTemplate(...); CloneTemplate(...) } // CoW (Postgres)
-type BackendProvider interface { BackendURL(inst) string }        // serve as another instance's backend
-type ConfigDecoder   interface { DecodeConfig(body, ctx, baseDir) (EngineConfig, error) }
-type ErrorWriter     interface { WriteError(w, code, message) }   // protocol-clean errors
-type EnvProvider     interface { Env(inst, ep) map[string]string } // extra env (AWS creds/region)
-type Versionless     interface { Versionless() }                  // built-in services need no `version`
-```
+Every engine implements a small required interface — `Type`, `Resolve`
+(fetch/pin the engine binary), `Provision`, `Provisioned`, `BackendSocket`,
+`ConnString`, plus a run path (`Spawner.Plan`, a declarative spawn plan the core
+executes and supervises). Richer behavior is opt-in via capability interfaces
+discovered by type assertion — so valkey implements the minimum, while postgres
+adds convergence (`Converger`/`Inventory`/`Pruner`), a wire-protocol filter
+(TLS/startup/cancel), and copy-on-write templates (`Templater`) without the core
+knowing which is which.
 
-### Built-in services (the local-AWS engines)
+For plugins, each capability is advertised over a `Capabilities()` RPC and
+adapted back so the runtime's type assertions keep working; config crosses the
+boundary as gob, decoded *by the plugin* (`RemoteDecoder`) so the core never
+learns engine schemas. The declared engine version travels with the decode so
+modules reject version-gated arguments at lint time (`engine.RequireVersion`).
+Wire-protocol engines receive the client connection's file descriptor via
+SCM_RIGHTS and run the preamble/handshake/splice in their own process.
 
-S3, SQS, and SNS reuse this contract via a shared `awslocal.BaseDriver`. They have
-no toolchain to download, so `Resolve` returns a synthetic toolchain and `Spawn`
-re-executes the doze binary as a hidden `doze __serve <service>` worker that runs
-the service (a `net/http` handler) on a private unix socket — full process
-isolation, reusing the supervisor/proxy/reaper unchanged. They are `Versionless`,
-`EnvProvider`s (inject `AWS_ENDPOINT_URL_<svc>` + dummy creds), and `Converger`s
-(create declared buckets/queues/topics). SNS is also `Dependent` on its SQS
-instance, and the `BaseDriver.ChildEnv` hook passes that instance's backend socket
-to the SNS worker for fanout.
+## Two version axes
+
+The **engine version** is user-declared (`version = 18`) and resolved by the
+module against the doze-binaries mirror. The **module version** is the plugin
+binary's own release, chosen by the core: the newest release in the module's
+signed index that speaks this doze's plugin protocol and supports every declared
+engine major, preferring the `stable` channel head. Both pin into `doze.lock`
+(engines / modules / publisher-key layers); pinned resolution is offline, and
+pins move only via `doze modules upgrade`. Selection lives in
+`doze-sdk/modindex.Select`; trust is the index-level ed25519 signature + per-
+artifact signatures + TOFU key pinning.
 
 ## Request flow (the core loop)
 
-1. **proxy** accepts a connection on an instance's listener — so the target is
-   known without parsing anything. If the driver is a `ProxyFilter` (Postgres),
-   it first handles the SSL/TLS preamble, buffers the `StartupMessage`, and
-   routes out-of-band `CancelRequest`s; otherwise the bytes pass straight through.
+1. **proxy** accepts a connection on an instance's listener — the listener
+   identifies the instance, so routing parses nothing. A wire-filter engine
+   (Postgres) first handles TLS/startup/cancel — inside its plugin, via fd
+   handoff; other engines' bytes pass straight through.
 2. It calls **runtime**`.Boot(name)`. Concurrent cold boots coalesce via
-   `singleflight`. If the instance is `Dependent`, its dependencies are booted
-   and **held** first.
-3. The cold path runs the driver: `Resolve` a toolchain (**binaries**),
-   `Provision` the data dir (Postgres clones a version-keyed `initdb` **template**
-   copy-on-write; others just `mkdir`), `Spawn` the backend on a private unix
-   socket, and `WaitReady`. On first provision a `Converger` (Postgres) applies
-   the declared structure.
-4. The proxy dials the backend socket and **splices** the two connections
-   byte-for-byte. **registry** counts the live connection.
-5. The **reaper** reaps an instance only after `idle_timeout` at **zero
-   connections** — never on query inactivity, so pools holding idle connections
-   are never severed.
+   `singleflight`. Dependencies (e.g. SNS → SQS) boot and are **held** first.
+3. The cold path runs the driver over gRPC: `Resolve` the engine binary
+   (mirror → content-addressed cache, lock-pinned), `Provision` the data dir
+   (Postgres clones a version-keyed `initdb` template copy-on-write), run the
+   `Plan` under the core's supervisor gated on its readiness probe, and on first
+   provision `Converge` the declared structure (roles/schemas/buckets/queues).
+4. The proxy dials the backend socket and **splices** byte-for-byte;
+   **registry** counts the live connection.
+5. The **reaper** reaps only after `idle_timeout` at **zero connections** —
+   never on query inactivity, so pools holding idle connections survive.
 
-## Packages
+## Packages (this repo)
 
 | Package | Responsibility |
 |---|---|
-| `cmd/doze` | CLI (cobra); blank-imports `engine/*` to register the drivers. |
-| `internal/engine` | The driver contract only: `Driver` + `Process` + capability interfaces + the driver registry. No engine code. |
-| `internal/runtime` | Engine-agnostic orchestration: `singleflight` boot, dependency boot+hold, idle reaper, the instance state machine (`internal/registry`). |
-| `internal/proxy` | One listener per instance, byte splice, the cancel registry, and optional `ProxyFilter` dispatch. |
-| `internal/supervisor` | Generic process lifecycle: spawn, clean stop (SIGINT→SIGQUIT→SIGKILL), parent-death cleanup. Implements `engine.Process`. |
-| `internal/binaries` | The multi-engine mirror manifest, content-addressed cache, and the `doze.lock` lockfile. |
-| `internal/config` | HCL → an engine-agnostic root plus per-engine block dispatch to each driver's `ConfigDecoder`. Two-phase evaluator: variables/locals/outputs, functions, `for_each`/`count`, and typed cross-instance references that build the dependency graph. Merges `doze.hcl` + sibling `*.doze.hcl` (or a `--config` directory); reports validation errors with file/line/snippet and "did you mean" hints. |
-| `internal/endpoints` | Per-instance client addresses, connection strings, and `.doze/endpoints.yaml`. |
-| `internal/ui` | Shared, color-gated CLI/TUI vocabulary: palette, state coloring, ANSI-aware table, cross-platform RAM, uptime. Plain when piped or `NO_COLOR`. |
-| `internal/control` | Newline-delimited JSON admin IPC over a unix socket. |
-| `internal/daemon` | Wires runtime + per-instance proxy listeners + reaper + control into the daemon (the hidden `doze __daemon` self-exec, started automatically on first use). |
-| `internal/tui` | Charm Bubble Tea dashboard. |
-| `engine/postgres` | The Postgres driver: cluster (`initdb`/conf/hba), convergence, extensions, the startup/TLS/cancel `ProxyFilter`, CoW `Templater`, `BackendProvider`. |
-| `engine/valkey`, `engine/kvrocks` | Redis-protocol drivers (required methods only). |
-| `engine/documentdb` | MongoDB-wire driver: a private Postgres + DocumentDB extension behind a FerretDB gateway, run as one self-contained composite engine. |
-| `engine/s3`, `engine/sqs`, `engine/sns` | Local-AWS drivers: `ConfigDecoder` + `Converger`/`Inventory`/`Pruner` over `awslocal.BaseDriver` (self-exec). `sns` depends on its `sqs` instance via a config reference. |
-| `internal/awslocal` | The self-exec harness: `BaseDriver`, the unix-socket serve loop + health endpoint + service-factory registry (`doze __serve`), and shared AWS identity/ARN helpers. |
-| `internal/s3srv` | S3 server: gofakes3 over a bbolt store. |
-| `internal/sqssrv` | Ground-up SQS server: both wire protocols, bbolt store, visibility/long-poll/FIFO/DLQ, notifier-based receive. |
-| `internal/snssrv` | Ground-up SNS server: Query/XML, topics/subscriptions, filter policies, SQS + http(s) delivery. |
+| `cmd/doze` | CLI (cobra); wires the module fetcher + plugin manager into `engine.SetPluginResolver` and the config hooks. |
+| `engine/process` | The one compiled-in driver: supervised host applications (hooks, health, restart policy, port binding). |
+| `internal/config` | HCL → engine-agnostic root + per-block plugin decode. Two-phase evaluator: variables/locals/outputs, `for_each`/`count`, typed cross-instance references (the dependency graph), multi-file merge, positioned diagnostics with did-you-mean (catalog-backed for engine types). Feeds declared engine versions into module selection and validates every block against the pinned module's engine support. |
+| `internal/modules` | The module fetcher: signed-index fetch + verification, release selection, TOFU key pinning, lock pins, `upgrade`, the registry catalog (`search`/`docs`/`info`). |
+| `internal/runtime` | Engine-agnostic orchestration: `singleflight` boot, dependency boot+hold, idle reaper, the instance state machine (`internal/registry`), plan/apply/destroy. |
+| `internal/proxy` | One listener per instance, byte splice, cancel registry, wire-filter dispatch (fd handoff to plugins). |
+| `internal/supervisor` | Generic process lifecycle: spawn, clean stop (SIGINT→SIGQUIT→SIGKILL), parent-death cleanup, ring log buffer. |
+| `internal/daemon` | Wires runtime + listeners + reaper + control IPC into the hidden `doze __daemon` self-exec. |
+| `internal/control` / `internal/endpoints` / `internal/state` / `internal/health` | Admin IPC · connection strings + `.doze/endpoints.yaml` · project state · health probes. |
+| `internal/ui` / `internal/tui` | Color-gated CLI vocabulary · the Bubble Tea dashboard. |
 
 ## Key design decisions
 
-- **Real binaries, one instance per database.** True concurrency and full
-  fidelity for free; near-zero protocol code.
-- **Generic core, drivers behind a tiny interface.** Optional capabilities via
-  type assertion keep simple engines simple and the core engine-blind.
-- **Per-instance listeners.** The listener identifies the instance, so routing
-  needs no protocol parsing; protocol awareness is a per-engine opt-in.
-- **Reap on connection count, never on query inactivity.** Connection pools hold
-  idle connections open and must not be severed.
-- **Instance dependencies are first-class.** Derived from the config reference
-  graph, a dependent boots and holds its dependencies (e.g. SNS → SQS), releasing
-  them on stop.
-- **Built-in services, no new runtime.** S3/SQS/SNS ship inside the binary and
-  self-exec as `doze __serve` children, so "local AWS" needs no Docker, no JVM,
-  and no LocalStack — and reuses the same boot/splice/reap path as everything else.
-- **Copy-on-write templates.** `initdb` runs once per version; instances clone it.
-- **Shared tool store, per-project state.** Binaries live once under
-  `~/.doze/<engine>`; each project's clusters/runtime are namespaced.
-- **Self-healing for local dev.** A backend that exits unexpectedly is detected
-  (a per-backend watcher) and marked reaped so the next connect re-boots cleanly;
-  failures are recorded (`LastError`) and surfaced in `status`/`doctor`; daemon
-  shutdown is bounded so it can't hang; and because macOS lacks `PDEATHSIG`, each
-  backend's pid is recorded so a restart can reclaim orphans from a prior crash.
+- **Real binaries, one instance per database.** Full fidelity for free;
+  near-zero protocol code.
+- **Engine-blind core, engines as signed plugins.** Third-party engines are
+  exactly as capable as official ones; a driver bug ships as a module release,
+  not a doze release. No privileged path.
+- **Two version axes, one lockfile.** Users declare only engine versions;
+  module selection is automatic, deterministic once locked, explicit to move —
+  and every compatibility failure names its fix (`doze modules upgrade …`).
+- **Per-instance listeners.** Routing needs no protocol parsing; protocol
+  awareness is a per-engine opt-in that runs in the engine's own process.
+- **Reap on connection count, never query inactivity.** Pools hold idle
+  connections open and must not be severed.
+- **Instance dependencies are first-class**, derived from the config reference
+  graph (SNS boots and holds its SQS).
+- **Copy-on-write templates.** `initdb` runs once per version; instances clone.
+- **Shared tool store, per-project state.** Engine binaries and modules live
+  once under `~/.doze`; each project's clusters/runtime are namespaced.
+- **Self-healing for local dev.** Backend exit detection re-arms lazy boot;
+  failures surface in `status`/`doctor`; daemon shutdown is bounded; orphans
+  from a prior crash are reclaimed by pidfile.

@@ -31,11 +31,27 @@ You can split instances across sibling `*.doze.hcl` files — doze merges them
 automatically. See [breaking config into files](#breaking-config-into-files).
 
 ### `doze.lock` — commit it
-When doze resolves a version (e.g. `version = 16` → `16.14.0`), it records the
-exact version and its per-platform SHA-256 in `doze.lock`, right next to
-`doze.hcl`. **Commit it.** It's doze's `package-lock.json`: every teammate and
-your CI then download byte-identical engine binaries. See
-[Managing binaries](../BINARIES.md).
+`doze.lock` is doze's `package-lock.json`, and it pins **three layers** of the
+supply chain, right next to `doze.hcl`:
+
+```yaml
+engines:                        # engine binaries: version = 16 -> 16.14.0 + per-platform SHA-256
+  postgres:
+    "16": { resolved: 16.14.0, hashes: { … } }
+modules:                        # the plugin providing each engine: release, plugin
+  doze/postgres:                # protocol, supported engine versions, all-platform hashes
+    version: 0.2.1
+    protocol: 1
+    engines: ["14", "15", "16", "17", "18"]
+    hashes: { … }
+keys:                           # each registry namespace's ed25519 publisher key,
+  doze: Nu5y8mbjYv7…            # pinned on first use — a swapped key is a hard error
+```
+
+**Commit it.** Every teammate and your CI then run byte-identical modules *and*
+engine binaries, verified against the same publisher key. Module pins never
+move on their own — `doze modules upgrade` moves them, and prints a reminder to
+commit. See [Managing binaries](../BINARIES.md).
 
 ## What doze manages
 

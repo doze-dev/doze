@@ -12,11 +12,13 @@ valkey   "cache" { version = 9 }
 ```
 
 Jump to an engine: [postgres](#postgres) · [valkey](#valkey) ·
-[kvrocks](#kvrocks) · [documentdb](#documentdb) · [s3](#s3) · [sqs](#sqs) ·
-[sns](#sns).
+[kvrocks](#kvrocks) · [ferret](#ferret) · [s3](#s3) · [sqs](#sqs) ·
+[sns](#sns). Project-level blocks: [modules](#modules) · [TLS](#tls).
 
 This is the field-by-field reference. For what each engine *is* and when to use
-it, see **[The engines](../guide/engines.md)**.
+it, see **[The engines](../guide/engines.md)**. Every engine's full argument
+reference is also one command away — `doze modules docs <engine>` — generated
+from the module itself, so it can't be stale.
 
 ## Root
 
@@ -48,8 +50,16 @@ Every `<engine> "<name>" { … }` block accepts:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `version` | string/number | — | A major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for database engines; the built-in AWS engines (`s3`/`sqs`/`sns`) take no version. |
+| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for database engines; the AWS engines (`s3`/`sqs`/`sns`) take no version. |
 | `listen` | string | next port from root `listen` | Per-instance client address (`"127.0.0.1:5544"` or `"unix:/path.sock"`). |
+
+`version` is the only version you declare. The *module* (the plugin that
+provides the engine) is selected automatically — the newest release compatible
+with your doze and the engine versions you declared — and pinned in `doze.lock`.
+Some engine arguments are **version-gated**: using one below the engine version
+that introduced it fails at `doze lint` with the argument and required major
+named (docs mark these, e.g. *engine ≥ 18*). See [modules](#modules) for the
+rare overrides.
 
 ---
 
@@ -304,21 +314,32 @@ kvrocks "store" {
 
 ---
 
-## documentdb
+## ferret
 
 A self-contained, MongoDB-compatible engine: doze runs a private PostgreSQL with
-Microsoft's DocumentDB extension behind a FerretDB gateway, exposing only the
-Mongo wire (`MONGODB_URI`). Versionless — no `version`, no backend to wire up. See
-the [DocumentDB recipe](../recipes/documentdb.md).
+Microsoft's DocumentDB extension behind a FerretDB v2 gateway, exposing only the
+Mongo wire (`MONGODB_URI`). One declared instance is one composite backend — no
+separate postgres to wire up. See the [DocumentDB recipe](../recipes/documentdb.md).
 
 ```hcl
-documentdb "docs" {}
+ferret "shop" {
+  version = "2.7"
+  port    = 27017
+
+  database "catalog" {
+    collection "products" { seed = "./seed/products.json" }
+  }
+}
 ```
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `version` | string/number | — | Major or exact. **Required.** |
-| `backend` | string | — | Name of a declared `postgres` instance. **Required.** |
+| `version` | string/number | — | FerretDB v2.x gateway version. **Required.** |
+| `database` | block | — | A Mongo database to ensure (repeatable; label = name), with nested `collection` blocks. |
+| `settings` | map(string) | — | Extra `FERRETDB_*` gateway settings. |
+
+Full argument/block reference: `doze modules docs ferret` or its
+[registry page](https://doze.nerdmenot.in/registry/doze/ferret).
 
 ---
 
@@ -479,6 +500,41 @@ mismatch. The command and all its children are reaped as a process group on stop
 
 ---
 
+## modules
+
+Every engine except `process` is provided by a **module** — a signed plugin
+doze fetches from the registry on first use. The defaults are right for almost
+everyone: engine type `postgres` resolves to source `doze/postgres` on the
+public registry, doze selects the newest module release compatible with your
+doze and your declared engine versions, and `doze.lock` freezes the choice.
+The optional `modules {}` block holds the overrides:
+
+```hcl
+modules {
+  mirror  = "file:///path/to/registry"   # air-gapped / dev registry base
+  enabled = true                          # (implied when mirror is set)
+
+  cache {                                 # per engine TYPE (the block keyword)
+    source  = "acme/valkey"               # a third-party publisher's module
+    version = "0.2.0"                     # rare: pin the MODULE release exactly
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `mirror` | string | the public registry | Registry base URL (or `file://` path). Also settable via `DOZE_MODULES_MIRROR`. |
+| `enabled` | bool | on | Fetch modules at all. `DOZE_MODULES=off` disables globally (offline / `process`-only). |
+| `<type> { source }` | string | `doze/<type>` | Which `<namespace>/<name>` provides this engine type. |
+| `<type> { version }` | string | auto | Exact **module** release pin — the escape hatch for holding back a regressed release. Not the engine version. |
+
+Module workflow in one breath: discovery is `doze modules search`, docs are
+`doze modules docs <type>`, provenance is `doze modules info <source>`, and
+updates are explicit — `doze modules upgrade --check` reports, `doze modules
+upgrade` moves the pins (commit the updated `doze.lock`). A declared engine
+version the pinned module doesn't support fails with exactly that upgrade
+command. See the [CLI reference](cli.md#doze-modules-alias-mod).
+
 ## Splitting config across files
 
 Root settings live in `doze.hcl`; instance blocks may be split across sibling
@@ -488,9 +544,13 @@ every `*.hcl` in a directory. See [Files & storage](../guide/files-and-storage.m
 ## Versions & the lockfile
 
 A bare major (`version = 16`) resolves to the newest minor and is pinned in
-`doze.lock`; a dotted string (`version = "16.14"`) pins exactly. **Commit
-`doze.lock`** so every machine downloads byte-identical binaries. Run
-`doze binaries available <engine>` to see what's available. See [Managing binaries](../BINARIES.md).
+`doze.lock`; a dotted string (`version = "16.14"`) pins exactly. The lock also
+pins each engine's **module** (release, plugin protocol, supported engine
+versions, per-platform checksums) and each registry namespace's publisher key.
+**Commit `doze.lock`** — every machine then runs byte-identical modules *and*
+engine binaries. Run `doze binaries available <engine>` to see engine versions;
+`doze modules upgrade --check` to see waiting module updates. See
+[Managing binaries](../BINARIES.md) and [Files & storage](../guide/files-and-storage.md#dozelock--commit-it).
 
 ## Connection-string environment variables
 

@@ -5,15 +5,19 @@ without MongoDB itself or its SSPL license (see **[The
 engines](../guide/engines.md)**). It speaks the MongoDB wire protocol, so MongoDB
 drivers, `mongosh`, and GUIs like Compass all work.
 
-It's a single, **self-contained** engine: doze quietly runs a private PostgreSQL 18
-carrying Microsoft's DocumentDB extension behind a FerretDB gateway, and exposes
-only the Mongo wire protocol. There's no version to pick and no backend to wire up
-— the Postgres and the gateway are an implementation detail.
+It's a single, **self-contained** engine — the block type is `ferret`, after the
+gateway: doze quietly runs a private PostgreSQL carrying Microsoft's DocumentDB
+extension behind a FerretDB v2 gateway, and exposes only the Mongo wire protocol.
+The `version` you declare is the gateway's; the Postgres underneath is an
+implementation detail.
 
 ## A Mongo-compatible store
 
 ```hcl
-documentdb "docs" {}
+ferret "docs" {
+  version = "2.7"
+  port    = 27017
+}
 ```
 
 That's the whole declaration. The `docs` instance listens on its stable URI —

@@ -58,10 +58,32 @@ To reclaim space more surgically, see
 
 ## What is `doze.lock` for? Should I commit it?
 
-Yes, commit it. It's doze's `package-lock.json`: it records the exact engine
-version each instance resolved to and its per-platform SHA-256, so every
-teammate and your CI download **byte-identical** binaries. See
-[Managing binaries](../BINARIES.md).
+Yes, commit it. It's doze's `package-lock.json`, and it pins three things: the
+exact engine version each instance resolved to (with per-platform SHA-256s),
+the **module** providing each engine (release, plugin protocol, supported
+engine versions, checksums), and each registry publisher's ed25519 key. Every
+teammate and your CI then run **byte-identical**, signature-verified software.
+See [Managing binaries](../BINARIES.md) and
+[Files & storage](files-and-storage.md#dozelock--commit-it).
+
+## What's the difference between `version = 18` and a module version?
+
+Two axes, on purpose. `version = 18` is the **engine** — the actual Postgres
+you run, and the only version you ever write. The **module** is the plugin that
+provides that engine; it has its own releases (new config arguments, fixes, new
+engine majors) which doze selects automatically and pins in `doze.lock`. You
+meet module versions only in two places: `doze modules` output, and error
+messages telling you an upgrade would fix something.
+
+## How do module updates work? Will things change under me?
+
+Never on their own — the lock always wins, even offline. When a module ships a
+new release, nothing happens until you run `doze modules upgrade` (or
+`--check` in CI to be told about it). The one time doze brings it up unasked is
+when your config *needs* a newer module — you declared an engine version or
+used a config argument your pinned release doesn't know — and then the error
+says exactly `run 'doze modules upgrade <type>'`. Upgrade, commit the lock,
+done.
 
 ## How do I share a setup with my team?
 

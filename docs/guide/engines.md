@@ -83,11 +83,14 @@ gateway.[^ferret]
 So you get a document store with the Mongo API, locally, without running MongoDB
 itself or accepting its license. It's a single, **self-contained** engine: you
 declare one block, and doze runs the private Postgres and the gateway for you,
-exposing only Mongo — no version to pick, no backend to wire up. A faithful local
-stand-in for development, not a reimplementation of every MongoDB feature.
+exposing only Mongo — no backend to wire up. A faithful local stand-in for
+development, not a reimplementation of every MongoDB feature.
 
 ```hcl
-documentdb "docs" {}
+ferret "docs" {
+  version = "2.7"        # the FerretDB gateway version
+  port    = 27017
+}
 ```
 
 → [DocumentDB recipes](../recipes/documentdb.md)

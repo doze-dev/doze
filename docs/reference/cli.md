@@ -187,14 +187,32 @@ are pinned in `doze.lock`):
   marking which are installed and pinned; with an engine, the platforms each builds for.
 
 ### `doze modules` (alias `mod`)
-Inspect how each engine is provided — a compiled-in driver, a local
-`DOZE_<TYPE>_PLUGIN` override, or a plugin module fetched from the registry and
-cached under `~/.doze/modules`:
-- `modules list` — each declared engine type and how it's provided.
-- `modules search [query]` (alias `available`) — search the registry's published modules.
-- `modules info <source>` (alias `verify`) — fetch a source's index and verify its
-  ed25519 signatures (the same check doze enforces before running a module).
+Every engine except `process` is a **module**: a signed plugin fetched from the
+registry, selected automatically (newest release compatible with this doze and
+your declared engine versions), pinned in `doze.lock`, and cached under
+`~/.doze/modules`. The subcommands cover the whole lifecycle:
+
+- `modules search [query]` (alias `available`) — discover what the registry
+  publishes (source, engine versions, tagline).
+- `modules docs <engine-type|source>` — the module's full config reference
+  (arguments, nested blocks, defaults, engine-version badges) in the terminal —
+  generated from the module itself, so it can't be stale.
+- `modules list` — each declared engine type and how it's provided: the module
+  release, its supported engine versions, and the cached binary (or an
+  `override` when `DOZE_<TYPE>_PLUGIN` is set).
+- `modules info <source>` (alias `verify`) — a source's release metadata
+  (stable release, plugin protocol, engine support) and signature status for
+  the index and every platform artifact — the same checks doze enforces before
+  running a module.
+- `modules upgrade [engine-type ...]` — re-select each module against the
+  registry, download + verify, and move the `doze.lock` pins. No arguments =
+  every declared engine. **Commit the updated lock.** With `--check`, report
+  available upgrades without changing anything and exit 1 if any (CI-friendly).
 - `modules which <engine-type>` — fetch (if needed) and print the plugin binary.
+
+Pins never move on their own: a moving registry can't drift a locked project,
+and errors that need a newer module say `run 'doze modules upgrade <type>'`
+verbatim.
 
 ### `doze version`
 Print the doze version and Go runtime.
@@ -206,6 +224,8 @@ Print the doze version and Go runtime.
 | `DOZE_HOME` | Override the shared home (default `~/.doze`). |
 | `DOZE_VAR_<name>` | Set a config variable (lower precedence than `--var`). |
 | `DOZE_<ENGINE>_BINDIR` | Use an explicit engine bin dir instead of downloading (e.g. `DOZE_POSTGRES_BINDIR`). |
-| `DOZE_<ENGINE>_MIRROR` / `DOZE_MIRROR` | Override the binaries mirror — see [BINARIES](../BINARIES.md). |
-| `DOZE_MODULES_MIRROR` | Override the module registry mirror. |
+| `DOZE_<ENGINE>_MIRROR` / `DOZE_MIRROR` | Override the engine-binaries mirror — see [BINARIES](../BINARIES.md). |
+| `DOZE_MODULES_MIRROR` | Override the module registry base (URL or `file://`). |
+| `DOZE_MODULES` | `off` disables module fetching entirely (offline / `process`-only). |
+| `DOZE_<TYPE>_PLUGIN` | Run a local plugin binary for an engine type, skipping the registry (module development). |
 | `NO_COLOR` | Disable colored output. |

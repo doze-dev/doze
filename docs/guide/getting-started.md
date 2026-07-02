@@ -67,12 +67,15 @@ doze shell app
 
 The first time, this does a lot for you, transparently:
 
-1. resolves and downloads the real Postgres 16 binaries (once, cached),
-2. initializes a fresh data directory,
-3. boots the server,
-4. **converges** your declared shape — creates the `app` role, the `app`
+1. fetches the **postgres module** — the signed plugin that provides the engine —
+   from the registry, verifies its signature, and pins it in `doze.lock`
+   (doze prints a nudge to commit the lockfile: do),
+2. resolves and downloads the real Postgres 16 binaries (once, cached),
+3. initializes a fresh data directory,
+4. boots the server,
+5. **converges** your declared shape — creates the `app` role, the `app`
    database, and grants — then
-5. drops you into `psql`.
+6. drops you into `psql`.
 
 ```
 psql (16.14)

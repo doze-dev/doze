@@ -5,6 +5,15 @@ runtime — it resolves an `(engine, version)` to a directory of executables and
 runs them. This document covers how that resolution works, how versions are
 pinned for reproducibility, and how to host your own mirror.
 
+> **Scope.** This is the **engine binaries** supply chain (Postgres 16.14.0,
+> valkey-server, …), fetched by each engine's *module* from the checksum-only
+> [doze-binaries](https://github.com/doze-dev/doze-binaries) mirror. The
+> **modules themselves** (the plugins providing each engine) come from the
+> *signed registry* — a separate chain with ed25519 signatures and TOFU key
+> pinning, covered in [Core concepts → Engines are modules](guide/concepts.md#engines-are-modules)
+> and the [`modules {}` reference](reference/configuration.md#modules). Both pin
+> into the same `doze.lock`.
+
 ## Resolution order
 
 For a given `(engine, version)`, doze tries, cheapest first:
