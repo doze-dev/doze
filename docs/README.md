@@ -1,55 +1,18 @@
 # doze documentation
 
-Real databases and AWS services on your laptop — asleep until you need them.
-New to doze? Start with the [project overview](../README.md).
+**The docs live at [doze.nerdmenot.in](https://doze.nerdmenot.in)** — built
+from [`website/`](../website/) in this repo (edit there; every page carries an
+"Edit page" link back to its source).
 
-## Start here
+Quick jumps:
 
-- **[Why doze](guide/why-doze.md)** — the case for it over docker-compose, a
-  native install, and LocalStack; and whether it's for you.
-- **[Resource footprint](guide/resource-footprint.md)** — what doze actually
-  uses, measured, vs Docker and LocalStack.
-- **[The engines](guide/engines.md)** — what Postgres, Valkey, Kvrocks, DocumentDB,
-  and the built-in S3/SQS/SNS each are, and when to reach for them.
+- [Why doze](https://doze.nerdmenot.in/why/doze/) · [vs containers](https://doze.nerdmenot.in/why/not-containers/) · [why HCL](https://doze.nerdmenot.in/why/hcl/) · [alternatives](https://doze.nerdmenot.in/why/alternatives/) · [trust model](https://doze.nerdmenot.in/why/trust/)
+- [Install](https://doze.nerdmenot.in/start/install/) · [Getting started](https://doze.nerdmenot.in/start/getting-started/) · [Core concepts](https://doze.nerdmenot.in/start/concepts/) · [Coming from docker-compose](https://doze.nerdmenot.in/start/from-docker-compose/)
+- [CLI reference](https://doze.nerdmenot.in/reference/cli/) · [Configuration reference](https://doze.nerdmenot.in/reference/configuration/) · [doze.lock](https://doze.nerdmenot.in/reference/lockfile/)
+- [Build a module](https://doze.nerdmenot.in/modules/overview/) · [Run a registry](https://doze.nerdmenot.in/registry/trust-architecture/)
+- [The module registry](https://doze.nerdmenot.in/registry/)
 
-## Learn
+What remains in this directory:
 
-Read these in order to build a working mental model:
-
-1. **[Getting started](guide/getting-started.md)** — a hands-on tour from install
-   to a running app, explaining what you see at each step.
-2. **[Core concepts](guide/concepts.md)** — the daemon, lazy boot, idle reaping,
-   convergence, endpoints, versions, and instance dependencies.
-3. **[Files & storage](guide/files-and-storage.md)** — where doze keeps engines,
-   data, sockets, and logs; what to commit vs ignore; and splitting config across
-   files.
-
-## Do
-
-- **[Recipes](recipes/README.md)** — copy-pasteable examples, by topic:
-  [Postgres](recipes/postgres.md) · [Valkey & Kvrocks](recipes/valkey-kvrocks.md)
-  · [DocumentDB](recipes/documentdb.md) · [S3](recipes/s3.md) · [SQS](recipes/sqs.md)
-  · [SNS](recipes/sns.md) · [Workflows](recipes/workflows.md) ·
-  [Config layout](recipes/config-layout.md) · [Full stacks](recipes/stacks.md)
-
-## When things go wrong
-
-- **[Troubleshooting](guide/troubleshooting.md)** — daemon won't start, downloads
-  fail, an instance errors, can't connect, resetting state.
-- **[FAQ](guide/faq.md)** — production readiness, CI, Windows/WSL/Docker, the
-  lockfile, sharing a setup, uninstalling.
-
-## Reference
-
-- **[Configuration](reference/configuration.md)** — every block and field in `doze.hcl`.
-- **[CLI](reference/cli.md)** — every command and flag.
-- **[Managing binaries](BINARIES.md)** — the mirror, the lockfile, self-hosting.
-- **[Extensions](EXTENSIONS.md)** — Postgres extensions, including from source.
-
-## Under the hood
-
-- **[Architecture](ARCHITECTURE.md)** — the engine-driver contract and how the
-  generic core, proxy, runtime, and daemon fit together (for contributors).
-
-The companion [`doze-dev/doze-binaries`](https://github.com/doze-dev/doze-binaries)
-repo builds and publishes the engine binaries doze downloads.
+- [`design/`](design/) — engineering decision records (not user docs).
+- [`assets/`](assets/) — images used by the repo README.

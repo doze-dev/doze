@@ -68,7 +68,7 @@ Because doze runs **real, unmodified engines** — not emulations — every clie
 extension, and wire-protocol feature behaves exactly like production. It just gets
 out of your way the moment you stop using it.
 
-→ **[The full case](docs/guide/why-doze.md)** · **[Measured footprint](docs/guide/resource-footprint.md)**
+→ **[The full case](https://doze.nerdmenot.in/why/doze/)** · **[Measured footprint](https://doze.nerdmenot.in/guides/resource-footprint/)**
 
 ## See it work (60 seconds)
 
@@ -90,7 +90,7 @@ is instant; stop touching it and, a few minutes later, it reaps back to zero.
 
 Each instance listens on the explicit `port` you declared, so your connection
 strings are stable — put `postgresql://app:app@127.0.0.1:5432/app` in your app
-config, or declare the app as a [`process`](docs/recipes/workflows.md) block and
+config, or declare the app as a [`process`](https://doze.nerdmenot.in/guides/workflows/) block and
 doze injects its dependencies' URLs for you.
 
 ```sh
@@ -116,8 +116,8 @@ the API your code already speaks, without the heavy or encumbered originals.
 | **DocumentDB** | a MongoDB-wire document store | "Mongo" on Postgres, without MongoDB's license |
 | **S3 / SQS / SNS** | object storage, queues, pub/sub | local AWS with no LocalStack, Docker, or JVM |
 
-Mix as many as you want in one file. → **[The engines](docs/guide/engines.md)** ·
-**[Recipes for each](docs/recipes/README.md)**
+Mix as many as you want in one file. → **[The engines](https://doze.nerdmenot.in/guides/engines/)** ·
+**[Recipes for each](https://doze.nerdmenot.in/guides/engines/)**
 
 ## How it works
 
@@ -137,7 +137,7 @@ Five ideas, and you've got the whole model:
    roles, schemas, grants, buckets, queues, topics). Your app and migrations own
    the data.
 
-→ **[The full mental model](docs/guide/concepts.md)**
+→ **[The full mental model](https://doze.nerdmenot.in/start/concepts/)**
 
 ## Is doze for you?
 
@@ -150,7 +150,7 @@ HA, no failover), tuned toward fast iteration over durability, and reaps them wh
 idle — so it's not a place to keep data you can't lose. The local AWS services
 (S3/SQS/SNS) are dev-grade conveniences, not a stand-in for real AWS. Use managed
 databases and real AWS in production. (Full rationale in the
-[FAQ](docs/guide/faq.md#is-doze-production-ready).)
+[FAQ](https://doze.nerdmenot.in/guides/faq/#is-doze-production-ready).)
 
 **Platforms:** macOS and Linux, on Apple Silicon and x86-64. (No native Windows;
 WSL2 works.)
@@ -184,32 +184,32 @@ go build -o doze ./cmd/doze
 Engine binaries are fetched and cached automatically on first use. They're built
 and published by the companion repo
 **[doze-dev/doze-binaries](https://github.com/doze-dev/doze-binaries)**; see
-[Managing binaries](docs/BINARIES.md) for the mirror format and self-hosting.
+[Managing binaries](https://doze.nerdmenot.in/reference/binaries/) for the mirror format and self-hosting.
 
 ## Documentation
 
 New here? Read these in order:
 
-1. **[Why doze](docs/guide/why-doze.md)** — the case for it, and whether it's for you.
-2. **[Getting started](docs/guide/getting-started.md)** — from zero to a running app, step by step.
-3. **[Core concepts](docs/guide/concepts.md)** — the daemon, lazy boot, reaping, convergence, endpoints.
-4. **[The engines](docs/guide/engines.md)** — what each engine is and when to reach for it.
+1. **[Why doze](https://doze.nerdmenot.in/why/doze/)** — the case for it, and whether it's for you.
+2. **[Getting started](https://doze.nerdmenot.in/start/getting-started/)** — from zero to a running app, step by step.
+3. **[Core concepts](https://doze.nerdmenot.in/start/concepts/)** — the daemon, lazy boot, reaping, convergence, endpoints.
+4. **[The engines](https://doze.nerdmenot.in/guides/engines/)** — what each engine is and when to reach for it.
 
 Going deeper:
 
-- **[Resource footprint](docs/guide/resource-footprint.md)** — measured numbers vs Docker & LocalStack.
-- **[Files & storage](docs/guide/files-and-storage.md)** — where things live, what to commit, splitting config.
-- **[Recipes](docs/recipes/README.md)** — copy-pasteable examples for every engine and workflow.
+- **[Resource footprint](https://doze.nerdmenot.in/guides/resource-footprint/)** — measured numbers vs Docker & LocalStack.
+- **[Files & storage](https://doze.nerdmenot.in/guides/files-and-storage/)** — where things live, what to commit, splitting config.
+- **[Recipes](https://doze.nerdmenot.in/guides/engines/)** — copy-pasteable examples for every engine and workflow.
 
 Reference, when you need it:
 
-- **[Configuration](docs/reference/configuration.md)** — every block and field in `doze.hcl`.
-- **[CLI](docs/reference/cli.md)** — every command and flag.
-- **[Managing binaries](docs/BINARIES.md)** — the mirror, the lockfile, self-hosting.
-- **[Extensions](docs/EXTENSIONS.md)** · **[Architecture](docs/ARCHITECTURE.md)** (for contributors)
+- **[Configuration](https://doze.nerdmenot.in/reference/configuration/)** — every block and field in `doze.hcl`.
+- **[CLI](https://doze.nerdmenot.in/reference/cli/)** — every command and flag.
+- **[Managing binaries](https://doze.nerdmenot.in/reference/binaries/)** — the mirror, the lockfile, self-hosting.
+- **[Extensions](https://doze.nerdmenot.in/reference/extensions/)** · **[Architecture](https://doze.nerdmenot.in/reference/architecture/)** (for contributors)
 
-Stuck or curious? **[Troubleshooting](docs/guide/troubleshooting.md)** ·
-**[FAQ](docs/guide/faq.md)**
+Stuck or curious? **[Troubleshooting](https://doze.nerdmenot.in/guides/troubleshooting/)** ·
+**[FAQ](https://doze.nerdmenot.in/guides/faq/)**
 
 ## Contributing
 
