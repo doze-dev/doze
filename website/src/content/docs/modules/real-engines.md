@@ -34,7 +34,7 @@ func (Driver) Resolve(ctx context.Context, spec engine.VersionSpec, plat engine.
 `Ensure` handles download, checksum verification, and the content-addressed
 cache; `DOZE_<ENGINE>_BINDIR` overrides all of it for development. Where do
 binaries come from? A mirror in the
-[doze-binaries format](/registry/mirror-binaries/) — use the official one for
+[doze-binaries format](/operate/mirror-binaries/) — use the official one for
 official engines, or publish your own.
 
 Advertise what you support in `Describe().Versions` (`{"14"…"18"}`) — that

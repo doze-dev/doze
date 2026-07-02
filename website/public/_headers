@@ -1,0 +1,9 @@
+# pagefind's entry/loader keep stable names across builds while the index shards
+# are content-hashed and rotate every deploy — so these must never be served
+# stale, or search silently returns nothing.
+/pagefind/pagefind-entry.json
+  Cache-Control: no-cache
+/pagefind/pagefind.js
+  Cache-Control: no-cache
+/pagefind/pagefind-ui.js
+  Cache-Control: no-cache

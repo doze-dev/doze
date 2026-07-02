@@ -13,6 +13,11 @@ export default defineConfig({
         "docker-compose for local development, without the virtualization. Real engines as native processes — your machine stays cool, your debugger just attaches.",
       logo: { src: "./src/assets/logo.png", alt: "doze" },
       favicon: "/favicon-32.png",
+      components: {
+        // Add the registry portal's nav links (Modules) into the docs header,
+        // so both halves of doze.nerdmenot.in share the same top navigation.
+        SocialIcons: "./src/components/HeaderNav.astro",
+      },
       customCss: ["./src/styles/theme.css"],
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/doze-dev/doze" },
@@ -102,13 +107,16 @@ export default defineConfig({
           ],
         },
         {
+          // Not under /registry/* — that path is the registry portal itself
+          // (proxied by the domain router), so the operator guide lives at
+          // /operate/* to avoid the collision.
           label: "Running a registry",
           items: [
-            { slug: "registry/trust-architecture" },
-            { slug: "registry/self-host" },
-            { slug: "registry/mirror-binaries" },
-            { slug: "registry/operations" },
-            { slug: "registry/roadmap-hosts" },
+            { slug: "operate/trust-architecture" },
+            { slug: "operate/self-host" },
+            { slug: "operate/mirror-binaries" },
+            { slug: "operate/operations" },
+            { slug: "operate/roadmap-hosts" },
           ],
         },
         {

@@ -1,0 +1,54 @@
+---
+// Overrides Starlight's SocialIcons slot (header, right side) to give the docs
+// site the same top nav as the registry portal — so doze.nerdmenot.in feels
+// like one site whichever half you're on. Keeps Starlight's own search + theme
+// controls (they render elsewhere in the header); we just add the cross-links
+// and then the default social icons.
+import Default from "@astrojs/starlight/components/SocialIcons.astro";
+---
+
+<nav class="header-nav" aria-label="Site">
+  <a href="/start/getting-started/">Docs</a>
+  <a href="/registry/">Modules</a>
+  <a
+    href="https://github.com/doze-dev/module-template"
+    class="cta">Publish a module</a
+  >
+</nav>
+<Default><slot /></Default>
+
+<style>
+  .header-nav {
+    display: none;
+    align-items: center;
+    gap: 1.25rem;
+    font-size: var(--sl-text-sm);
+  }
+  /* room only appears on wider viewports; the sidebar holds these on mobile */
+  @media (min-width: 50rem) {
+    .header-nav {
+      display: flex;
+    }
+  }
+  .header-nav a {
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    transition: color 0.15s ease;
+    white-space: nowrap;
+  }
+  .header-nav a:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .header-nav a.cta {
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-white);
+    border: 1px solid var(--sl-color-hairline-light);
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
+  }
+  .header-nav a.cta:hover {
+    border-color: var(--sl-color-text-accent);
+    color: var(--sl-color-text-accent);
+  }
+</style>

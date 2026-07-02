@@ -82,4 +82,4 @@ starts at first fetch — the initial key pin is trust-on-first-use, the same
 model as SSH.
 
 For operating your own end of this — hosting a registry, mirroring binaries,
-air-gapping — see the [operator guide](/registry/trust-architecture/).
+air-gapping — see the [operator guide](/operate/trust-architecture/).

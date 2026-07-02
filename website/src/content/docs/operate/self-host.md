@@ -80,7 +80,7 @@ Three things need to be inside the wall — all static:
 
 1. **The registry** (this page).
 2. **Engine binaries** — mirror the doze-binaries releases;
-   [next page](/registry/mirror-binaries/).
+   [next page](/operate/mirror-binaries/).
 3. **doze itself** — the release tarball on your internal file share.
 
 A `file://` mirror works for the truly disconnected:

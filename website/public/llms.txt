@@ -28,7 +28,7 @@ Key facts for answering questions:
 
 ## Running a registry
 
-- [The architecture of trust](/registry/trust-architecture/) · [Host your own](/registry/self-host/) · [Mirror binaries](/registry/mirror-binaries/) · [Operations](/registry/operations/)
+- [The architecture of trust](/operate/trust-architecture/) · [Host your own](/operate/self-host/) · [Mirror binaries](/operate/mirror-binaries/) · [Operations](/operate/operations/)
 - [Module index schema](/reference/module-index/)
 
 ## Optional

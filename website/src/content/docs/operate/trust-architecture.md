@@ -55,7 +55,7 @@ module repos, or any build machine. Public keys are committed, served, and
 **pinned trust-on-first-use** into every consumer's `doze.lock` — after first
 contact, key substitution is a hard client-side error until a human clears the
 pin. Consequences for rotation are real; see
-[operations](/registry/operations/#key-rotation).
+[operations](/operate/operations/#key-rotation).
 
 ## The lifecycle in one diagram
 
@@ -72,4 +72,4 @@ static registry ── validate (offline: every signature)
 ```
 
 Every arrow assumes the previous step might be hostile — which is why running
-your own is safe and simple: [self-host](/registry/self-host/).
+your own is safe and simple: [self-host](/operate/self-host/).

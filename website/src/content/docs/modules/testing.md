@@ -59,7 +59,7 @@ Two deliberate properties:
 
 The official modules run the acceptance matrix weekly and on demand: CI builds
 each engine's real backend from the
-[doze-binaries recipes](/registry/mirror-binaries/), exports the bindir, and
+[doze-binaries recipes](/operate/mirror-binaries/), exports the bindir, and
 runs `go test -tags acceptance`. For your module, the same shape works with
 any way of producing a backend binary — build from source, download upstream,
 or point at your mirror:

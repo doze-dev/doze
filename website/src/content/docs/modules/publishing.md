@@ -47,12 +47,12 @@ Today, two options:
 - **Your own registry**: it's static files — host the same layout anywhere and
   users point at it with `modules { mirror = … }` or `DOZE_MODULES_MIRROR`.
   The full walkthrough is in the
-  [operator guide](/registry/self-host/).
+  [operator guide](/operate/self-host/).
 
 (A future source form carries the host in the address —
 `registry.acme.dev/acme/httpd` — so third-party registries coexist with the
 official one per-module. The design is
-[accepted and documented](/registry/roadmap-hosts/).)
+[accepted and documented](/operate/roadmap-hosts/).)
 
 ## 4. What users see
 

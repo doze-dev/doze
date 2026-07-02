@@ -123,3 +123,15 @@ table {
 .sl-markdown-content .card {
   border-radius: 12px;
 }
+
+/* Hero logo: a 263px raster — cap the display size so it downscales (crisp)
+   instead of upscaling (the rough amber edges the light background exposed). */
+.hero img {
+  max-width: 148px;
+  height: auto;
+  image-rendering: auto;
+}
+/* On the splash hero, give the logo + copy a calmer balance. */
+.hero {
+  gap: 2rem;
+}
