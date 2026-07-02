@@ -3,23 +3,28 @@ title: "Getting started"
 ---
 
 
-This is a hands-on tour. In about ten minutes you'll go from nothing to a real
-local backend — a Postgres database and a cache — wired into an app, with the
-engines booting on demand and sleeping when idle. We'll explain what you're
-seeing as we go.
+Let's build something. In about ten minutes you'll go from an empty directory to
+a real local backend — a Postgres database and a cache — with the engines booting
+on demand and sleeping when you're done. We'll talk through what you're seeing at
+each step, so you finish this knowing not just *what* to type but *why* it works
+the way it does.
 
-> **Prerequisites:** Go 1.26+, on macOS or Linux (Apple Silicon or x86-64). That's
-> it — you don't install Postgres, Redis, or anything else. Hit a snag? See
-> [Troubleshooting](/guides/troubleshooting/).
+> **Prerequisites:** macOS (Apple Silicon) or Linux (x86-64 / arm64). That's the
+> whole list — you won't install Postgres, Redis, or any other engine; doze
+> fetches those for you. Hit a snag anywhere? [Troubleshooting](/guides/troubleshooting/)
+> has your back.
 
 ## 1. Install
 
-doze is a single binary:
+doze is a single binary with nothing else to set up:
 
 ```sh
-go install github.com/doze-dev/doze/cmd/doze@latest
+brew install doze-dev/tap/doze
 doze version
 ```
+
+(Prefer `mise`, a raw download, or `go install`? All of them are on the
+[install page](/start/install/) — pick whichever fits your setup.)
 
 You do **not** install Postgres, Redis, or anything else — doze fetches the real
 engine binaries for you on first use and caches them under `~/.doze`.

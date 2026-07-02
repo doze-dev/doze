@@ -3,9 +3,11 @@ title: "Core concepts"
 ---
 
 
-A handful of ideas explain everything doze does. Once they click, the whole tool
-feels obvious. (For *why* you'd want this in the first place, see
-[Why doze](/why/doze/); for the engines themselves, [The engines](/guides/engines/).)
+Here's a promise: there are only a handful of ideas in doze, and once they click,
+the whole tool stops needing explanation — you'll be able to guess how it behaves
+because it all follows from the same few principles. So let's go through them
+unhurried. (Want the *why* before the *how*? [Why doze](/why/doze/). Just here for
+the engines? [The engines](/guides/engines/).)
 
 **A note on words.** Throughout the docs:
 

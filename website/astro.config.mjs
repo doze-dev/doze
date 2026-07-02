@@ -68,6 +68,13 @@ export default defineConfig({
           ],
         },
         {
+          label: "The CLI & dashboard",
+          items: [
+            { slug: "cli/tour" },
+            { slug: "cli/dashboard" },
+          ],
+        },
+        {
           label: "Guides",
           items: [
             { slug: "guides/engines" },

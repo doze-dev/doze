@@ -8,22 +8,28 @@ a bucket, a document store. None of that is your app — it's the *infrastructur
 your app talks to* — but you still have to run it on your laptop to get any work
 done.
 
-There are three usual ways to do that, and each one taxes you for the privilege.
+There are three usual ways to do that, and all three are genuinely good tools
+that solved real problems. It's worth being clear about that up front, because
+this page is going to point at their costs — and the costs are real — but none
+of these are mistakes. They're just carrying weight your laptop doesn't need to
+carry for *local development* specifically.
 
-## The three bad options
+## The three familiar taxes
 
 ### 1. Docker / docker-compose
 
-You write a `docker-compose.yml`, copy it to the next project, tweak it forever.
-Then a Linux VM runs on your Mac all day. Docker Desktop reserves **half your
-machine's RAM** for that VM by default — 8 GB on a 16 GB laptop — and it keeps
-running whether or not you have a single container up.[^docker-mem] On Apple
+docker-compose is, deservedly, how most of us have done this for years — one
+file, `docker compose up`, works anywhere Docker runs. It's a fantastic answer
+to "package and ship this stack." As a *development* environment on a Mac or
+Windows machine, though, it asks for a Linux VM that runs all day. Docker
+Desktop reserves a big slice of your RAM for that VM by default — often several
+gigabytes — whether or not a single container is up.[^docker-mem] On Apple
 Silicon, any image without an ARM build runs under **emulation**, which is
 slower and spins the fan.[^docker-emu] And it's all-or-nothing: `docker compose
-up` starts the *entire* stack — five services — even when you're only touching
-one.
+up` starts the *entire* stack even when you're only touching one service.
 
-It works. It's just heavy, and it's always on.
+None of that is a flaw in compose. It's the price of virtualization, paid all
+day, for a job — local dev — that maybe doesn't need the virtualization at all.
 
 ### 2. `brew install` everything
 
@@ -42,16 +48,21 @@ should run.
 
 ### 3. LocalStack for the AWS bits
 
-Your app uses S3 and SQS, so you add LocalStack. It's a ~1.2 GB Docker image
-running a Python application, and several services delegate to **Java** emulators
-under the hood (DynamoDB Local is AWS's JRE-based tool).[^localstack] So now
-you're back to option 1 — Docker, plus Python, plus a JVM — just to fake a bucket.
+Your app uses S3 and SQS, so you add LocalStack — which, credit where it's due,
+gives you an astonishing amount of the AWS surface in one place, and is the right
+call when you need the breadth. For a bucket and a queue, though, it's a ~1.2 GB
+Docker image running Python, with some services delegating to **Java** emulators
+under the hood.[^localstack] So you're back to option 1 — Docker, plus Python,
+plus a JVM — to stand in for a bucket.
 
 ---
 
-Every option forces the same trade: **to run real-enough infrastructure, you pay
-for it continuously** — in RAM, in fan noise, in battery, in version chaos, in
-ceremony — whether you're using it this second or not.
+There's a common thread, and it isn't that these tools are bad — they're not.
+It's that **to run real-enough infrastructure, each asks you to pay for it
+continuously** — in RAM, in fan noise, in battery, in version drift, in
+ceremony — whether you're using it this second or not. Somewhere along the way,
+"convenient" quietly came to mean "always running, always costing." doze is an
+attempt to question that.
 
 ## What doze does instead
 
