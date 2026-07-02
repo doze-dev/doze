@@ -1,0 +1,36 @@
+# Build and deploy the documentation site (website/ -> the doze-docs Cloudflare
+# Pages project) whenever docs content changes. The registry keeps its own,
+# fully independent pipeline in doze-registry; a Pages Function there routes
+# doze.nerdmenot.in between the two projects (/registry* -> registry, else docs).
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths: [website/**]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: website
+          command: pages deploy dist --project-name=doze-docs
