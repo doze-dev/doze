@@ -73,8 +73,8 @@ out of your way the moment you stop using it.
 ## See it work (60 seconds)
 
 ```sh
-# 1. Install it (one binary, Go 1.26+)
-go install github.com/doze-dev/doze/cmd/doze@latest
+# 1. Install it (one binary — see Install below for mise/binary options)
+brew install doze-dev/tap/doze
 
 # 2. Describe what you need
 doze init                      # writes a starter doze.hcl
@@ -157,11 +157,23 @@ WSL2 works.)
 
 ## Install
 
-**Prerequisites:** Go 1.26+, macOS or Linux (Apple Silicon or x86-64). You do
-*not* install Postgres, Redis, etc. — doze fetches those for you.
+**No toolchain needed** — doze is one static binary, and it fetches Postgres,
+Redis, etc. for you. macOS (Apple Silicon) or Linux (x86-64 / arm64).
 
 ```sh
-# Recommended: install the CLI
+# Homebrew (macOS / Linux)
+brew install doze-dev/tap/doze
+
+# mise
+mise use -g ubi:doze-dev/doze
+
+# Or grab a binary from the releases page
+# https://github.com/doze-dev/doze/releases
+```
+
+Have Go 1.26+? These work too:
+
+```sh
 go install github.com/doze-dev/doze/cmd/doze@latest
 
 # Or build from a clone

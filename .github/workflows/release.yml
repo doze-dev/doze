@@ -1,0 +1,33 @@
+# Cut a doze release on every version tag: goreleaser builds the three supported
+# platforms (darwin/arm64, linux/amd64, linux/arm64), publishes the GitHub
+# release with checksums, and pushes the Homebrew formula to doze-dev/homebrew-tap.
+#
+# HOMEBREW_TAP_TOKEN: a fine-grained PAT with contents:write on
+# doze-dev/homebrew-tap (github.token cannot cross repositories).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # goreleaser derives the changelog from tag history
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

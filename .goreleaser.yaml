@@ -20,6 +20,11 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      # Intel Mac is intentionally unsupported (Apple Silicon + Linux only),
+      # matching the engine-binary and module platform policy.
+      - goos: darwin
+        goarch: amd64
 
 archives:
   - id: doze
@@ -38,5 +43,21 @@ changelog:
       - "^test:"
       - "^ci:"
 
+# Publish the Homebrew formula into doze-dev/homebrew-tap on every release, so
+# `brew install doze-dev/tap/doze` tracks the latest version. HOMEBREW_TAP_TOKEN
+# needs contents:write on that repo (github.token can't cross repositories).
+brews:
+  - name: doze
+    repository:
+      owner: doze-dev
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: https://doze.nerdmenot.in
+    description: "Real databases on your laptop — asleep until you need them"
+    license: Apache-2.0
+    test: |
+      system "#{bin}/doze", "version"
+
 release:
-  draft: true
+  draft: false
