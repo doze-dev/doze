@@ -21,6 +21,13 @@ reach for it.
 | **Kvrocks** | the Redis (RESP) protocol | a durable, disk-backed KV store | Redis API without keeping everything in RAM |
 | **DocumentDB** | the MongoDB wire protocol | a document store | "Mongo" without MongoDB's license, on Postgres |
 | **S3 / SQS / SNS** | the AWS APIs | object storage, queues, pub/sub | local AWS with no LocalStack, Docker, or JVM |
+| **process** | anything you can run | *your own* services (API, worker, frontend…) | a native local orchestrator — see [Running your own services](/guides/microservices/) |
+
+That last row is easy to overlook and shouldn't be: the `process` engine runs
+**your** services — supervised, ordered, health-gated — so a `doze.hcl` can
+orchestrate a whole microservice stack, with or without any database in it. This
+page covers the backing engines; the [microservices guide](/guides/microservices/)
+covers running your code.
 
 ## PostgreSQL — the real database
 

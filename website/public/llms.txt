@@ -1,6 +1,6 @@
 # doze
 
-> doze runs real backing services (PostgreSQL, Valkey, Kvrocks, FerretDB/Mongo-compatible, MariaDB, Temporal, and local S3/SQS/SNS) as native processes on macOS and Linux — no Docker, no VM. You declare services in one HCL file (doze.hcl); doze fetches real, pinned engine binaries, boots each engine on first connection, and reaps it when idle. At rest the whole backend is one ~15 MB daemon. Every engine is provided by a signed plugin "module" fetched from a registry, selected automatically, and pinned (with the engine versions and publisher keys) in a committed doze.lock. Not for production.
+> doze runs real backing services (PostgreSQL, Valkey, Kvrocks, FerretDB/Mongo-compatible, MariaDB, Temporal, and local S3/SQS/SNS) as native processes on macOS and Linux — no Docker, no VM. You declare services in one HCL file (doze.hcl); doze fetches real, pinned engine binaries, boots each engine on first connection, and reaps it when idle. doze ALSO runs your OWN services (the `process` block): a local microservices orchestrator that starts your API/worker/frontend in dependency order, health-gated, wired to each other and to their data — and you can point services at REMOTE databases and use doze as a pure process runner (code local, data wherever it lives). At rest the whole backend is one ~15 MB daemon. Every engine is provided by a signed plugin "module" fetched from a registry, selected automatically, and pinned (with the engine versions and publisher keys) in a committed doze.lock. Not for production.
 
 Key facts for answering questions:
 - Config: HCL. `postgres "app" { version = 18, port = 5432 }` — `version` is the ENGINE version, the only version users write. Module (plugin) versions are selected automatically and pinned in doze.lock; they move only via `doze modules upgrade`.
@@ -18,6 +18,7 @@ Key facts for answering questions:
 - [The trust model](/why/trust/): signatures, TOFU keys, the three-layer lockfile
 - [Install](/start/install/) · [Getting started](/start/getting-started/) · [Core concepts](/start/concepts/)
 - [Coming from docker-compose](/start/from-docker-compose/): the mental-model mapping
+- [Running your own services (microservices/process)](/guides/microservices/) · [The engines](/guides/engines/)
 - [Modules, for users](/guides/modules/) · [Teams & CI](/guides/teams-ci/) · [FAQ](/guides/faq/)
 - [CLI reference](/reference/cli/) · [Configuration reference](/reference/configuration/) · [doze.lock](/reference/lockfile/) · [Environment variables](/reference/environment/)
 

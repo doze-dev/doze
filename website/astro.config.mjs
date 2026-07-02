@@ -85,6 +85,7 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            { slug: "guides/microservices" },
             { slug: "guides/engines" },
             {
               label: "Engine recipes",

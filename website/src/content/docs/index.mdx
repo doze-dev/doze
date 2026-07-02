@@ -6,11 +6,12 @@ hero:
   title: Your machine is powerful. Development should feel like it.
   tagline: >-
     doze is docker-compose for local development, without the virtualization.
-    The moment a VM enters the picture your fans spin up, your RAM is spoken
-    for, and your debugger is on the wrong side of a boundary. doze runs
-    Postgres, Valkey, a Mongo-compatible store, local S3/SQS/SNS — real,
-    unmodified engines — as native processes on your machine. Declared in one
-    file, booted when something connects, asleep when you walk away.
+    Run your microservices and the engines behind them — real, unmodified
+    Postgres, Valkey, a Mongo-compatible store, local S3/SQS/SNS — as native
+    processes on your machine. The moment a VM enters the picture your fans
+    spin up, your RAM is spoken for, and your debugger is on the wrong side of
+    a boundary. doze keeps everything a process: declared in one file, started
+    in order, ready when you need it, quiet when you don't.
   image:
     file: ../../assets/logo.png
   actions:
@@ -70,6 +71,30 @@ latency where your inner loop should be. doze reverses that bargain.
     pinned to the byte in `doze.lock` for your whole team.
   </Card>
 </CardGrid>
+
+## Not just databases — your whole stack
+
+Modern apps aren't one process; they're a mesh of them. doze runs **your
+services** too — declare an API, a worker, an auth service as `process` blocks
+and doze starts them in dependency order, waits until each is actually *ready*,
+and wires them to each other and to their data. It's a local microservices
+orchestrator that happens to also run your databases.
+
+And you can keep the data elsewhere: point a service's `env` at a remote or
+shared Postgres and doze becomes a **pure process runner** — your code local and
+debuggable, your data wherever it already lives.
+
+```hcl
+process "api" {
+  cwd     = "../api"
+  command = "npm run dev"
+  port    = 8080
+  env     = { DATABASE_URL = postgres.db.url }   # or a remote URL — doze doesn't mind
+  health  { http = "http://localhost:8080/health"; retries = 30 }
+}
+```
+
+**[Running your own services →](/guides/microservices/)**
 
 ## Pick your path
 
