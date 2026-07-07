@@ -71,14 +71,20 @@ type InstanceView struct {
 	RAM       int64     `json:"ram,omitempty"`        // resident bytes of the backend, 0 when reaped
 	CPU       float64   `json:"cpu,omitempty"`        // CPU usage percent (one core = 100), 0 when reaped
 	Endpoint  string    `json:"endpoint,omitempty"`   // client-facing address
+	Domain    string    `json:"domain,omitempty"`     // local DNS name (mDNS), e.g. "orders-pg.local"
 	URL       string    `json:"url,omitempty"`        // full connection string
-	EnvVar    string    `json:"env_var,omitempty"`    // conventional env var (DATABASE_URL, …)
-	DataDir   string    `json:"data_dir,omitempty"`   // where this instance's data is written
-	LastError string    `json:"last_error,omitempty"` // most recent boot/crash failure
-	Tainted   bool      `json:"tainted,omitempty"`    // last convergence failed/incomplete
-	Declared  bool      `json:"declared"`
-	Disabled  bool      `json:"disabled,omitempty"`   // declared with enabled = false (paused; no listener, not booted)
-	KeepAwake bool      `json:"keep_awake,omitempty"` // pinned: exempt from the idle reaper
+	// Resource is the full, directly-addressable path when the client-facing
+	// endpoint is a shared front door: an AWS built-in's resource URL/ARN
+	// (http://s3.<stack>.doze/<bucket>, a queue URL, a topic ARN) or an
+	// ingress process's :80 URL (http://<name>.<stack>.doze). Empty otherwise.
+	Resource  string `json:"resource,omitempty"`
+	EnvVar    string `json:"env_var,omitempty"`    // conventional env var (DATABASE_URL, …)
+	DataDir   string `json:"data_dir,omitempty"`   // where this instance's data is written
+	LastError string `json:"last_error,omitempty"` // most recent boot/crash failure
+	Tainted   bool   `json:"tainted,omitempty"`    // last convergence failed/incomplete
+	Declared  bool   `json:"declared"`
+	Disabled  bool   `json:"disabled,omitempty"`   // declared with enabled = false (paused; no listener, not booted)
+	KeepAwake bool   `json:"keep_awake,omitempty"` // pinned: exempt from the idle reaper
 	// Group is the display heading for status/dash; empty means "infer from engine
 	// category" (an explicit `group=` or a module address can set it later).
 	Group string `json:"group,omitempty"`
@@ -118,6 +124,10 @@ type Handler interface {
 	KeepAwake(db string) error // toggle the idle-reaper exemption for db
 	Apply(ctx context.Context, db string) error
 	Destroy(ctx context.Context, db string) error
+	// Reset stops an instance and wipes its data + socket dirs so the next
+	// connection re-provisions and re-converges — `doze reset` semantics, NOT
+	// Destroy's drop-the-declared-objects sync lifecycle.
+	Reset(ctx context.Context, db string) error
 	// Resources lists a builtin instance's sub-resources and the data actions it
 	// offers; empty (no error) when the engine has no admin capability.
 	Resources(ctx context.Context, db string) ([]ResourceView, []ActionView, error)
@@ -204,6 +214,12 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	case "restart":
 		if err := s.h.Restart(ctx, req.DB); err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.OK = true
+		}
+	case "reset":
+		if err := s.h.Reset(ctx, req.DB); err != nil {
 			resp.Error = err.Error()
 		} else {
 			resp.OK = true

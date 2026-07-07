@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -42,6 +43,18 @@ func (c *Config) ResolvePath(p string) string {
 
 // ProjectDir is this project's state root.
 func (c *Config) ProjectDir() string { return c.DataDir }
+
+// DefaultProjectDir returns the project state dir a config at path would get
+// with no home/data_dir overrides — for degraded paths (a config that fails
+// full validation) that still need to find a running daemon's socket.
+func DefaultProjectDir(path string) string {
+	home := os.Getenv(EnvHome)
+	if home == "" {
+		h, _ := os.UserHomeDir()
+		home = filepath.Join(h, ".doze")
+	}
+	return filepath.Join(home, "projects", projectSlug(path))
+}
 
 // ClustersDir holds this project's per-database data directories.
 func (c *Config) ClustersDir() string { return filepath.Join(c.DataDir, "clusters") }

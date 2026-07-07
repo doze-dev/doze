@@ -9,6 +9,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -45,6 +46,11 @@ type Config struct {
 	// DataDir is this project's state directory; defaults to
 	// <Home>/projects/<slug> so projects never collide.
 	DataDir string
+	// StackName names this stack — the `name = "shop"` root attribute, defaulting
+	// to the config directory's name. It scopes local domains
+	// (<service>.<stack>.doze) and must be unique among the machine's
+	// running stacks (the daemon enforces it via the shared stack registry).
+	StackName string
 	// Defaults is the generic tuning profile (engine-agnostic).
 	Defaults Defaults
 	// TLS configures client-facing TLS termination.
@@ -75,6 +81,12 @@ type Output struct {
 // shared_buffers, fsync, …) lives inside that engine's config block.
 type Defaults struct {
 	IdleTimeout time.Duration
+	// Domains publishes a local DNS name for every enabled instance with a
+	// port — <service>.<stack>.doze → 127.0.0.1, answered by the daemon's
+	// built-in resolver (with /etc/resolver/doze pointing at it) — so
+	// connection strings read as postgres://…@orders-pg.demo.doze:5432
+	// instead of a bare loopback address.
+	Domains bool
 }
 
 // TLSSettings configures TLS termination between clients and the proxy.
@@ -122,6 +134,7 @@ type hclTLS struct {
 
 type hclDefaults struct {
 	IdleTimeout string `hcl:"idle_timeout,optional"`
+	Domains     bool   `hcl:"domains,optional"`
 }
 
 type hclModules struct {
@@ -181,6 +194,9 @@ func LoadWithVars(path string, cliVars map[string]string) (*Config, error) {
 	if err := cfg.validatePorts(); err != nil {
 		return nil, err
 	}
+	if err := cfg.validateDomains(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 
@@ -188,25 +204,37 @@ func LoadWithVars(path string, cliVars map[string]string) (*Config, error) {
 // instance must resolve to a client-facing address, and no two may share one. It
 // runs on the CLI load path (not bare Parse) so a missing port or a collision is a
 // clear, named error — never a silent auto-assignment or an opaque bind failure.
+//
+// When defaults{domains=true}, the port-uniqueness check is DROPPED: each service
+// gets its own loopback IP (127.0.0.x, see `doze dns-setup`), so many services
+// share the same canonical port — every Postgres on 5432, disambiguated by name.
+// A must-still-have-a-port check stays; the daemon reports clearly if the loopback
+// range isn't set up when a duplicate port is actually declared.
 func (cfg *Config) validatePorts() error {
 	addrs := map[string]string{} // address -> instance name
+	var errs []error             // every violation, not just the first — one fix cycle, not N
 	for _, decl := range cfg.Instances {
 		if !decl.Enabled {
 			continue // paused instances bind nothing
 		}
 		addr, err := cfg.InstanceAddr(decl)
 		if err != nil {
-			return err // "<type> "<name>" has no port — add `port = NNNN`"
+			errs = append(errs, err) // "<type> "<name>" has no port — add `port = NNNN`"
+			continue
 		}
 		if addr == "" {
 			continue // a portless process (worker) binds nothing — can't collide
 		}
+		if cfg.Defaults.Domains {
+			continue // per-service loopback IPs disambiguate; ports may repeat
+		}
 		if other, dup := addrs[addr]; dup {
-			return fmt.Errorf("port conflict: %q and %q both use %s — give each instance a unique port", other, decl.Name, addr)
+			errs = append(errs, fmt.Errorf("port conflict: %q and %q both use %s — give each instance a unique port (or `defaults { domains = true }` to share ports by name)", other, decl.Name, addr))
+			continue
 		}
 		addrs[addr] = decl.Name
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // configDirOf returns the directory that holds the config (and its sibling
@@ -311,7 +339,7 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 	// (they're out-of-process modules), so it trusts the type and resolves it later.
 	schema := &hcl.BodySchema{
 		Attributes: []hcl.AttributeSchema{
-			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"},
+			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "name"},
 		},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "defaults"},
@@ -392,6 +420,8 @@ func buildConfig(parser *hclparse.Parser, body hcl.Body, primaryPath string, inp
 			dst = &cfg.Home
 		case "data_dir":
 			dst = &cfg.DataDir
+		case "name":
+			dst = &cfg.StackName
 		}
 		if diags := gohcl.DecodeExpression(attr.Expr, ctx, dst); diags.HasErrors() {
 			return nil, diagError(parser, diags)
@@ -540,6 +570,105 @@ func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx
 			return posErr(parser, block.DefRange, "invalid idle_timeout", "must not be negative")
 		}
 		cfg.Defaults.IdleTimeout = td
+	}
+	cfg.Defaults.Domains = d.Domains
+	return nil
+}
+
+// DomainSuffix is the private TLD every doze stack lives under (a service is
+// <name>.<stack>.doze). It is deliberately NOT under .local: .local is reserved
+// for multicast DNS, so macOS routes *.local through mDNSResponder — slow, and it
+// pressures that daemon. A plain .doze TLD resolves purely by unicast: the
+// one-time /etc/resolver/doze drop-in sends *.doze straight to the built-in
+// resolver on 127.0.0.1:5323 (see doctor / `doze dns-setup`), no multicast in the
+// path. (.doze isn't an RFC-reserved name like .test, but it isn't a delegated
+// gTLD either, so there's nothing to collide with on the public internet.)
+const DomainSuffix = "doze"
+
+// DomainLabel sanitizes a name into a valid DNS label: lowercase, with
+// underscores and every other invalid rune collapsed to hyphens.
+func DomainLabel(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+		default:
+			b.WriteRune('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+// Stack returns this stack's DNS label: the `name` root attribute when set,
+// else the config directory's name — sanitized either way.
+func (c *Config) Stack() string {
+	n := c.StackName
+	if n == "" {
+		n = filepath.Base(configDirOf(c.path))
+	}
+	if l := DomainLabel(n); l != "" {
+		return l
+	}
+	return "default"
+}
+
+// DomainFor returns an instance's local DNS name when defaults{domains=true}:
+// <service>.<stack>.doze (e.g. orders-pg.demo.doze).
+func (c *Config) DomainFor(name string) string {
+	return DomainLabel(name) + "." + c.Stack() + "." + DomainSuffix
+}
+
+// awsBuiltinTypes are the built-in AWS engines served behind ONE shared,
+// port-less endpoint per type — s3./sqs./sns.<stack>.doze on the :80
+// ingress — rather than each at its own address. A client reaches every bucket,
+// queue, or topic through the one endpoint (routed by resource), exactly as real
+// AWS puts everything under s3.amazonaws.com; the backends' high ports are an
+// internal detail and are never surfaced or published.
+var awsBuiltinTypes = map[string]bool{"s3": true, "sqs": true, "sns": true}
+
+// IsAWSBuiltin reports whether an engine type is served behind a shared AWS
+// endpoint (its per-instance address is internal-only).
+func IsAWSBuiltin(engineType string) bool { return awsBuiltinTypes[engineType] }
+
+// AWSHost returns the shared host for an AWS built-in engine in domains mode
+// (e.g. s3.demo.doze), and false for any other engine or when domains are
+// off. Every s3/sqs/sns instance of a stack shares its type's host.
+func (c *Config) AWSHost(engineType string) (string, bool) {
+	if !c.Defaults.Domains || !awsBuiltinTypes[engineType] {
+		return "", false
+	}
+	return engineType + "." + c.Stack() + "." + DomainSuffix, true
+}
+
+// AWSEndpoint returns the shared, port-less SDK endpoint URL for an AWS built-in
+// engine in domains mode (http://s3.demo.doze) — what AWS_ENDPOINT_URL_*
+// and a `<type>.<name>.url` reference resolve to.
+func (c *Config) AWSEndpoint(engineType string) (string, bool) {
+	if host, ok := c.AWSHost(engineType); ok {
+		return "http://" + host, true
+	}
+	return "", false
+}
+
+// validateDomains checks that domain publication can't produce two instances
+// with the same sanitized hostname ("orders_pg" and "orders-pg" both become
+// orders-pg.local) — a silent collision would route one service's clients at
+// the other.
+func (cfg *Config) validateDomains() error {
+	if !cfg.Defaults.Domains {
+		return nil
+	}
+	owner := map[string]string{}
+	for _, decl := range cfg.Instances {
+		if !decl.Enabled {
+			continue
+		}
+		d := cfg.DomainFor(decl.Name)
+		if other, dup := owner[d]; dup {
+			return fmt.Errorf("domain conflict: %q and %q both publish %s — rename one so the sanitized hostnames differ", other, decl.Name, d)
+		}
+		owner[d] = decl.Name
 	}
 	return nil
 }

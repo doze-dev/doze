@@ -5,16 +5,21 @@
 # databases, schemas, roles/users, privileges, and extensions. It does NOT
 # seed data or run migrations — your application owns those.
 #
+# Every instance pins its own port (doze never auto-assigns), so connection
+# strings are stable. `doze env` prints them as eval-able exports.
+#
 # See README.md for the full reference.
 
 defaults {
   idle_timeout = "5m"            # reap an instance after this long with no connections
+  domains      = true            # publish <name>.local via mDNS (app-dev.local:5432)
 }
 
 # --- PostgreSQL -------------------------------------------------------------
 postgres "app_dev" {
   version  = 16                  # major (newest minor), or an exact "16.14"
-  owner    = "app"              # the role that owns the database
+  port     = 5432
+  owner    = "app"               # the role that owns the database
   encoding = "UTF8"
 
   # The light/dev tuning profile (fast, not crash-safe).
@@ -57,54 +62,51 @@ postgres "app_dev" {
 # --- Valkey (Redis protocol, in-memory) -------------------------------------
 valkey "cache" {
   version   = 9
+  port      = 6379
   maxmemory = "256mb"
 }
 
 # --- Kvrocks (Redis protocol, RocksDB-backed) -------------------------------
 kvrocks "store" {
   version = 2
+  port    = 6380
 }
 
-# --- DocumentDB (MongoDB wire) — a self-contained FerretDB + Postgres bundle -
-documentdb "events" {}           # connect over MONGODB_URI; no version, no backend
+# --- FerretDB (MongoDB wire, Postgres under the hood) -----------------------
+ferret "events" {
+  version = 2
+  port    = 27017
+}
 
 # --- Local AWS (built into doze: no Docker, no JVM, no LocalStack) -----------
-# doze run / doze env inject AWS_ENDPOINT_URL_S3/SQS/SNS + dummy creds + region,
-# so an unmodified AWS SDK or the `aws` CLI talks to these. (Enable path-style
-# addressing for S3, as with MinIO/LocalStack.)
+# One block is ONE resource: the instance name is the bucket/queue/topic name.
+# `doze env` (or `doze run --env`) exports AWS_ENDPOINT_URL_S3/SQS/SNS plus
+# dummy creds + region, so an unmodified AWS SDK or the `aws` CLI talks to
+# these. (Enable path-style addressing for S3, as with MinIO/LocalStack.)
 
-s3 "media" {
-  bucket "uploads" {}
-  bucket "thumbs" {
-    versioning = true
-  }
+s3 "uploads" {
+  port       = 9000
+  versioning = true
 }
 
 sqs "jobs" {
-  queue "emails" {
-    visibility_timeout = "30s"
-  }
-  queue "orders.fifo" {            # FIFO queues end in .fifo
-    fifo                = true
-    content_based_dedup = true
-  }
-  queue "emails-dlq" {}
-  redrive "emails" {               # dead-letter after N receives
-    dead_letter       = "emails-dlq"
+  port               = 9324
+  visibility_timeout = "30s"
+
+  dead_letter {                  # adds a companion DLQ with redrive
     max_receive_count = 5
   }
 }
 
-sns "events_bus" {
-  sqs = sqs.jobs.name              # typed reference: builds the dependency edge
+sns "signups" {
+  port = 9911
+  sqs  = sqs.jobs.name           # typed reference: builds the dependency edge
 
-  topic "signups" {}
-
-  subscribe "signups" {            # fan out to an SQS queue
+  subscribe {                    # fan out to the jobs queue
     protocol = "sqs"
-    endpoint = "emails"            # the jobs/emails queue
+    endpoint = "jobs"
     raw      = true
-    filter   = { eventType = ["created"] }   # message-attribute filter policy
+    filter   = { event_type = ["created"] }   # message-attribute filter policy
   }
 }
 
