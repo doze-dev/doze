@@ -53,6 +53,13 @@ type Daemon struct {
 	// the endpoint is a shared front door — an AWS built-in's resource URL/ARN or
 	// an ingress process's :80 URL. Built once at Run(); read by Status.
 	resources map[string]string
+	// binds maps a proxied instance name to the address it ACTUALLY listens on —
+	// its per-service 127.0.0.x:port in loopback mode, or 127.0.0.1:port in the
+	// fallback. This is the truth Status shows (not the canonical ep.Address, which
+	// is 127.0.0.1:<port> for every same-port service and so can't disambiguate two
+	// Postgres on 5432). Built once at Run() from the bind plan; empty for supervised
+	// processes (they bind their own port) and disabled instances.
+	binds map[string]string
 }
 
 // New builds a Daemon for cfg.
@@ -115,6 +122,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer alloc.Release()
 		d.logf("domains: per-service addressing on — each service has its own 127.0.0.x, sharing canonical ports")
 	}
+	// Remember where each instance actually listens so Status shows the real
+	// per-service address, not the canonical 127.0.0.1:<port> placeholder.
+	d.binds = plan.bind
 	// Full, directly-addressable paths for services behind a shared front door —
 	// AWS resource URLs/ARNs (filled by buildAWSRoutes) and ingress processes'
 	// :80 URLs — surfaced in the dash's detail card.
@@ -287,7 +297,15 @@ func (h *handler) dataDir(name string) string {
 
 func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint) {
 	cfg := h.d.cfg
+	// Show the address the instance actually listens on. In per-service mode this
+	// is its own 127.0.0.x, so two Postgres on 5432 read as 127.0.0.11:5432 and
+	// 127.0.0.12:5432 rather than both as the canonical 127.0.0.1:5432 (which is
+	// only the declared port, not where anything binds). Falls back to ep.Address
+	// for supervised processes and disabled instances (no proxy listener).
 	v.Endpoint = ep.Address
+	if bind := h.d.binds[v.Name]; bind != "" {
+		v.Endpoint = bind
+	}
 	v.Domain = ep.Domain
 	v.URL = ep.URL
 	v.EnvVar = ep.EnvVar
