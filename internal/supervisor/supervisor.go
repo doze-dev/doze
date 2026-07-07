@@ -154,7 +154,16 @@ func (p *Process) Stop(ctx context.Context) error {
 		case <-time.After(step.grace):
 			// escalate
 		case <-ctx.Done():
-			return ctx.Err()
+			// The budget is gone, but returning with the process alive orphans
+			// it (the caller is often a daemon about to exit). SIGKILL is not
+			// ignorable — deliver it before giving up.
+			signal(syscall.SIGKILL)
+			select {
+			case <-done:
+				return nil
+			case <-time.After(2 * time.Second):
+				return ctx.Err()
+			}
 		}
 	}
 	return errors.New("backend did not exit after SIGKILL")

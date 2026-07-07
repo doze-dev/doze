@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/state"
@@ -118,6 +119,10 @@ func (r *Runtime) Destroy(ctx context.Context, name string) error {
 			return err
 		}
 		st.Set(n, nil)
+		// The instance's structure is gone; the converged marker must go with
+		// it, or the next lazy boot sees "converged, fingerprint unchanged" and
+		// silently serves a cluster whose declared objects were just dropped.
+		r.clearConvergedMarker(n)
 	}
 	if name == "" {
 		st.Outputs = nil
@@ -153,6 +158,30 @@ func (r *Runtime) pruneAll(ctx context.Context, name string, prior []engine.Obje
 	inst := r.instanceFor(decl, drv)
 	// prior is stored in create order; drop in reverse.
 	return pr.Prune(ctx, inst, tc, inst.Endpoint, state.Reverse(prior))
+}
+
+// ResetData stops an instance's backend and deletes its data and socket dirs —
+// the daemon-side twin of `doze reset` (and the dash's :reset). The next
+// connection re-provisions a fresh store and re-converges the declared
+// structure. This is NOT Destroy: Destroy drops the declared objects from a
+// live backend (the sync lifecycle); ResetData wipes the store wholesale.
+func (r *Runtime) ResetData(ctx context.Context, name string) error {
+	if name == "" {
+		return fmt.Errorf("reset needs an instance name")
+	}
+	if r.cfg.Lookup(name) == nil {
+		return fmt.Errorf("instance %q is not declared", name)
+	}
+	if err := r.Stop(ctx, name); err != nil {
+		return fmt.Errorf("stopping %q: %w", name, err)
+	}
+	if err := os.RemoveAll(r.cfg.ClusterDir(name)); err != nil {
+		return fmt.Errorf("removing data for %q: %w", name, err)
+	}
+	if err := os.RemoveAll(r.cfg.SocketDir(name)); err != nil {
+		return fmt.Errorf("removing sockets for %q: %w", name, err)
+	}
+	return nil
 }
 
 // targetNames returns the requested instance, or all declared instances.
