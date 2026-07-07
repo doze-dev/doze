@@ -63,6 +63,7 @@ type Manager struct {
 	plat engine.Platform
 
 	lockPath func() string // resolves the project doze.lock path (lazily), for pinning
+	persist  func() bool   // whether the running command may write doze.lock (nil = never)
 	logf     func(string, ...any)
 
 	mu      sync.Mutex
@@ -101,11 +102,11 @@ func NewManager(home string) (*Manager, error) {
 		base = v
 	}
 	return &Manager{
-		home:     home,
-		plat:     plat,
-		logf:     func(string, ...any) {},
-		enabled: os.Getenv("DOZE_MODULES") != "off", // default-on: core ships no backing engines
-		base:    base,
+		home:       home,
+		plat:       plat,
+		logf:       func(string, ...any) {},
+		enabled:    os.Getenv("DOZE_MODULES") != "off", // default-on: core ships no backing engines
+		base:       base,
 		sources:    map[string]string{},
 		versions:   map[string]string{},
 		requires:   map[string]map[string]bool{},
@@ -176,6 +177,18 @@ func (m *Manager) SetLogger(f func(string, ...any)) { m.mu.Lock(); m.logf = f; m
 // UseLock makes Resolve pin each fetched module + namespace key in the project
 // doze.lock, and verify re-fetches against the locked checksum + pinned key.
 func (m *Manager) UseLock(lockPath func() string) { m.lockPath = lockPath }
+
+// PersistWhen gates doze.lock writes on f: pins and TOFU keys are only saved
+// while f reports true. Read commands (status, lint, doctor, …) must never
+// mutate the lockfile — they still resolve and verify, but any new pin lives
+// only in this process; commands that materialize state (up, sync, wake, …)
+// opt in and freeze the choice for the team.
+func (m *Manager) PersistWhen(f func() bool) { m.persist = f }
+
+// mayPersist reports whether the running command may write the lockfile.
+// Unwired (nil) means yes — persistence is the default contract; cmd/doze
+// wires PersistWhen so read commands opt out.
+func (m *Manager) mayPersist() bool { return m.persist == nil || m.persist() }
 
 // sourceFor returns the registry source address for an engine type: an explicit
 // modules{} override, else doze/<type>.
@@ -420,7 +433,9 @@ func (m *Manager) keyForLocked(ns string, lock *binaries.Lock) (ed25519.PublicKe
 	}
 	if lock != nil {
 		lock.RecordKey(ns, doc.Key)
-		_ = lock.Save()
+		if m.mayPersist() {
+			_ = lock.Save()
+		}
 	}
 	m.keys[ns] = key
 	return key, nil
@@ -489,6 +504,11 @@ func (m *Manager) recordPin(lock *binaries.Lock, source, version string, rel mod
 		Engines:  append([]string(nil), rel.Engines...),
 		Hashes:   hashes,
 	})
+	// Read commands resolve but never write: the pin lives in this process only,
+	// and doze.lock stays byte-identical until a mutating command freezes it.
+	if !m.mayPersist() {
+		return
+	}
 	_ = lock.Save()
 	if !existed {
 		m.logf("pinned %s %s in %s — commit the lockfile so your team and CI get this exact build", source, version, filepath.Base(lock.Path()))
@@ -907,8 +927,9 @@ func (m *Manager) CatalogModules() ([]CatalogEntry, error) {
 }
 
 // Cached returns the path + version of a cached build of the module for engine
-// type, for the host platform (newest by directory listing), or ok=false if none
-// is cached. It does no network — for inspection (`doze modules`).
+// type, for the host platform (newest version, so it matches what a fresh
+// resolve would prefer — NOT first-by-listing, which is the oldest), or
+// ok=false if none is cached. It does no network — for inspection (`doze modules`).
 func (m *Manager) Cached(engineType string) (path, version string, ok bool) {
 	m.mu.Lock()
 	source := m.sourceFor(engineType)
@@ -924,12 +945,34 @@ func (m *Manager) Cached(engineType string) (path, version string, ok bool) {
 		if !e.IsDir() || !strings.HasSuffix(e.Name(), suffix) {
 			continue
 		}
+		v := strings.TrimSuffix(e.Name(), suffix)
+		if ok && modindex.CompareVersions(v, version) <= 0 {
+			continue
+		}
 		exe := filepath.Join(base, e.Name(), "bin", name+"-plugin")
 		if fi, err := os.Stat(exe); err == nil && !fi.IsDir() {
-			return exe, strings.TrimSuffix(e.Name(), suffix), true
+			path, version, ok = exe, v, true
 		}
 	}
-	return "", "", false
+	return path, version, ok
+}
+
+// CachedVersion reports the cached plugin path for an exact (engineType,
+// version) on the host platform, or ok=false — the check `doze modules list`
+// uses against the doze.lock pin.
+func (m *Manager) CachedVersion(engineType, version string) (string, bool) {
+	m.mu.Lock()
+	source := m.sourceFor(engineType)
+	m.mu.Unlock()
+	ns, name, err := splitSource(source)
+	if err != nil {
+		return "", false
+	}
+	exe := filepath.Join(m.home, "modules", ns, name, version+"-"+m.plat.Triple, "bin", name+"-plugin")
+	if fi, err := os.Stat(exe); err == nil && !fi.IsDir() {
+		return exe, true
+	}
+	return "", false
 }
 
 func firstExecutable(dir string) string {

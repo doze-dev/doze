@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze/internal/modules"
@@ -93,6 +94,20 @@ func gatherOffers() []initEngine {
 	if len(offers) == 0 {
 		return initSeed
 	}
+	return postgresFirst(offers)
+}
+
+// postgresFirst moves postgres to the front of an offer list. Offers double as
+// the default pick (option 1, and what a non-interactive init scaffolds) — and
+// the sensible first database is postgres, not whatever sorts first
+// alphabetically in the catalog.
+func postgresFirst(offers []initEngine) []initEngine {
+	for i, e := range offers {
+		if e.key == "postgres" && i > 0 {
+			reordered := append([]initEngine{e}, append(append([]initEngine{}, offers[:i]...), offers[i+1:]...)...)
+			return reordered
+		}
+	}
 	return offers
 }
 
@@ -127,12 +142,22 @@ func runWizard(offers []initEngine) (picks []string, app string, lint bool) {
 	r := bufio.NewReader(os.Stdin)
 
 	fmt.Print(ui.Title("Services") + ui.Muted(" — numbers or names, space-separated [1]: "))
-	line, _ := r.ReadString('\n')
+	line, err := r.ReadString('\n')
 	picks = parsePicks(strings.TrimSpace(line), offers)
+	if err != nil {
+		// stdin died mid-wizard (EOF): take the defaults and stop prompting a
+		// reader that can't answer.
+		fmt.Println()
+		return picks, "", false
+	}
 
 	fmt.Print(ui.Title("App command") + ui.Muted(" — e.g. 'go run . serve' (Enter to skip): "))
-	cmd, _ := r.ReadString('\n')
+	cmd, err := r.ReadString('\n')
 	app = strings.TrimSpace(cmd)
+	if err != nil {
+		fmt.Println()
+		return picks, app, false
+	}
 
 	fmt.Print(ui.Title("Validate") + ui.Muted(" it now with `doze lint`? [y/N]: "))
 	ans, _ := r.ReadString('\n')
@@ -170,7 +195,7 @@ func scaffoldFor(picks []string, app string, offers []initEngine) string {
 	b.WriteString("# doze.hcl — declarative local services, no Docker.\n")
 	b.WriteString("# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n")
 	b.WriteString("# Edit freely, then: doze lint · doze up · doze tree\n\n")
-	b.WriteString("defaults {\n  idle_timeout = \"5m\"\n}\n")
+	b.WriteString("defaults {\n  idle_timeout = \"5m\"\n  domains      = true # <name>.local via mDNS, e.g. app.local:5432\n}\n")
 	hasPostgres := false
 	for _, p := range picks {
 		for _, e := range offers {
@@ -201,9 +226,17 @@ func appLabel(app string) []string {
 
 func hclString(s string) string { return "\"" + strings.ReplaceAll(s, "\"", "\\\"") + "\"" }
 
-// isInteractive reports whether stdin is a terminal (so the wizard prompts) vs a
-// pipe/CI (so init just writes a sensible starter without blocking).
+// isInteractive reports whether stdin AND stdout are real terminals (so the
+// wizard prompts) vs a pipe, /dev/null, or CI (so init just writes the starter
+// without blocking). Note os.ModeCharDevice is NOT the test: /dev/null is a
+// char device, and `doze init </dev/null` must not run the wizard against EOF.
 func isInteractive() bool {
-	fi, err := os.Stdin.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+	return isatty.IsTerminal(os.Stdin.Fd()) && stdoutIsTerminal()
+}
+
+// stdoutIsTerminal reports whether stdout is a real terminal — the gate for
+// carriage-return spinners and other cursor tricks that turn into artifacts in
+// pipes and log files.
+func stdoutIsTerminal() bool {
+	return isatty.IsTerminal(os.Stdout.Fd())
 }

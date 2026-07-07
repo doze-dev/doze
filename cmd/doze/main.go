@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,9 +24,40 @@ import (
 var (
 	configPath string
 	varFlags   []string // --var name=value (repeatable)
+
+	// lockWritesAllowed is set per-invocation by rootCmd's PersistentPreRun:
+	// true only for commands that materialize state (up, sync, wake, shell, …).
+	// Read commands (status, lint, doctor, …) resolve modules in memory and
+	// leave doze.lock byte-identical.
+	lockWritesAllowed bool
 )
 
+// lockWritesKey marks a command as allowed to persist module pins and TOFU
+// keys to doze.lock (see mutating()).
+const lockWritesKey = "doze.lockWrites"
+
+// mutating marks a command as one that may write doze.lock.
+func mutating(cmd *cobra.Command) *cobra.Command {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[lockWritesKey] = "true"
+	return cmd
+}
+
 func main() {
+	// All exits funnel through here so realMain's defers (plugin reaping) always
+	// run — an os.Exit anywhere deeper would orphan the engine-plugin processes.
+	os.Exit(realMain())
+}
+
+// exitCodeError carries a child process's exit code up to main without
+// bypassing deferred cleanup the way a raw os.Exit would.
+type exitCodeError int
+
+func (e exitCodeError) Error() string { return fmt.Sprintf("exit code %d", int(e)) }
+
+func realMain() int {
 	// Surface engine convergence warnings on stderr (the daemon redirects its
 	// stderr to the log file). Importing engine/postgres also registers the driver.
 	process.Logf = stderrLogger
@@ -43,6 +75,7 @@ func main() {
 		modMgr.UseLock(func() string {
 			return filepath.Join(configDir(configPath), binaries.LockFileName)
 		})
+		modMgr.PersistWhen(func() bool { return lockWritesAllowed })
 		// Apply the modules{} block (mirror/enable/source/version pins) before any
 		// driver is resolved. Fetching stays off unless the env mirror or the block
 		// enables it.
@@ -75,55 +108,159 @@ func main() {
 	defer pluginMgr.Close()
 
 	if err := rootCmd().Execute(); err != nil {
+		var code exitCodeError
+		if errors.As(err, &code) {
+			return int(code)
+		}
 		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func rootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "doze",
 		Short: "Weightless local databases & AWS services — real engines, lazy boot, idle reap",
-		Long: "doze runs real local backing services without Docker — Postgres, Valkey,\n" +
-			"Kvrocks, DocumentDB, and built-in S3/SQS/SNS. A thin proxy routes each\n" +
-			"connection to a per-instance backend, booting it on first connect and\n" +
-			"reaping it when idle.",
+		Long: "doze runs real local backing services without Docker — Postgres, MariaDB,\n" +
+			"Valkey, Kvrocks, FerretDB (Mongo wire), Temporal, and built-in S3/SQS/SNS.\n" +
+			"A thin proxy boots each service on its first connection and reaps it when\n" +
+			"idle.\n\n" +
+			"Running `doze` opens the dash — the primary surface: the live fleet, logs,\n" +
+			"charts, a command palette (:wake · :sleep · :restart · :reset · :logs ·\n" +
+			":console …), and resource management for the built-in AWS services. The\n" +
+			"commands below are the headless automation core (CI, scripts, Makefiles)\n" +
+			"plus the tools for before the dash can run.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			lockWritesAllowed = cmd.Annotations[lockWritesKey] == "true"
+			// init is excluded from the upward config search: it scaffolds in
+			// the current directory and must never adopt (or with --force,
+			// overwrite) a parent project's config.
+			if cmd.Name() != "init" {
+				resolveConfigPath()
+			}
+		},
 	}
 	root.PersistentFlags().StringVarP(&configPath, "config", "c", "doze.hcl", "path to doze.hcl")
 	root.PersistentFlags().StringArrayVar(&varFlags, "var", nil, "set a config variable: --var name=value (repeatable)")
 
+	// The CLI is deliberately small: the dash (`doze`) is the human surface —
+	// wake/sleep/restart/reset/logs/resource-management all live inside it —
+	// and what remains here is the automation projection (CI, Makefiles,
+	// scripts) plus the tools for before the dash can run (init/lint/doctor).
 	root.AddCommand(
-		// Stack lifecycle
-		upCmd(),
+		// Automation core: scriptable stack lifecycle
+		mutating(upCmd()),
 		downCmd(),
-		// Per-service (wake/sleep cascade dependencies/dependents)
-		wakeCmd(),
-		sleepCmd(),
-		// Reconcile declared structure
-		syncCmd(),
-		// Inspect
+		mutating(syncCmd()),
 		treeCmd(),
-		logsCmd(),
-		dashCmd(),
-		// Wipe data
-		resetCmd(),
-		// Validate / scaffold / diagnose
+		envCmd(),
+		mutating(runCmd()),
+		// Before-the-dash tools
 		lintCmd(),
 		initCmd(),
 		doctorCmd(),
-		// Connect / run
-		shellCmd(),
-		runCmd(),
-		// Toolchains / registry
-		binariesCmd(),
+		dnsSetupCmd(),
+		// The dash, explicitly (also the default command)
+		dashCmd(),
+		// Lockfile maintenance (CI)
 		modulesCmd(),
 		versionCmd(),
 		// Hidden: the daemon self-exec entry point
-		daemonCmd(),
+		mutating(daemonCmd()),
 	)
 	return root
+}
+
+// resolveConfigPath applies the upward config search: like git, cd anywhere
+// inside the project and doze still finds it. Only the untouched default
+// searches upward — an explicit --config path means exactly that path.
+// Idempotent, so completion helpers may call it too.
+func resolveConfigPath() {
+	if configPath != "doze.hcl" {
+		return
+	}
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		if found := searchUpward("doze.hcl"); found != "" {
+			configPath = found
+		}
+	}
+}
+
+// instanceCompletion completes instance-name arguments from a shallow config
+// read — no driver lookups or plugin launches, completion must be instant.
+// Each candidate carries its engine type as the completion description.
+func instanceCompletion(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	resolveConfigPath()
+	sc, err := config.LoadShallow(configPath)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	taken := map[string]bool{}
+	for _, a := range args {
+		taken[a] = true
+	}
+	var out []string
+	for _, d := range sc.Decls {
+		if !taken[d.Name] {
+			out = append(out, d.Name+"\t"+d.Type)
+		}
+	}
+	return out, cobra.ShellCompDirectiveNoFileComp
+}
+
+// engineTypeCompletion completes engine-type arguments (modules which/docs/
+// upgrade) from the declared blocks — shallow, instant, no network.
+func engineTypeCompletion(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	resolveConfigPath()
+	sc, err := config.LoadShallow(configPath)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	taken := map[string]bool{}
+	for _, a := range args {
+		taken[a] = true
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, d := range sc.Decls {
+		if !seen[d.Type] && !taken[d.Type] {
+			seen[d.Type] = true
+			out = append(out, d.Type)
+		}
+	}
+	return out, cobra.ShellCompDirectiveNoFileComp
+}
+
+// searchUpward walks from the current directory's parent toward the filesystem
+// root looking for name, returning the first hit ("" if none). The caller has
+// already ruled out the current directory.
+func searchUpward(name string) string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+		p := filepath.Join(dir, name)
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			return p
+		}
+	}
+}
+
+// configDir returns the directory holding the config file — where doze.lock lives.
+func configDir(path string) string {
+	if path == "" {
+		return "."
+	}
+	return filepath.Dir(path)
 }
 
 // dozeHome is the shared cache root (binaries + fetched modules), DOZE_HOME or
@@ -147,7 +284,7 @@ func loadConfig() (*config.Config, error) {
 	if err != nil && os.IsNotExist(err) {
 		// The very first command in a new project shouldn't greet anyone with a
 		// stat error — point at the way in.
-		return nil, fmt.Errorf("no %s in this directory — run `doze init` to scaffold one, or point --config at your config", configPath)
+		return nil, fmt.Errorf("no %s in this directory or any parent — run `doze init` to scaffold one, or point --config at your config", configPath)
 	}
 	return cfg, err
 }
