@@ -17,18 +17,29 @@ import (
 )
 
 // Palette (unexported; render through the helpers below so color can be gated).
+// The values are light/dark pairs matching the TUI's default theme (the accent
+// and state colors in internal/tui — the source of truth), so `doze status` and
+// the dash speak the same visual vocabulary, and both stay readable on light
+// terminals.
 var (
-	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#888888"))
-	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
-	goodStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#43BF6D"))
-	badStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#E06C75"))
-	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#E0A82E"))
+	accentColor = lipgloss.AdaptiveColor{Light: "#6F42C1", Dark: "#BD93F9"}
+	dimColor    = lipgloss.AdaptiveColor{Light: "#666C78", Dark: "#7C8290"}
+	goodColor   = lipgloss.AdaptiveColor{Light: "#1A7F37", Dark: "#7EE787"}
+	badColor    = lipgloss.AdaptiveColor{Light: "#CF222E", Dark: "#FF7A93"}
+	warnColor   = lipgloss.AdaptiveColor{Light: "#9A6700", Dark: "#F2C879"}
+	coolColor   = lipgloss.AdaptiveColor{Light: "#0969DA", Dark: "#82AAFF"}
+
+	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(accentColor)
+	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(dimColor)
+	dimStyle    = lipgloss.NewStyle().Foreground(dimColor)
+	goodStyle   = lipgloss.NewStyle().Foreground(goodColor)
+	badStyle    = lipgloss.NewStyle().Foreground(badColor)
+	warnStyle   = lipgloss.NewStyle().Foreground(warnColor)
 
 	stateStyles = map[string]lipgloss.Style{
 		"active":  goodStyle.Bold(true),
-		"idle":    lipgloss.NewStyle().Foreground(lipgloss.Color("#E0A82E")),
-		"booting": lipgloss.NewStyle().Foreground(lipgloss.Color("#3C9DD0")),
+		"idle":    lipgloss.NewStyle().Foreground(warnColor),
+		"booting": lipgloss.NewStyle().Foreground(coolColor),
 		"reaped":  dimStyle,
 		"error":   badStyle.Bold(true),
 		"tainted": badStyle.Bold(true),

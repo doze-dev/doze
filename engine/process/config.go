@@ -22,6 +22,8 @@ type Config struct {
 	Cwd     string            // absolute working directory (resolved against the declaring file)
 	Command string            // the shell command line, run via `sh -c`
 	Port    int               // the port the app binds; 0 if it has none (a worker)
+	Ingress bool              // legacy alias for `forward = 80`
+	Forward int               // public port to serve at http://<name>.<stack>.doze via the shared ingress; 0 = not forwarded
 	Env     map[string]string // explicit env, highest precedence (may hold typed refs)
 	EnvFile string            // absolute path to an env file, "" if none
 	Hooks   Hooks
@@ -57,6 +59,8 @@ type hclConfig struct {
 	Cwd     string            `hcl:"cwd,optional"`
 	Command string            `hcl:"command"`
 	Port    int               `hcl:"port,optional"`
+	Ingress bool              `hcl:"ingress,optional"`
+	Forward int               `hcl:"forward,optional"`
 	Env     map[string]string `hcl:"env,optional"`
 	EnvFile string            `hcl:"env_file,optional"`
 	Hooks   *hooksBlock       `hcl:"hooks,block"`
@@ -109,11 +113,16 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 	c := &Config{
 		Command: raw.Command,
 		Port:    raw.Port,
+		Ingress: raw.Ingress,
+		Forward: raw.Forward,
 		Env:     raw.Env,
 		Cwd:     resolveDir(baseDir, raw.Cwd),
 	}
 	if raw.Port < 0 || raw.Port > 65535 {
 		return nil, fmt.Errorf("process port %d is out of range", raw.Port)
+	}
+	if raw.Forward < 0 || raw.Forward > 65535 {
+		return nil, fmt.Errorf("process forward port %d is out of range", raw.Forward)
 	}
 	if raw.EnvFile != "" {
 		c.EnvFile = resolveDir(baseDir, raw.EnvFile)
@@ -323,3 +332,23 @@ func versionMatches(want, got string) bool {
 	}
 	return true
 }
+
+// ForwardPort is the public port this process is served on through the shared
+// ingress (http://<name>.<stack>.doze:<port>), or 0 if it isn't forwarded.
+// `forward = <port>` sets it; the legacy `ingress = true` means `forward = 80`.
+// The daemon type-asserts for this, keeping engine specs opaque to it otherwise.
+func (c *Config) ForwardPort() int {
+	if c.Forward > 0 {
+		return c.Forward
+	}
+	if c.Ingress {
+		return 80
+	}
+	return 0
+}
+
+// IngressEnabled reports whether this process is forwarded through the shared
+// ingress. NOTE: not gated on c.Port — core's common schema consumes `port`
+// before the driver decodes, so it is always 0 here; the daemon checks the
+// declared port via the instance's endpoint instead.
+func (c *Config) IngressEnabled() bool { return c.ForwardPort() > 0 }

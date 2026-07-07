@@ -29,10 +29,11 @@ func upCmd() *cobra.Command {
 		Long: "up converges declared structure and boots every enabled service in\n" +
 			"dependency order, gating on each health probe — then returns. The daemon\n" +
 			"keeps supervising everything in the background; nothing stays attached to\n" +
-			"your terminal. Watch logs with `doze logs -f`, or pass `-f` to boot and\n" +
+			"your terminal. Watch logs in the dash (`doze`), or pass `-f` to boot and\n" +
 			"stream in one step (Ctrl-C then just detaches — it does not stop anything).\n" +
 			"`doze down` stops the stack. Disabled services are skipped.",
-		Args: cobra.ArbitraryArgs,
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: instanceCompletion,
 		RunE: func(_ *cobra.Command, args []string) error {
 			_ = detach // deprecated: up is always detached now
 			cfg, err := loadConfig()
@@ -92,7 +93,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 
 	if !follow {
 		fmt.Println(ui.Muted("›") + " up — supervised in the background. " +
-			ui.Muted("`doze tree` to view · `doze logs -f` to follow · `doze down` to stop"))
+			ui.Muted("`doze` for the dash · `doze down` to stop"))
 		return nil
 	}
 
@@ -100,7 +101,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	// keeps supervising everything.
 	procs := processNames(cfg, targets)
 	if len(procs) == 0 {
-		fmt.Println(ui.Muted("up — no process services to follow; `doze logs -f` for backend logs"))
+		fmt.Println(ui.Muted("up — no process services to follow; the dash (`doze`) has the backend logs"))
 		return nil
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

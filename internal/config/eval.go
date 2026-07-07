@@ -124,13 +124,17 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance,
 			}
 			// Find the block by its source label (the count/for_each base), not the
 			// expanded instance name; the each/count vars in decodeCtx differentiate stamps.
-			spec, err := dec.DecodeRemote(src, p.decl.Type, p.blockLabel, mergedVars(ctx, decodeCtx), p.baseDir, p.decl.Version)
+			spec, err := dec.DecodeRemote(src, p.defRange.Filename, p.decl.Type, p.blockLabel, mergedVars(ctx, decodeCtx), p.baseDir, p.decl.Version)
 			if err != nil {
+				// The plugin re-parses the source under a synthesized name
+				// ("<label>.doze.hcl"); its positions are relative to the real file,
+				// so put the real filename back before the user sees it.
+				msg := strings.ReplaceAll(err.Error(), p.blockLabel+".doze.hcl", p.defRange.Filename)
 				// The block was decoded by a specific module release; say which, and
 				// (best-effort, error path only) whether an upgrade would help — a
 				// schema mismatch on an old plugin should read as its fix, not as an
 				// opaque "unsupported argument".
-				return fmt.Errorf("%s %q: %w%s", p.decl.Type, p.decl.Name, err, remoteDecodeErrSuffix(p.decl.Type))
+				return fmt.Errorf("%s %q: %s%s", p.decl.Type, p.decl.Name, msg, remoteDecodeErrSuffix(p.decl.Type))
 			}
 			p.decl.Spec = spec
 		}
@@ -295,6 +299,15 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 			"engine": cty.StringVal(p.decl.Type),
 		}), nil
 	}
+	// In domains mode a reference's user-facing host is the service's DNS name
+	// (which resolves to its per-service loopback IP), not a raw address — so
+	// `postgres.orders_pg.url` stays correct even when several Postgres share
+	// port 5432 on distinct IPs. The raw address is only the daemon's bind target.
+	if cfg.Defaults.Domains {
+		if host, portStr, err := net.SplitHostPort(addr); err == nil && host != "" {
+			addr = net.JoinHostPort(cfg.DomainFor(p.decl.Name), portStr)
+		}
+	}
 	ep := engineEndpoint(addr)
 	inst := engine.Instance{
 		Name:     p.decl.Name,
@@ -304,6 +317,13 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 		Spec:     p.decl.Spec,
 	}
 	envVar, url := p.drv.ConnString(inst, ep)
+	// AWS built-ins share one port-less endpoint per type; a `<type>.<name>.url`
+	// reference resolves to it (http://s3.<stack>.doze), not the internal
+	// backend address — the app talks to the shared endpoint and names the
+	// bucket/queue/topic via `.name`.
+	if shared, ok := cfg.AWSEndpoint(p.decl.Type); ok {
+		url = shared
+	}
 	m := map[string]cty.Value{
 		"name":    cty.StringVal(p.decl.Name),
 		"engine":  cty.StringVal(p.decl.Type),

@@ -599,3 +599,51 @@ fake "anchor" {
 		t.Error("a plain *.hcl sibling must NOT be auto-merged (only *.doze.hcl)")
 	}
 }
+
+func TestDomainForSanitizes(t *testing.T) {
+	cases := map[string]string{
+		"orders_pg":   "orders-pg",
+		"Cache":       "cache",
+		"api.v2":      "api-v2",
+		"_x_":         "x",
+		"sessions123": "sessions123",
+	}
+	for in, want := range cases {
+		if got := DomainLabel(in); got != want {
+			t.Errorf("DomainLabel(%q) = %q, want %q", in, got, want)
+		}
+	}
+	cfg := &Config{StackName: "My Demo"}
+	if got := cfg.DomainFor("orders_pg"); got != "orders-pg.my-demo.doze" {
+		t.Errorf("DomainFor = %q, want orders-pg.my-demo.doze", got)
+	}
+	// Unset name falls back to the config directory's label.
+	dir := &Config{path: "/home/x/shop-api/doze.hcl"}
+	if got := dir.Stack(); got != "shop-api" {
+		t.Errorf("Stack() = %q, want shop-api", got)
+	}
+}
+
+func TestValidateDomainsCollision(t *testing.T) {
+	src := `
+defaults { domains = true }
+fake "orders_pg" {
+  version = 1
+  port    = 1001
+}
+fake "orders-pg" {
+  version = 1
+  port    = 1002
+}
+`
+	_, err := Parse([]byte(src), "doze.hcl")
+	// Parse doesn't run the CLI-only port/domain validation; call it directly.
+	cfg, perr := Parse([]byte(src), "doze.hcl")
+	if perr != nil {
+		t.Fatalf("parse: %v", perr)
+	}
+	_ = err
+	if verr := cfg.validateDomains(); verr == nil || !strings.Contains(verr.Error(), "domain conflict") {
+		t.Fatalf("expected a domain conflict error, got %v", verr)
+	}
+}

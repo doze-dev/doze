@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -47,6 +48,14 @@ type Runtime struct {
 	procs    map[string]engine.Process
 	deps     map[string][]string      // instance -> dependency names it holds running
 	restarts map[string]*restartEntry // pending supervised restarts, cancellable by Stop/shutdown
+
+	// shuttingDown gates boots and crash restarts once the daemon has begun its
+	// final reap (BeginShutdown). Without it, a restart-policy process that
+	// crashes when StopAll reaps its dependency respawns — re-booting those very
+	// dependencies — behind StopAll's snapshot, and the daemon exits leaving
+	// freshly re-booted orphans (observed: email_worker's crash re-booted its
+	// sqs + postgres deps after their reap; all three outlived `doze down`).
+	shuttingDown atomic.Bool
 
 	statePath string // .doze/state.json for apply/destroy object tracking
 
@@ -130,6 +139,9 @@ func (r *Runtime) Boot(ctx context.Context, name string) (engine.Endpoint, error
 // health probe to pass first. Coalescing is keyed by name, so a concurrent Healthy
 // boot wins over a Started one (Healthy is the stronger guarantee).
 func (r *Runtime) bootCond(ctx context.Context, name string, cond engine.Condition) (engine.Endpoint, error) {
+	if r.shuttingDown.Load() {
+		return engine.Endpoint{}, fmt.Errorf("daemon is shutting down; not booting %q", name)
+	}
 	if inst, ok := r.reg.Get(name); ok && (inst.State == registry.Active || inst.State == registry.Idle) {
 		r.mu.Lock()
 		p := r.procs[name]
@@ -480,7 +492,14 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 	r.removePidfile(name)
 	r.reg.MarkReaped(name)
 
-	// A supervised process may restart per its policy instead of staying down.
+	// A supervised process may restart per its policy instead of staying down —
+	// but never during the daemon's final reap: StopAll kills dependencies in
+	// arbitrary order, so dependent processes crash right here, and a restart
+	// would re-boot them (and re-boot their just-reaped dependencies) behind
+	// StopAll's back.
+	if r.shuttingDown.Load() {
+		return
+	}
 	if spec, ok := r.restartSpec(name); ok && shouldRestart(spec.Policy, exitErr) {
 		if uptime >= restartStabilityWindow {
 			r.reg.ResetRestart(name) // recovered cleanly; only consecutive rapid crashes count
@@ -539,6 +558,9 @@ func (r *Runtime) scheduleRestart(name string, delay time.Duration) {
 		}
 		delete(r.restarts, name)
 		r.mu.Unlock()
+		if r.shuttingDown.Load() {
+			return // the daemon is reaping everything; nothing may respawn behind it
+		}
 		if _, err := r.Boot(rctx, name); err != nil {
 			r.logf("restart of %q failed: %v", name, err)
 		}
@@ -696,26 +718,53 @@ func (r *Runtime) Reconcile() {
 	}
 }
 
-// StopAll reaps every running backend.
+// BeginShutdown marks the runtime as shutting down for good: no new boots and
+// no crash-policy restarts from here on — the daemon is about to StopAll and
+// exit, and nothing may respawn behind the reap. One-way; only the daemon's
+// shutdown path calls it (a bare `doze sleep` StopAll leaves the daemon up, so
+// later connections must still be able to wake services).
+func (r *Runtime) BeginShutdown() { r.shuttingDown.Store(true) }
+
+// StopAll reaps every running backend. Stops run in parallel — the ctx budget
+// bounds the slowest backend, not the sum of a serial sweep — and the snapshot
+// is re-taken until nothing remains, so a process that respawned (or booted)
+// mid-sweep is caught by the next pass instead of orphaning when the caller
+// exits. Failures are logged, never silently dropped.
 func (r *Runtime) StopAll(ctx context.Context) {
-	r.mu.Lock()
-	seen := map[string]bool{}
-	names := make([]string, 0, len(r.procs)+len(r.restarts))
-	for n := range r.procs {
-		if !seen[n] {
-			seen[n] = true
-			names = append(names, n)
+	for {
+		r.mu.Lock()
+		seen := map[string]bool{}
+		names := make([]string, 0, len(r.procs)+len(r.restarts))
+		for n := range r.procs {
+			if !seen[n] {
+				seen[n] = true
+				names = append(names, n)
+			}
 		}
-	}
-	for n := range r.restarts { // include instances with only a pending restart
-		if !seen[n] {
-			seen[n] = true
-			names = append(names, n)
+		for n := range r.restarts { // include instances with only a pending restart
+			if !seen[n] {
+				seen[n] = true
+				names = append(names, n)
+			}
 		}
-	}
-	r.mu.Unlock()
-	for _, n := range names {
-		_ = r.Stop(ctx, n)
+		r.mu.Unlock()
+		if len(names) == 0 {
+			return
+		}
+		var wg sync.WaitGroup
+		for _, n := range names {
+			wg.Add(1)
+			go func(n string) {
+				defer wg.Done()
+				if err := r.Stop(ctx, n); err != nil {
+					r.logf("stopping %q: %v", n, err)
+				}
+			}(n)
+		}
+		wg.Wait()
+		if ctx.Err() != nil {
+			return // budget exhausted; Stop escalated to SIGKILL on its way out
+		}
 	}
 }
 

@@ -12,10 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
-	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/loopback"
 	"github.com/doze-dev/doze/internal/proxy"
 	"github.com/doze-dev/doze/internal/runtime"
 	"github.com/doze-dev/doze/internal/ui"
@@ -23,7 +24,14 @@ import (
 
 // ControlSocketPath returns the admin socket path for a project.
 func ControlSocketPath(cfg *config.Config) string {
-	return filepath.Join(cfg.RunDir(), "doze.admin.sock")
+	return ControlSocketPathIn(cfg.ProjectDir())
+}
+
+// ControlSocketPathIn returns the admin socket path under a project state dir —
+// for callers that must reach a running daemon when the full config won't load
+// (degraded status) and only have config.DefaultProjectDir to go on.
+func ControlSocketPathIn(projectDir string) string {
+	return filepath.Join(projectDir, "run", "doze.admin.sock")
 }
 
 // PidFilePath returns the daemon pidfile path for a project.
@@ -41,6 +49,17 @@ type Daemon struct {
 	cfg  *config.Config
 	rt   *runtime.Runtime
 	logf func(format string, args ...any)
+	// resources maps an instance name to its full, directly-addressable path when
+	// the endpoint is a shared front door — an AWS built-in's resource URL/ARN or
+	// an ingress process's :80 URL. Built once at Run(); read by Status.
+	resources map[string]string
+	// binds maps a proxied instance name to the address it ACTUALLY listens on —
+	// its per-service 127.0.0.x:port in loopback mode, or 127.0.0.1:port in the
+	// fallback. This is the truth Status shows (not the canonical ep.Address, which
+	// is 127.0.0.1:<port> for every same-port service and so can't disambiguate two
+	// Postgres on 5432). Built once at Run() from the bind plan; empty for supervised
+	// processes (they bind their own port) and disabled instances.
+	binds map[string]string
 }
 
 // New builds a Daemon for cfg.
@@ -91,6 +110,42 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Per-service addressing: allocate a loopback IP per proxied instance (when
+	// domains are on and the range is aliased) so many services share a canonical
+	// port, resolved by name. Falls back to 127.0.0.1 + distinct ports otherwise.
+	alloc := loopback.NewAllocator(d.cfg.Home, os.Getpid())
+	plan, err := d.buildBindPlan(eps, alloc)
+	if err != nil {
+		return err
+	}
+	if plan.loopback {
+		defer alloc.Release()
+		d.logf("domains: per-service addressing on — each service has its own 127.0.0.x, sharing canonical ports")
+	}
+	// Remember where each instance actually listens so Status shows the real
+	// per-service address, not the canonical 127.0.0.1:<port> placeholder.
+	d.binds = plan.bind
+	// Full, directly-addressable paths for services behind a shared front door —
+	// AWS resource URLs/ARNs (filled by buildAWSRoutes) and ingress processes'
+	// :80 URLs — surfaced in the dash's detail card.
+	d.resources = map[string]string{}
+	// AWS single endpoints (s3./sqs./sns.<stack>.doze) route by resource on
+	// the shared :80 ingress; register their hosts in the resolver.
+	awsRoutes := d.buildAWSRoutes(plan)
+	if d.cfg.Defaults.Domains {
+		for _, decl := range d.cfg.Instances {
+			if !decl.Enabled || decl.Type != "process" {
+				continue
+			}
+			if fwd, ok := decl.Spec.(interface{ ForwardPort() int }); ok && fwd.ForwardPort() > 0 {
+				url := "http://" + d.cfg.DomainFor(decl.Name)
+				if p := fwd.ForwardPort(); p != 80 {
+					url += fmt.Sprintf(":%d", p)
+				}
+				d.resources[decl.Name] = url
+			}
+		}
+	}
 	disabled := map[string]bool{}
 	for _, decl := range d.cfg.Instances {
 		if !decl.Enabled {
@@ -114,11 +169,19 @@ func (d *Daemon) Run(ctx context.Context) error {
 			d.logf("%s/%s is a supervised process; no proxy listener", ep.Engine, ep.Name)
 			continue
 		}
-		ln, err := proxy.Listen(ep.Address)
-		if err != nil {
-			return fmt.Errorf("listening for %q on %s: %w", ep.Name, ep.Address, err)
+		bindAddr := plan.bind[ep.Name]
+		if bindAddr == "" {
+			bindAddr = ep.Address // safety net; shouldn't happen for a proxied instance
 		}
-		d.logf("%s/%s listening on %s", ep.Engine, ep.Name, ep.Address)
+		ln, err := proxy.Listen(bindAddr)
+		if err != nil {
+			return fmt.Errorf("listening for %q on %s: %w", ep.Name, bindAddr, err)
+		}
+		shown := bindAddr
+		if ep.Domain != "" {
+			shown = ep.Domain + " (" + bindAddr + ")"
+		}
+		d.logf("%s/%s listening on %s", ep.Engine, ep.Name, shown)
 		name := ep.Name
 		wg.Add(1)
 		go func() {
@@ -130,6 +193,19 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := endpoints.WriteManifest(endpoints.ManifestPath(d.cfg), eps); err != nil {
 		d.logf("warning: could not write endpoints manifest: %v", err)
 	}
+	// Local DNS names (defaults{domains=true}): <service>.<stack>.doze via
+	// the built-in resolver, each answering with the service's per-service IP.
+	releaseStack, err := d.setupDomains(ctx, plan.resolve)
+	if err != nil {
+		return err
+	}
+	defer releaseStack()
+	// HTTP ingress: processes with `ingress = true` share :80, routed by Host.
+	releaseIngress, err := d.setupIngress(ctx, eps, plan, awsRoutes)
+	if err != nil {
+		return err
+	}
+	defer releaseIngress()
 
 	ctrl, err := control.NewServer(ControlSocketPath(d.cfg), &handler{d: d})
 	if err != nil {
@@ -149,11 +225,17 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	<-ctx.Done()
 	d.logf("shutting down; reaping backends…")
+	// No boots or crash restarts may land behind the reap: a dependent process
+	// crashes when its dependency is stopped, and its restart policy would
+	// otherwise respawn it (and re-boot the dependency) mid-shutdown.
+	d.rt.BeginShutdown()
 	// Bound the shutdown so a wedged backend can't deadlock exit; the supervisor
-	// escalates to SIGKILL, and this caps the total wait.
+	// escalates to SIGKILL, and this caps the total wait. Stops run in parallel,
+	// so the budget bounds the slowest backend, not the sum.
 	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	d.rt.StopAll(stopCtx)
+	d.logf("all backends reaped")
 	wg.Wait()
 	return nil
 }
@@ -182,7 +264,7 @@ func (h *handler) Status() control.Response {
 		if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
 			v.Disabled = true
 		}
-		hydrateEndpoint(&v, eps[inst.Name])
+		h.hydrateEndpoint(&v, eps[inst.Name])
 		v.DataDir = h.dataDir(inst.Name)
 		if st, ok := stats[inst.PID]; ok {
 			v.RAM, v.CPU = st.RSS, st.CPU
@@ -200,7 +282,7 @@ func (h *handler) Status() control.Response {
 				Name: decl.Name, Engine: decl.Type, State: state,
 				Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
 			}
-			hydrateEndpoint(&v, eps[decl.Name])
+			h.hydrateEndpoint(&v, eps[decl.Name])
 			v.DataDir = h.dataDir(decl.Name)
 			resp.Instances = append(resp.Instances, v)
 		}
@@ -213,10 +295,27 @@ func (h *handler) dataDir(name string) string {
 	return filepath.Join(h.d.cfg.ClustersDir(), name)
 }
 
-func hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint) {
+func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint) {
+	cfg := h.d.cfg
+	// Show the address the instance actually listens on. In per-service mode this
+	// is its own 127.0.0.x, so two Postgres on 5432 read as 127.0.0.11:5432 and
+	// 127.0.0.12:5432 rather than both as the canonical 127.0.0.1:5432 (which is
+	// only the declared port, not where anything binds). Falls back to ep.Address
+	// for supervised processes and disabled instances (no proxy listener).
 	v.Endpoint = ep.Address
+	if bind := h.d.binds[v.Name]; bind != "" {
+		v.Endpoint = bind
+	}
+	v.Domain = ep.Domain
 	v.URL = ep.URL
 	v.EnvVar = ep.EnvVar
+	// AWS built-ins are reached at their shared per-type endpoint; the backend
+	// port in ep.Address is internal-only, so show the shared host instead.
+	if host, ok := cfg.AWSHost(v.Engine); ok {
+		v.Endpoint = host
+	}
+	// The full, directly-addressable path (AWS resource URL/ARN, ingress :80 URL).
+	v.Resource = h.d.resources[v.Name]
 }
 
 // endpointsByName maps instance name -> its resolved endpoint (best effort).
@@ -277,6 +376,10 @@ func (h *handler) Apply(ctx context.Context, name string) error {
 
 func (h *handler) Destroy(ctx context.Context, name string) error {
 	return h.d.rt.Destroy(ctx, name)
+}
+
+func (h *handler) Reset(ctx context.Context, name string) error {
+	return h.d.rt.ResetData(ctx, name)
 }
 
 func (h *handler) KeepAwake(name string) error {
