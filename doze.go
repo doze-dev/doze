@@ -33,6 +33,14 @@ type Options struct {
 	DozeBinary string
 	// NoSpawn makes Attach fail rather than start a daemon that isn't running.
 	NoSpawn bool
+
+	// Stack, when set, builds the config in Go instead of reading ConfigPath —
+	// the config-less path. Exactly one of Stack/ConfigPath is used (Stack wins).
+	Stack *Stack
+	// WorkDir is where a config-less stack keeps its run/, data/, and sockets.
+	// Empty defaults to <Home>/stacks/<stack-name>. Ignored when ConfigPath is
+	// used. Kept short deliberately — macOS caps unix socket paths near 104 bytes.
+	WorkDir string
 }
 
 // Session is a connection to a doze daemon for one config. Safe for concurrent
@@ -42,6 +50,10 @@ type Session struct {
 	client *control.Client
 	host   *hostboot.Host
 	logf   func(string, ...any)
+
+	// stack and workDir are set for a config-less (Stack-built) session.
+	stack   *Stack
+	workDir string
 
 	// served is set in Serve mode: the in-process daemon and its lifecycle.
 	served      *daemon.Daemon
@@ -130,8 +142,8 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 	}
 }
 
-// newSession initializes the engine host and loads the config, shared by both
-// entry points.
+// newSession initializes the engine host and loads (or builds) the config,
+// shared by both entry points.
 func newSession(opts Options) (*Session, error) {
 	logf := opts.Logf
 	if logf == nil {
@@ -141,7 +153,18 @@ func newSession(opts Options) (*Session, error) {
 	if home == "" {
 		home = defaultHome()
 	}
+
+	// A config-less Stack renders to a virtual HCL path under a per-stack work
+	// dir; the file path (real for Attach, virtual for Serve) is what module
+	// pinning + project-dir slugging key on.
 	configPath := opts.ConfigPath
+	workDir := opts.WorkDir
+	if opts.Stack != nil {
+		if workDir == "" {
+			workDir = filepath.Join(home, "stacks", opts.Stack.name)
+		}
+		configPath = filepath.Join(workDir, "doze.hcl")
+	}
 
 	host, err := hostboot.Init(hostboot.Options{
 		Home: home,
@@ -156,19 +179,28 @@ func newSession(opts Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := config.LoadWithVars(configPath, opts.Vars)
+
+	var cfg *config.Config
+	if opts.Stack != nil {
+		cfg, err = config.Parse([]byte(opts.Stack.HCL()), configPath)
+	} else {
+		cfg, err = config.LoadWithVars(configPath, opts.Vars)
+		if err != nil && os.IsNotExist(err) {
+			host.Close()
+			return nil, fmt.Errorf("no doze config found (looked for %q) — set Options.ConfigPath or Options.Stack", firstNonEmpty(configPath, "doze.hcl"))
+		}
+	}
 	if err != nil {
 		host.Close()
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no doze config found (looked for %q) — set Options.ConfigPath", firstNonEmpty(configPath, "doze.hcl"))
-		}
 		return nil, err
 	}
 	return &Session{
-		cfg:    cfg,
-		client: control.NewClient(daemon.ControlSocketPath(cfg)),
-		host:   host,
-		logf:   logf,
+		cfg:     cfg,
+		client:  control.NewClient(daemon.ControlSocketPath(cfg)),
+		host:    host,
+		logf:    logf,
+		stack:   opts.Stack,
+		workDir: workDir,
 	}, nil
 }
 
