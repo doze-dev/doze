@@ -41,6 +41,14 @@ type LogFrame struct {
 	Line     string `json:"line"`
 }
 
+// EventFrame is one streamed instance-state transition (events op) — emitted
+// when an instance's lifecycle-visible state changes (booting, active, idle,
+// reaped, health, error, taint). It carries the full enriched view so a
+// consumer needs no follow-up Status call.
+type EventFrame struct {
+	Instance InstanceView `json:"instance"`
+}
+
 // ResourceView is a serializable engine.Resource (a builtin's sub-resource).
 type ResourceView struct {
 	Kind   string            `json:"kind"`
@@ -71,8 +79,14 @@ type InstanceView struct {
 	RAM       int64     `json:"ram,omitempty"`        // resident bytes of the backend, 0 when reaped
 	CPU       float64   `json:"cpu,omitempty"`        // CPU usage percent (one core = 100), 0 when reaped
 	Endpoint  string    `json:"endpoint,omitempty"`   // client-facing address
-	Domain    string    `json:"domain,omitempty"`     // local DNS name (mDNS), e.g. "orders-pg.local"
-	URL       string    `json:"url,omitempty"`        // full connection string
+	// Bind is the address the backend/listener actually occupies (host:port or
+	// unix:/path) — the dialable truth behind the client-facing Endpoint: the
+	// per-instance loopback bind (127.0.0.11:5432) for proxied services, the
+	// internal backend behind the shared host for AWS built-ins, the self-bound
+	// address for processes.
+	Bind   string `json:"bind,omitempty"`
+	Domain string `json:"domain,omitempty"` // local DNS name, e.g. "orders-pg.<stack>.doze"
+	URL    string `json:"url,omitempty"`    // full connection string
 	// Resource is the full, directly-addressable path when the client-facing
 	// endpoint is a shared front door: an AWS built-in's resource URL/ARN
 	// (http://s3.<stack>.doze/<bucket>, a queue URL, a topic ARN) or an
@@ -121,6 +135,9 @@ type Handler interface {
 	// calling emit for each new line until ctx is cancelled or emit returns an error
 	// (the client disconnected).
 	StreamLogs(ctx context.Context, names []string, emit func(LogFrame) error) error
+	// StreamEvents follows instance-state transitions, calling emit for each until
+	// ctx is cancelled or emit returns an error (the client disconnected).
+	StreamEvents(ctx context.Context, emit func(EventFrame) error) error
 	KeepAwake(db string) error // toggle the idle-reaper exemption for db
 	Apply(ctx context.Context, db string) error
 	Destroy(ctx context.Context, db string) error
@@ -236,6 +253,9 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 			resp.OK = true
 			resp.Lines = lines
 		}
+	case "events":
+		s.streamEvents(ctx, conn)
+		return // streamEvents owns the connection for its lifetime
 	case "keepawake":
 		if err := s.h.KeepAwake(req.DB); err != nil {
 			resp.Error = err.Error()
@@ -293,6 +313,34 @@ func (s *Server) streamLogs(ctx context.Context, conn net.Conn, req Request) {
 		names = []string{req.DB}
 	}
 	_ = s.h.StreamLogs(ctx, names, func(f LogFrame) error {
+		mu.Lock()
+		defer mu.Unlock()
+		return enc.Encode(f)
+	})
+}
+
+// streamEvents holds the connection open and forwards EventFrame lines from the
+// handler until the client disconnects or the daemon shuts down. Like
+// streamLogs, the first frame is an {ok:true} ack.
+func (s *Server) streamEvents(ctx context.Context, conn net.Conn) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			if _, err := conn.Read(buf); err != nil {
+				cancel()
+				return
+			}
+		}
+	}()
+
+	enc := json.NewEncoder(conn)
+	var mu sync.Mutex
+	if err := func() error { mu.Lock(); defer mu.Unlock(); return enc.Encode(Response{OK: true}) }(); err != nil {
+		return
+	}
+	_ = s.h.StreamEvents(ctx, func(f EventFrame) error {
 		mu.Lock()
 		defer mu.Unlock()
 		return enc.Encode(f)
@@ -424,5 +472,41 @@ func (c *Client) Stream(ctx context.Context, req Request, onLine func(LogFrame))
 			return err
 		}
 		onLine(f)
+	}
+}
+
+// StreamEvents opens a held connection for the events op and invokes onEvent for
+// each EventFrame until ctx is cancelled, the connection closes, or the daemon
+// stops. The first message is an {ok}/{error} ack.
+func (c *Client) StreamEvents(ctx context.Context, onEvent func(EventFrame)) error {
+	conn, err := net.DialTimeout("unix", c.path, 2*time.Second)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	go func() {
+		<-ctx.Done()
+		_ = conn.Close()
+	}()
+	if err := json.NewEncoder(conn).Encode(Request{Op: "events"}); err != nil {
+		return err
+	}
+	dec := json.NewDecoder(bufio.NewReader(conn))
+	var ack Response
+	if err := dec.Decode(&ack); err != nil {
+		return err
+	}
+	if ack.Error != "" {
+		return fmt.Errorf("%s", ack.Error)
+	}
+	for {
+		var f EventFrame
+		if err := dec.Decode(&f); err != nil {
+			if ctx.Err() != nil {
+				return nil // caller cancelled
+			}
+			return err
+		}
+		onEvent(f)
 	}
 }

@@ -71,6 +71,10 @@ type Registry struct {
 	mu  sync.Mutex
 	m   map[string]*Instance
 	now func() time.Time
+
+	// subs and lastSig back the lossy state-transition feed (see subscribe.go).
+	subs    map[*chan Instance]struct{}
+	lastSig map[string]instSig
 }
 
 // New returns an empty registry.
@@ -96,13 +100,16 @@ func (r *Registry) MarkBooting(name string) {
 	inst := r.ensure(name)
 	inst.State = Booting
 	inst.LastError = "" // a fresh attempt clears the previous failure
+	r.emit(inst)
 }
 
 // SetError records the most recent failure for name (boot, convergence, crash).
 func (r *Registry) SetError(name, msg string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.ensure(name).LastError = msg
+	inst := r.ensure(name)
+	inst.LastError = msg
+	r.emit(inst)
 }
 
 // SetTainted marks the instance's declared structure as known-incomplete (a
@@ -110,7 +117,9 @@ func (r *Registry) SetError(name, msg string) {
 func (r *Registry) SetTainted(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.ensure(name).Tainted = true
+	inst := r.ensure(name)
+	inst.Tainted = true
+	r.emit(inst)
 }
 
 // ClearTainted records that the instance has fully converged to its declared
@@ -118,7 +127,9 @@ func (r *Registry) SetTainted(name string) {
 func (r *Registry) ClearTainted(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.ensure(name).Tainted = false
+	inst := r.ensure(name)
+	inst.Tainted = false
+	r.emit(inst)
 }
 
 // IncRestart bumps and returns the restart counter for a supervised instance. The
@@ -144,7 +155,9 @@ func (r *Registry) ResetRestart(name string) {
 func (r *Registry) SetHealthy(name string, healthy bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.ensure(name).Healthy = &healthy
+	inst := r.ensure(name)
+	inst.Healthy = &healthy
+	r.emit(inst)
 }
 
 // MarkRunning records a successfully booted backend.
@@ -164,6 +177,7 @@ func (r *Registry) MarkRunning(name, socketDir string, port, pid int) {
 	} else {
 		inst.State = Idle
 	}
+	r.emit(inst)
 }
 
 // MarkReaped clears a backend's runtime state after it has stopped.
@@ -179,6 +193,7 @@ func (r *Registry) MarkReaped(name string) {
 	inst.StartedAt = time.Time{}
 	inst.IdleSince = time.Time{}
 	inst.Healthy = nil // a stopped process has no current health
+	r.emit(inst)
 }
 
 // Acquire increments the live connection count, returning the new count. It
@@ -192,6 +207,7 @@ func (r *Registry) Acquire(name string) int {
 	if inst.State != Booting && inst.State != Reaped {
 		inst.State = Active
 	}
+	r.emit(inst)
 	return inst.Conns
 }
 
@@ -210,6 +226,7 @@ func (r *Registry) Release(name string) int {
 			inst.State = Idle
 		}
 	}
+	r.emit(inst)
 	return inst.Conns
 }
 

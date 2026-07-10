@@ -18,6 +18,7 @@ import (
 	"github.com/doze-dev/doze/internal/endpoints"
 	"github.com/doze-dev/doze/internal/loopback"
 	"github.com/doze-dev/doze/internal/proxy"
+	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/runtime"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -306,6 +307,10 @@ func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint
 	if bind := h.d.binds[v.Name]; bind != "" {
 		v.Endpoint = bind
 	}
+	// Bind keeps the dialable truth even where Endpoint gets prettified below
+	// (AWS built-ins swap in the shared host); surfaces show it as the raw
+	// address behind the connect line.
+	v.Bind = v.Endpoint
 	v.Domain = ep.Domain
 	v.URL = ep.URL
 	v.EnvVar = ep.EnvVar
@@ -451,6 +456,44 @@ func (h *handler) StreamLogs(ctx context.Context, names []string, emit func(cont
 			}
 		}
 	}
+}
+
+// StreamEvents forwards instance-state transitions to emit until ctx ends or the
+// client disconnects. It subscribes to the registry's lossy feed, enriches each
+// transition with config/endpoint metadata (the same shape Status returns, minus
+// the per-instance ps stats), and emits it.
+func (h *handler) StreamEvents(ctx context.Context, emit func(control.EventFrame) error) error {
+	feed, cancel := h.d.rt.Registry().Subscribe(64)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case inst, ok := <-feed:
+			if !ok {
+				return nil
+			}
+			if err := emit(control.EventFrame{Instance: h.eventView(inst)}); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// eventView enriches a registry snapshot into a full InstanceView for the events
+// stream, mirroring Status's per-instance enrichment without the ps call.
+func (h *handler) eventView(inst registry.Instance) control.InstanceView {
+	engineType, version, declared := "", "", false
+	if decl := h.d.cfg.Lookup(inst.Name); decl != nil {
+		engineType, version, declared = decl.Type, decl.Version.String(), true
+	}
+	v := control.ViewFromRegistry(inst, engineType, version, declared)
+	if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
+		v.Disabled = true
+	}
+	h.hydrateEndpoint(&v, h.endpointsByName()[inst.Name])
+	v.DataDir = h.dataDir(inst.Name)
+	return v
 }
 
 // Resources lists a builtin instance's sub-resources (queues/buckets/topics) with
