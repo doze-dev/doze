@@ -3,31 +3,60 @@ Package doze is the embeddable Go API for doze — real local backing services
 (Postgres, MariaDB, Valkey, Kafka, S3/SQS/SNS, …) without Docker, booted lazily
 and reaped when idle.
 
-It is a thin, stable facade over the same daemon and control socket the `doze`
-CLI drives, so embedding a stack and running it from the terminal are the same
-machinery. The public types here (Options, Session, Instance) are deliberately
-independent of doze's internal wire types.
+It is a library you call, not a CLI you shell out to. In Serve mode it drives the
+daemon in-process with native Go types and errors; in Attach mode it speaks to a
+background daemon over its control socket. Same surface either way. You can build
+your own tooling — a custom config format, an internal platform, your own UI — on
+top of it.
 
-# Two entry points
+# Entry points
 
-Attach connects to the background daemon for a config, spawning it if needed —
-the CLI's model. Your program is a client; the stack outlives it until you
-Shutdown.
+Attach connects to the background daemon for a config, spawning it if needed.
+Your program is a client; the stack outlives it until you Shutdown.
 
 	sess, err := doze.Attach(ctx, doze.Options{ConfigPath: "doze.hcl"})
-	if err != nil { ... }
-	defer sess.Close()
-	if err := sess.Up(ctx); err != nil { ... }        // converge + wake, in dep order
-	env, _ := sess.Env(ctx)                            // DATABASE_URL=…, KAFKA_BROKERS=…
 
-Serve runs the daemon inside your process instead — no separate background
-process; Close or Shutdown stops it. Useful for tests and self-contained tools.
+Serve runs the daemon inside your process (no separate process; Close/Shutdown
+stops it) and talks to it directly — no socket round-trip.
 
-	sess, err := doze.Serve(ctx, doze.Options{ConfigPath: "doze.hcl"})
+	sess, err := doze.Serve(ctx, doze.Options{Stack: myStack})
+
+# Config-less: bring your own format
+
+You don't need an HCL file. Build the topology in Go — map it from your own YAML,
+a database, an API — and hand it to Serve/Attach:
+
+	sb := doze.NewStack("shop").Domains(true)
+	sb.AddProcess("worker", doze.Process{Command: "python worker.py"})
+	sb.AddModule("postgres", "db").Version("16").Body(`databases = ["app"]`)
+	sess, _ := doze.Serve(ctx, doze.Options{Stack: sb})
+
+AddProcess is typed (process is a first-class engine); AddModule takes engine
+config as HCL, because module engines decode out-of-process. Stack.HCL() renders
+the equivalent file.
+
+# Driving and reading a live stack
+
+Lifecycle: Up, Boot, Down, Restart, Apply, Destroy, Reset, plus live
+AddProcess/AddModule/Remove to mutate a running stack with no restart.
+
+Introspection for building a UI:
+  - Topology() — the declared graph as []Node, without the daemon running.
+  - Status()/Instance() — live state incl. PID, RAM, CPU, endpoint.
+  - Resources()/Admin() — a service's sub-resources (buckets/queues/…) and the
+    data actions its engine offers.
+  - Endpoints()/Env() — connection strings and env vars.
+  - Logs()/FollowLogs() — buffered and streaming logs.
+  - Events() — the live state-transition feed; this is also the progress signal,
+    e.g. watch it while Up runs to see each service go booting → active → healthy.
+
+Failures come back as typed sentinels — ErrNotFound, ErrAlreadyExists,
+ErrPortConflict, ErrBootFailed, ErrUnsupported — so you branch with errors.Is,
+not string matching.
 
 # Stability
 
 Experimental (v0): the surface may change. See examples/basic for a runnable
-walkthrough.
+walkthrough and examples/dash for a minimal live dashboard built on this package.
 */
 package doze
