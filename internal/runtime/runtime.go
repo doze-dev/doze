@@ -114,6 +114,19 @@ func (r *Runtime) instanceFor(decl *config.InstanceDecl, drv engine.Driver) engi
 		port = np.NominalPort()
 	}
 	socketDir := r.cfg.SocketDir(decl.Name)
+	// TCPAddr carries the client-facing address for engines that advertise a
+	// listener clients must dial (e.g. Kafka's Metadata response). In domains
+	// mode that is <name>.<stack>.doze:<port> (the DNS name the proxy answers);
+	// otherwise the instance's assigned address. Nothing consumes it at Plan
+	// time for other engines, so populating it is regression-free.
+	tcpAddr := ""
+	if decl.Port != 0 {
+		if r.cfg.Defaults.Domains {
+			tcpAddr = r.cfg.DomainFor(decl.Name) + ":" + strconv.Itoa(decl.Port)
+		} else if addr, err := r.cfg.InstanceAddr(decl); err == nil {
+			tcpAddr = addr
+		}
+	}
 	return engine.Instance{
 		Name:      decl.Name,
 		Type:      decl.Type,
@@ -121,7 +134,7 @@ func (r *Runtime) instanceFor(decl *config.InstanceDecl, drv engine.Driver) engi
 		DataDir:   r.cfg.ClusterDir(decl.Name),
 		SocketDir: socketDir,
 		Port:      port,
-		Endpoint:  engine.Endpoint{Backend: drv.BackendSocket(socketDir, port)},
+		Endpoint:  engine.Endpoint{Backend: drv.BackendSocket(socketDir, port), TCPAddr: tcpAddr},
 		Spec:      decl.Spec,
 	}
 }
@@ -207,7 +220,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	inst := r.instanceFor(decl, drv)
 
 	r.reg.MarkBooting(name)
-	r.logf("booting %q (%s %s)…", name, decl.Type, decl.Version)
+	r.logf("waking %q (%s %s)…", name, decl.Type, decl.Version) // the sleep metaphor, everywhere users see it
 
 	// Dependencies: boot and hold any instances this one references (derived from
 	// the config reference graph, e.g. an sns instance referencing sqs.jobs)
