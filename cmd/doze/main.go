@@ -13,11 +13,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze-sdk/binaries"
-	"github.com/doze-dev/doze-sdk/engine"
-	"github.com/doze-dev/doze-sdk/plugin"
-	"github.com/doze-dev/doze/engine/process"
 	"github.com/doze-dev/doze/internal/config"
-	"github.com/doze-dev/doze/internal/modules"
+	"github.com/doze-dev/doze/internal/hostboot"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -58,61 +55,34 @@ type exitCodeError int
 func (e exitCodeError) Error() string { return fmt.Sprintf("exit code %d", int(e)) }
 
 func realMain() int {
-	// Surface engine convergence warnings on stderr (the daemon redirects its
-	// stderr to the log file). Importing engine/postgres also registers the driver.
-	process.Logf = stderrLogger
-
-	// Out-of-process engine modules: resolve a plugin binary (local DOZE_<TYPE>_PLUGIN
-	// override first, then a fetched-from-doze-modules module), keep it warm for
-	// config eval + boot, and reap it when the command returns.
-	resolvers := []plugin.Resolver{plugin.EnvResolver()}
-	if modMgr, err := modules.NewManager(dozeHome()); err != nil {
-		fmt.Fprintln(os.Stderr, "doze: modules disabled:", err)
-	} else {
-		modMgr.SetLogger(stderrLogger)
-		// Pin fetched modules in the project doze.lock (resolved lazily — the
-		// config path isn't known until a command runs).
-		modMgr.UseLock(func() string {
+	// Wire the process-global engine host (module manager, plugin manager, engine
+	// resolver, config decode hooks). The exact same wiring backs the embeddable
+	// facade — it lives in internal/hostboot so the two can't drift. The CLI-
+	// specific policy (where doze.lock lives, when it may be written, how warnings
+	// print) is passed in so behavior is byte-identical to the inline version.
+	host, err := hostboot.Init(hostboot.Options{
+		Home: dozeHome(),
+		Logf: stderrLogger,
+		LockPath: func() string {
 			return filepath.Join(configDir(configPath), binaries.LockFileName)
-		})
-		modMgr.PersistWhen(func() bool { return lockWritesAllowed })
-		// Apply the modules{} block (mirror/enable/source/version pins) before any
-		// driver is resolved. Fetching stays off unless the env mirror or the block
-		// enables it.
-		config.SetModulesConfigurer(func(mc config.ModulesConfig) {
-			modMgr.Configure(mc.Mirror, mc.Enabled, mc.Sources, mc.Versions)
-		})
-		// Feed each declared engine version into module selection (pre-lookup),
-		// validate every block against the pinned module's engine support
-		// (post-decode), and annotate remote-decode failures with the module
-		// identity + upgrade availability.
-		config.SetEngineRequirer(modMgr.Require)
-		config.SetModuleSupportChecker(modMgr.CheckSupport)
-		config.SetLookupErrorReporter(modMgr.LastError)
-		config.SetEngineNamesProvider(modMgr.KnownTypes)
-		config.SetRemoteDecodeHint(func(engineType string) string {
-			pin, source, ok := modMgr.Pinned(engineType)
-			if !ok {
-				return ""
-			}
-			hint := fmt.Sprintf("this block is decoded by module %s %s (pinned in doze.lock)", source, pin.Version)
-			if up := modMgr.UpgradeHint(engineType); up != "" {
-				hint += "; " + up
-			}
-			return hint
-		})
-		resolvers = append(resolvers, modMgr.Lookup)
+		},
+		PersistLock: func() bool { return lockWritesAllowed },
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, ui.ErrFail("error:")+" "+err.Error())
+		return 1
 	}
-	pluginMgr := plugin.NewManager(plugin.Chain(resolvers...))
-	engine.SetPluginResolver(pluginMgr.Lookup)
-	defer pluginMgr.Close()
+	defer host.Close()
 
 	if err := rootCmd().Execute(); err != nil {
+		// exitCodeError is also the silent-error sentinel: commands that have
+		// already printed a styled report return it so the failure isn't
+		// echoed twice, while the exit code still lands.
 		var code exitCodeError
 		if errors.As(err, &code) {
 			return int(code)
 		}
-		fmt.Fprintln(os.Stderr, "error:", err)
+		fmt.Fprintln(os.Stderr, ui.ErrFail("error:")+" "+err.Error())
 		return 1
 	}
 	return 0
@@ -127,14 +97,19 @@ func rootCmd() *cobra.Command {
 			"A thin proxy boots each service on its first connection and reaps it when\n" +
 			"idle.\n\n" +
 			"Running `doze` opens the dash — the primary surface: the live fleet, logs,\n" +
-			"charts, a command palette (:wake · :sleep · :restart · :reset · :logs ·\n" +
-			":console …), and resource management for the built-in AWS services. The\n" +
+			"charts, a command palette (:wake · :sleep · :restart · :reset · :logs …),\n" +
+			"and a manager for each built-in AWS service (press enter on it). The\n" +
 			"commands below are the headless automation core (CI, scripts, Makefiles)\n" +
 			"plus the tools for before the dash can run.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			lockWritesAllowed = cmd.Annotations[lockWritesKey] == "true"
+			// A dry run must leave doze.lock byte-identical, whatever the
+			// command's usual annotation says.
+			if f := cmd.Flags().Lookup("dry-run"); f != nil && f.Value.String() == "true" {
+				lockWritesAllowed = false
+			}
 			// init is excluded from the upward config search: it scaffolds in
 			// the current directory and must never adopt (or with --force,
 			// overwrite) a parent project's config.
@@ -150,28 +125,49 @@ func rootCmd() *cobra.Command {
 	// wake/sleep/restart/reset/logs/resource-management all live inside it —
 	// and what remains here is the automation projection (CI, Makefiles,
 	// scripts) plus the tools for before the dash can run (init/lint/doctor).
+	// The cobra groups mirror that structure so --help isn't flat-alphabetical.
+	root.AddGroup(
+		&cobra.Group{ID: groupCore, Title: "Automation core (scriptable stack lifecycle):"},
+		&cobra.Group{ID: groupTools, Title: "Before-the-dash tools:"},
+		&cobra.Group{ID: groupDash, Title: "The dash:"},
+		&cobra.Group{ID: groupLock, Title: "Lockfile maintenance (CI):"},
+	)
 	root.AddCommand(
 		// Automation core: scriptable stack lifecycle
-		mutating(upCmd()),
-		downCmd(),
-		mutating(syncCmd()),
-		treeCmd(),
-		envCmd(),
-		mutating(runCmd()),
+		grouped(groupCore, mutating(upCmd())),
+		grouped(groupCore, downCmd()),
+		grouped(groupCore, mutating(syncCmd())),
+		grouped(groupCore, treeCmd()),
+		grouped(groupCore, envCmd()),
+		grouped(groupCore, mutating(runCmd())),
 		// Before-the-dash tools
-		lintCmd(),
-		initCmd(),
-		doctorCmd(),
-		dnsSetupCmd(),
+		grouped(groupTools, lintCmd()),
+		grouped(groupTools, initCmd()),
+		grouped(groupTools, doctorCmd()),
+		grouped(groupTools, dnsSetupCmd()),
 		// The dash, explicitly (also the default command)
-		dashCmd(),
+		grouped(groupDash, dashCmd()),
 		// Lockfile maintenance (CI)
-		modulesCmd(),
+		grouped(groupLock, modulesCmd()),
 		versionCmd(),
 		// Hidden: the daemon self-exec entry point
 		mutating(daemonCmd()),
 	)
 	return root
+}
+
+// Help group IDs, mirroring the deliberate command grouping above.
+const (
+	groupCore  = "core"
+	groupTools = "tools"
+	groupDash  = "dash"
+	groupLock  = "lock"
+)
+
+// grouped assigns a command to a root help group.
+func grouped(id string, cmd *cobra.Command) *cobra.Command {
+	cmd.GroupID = id
+	return cmd
 }
 
 // resolveConfigPath applies the upward config search: like git, cd anywhere
@@ -284,7 +280,7 @@ func loadConfig() (*config.Config, error) {
 	if err != nil && os.IsNotExist(err) {
 		// The very first command in a new project shouldn't greet anyone with a
 		// stat error — point at the way in.
-		return nil, fmt.Errorf("no %s in this directory or any parent — run `doze init` to scaffold one, or point --config at your config", configPath)
+		return nil, fmt.Errorf("no %s in this directory or any parent — run doze init to scaffold one, or point --config at your config", configPath)
 	}
 	return cfg, err
 }
@@ -312,14 +308,15 @@ func stderrLogger(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	var prefix string
 	switch {
-	case containsAny(msg, "ready", "converged", "cloned", "reclaimed"):
-		prefix = ui.OK("✓")
-	case containsAny(msg, "failed", "unexpectedly", "error"):
-		prefix = ui.Fail("✗")
-	case containsAny(msg, "booting", "reaping", "reaped", "shutting down"):
-		prefix = ui.Muted("›")
+	case containsAny(msg, "ready", "awake", "converged", "cloned", "reclaimed"):
+		prefix = ui.ErrOK("✓")
+	case containsAny(msg, "failed", "unexpectedly", "error", "gave up", "cannot", "won't resolve"):
+		prefix = ui.ErrFail("✗")
+	case containsAny(msg, "booting", "waking", "reaping", "reaped", "shutting down",
+		"downloading", "verifying", "fetching", "extracting"):
+		prefix = ui.ErrMuted("›")
 	default:
-		prefix = ui.Muted("doze:")
+		prefix = ui.ErrMuted("doze:")
 	}
 	fmt.Fprintln(os.Stderr, prefix+" "+msg)
 }
@@ -343,7 +340,7 @@ func instanceNotFound(cfg *config.Config, name string) error {
 	if len(names) == 0 {
 		return fmt.Errorf("instance %q is not declared (no instances in %s)", name, configLabel(cfg))
 	}
-	return fmt.Errorf("instance %q is not declared; declared: %s (see `doze status`)", name, strings.Join(names, ", "))
+	return fmt.Errorf("instance %q is not declared; declared: %s (see doze status)", name, strings.Join(names, ", "))
 }
 
 func configLabel(cfg *config.Config) string {
