@@ -22,6 +22,10 @@ type Stack struct {
 	domains     *bool
 	idleTimeout time.Duration
 	blocks      []blockRenderer
+	// rawPreamble is set by LoadStack: the verbatim top-level of a loaded config
+	// (name attribute + defaults/tls/modules blocks). When present, HCL() emits it
+	// instead of synthesizing the header — so a round-trip preserves the original.
+	rawPreamble string
 }
 
 type blockRenderer interface {
@@ -77,24 +81,57 @@ func (p Process) blockHCL(name string) string {
 // HCL renders the stack to the equivalent HCL document.
 func (s *Stack) HCL() string {
 	var b strings.Builder
-	if s.name != "" {
-		fmt.Fprintf(&b, "name = %s\n\n", hclString(s.name))
-	}
-	if s.domains != nil || s.idleTimeout != 0 {
-		b.WriteString("defaults {\n")
-		if s.idleTimeout != 0 {
-			fmt.Fprintf(&b, "  idle_timeout = %s\n", hclString(s.idleTimeout.String()))
+	if s.rawPreamble != "" {
+		// Loaded stack: preserve the original top-level verbatim.
+		b.WriteString(strings.TrimRight(s.rawPreamble, "\n"))
+		b.WriteString("\n\n")
+	} else {
+		if s.name != "" {
+			fmt.Fprintf(&b, "name = %s\n\n", hclString(s.name))
 		}
-		if s.domains != nil {
-			fmt.Fprintf(&b, "  domains = %s\n", strconv.FormatBool(*s.domains))
+		if s.domains != nil || s.idleTimeout != 0 {
+			b.WriteString("defaults {\n")
+			if s.idleTimeout != 0 {
+				fmt.Fprintf(&b, "  idle_timeout = %s\n", hclString(s.idleTimeout.String()))
+			}
+			if s.domains != nil {
+				fmt.Fprintf(&b, "  domains = %s\n", strconv.FormatBool(*s.domains))
+			}
+			b.WriteString("}\n\n")
 		}
-		b.WriteString("}\n\n")
 	}
 	for _, blk := range s.blocks {
 		blk.render(&b)
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// Remove drops a declared service from the stack by name, reporting whether it
+// was present. Use it to edit a loaded stack before re-rendering or serving.
+func (s *Stack) Remove(name string) bool {
+	for i, blk := range s.blocks {
+		if blk.instanceName() == name {
+			s.blocks = append(s.blocks[:i], s.blocks[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// rawBlock is a verbatim instance block retained by LoadStack, so an existing
+// block round-trips byte-for-byte (its config is the opaque plugin-decoded Spec,
+// which can't be re-rendered from the decoded value — only the source is exact).
+type rawBlock struct {
+	name string
+	text string
+}
+
+func (r *rawBlock) instanceName() string { return r.name }
+
+func (r *rawBlock) render(b *strings.Builder) {
+	b.WriteString(strings.TrimRight(r.text, "\n"))
+	b.WriteString("\n")
 }
 
 // --- module builder ---

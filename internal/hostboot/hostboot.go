@@ -47,6 +47,18 @@ type Host struct {
 	home      string
 	pluginMgr *plugin.Manager
 	modMgr    *modules.Manager // nil if modules couldn't be initialized
+	resolver  plugin.Resolver  // the resolver chain: DOZE_<TYPE>_PLUGIN, then modules
+}
+
+// ResolvePlugin resolves an engine type to its plugin binary path (and any extra
+// env), via the same chain the engine uses — the DOZE_<TYPE>_PLUGIN override
+// first, then the fetched-from-doze-modules cache. Used to run a plugin's
+// __describe. Returns ok=false when no plugin provides the engine.
+func (h *Host) ResolvePlugin(engineType string) (path string, env []string, ok bool) {
+	if h.resolver == nil {
+		return "", nil, false
+	}
+	return h.resolver(engineType)
 }
 
 var (
@@ -116,10 +128,11 @@ func Init(opts Options) (*Host, error) {
 		})
 		resolvers = append(resolvers, modMgr.Lookup)
 	}
-	pluginMgr := plugin.NewManager(plugin.Chain(resolvers...))
+	chain := plugin.Chain(resolvers...)
+	pluginMgr := plugin.NewManager(chain)
 	engine.SetPluginResolver(pluginMgr.Lookup)
 
-	current = &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr}
+	current = &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr, resolver: chain}
 	refcount = 1
 	return current, nil
 }

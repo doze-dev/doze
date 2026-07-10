@@ -33,7 +33,16 @@ a database, an API — and hand it to Serve/Attach:
 
 AddProcess is typed (process is a first-class engine); AddModule takes engine
 config as HCL, because module engines decode out-of-process. Stack.HCL() renders
-the equivalent file.
+the equivalent file. LoadStack(path) parses an existing config back into an
+editable Stack (read → mutate → re-render), and EngineSchema(opts, engine)
+discovers what an AddModule accepts.
+
+# Reasoning without running (static plane)
+
+Load(opts) parses + validates a config (or Stack) with no daemon — a returned
+error is the lint result; the Inspection exposes Topology() and Plan() (the
+diff against last-applied state). Session.Sync reconciles (converge + prune).
+Modules(opts) lists module pins and upgrades them.
 
 # Driving and reading a live stack
 
