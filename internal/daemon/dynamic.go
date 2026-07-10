@@ -222,7 +222,10 @@ func (d *Daemon) republishDomains() {
 	publishDomains(d.cfg.Home, d.resolveMap, os.Getpid())
 }
 
-// writeManifest refreshes the endpoints manifest after a topology change.
+// writeManifest refreshes the endpoints manifest after a topology change, and
+// re-publishes the stack's ingress routes so a live-added (or removed) ingress
+// process is fronted on the shared :80 handler (which reads routes per request).
+// Caller holds d.mu.
 func (d *Daemon) writeManifest() {
 	eps, err := endpoints.For(d.cfg)
 	if err != nil {
@@ -230,5 +233,28 @@ func (d *Daemon) writeManifest() {
 	}
 	if err := endpoints.WriteManifest(endpoints.ManifestPath(d.cfg), eps); err != nil {
 		d.logf("warning: could not update endpoints manifest: %v", err)
+	}
+	d.refreshIngressRoutes(eps)
+}
+
+// refreshIngressRoutes rewrites this stack's ingress route file to match the
+// current config. The :80 listener is bound once at Run; if the stack started
+// with no ingress route, a live-added ingress process routes only after a
+// restart (the listener isn't there to front it). Caller holds d.mu.
+func (d *Daemon) refreshIngressRoutes(eps []endpoints.Endpoint) {
+	if !d.cfg.Defaults.Domains || d.plan == nil {
+		return
+	}
+	path := ingressPath(d.cfg.Home)
+	pid := os.Getpid()
+	stack := d.cfg.Stack()
+	// Replace this stack+pid's routes with the freshly computed set.
+	removeRoutes(path, stack, pid)
+	routes := d.ingressRoutes(eps, d.plan)
+	if len(routes) == 0 {
+		return
+	}
+	if err := mergeRoutes(path, routes, stack, pid); err != nil {
+		d.logf("ingress: refreshing routes: %v", err)
 	}
 }

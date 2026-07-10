@@ -69,6 +69,15 @@ func Attach(ctx context.Context, opts Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A config-less (Stack-built) Attach needs the config on disk, because the
+	// background daemon is a separate process that reads --config. Materialize
+	// the rendered HCL to the work dir (also handy as the equivalent file).
+	if s.stack != nil {
+		if err := s.materialize(); err != nil {
+			s.host.Close()
+			return nil, err
+		}
+	}
 	if !daemonctl.Running(s.cfg) {
 		if opts.NoSpawn {
 			s.host.Close()
@@ -92,6 +101,16 @@ func Attach(ctx context.Context, opts Options) (*Session, error) {
 		}
 	}
 	return s, nil
+}
+
+// materialize writes a config-less stack's rendered HCL to its config path, so a
+// separate daemon process (Attach) can read it.
+func (s *Session) materialize() error {
+	dir := filepath.Dir(s.cfg.Path())
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(s.cfg.Path(), []byte(s.stack.HCL()), 0o644)
 }
 
 // Serve runs the daemon in this process and returns a Session bound to it. It

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/daemonctl"
 )
 
 // StackName returns the config's stack name.
@@ -208,17 +209,16 @@ func (s *Session) Close() error {
 }
 
 // Shutdown stops the daemon and then closes the session. In Serve mode it stops
-// the in-process daemon; in Attach mode it stops the background daemon.
+// the in-process daemon; in Attach mode it stops the background daemon (which
+// reaps every backend on the way out).
 func (s *Session) Shutdown(ctx context.Context) error {
 	if s.served != nil {
 		return s.Close()
 	}
-	_, err := s.client.DoContext(ctx, control.Request{Op: "down"})
-	// A down op reaps backends but leaves the daemon; stopping the daemon itself
-	// is the CLI's `doze down`/stop path. Close releases our host regardless.
+	_, stopErr := daemonctl.Stop(s.cfg)
 	cerr := s.host.Close()
-	if err != nil {
-		return err
+	if stopErr != nil {
+		return stopErr
 	}
 	return cerr
 }
