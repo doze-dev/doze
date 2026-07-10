@@ -12,6 +12,8 @@ type Instance struct {
 	State     string    // "reaped"/"booting"/"active"/"idle"/"disabled"
 	PID       int       // backend pid, 0 when not running
 	Conns     int       // live client connections
+	RAM       int64     // resident bytes of the backend (+ subtree), 0 when reaped
+	CPU       float64   // CPU usage percent (one core = 100), 0 when reaped
 	StartedAt time.Time // when the backend booted
 	IdleSince time.Time // when Conns last hit zero (drives the reap countdown)
 
@@ -28,4 +30,34 @@ type Instance struct {
 	Tainted   bool   // last convergence failed/incomplete
 	LastError string // most recent boot/convergence/crash failure
 	Healthy   *bool  // latest liveness probe (supervised processes); nil = not probed
+}
+
+// Resource is one of a running service's addressable sub-resources — an S3
+// bucket, an SQS queue, an SNS topic, a database — with a live status line.
+type Resource struct {
+	Kind   string            // "bucket" | "queue" | "topic" | "database" | …
+	Name   string            // resource name
+	Status string            // a short live status line
+	Info   map[string]string // extra key/value detail
+}
+
+// Action is a data operation a service's engine offers on its resources (used to
+// drive an admin UI, mirroring the dash's actions).
+type Action struct {
+	ID          string // stable action id, passed to Session.Admin
+	Label       string // human label
+	Kind        string // action category
+	Destructive bool   // needs confirmation
+	InputHint   string // what Admin's input string should contain, if anything
+}
+
+// Node is one instance in the declared topology — the static model from the
+// config, available without the daemon running.
+type Node struct {
+	Name      string   // instance name
+	Engine    string   // engine type
+	Version   string   // declared version ("" for versionless engines)
+	Port      int      // client-facing port (0 if none/unix)
+	Enabled   bool     // false = declared but paused
+	DependsOn []string // names this instance boots after
 }

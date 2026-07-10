@@ -46,10 +46,11 @@ type Options struct {
 // Session is a connection to a doze daemon for one config. Safe for concurrent
 // use. Close it when done.
 type Session struct {
-	cfg    *config.Config
-	client *control.Client
-	host   *hostboot.Host
-	logf   func(string, ...any)
+	cfg     *config.Config
+	client  *control.Client // socket client (readiness probe; Attach transport)
+	backend backend         // operation transport: direct (Serve) or socket (Attach)
+	host    *hostboot.Host
+	logf    func(string, ...any)
 
 	// stack and workDir are set for a config-less (Stack-built) session.
 	stack   *Stack
@@ -59,6 +60,28 @@ type Session struct {
 	served      *daemon.Daemon
 	serveCancel context.CancelFunc
 	serveDone   chan error
+}
+
+// Topology returns the declared instance graph as data — the static model from
+// the config, available whether or not the daemon is running. Use it to render
+// the stack, walk dependencies, or drive your own UI.
+func (s *Session) Topology() []Node {
+	out := make([]Node, 0, len(s.cfg.Instances))
+	for _, d := range s.cfg.Instances {
+		deps := make([]string, 0, len(d.Deps))
+		for _, dep := range d.Deps {
+			deps = append(deps, dep.Name)
+		}
+		out = append(out, Node{
+			Name:      d.Name,
+			Engine:    d.Type,
+			Version:   d.Version.String(),
+			Port:      d.Port,
+			Enabled:   d.Enabled,
+			DependsOn: deps,
+		})
+	}
+	return out
 }
 
 // Attach connects to the background daemon for the config (spawning it unless
@@ -134,6 +157,10 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 	done := make(chan error, 1)
 	go func() { done <- d.Run(runCtx) }()
 	s.served, s.serveCancel, s.serveDone = d, cancel, done
+	// Serve talks to its own in-process daemon directly — no socket, native Go
+	// types and errors. (The daemon still serves the control socket so the CLI
+	// and other clients can attach.)
+	s.backend = directBackend{h: d.Handler()}
 
 	// Wait for the control socket to accept before returning, so the first
 	// lifecycle call doesn't race the listener. Bail out promptly if the daemon
@@ -213,9 +240,13 @@ func newSession(opts Options) (*Session, error) {
 		host.Close()
 		return nil, err
 	}
+	client := control.NewClient(daemon.ControlSocketPath(cfg))
 	return &Session{
-		cfg:     cfg,
-		client:  control.NewClient(daemon.ControlSocketPath(cfg)),
+		cfg:    cfg,
+		client: client,
+		// Default to the socket backend (correct for Attach); Serve swaps in the
+		// direct in-process backend once its daemon exists.
+		backend: socketBackend{c: client},
 		host:    host,
 		logf:    logf,
 		stack:   opts.Stack,

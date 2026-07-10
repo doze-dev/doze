@@ -95,6 +95,12 @@ func New(cfg *config.Config, logf func(string, ...any)) (*Daemon, error) {
 // Runtime exposes the underlying runtime.
 func (d *Daemon) Runtime() *runtime.Runtime { return d.rt }
 
+// Handler returns the daemon's operation surface as a control.Handler, for an
+// in-process embedder (the doze library's Serve mode) that calls it directly
+// instead of dialing the control socket — same operations, native Go types and
+// errors, no serialization.
+func (d *Daemon) Handler() control.Handler { return &handler{d: d} }
+
 // Run opens a listener per declared instance, plus the reaper and control
 // socket, blocking until ctx is cancelled.
 func (d *Daemon) Run(ctx context.Context) error {

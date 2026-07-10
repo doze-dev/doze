@@ -2,7 +2,6 @@ package doze
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemonctl"
@@ -34,13 +33,13 @@ func (s *Session) Up(ctx context.Context, names ...string) error {
 	} else {
 		for _, n := range targets {
 			if s.cfg.Lookup(n) == nil {
-				return fmt.Errorf("no service named %q", n)
+				return notFound(n)
 			}
 		}
 	}
 	for _, name := range s.bootClosure(targets) {
-		if _, err := s.client.DoContext(ctx, control.Request{Op: "up", DB: name}); err != nil {
-			return fmt.Errorf("bringing up %q: %w", name, err)
+		if err := s.backend.op(ctx, "up", name); err != nil {
+			return opError("bring up", name, err)
 		}
 	}
 	return nil
@@ -49,60 +48,60 @@ func (s *Session) Up(ctx context.Context, names ...string) error {
 // Boot wakes a single service (and its dependencies) without the full converge
 // semantics of Up. An empty name boots the whole stack.
 func (s *Session) Boot(ctx context.Context, name string) error {
-	return s.op(ctx, "boot", name)
+	return opError("boot", name, s.backend.op(ctx, "boot", name))
 }
 
 // Down stops the named service, or the whole stack when name is empty. Data is
 // preserved.
 func (s *Session) Down(ctx context.Context, name string) error {
-	return s.op(ctx, "down", name)
+	return s.backend.op(ctx, "down", name)
 }
 
 // Restart stops and re-boots the named service (or the whole stack).
 func (s *Session) Restart(ctx context.Context, name string) error {
-	return s.op(ctx, "restart", name)
+	return s.backend.op(ctx, "restart", name)
 }
 
 // Apply converges declared structure for the named service (or all) without
 // changing its running state.
 func (s *Session) Apply(ctx context.Context, name string) error {
-	return s.op(ctx, "apply", name)
+	return s.backend.op(ctx, "apply", name)
 }
 
 // Destroy drops the declared objects (databases, buckets, …) for the named
 // service — the `doze destroy` lifecycle. Irreversible.
 func (s *Session) Destroy(ctx context.Context, name string) error {
-	return s.op(ctx, "destroy", name)
+	return s.backend.op(ctx, "destroy", name)
 }
 
 // Reset stops the named service and wipes its data + sockets so the next
 // connection re-provisions and re-converges. Irreversible.
 func (s *Session) Reset(ctx context.Context, name string) error {
-	return s.op(ctx, "reset", name)
+	return s.backend.op(ctx, "reset", name)
 }
 
-func (s *Session) op(ctx context.Context, name, db string) error {
-	_, err := s.client.DoContext(ctx, control.Request{Op: name, DB: db})
-	return err
+// KeepAwake toggles the idle-reaper exemption for a service (the dash's "pin").
+func (s *Session) KeepAwake(ctx context.Context, name string) error {
+	return s.backend.op(ctx, "keepawake", name)
 }
 
 // AddProcess adds a supervised process to the running stack and boots it,
 // returning its state. The stack need not have been built from a Stack.
 func (s *Session) AddProcess(ctx context.Context, name string, p Process) (Instance, error) {
-	return s.add(ctx, p.blockHCL(name))
+	return s.add(ctx, name, p.blockHCL(name))
 }
 
 // AddModule adds a module-engine instance (built with NewModule or
 // Stack.AddModule) to the running stack, returning its state. Proxied engines
 // lazy-boot on first connection; the returned Instance carries its endpoint.
 func (s *Session) AddModule(ctx context.Context, m *Module) (Instance, error) {
-	return s.add(ctx, m.blockHCL())
+	return s.add(ctx, m.name, m.blockHCL())
 }
 
-func (s *Session) add(ctx context.Context, block string) (Instance, error) {
-	view, err := s.client.Add(ctx, block)
+func (s *Session) add(ctx context.Context, name, block string) (Instance, error) {
+	view, err := s.backend.add(ctx, block)
 	if err != nil {
-		return Instance{}, err
+		return Instance{}, opError("add", name, err)
 	}
 	return instanceFromView(view), nil
 }
@@ -110,12 +109,12 @@ func (s *Session) add(ctx context.Context, block string) (Instance, error) {
 // Remove tears a service out of the running stack. When wipe is true its data
 // directory is deleted too.
 func (s *Session) Remove(ctx context.Context, name string, wipe bool) error {
-	return s.client.Remove(ctx, name, wipe)
+	return opError("remove", name, s.backend.remove(ctx, name, wipe))
 }
 
 // Status returns a snapshot of every service's live state.
 func (s *Session) Status(ctx context.Context) ([]Instance, error) {
-	resp, err := s.client.DoContext(ctx, control.Request{Op: "status"})
+	resp, err := s.backend.status(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +137,31 @@ func (s *Session) Instance(ctx context.Context, name string) (Instance, bool, er
 		}
 	}
 	return Instance{}, false, nil
+}
+
+// Resources lists a running service's sub-resources (buckets/queues/topics/…)
+// with a live status line, plus the data actions its engine offers. Empty when
+// the engine has no admin surface.
+func (s *Session) Resources(ctx context.Context, name string) ([]Resource, []Action, error) {
+	res, acts, err := s.backend.resources(ctx, name)
+	if err != nil {
+		return nil, nil, err
+	}
+	rs := make([]Resource, len(res))
+	for i, r := range res {
+		rs[i] = Resource{Kind: r.Kind, Name: r.Name, Status: r.Status, Info: r.Info}
+	}
+	as := make([]Action, len(acts))
+	for i, a := range acts {
+		as[i] = Action{ID: a.ID, Label: a.Label, Kind: a.Kind, Destructive: a.Destructive, InputHint: a.InputHint}
+	}
+	return rs, as, nil
+}
+
+// Admin runs a data action (from Resources) on a service resource, returning its
+// result line.
+func (s *Session) Admin(ctx context.Context, name, action, resource, input string) (string, error) {
+	return s.backend.admin(ctx, name, action, resource, input)
 }
 
 // Endpoints maps each running service's name to its client-facing address.
@@ -173,17 +197,13 @@ func (s *Session) Env(ctx context.Context) (map[string]string, error) {
 
 // Logs returns the buffered log lines for a service.
 func (s *Session) Logs(ctx context.Context, name string) ([]string, error) {
-	resp, err := s.client.DoContext(ctx, control.Request{Op: "logs", DB: name})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Lines, nil
+	return s.backend.logs(ctx, name)
 }
 
 // FollowLogs streams log lines for the named services (empty = all running
 // backends), calling emit for each until ctx is cancelled.
 func (s *Session) FollowLogs(ctx context.Context, names []string, emit func(instance, line string)) error {
-	return s.client.Stream(ctx, control.Request{Op: "logs", Follow: true, Names: names}, func(f control.LogFrame) {
+	return s.backend.followLogs(ctx, names, func(f control.LogFrame) {
 		emit(f.Instance, f.Line)
 	})
 }
@@ -191,7 +211,7 @@ func (s *Session) FollowLogs(ctx context.Context, names []string, emit func(inst
 // Events streams instance-state transitions, calling emit for each until ctx is
 // cancelled.
 func (s *Session) Events(ctx context.Context, emit func(Instance)) error {
-	return s.client.StreamEvents(ctx, func(f control.EventFrame) {
+	return s.backend.events(ctx, func(f control.EventFrame) {
 		emit(instanceFromView(f.Instance))
 	})
 }
@@ -257,6 +277,8 @@ func instanceFromView(v control.InstanceView) Instance {
 		State:     v.State,
 		PID:       v.PID,
 		Conns:     v.Conns,
+		RAM:       v.RAM,
+		CPU:       v.CPU,
 		StartedAt: v.StartedAt,
 		IdleSince: v.IdleSince,
 		Endpoint:  v.Endpoint,
