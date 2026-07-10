@@ -69,6 +69,28 @@ func TestHydrateEndpointShowsRealBind(t *testing.T) {
 	if orders.Endpoint == analytics.Endpoint {
 		t.Fatal("two same-port services must not share a displayed endpoint")
 	}
+	// Bind mirrors the dialable truth for proxied services.
+	if orders.Bind != "127.0.0.11:5432" || analytics.Bind != "127.0.0.12:5432" {
+		t.Errorf("binds = %q / %q, want the real per-instance addresses", orders.Bind, analytics.Bind)
+	}
+}
+
+// An AWS built-in's Endpoint is prettified to the shared per-type host, but
+// Bind must keep the internal backend address — it's the raw line the dash
+// shows under the connect address.
+func TestHydrateEndpointAWSKeepsRawBind(t *testing.T) {
+	cfg := &config.Config{StackName: "demo", Defaults: config.Defaults{Domains: true}}
+	cfg.Add(&config.InstanceDecl{Type: "sqs", Name: "jobs", Enabled: true})
+	d := &Daemon{cfg: cfg, logf: t.Logf, binds: map[string]string{"jobs": "127.0.0.1:53987"}}
+	h := &handler{d: d}
+	v := control.InstanceView{Name: "jobs", Engine: "sqs"}
+	h.hydrateEndpoint(&v, endpoints.Endpoint{Name: "jobs", Engine: "sqs", Address: "127.0.0.1:53987"})
+	if v.Endpoint != "sqs.demo.doze" {
+		t.Errorf("endpoint = %q, want the shared host sqs.demo.doze", v.Endpoint)
+	}
+	if v.Bind != "127.0.0.1:53987" {
+		t.Errorf("bind = %q, want the raw backend 127.0.0.1:53987", v.Bind)
+	}
 }
 
 // A supervised process binds its own port and has no entry in the bind plan; its
@@ -80,6 +102,9 @@ func TestHydrateEndpointFallsBackWhenUnproxied(t *testing.T) {
 	h.hydrateEndpoint(&v, endpoints.Endpoint{Name: "worker", Engine: "process", Address: "127.0.0.1:8080"})
 	if v.Endpoint != "127.0.0.1:8080" {
 		t.Errorf("endpoint = %q, want canonical 127.0.0.1:8080", v.Endpoint)
+	}
+	if v.Bind != "127.0.0.1:8080" {
+		t.Errorf("bind = %q, want the self-bound address", v.Bind)
 	}
 }
 

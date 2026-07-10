@@ -33,6 +33,11 @@ type Request struct {
 	// Names scopes a streaming "logs" follow to specific instances (empty = every
 	// running backend). DB still works for a single target.
 	Names []string `json:"names,omitempty"`
+
+	// Block is the rendered HCL of a single instance to add live ("add" op).
+	Block string `json:"block,omitempty"`
+	// Wipe, on the "remove" op, also deletes the instance's data directory.
+	Wipe bool `json:"wipe,omitempty"`
 }
 
 // LogFrame is one streamed, instance-tagged log line (logs follow op).
@@ -150,6 +155,11 @@ type Handler interface {
 	Resources(ctx context.Context, db string) ([]ResourceView, []ActionView, error)
 	// Admin runs a data action on a resource, returning its result line.
 	Admin(ctx context.Context, db, action, resource, input string) (string, error)
+	// AddInstance decodes and wires a single rendered HCL block into the running
+	// stack, returning the new instance's view.
+	AddInstance(ctx context.Context, block string) (InstanceView, error)
+	// RemoveInstance tears an instance down (optionally wiping its data).
+	RemoveInstance(ctx context.Context, name string, wipe bool) error
 }
 
 // Server listens on a unix socket and dispatches requests to a Handler.
@@ -252,6 +262,20 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 		} else {
 			resp.OK = true
 			resp.Lines = lines
+		}
+	case "add":
+		view, err := s.h.AddInstance(ctx, req.Block)
+		if err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.OK = true
+			resp.Instances = []InstanceView{view}
+		}
+	case "remove":
+		if err := s.h.RemoveInstance(ctx, req.DB, req.Wipe); err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.OK = true
 		}
 	case "events":
 		s.streamEvents(ctx, conn)
@@ -473,6 +497,25 @@ func (c *Client) Stream(ctx context.Context, req Request, onLine func(LogFrame))
 		}
 		onLine(f)
 	}
+}
+
+// Add wires a rendered HCL block into the running stack, returning the new
+// instance's view.
+func (c *Client) Add(ctx context.Context, block string) (InstanceView, error) {
+	resp, err := c.DoContext(ctx, Request{Op: "add", Block: block})
+	if err != nil {
+		return InstanceView{}, err
+	}
+	if len(resp.Instances) == 0 {
+		return InstanceView{}, fmt.Errorf("add: daemon returned no instance")
+	}
+	return resp.Instances[0], nil
+}
+
+// Remove tears an instance down (optionally wiping its data).
+func (c *Client) Remove(ctx context.Context, name string, wipe bool) error {
+	_, err := c.DoContext(ctx, Request{Op: "remove", DB: name, Wipe: wipe})
+	return err
 }
 
 // StreamEvents opens a held connection for the events op and invokes onEvent for

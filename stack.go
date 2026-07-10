@@ -49,9 +49,29 @@ func (s *Stack) AddProcess(name string, p Process) *Stack {
 // returned *Module is configured fluently; its engine-specific settings are
 // HCL, either via Set (scalars) or Body (sub-blocks and cross-service refs).
 func (s *Stack) AddModule(engine, name string) *Module {
-	m := &Module{engine: engine, name: name}
+	m := NewModule(engine, name)
 	s.blocks = append(s.blocks, m)
 	return m
+}
+
+// NewModule builds a standalone module-instance spec, for live Session.AddModule
+// (outside a Stack). Configure it fluently, then pass it to Session.AddModule.
+func NewModule(engine, name string) *Module {
+	return &Module{engine: engine, name: name}
+}
+
+// blockHCL renders a single instance block (no stack name/defaults), for the
+// live "add" control op.
+func (m *Module) blockHCL() string {
+	var b strings.Builder
+	m.render(&b)
+	return b.String()
+}
+
+func (p Process) blockHCL(name string) string {
+	var b strings.Builder
+	(&processBlock{name: name, p: p}).render(&b)
+	return b.String()
 }
 
 // HCL renders the stack to the equivalent HCL document.

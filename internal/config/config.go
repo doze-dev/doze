@@ -970,6 +970,22 @@ func (c *Config) Add(decl *InstanceDecl) {
 	c.index[decl.Name] = decl
 }
 
+// Remove deletes a runtime-added (or declared) instance by name, returning
+// whether it was present. Used by live Remove.
+func (c *Config) Remove(name string) bool {
+	if _, ok := c.index[name]; !ok {
+		return false
+	}
+	delete(c.index, name)
+	for i, d := range c.Instances {
+		if d.Name == name {
+			c.Instances = append(c.Instances[:i], c.Instances[i+1:]...)
+			break
+		}
+	}
+	return true
+}
+
 // Path is the file this config was loaded from (empty for in-memory parses).
 func (c *Config) Path() string { return c.path }
 
@@ -986,13 +1002,39 @@ func posErr(parser *hclparse.Parser, rng hcl.Range, summary, detail string) erro
 }
 
 // diagError renders HCL diagnostics into a single Go error, after augmenting any
-// with a doze-specific fix hint.
+// with a doze-specific fix hint. The caller (realMain) already prints an
+// "error:" prefix, so the wrapper stays a plain framing line — no second colon
+// stacked in front of HCL's own "Error:" headers. Duplicate diagnostics (the
+// same typo can surface three times through nested evaluation) are collapsed,
+// and the trailing blank lines HCL emits are trimmed.
 func diagError(parser *hclparse.Parser, diags hcl.Diagnostics) error {
+	diags = dedupeDiags(diags)
 	addFixHints(diags)
 	var buf bytes.Buffer
 	wr := hcl.NewDiagnosticTextWriter(&buf, parser.Files(), 0, false)
 	_ = wr.WriteDiagnostics(diags)
-	return fmt.Errorf("invalid config:\n%s", buf.String())
+	return fmt.Errorf("invalid config —\n\n%s", strings.TrimRight(buf.String(), "\n \t"))
+}
+
+// dedupeDiags drops diagnostics that repeat the same summary, detail, and source
+// range — a single mistake evaluated through multiple passes otherwise prints
+// two or three identical blocks.
+func dedupeDiags(diags hcl.Diagnostics) hcl.Diagnostics {
+	seen := make(map[string]bool, len(diags))
+	out := make(hcl.Diagnostics, 0, len(diags))
+	for _, d := range diags {
+		var rng string
+		if d.Subject != nil {
+			rng = d.Subject.String()
+		}
+		key := d.Summary + "\x00" + d.Detail + "\x00" + rng
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, d)
+	}
+	return out
 }
 
 // addFixHints appends an actionable fix to HCL grammar errors that are easy to hit

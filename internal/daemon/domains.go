@@ -38,7 +38,12 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 	publishDomains(d.cfg.Home, own, pid)
 	release = func() { unclaim(); unpublishDomains(d.cfg.Home, pid) }
 	resolve := func(name string) net.IP {
-		if ip, ok := own[name]; ok {
+		// own is the live bind-plan resolve map, which live Add/Remove mutates
+		// under d.mu — lock so a concurrent add can't race the DNS read.
+		d.mu.Lock()
+		ip, ok := own[name]
+		d.mu.Unlock()
+		if ok {
 			return ip
 		}
 		return sharedResolve(d.cfg.Home, name)

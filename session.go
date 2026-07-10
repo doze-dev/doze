@@ -85,6 +85,33 @@ func (s *Session) op(ctx context.Context, name, db string) error {
 	return err
 }
 
+// AddProcess adds a supervised process to the running stack and boots it,
+// returning its state. The stack need not have been built from a Stack.
+func (s *Session) AddProcess(ctx context.Context, name string, p Process) (Instance, error) {
+	return s.add(ctx, p.blockHCL(name))
+}
+
+// AddModule adds a module-engine instance (built with NewModule or
+// Stack.AddModule) to the running stack, returning its state. Proxied engines
+// lazy-boot on first connection; the returned Instance carries its endpoint.
+func (s *Session) AddModule(ctx context.Context, m *Module) (Instance, error) {
+	return s.add(ctx, m.blockHCL())
+}
+
+func (s *Session) add(ctx context.Context, block string) (Instance, error) {
+	view, err := s.client.Add(ctx, block)
+	if err != nil {
+		return Instance{}, err
+	}
+	return instanceFromView(view), nil
+}
+
+// Remove tears a service out of the running stack. When wipe is true its data
+// directory is deleted too.
+func (s *Session) Remove(ctx context.Context, name string, wipe bool) error {
+	return s.client.Remove(ctx, name, wipe)
+}
+
 // Status returns a snapshot of every service's live state.
 func (s *Session) Status(ctx context.Context) ([]Instance, error) {
 	resp, err := s.client.DoContext(ctx, control.Request{Op: "status"})

@@ -6,6 +6,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -61,6 +62,24 @@ type Daemon struct {
 	// Postgres on 5432). Built once at Run() from the bind plan; empty for supervised
 	// processes (they bind their own port) and disabled instances.
 	binds map[string]string
+
+	// Dynamic instance management (live Add/Remove). Populated during Run and
+	// guarded by mu. See dynamic.go.
+	mu         sync.Mutex
+	px         *proxy.Proxy
+	alloc      *loopback.Allocator
+	plan       *bindPlan
+	rootCtx    context.Context
+	instWG     *sync.WaitGroup
+	running    map[string]*instHandle // proxied instances with a live listener
+	resolveMap map[string]net.IP      // live view of domain -> IP (mutated on add/remove)
+}
+
+// instHandle tracks a live proxy listener so it can be torn down on Remove.
+type instHandle struct {
+	cancel context.CancelFunc
+	ln     net.Listener
+	ip     net.IP // allocated loopback IP (nil in the 127.0.0.1 fallback)
 }
 
 // New builds a Daemon for cfg.
@@ -153,7 +172,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 			disabled[decl.Name] = true
 		}
 	}
+	// Publish the state the dynamic Add/Remove path needs (see dynamic.go).
 	var wg sync.WaitGroup
+	d.px = px
+	d.alloc = alloc
+	d.plan = plan
+	d.rootCtx = ctx
+	d.instWG = &wg
+	d.running = map[string]*instHandle{}
+	d.resolveMap = plan.resolve
 	for _, ep := range eps {
 		drv, ok := engine.Lookup(ep.Engine)
 		if !ok {
@@ -174,21 +201,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		if bindAddr == "" {
 			bindAddr = ep.Address // safety net; shouldn't happen for a proxied instance
 		}
-		ln, err := proxy.Listen(bindAddr)
-		if err != nil {
-			return fmt.Errorf("listening for %q on %s: %w", ep.Name, bindAddr, err)
+		if err := d.startProxyInstance(ep.Name, ep.Engine, ep.Domain, bindAddr, drv, nil); err != nil {
+			return err
 		}
-		shown := bindAddr
-		if ep.Domain != "" {
-			shown = ep.Domain + " (" + bindAddr + ")"
-		}
-		d.logf("%s/%s listening on %s", ep.Engine, ep.Name, shown)
-		name := ep.Name
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_ = px.ServeInstance(ctx, ln, name, drv)
-		}()
 	}
 	// Publish the endpoint manifest for supervised processes and external tooling.
 	if err := endpoints.WriteManifest(endpoints.ManifestPath(d.cfg), eps); err != nil {
@@ -478,6 +493,26 @@ func (h *handler) StreamEvents(ctx context.Context, emit func(control.EventFrame
 			}
 		}
 	}
+}
+
+// AddInstance wires a rendered HCL block into the running stack and returns the
+// new instance's view.
+func (h *handler) AddInstance(ctx context.Context, block string) (control.InstanceView, error) {
+	name, err := h.d.AddInstance(ctx, block)
+	if err != nil {
+		return control.InstanceView{}, err
+	}
+	for _, v := range h.Status().Instances {
+		if v.Name == name {
+			return v, nil
+		}
+	}
+	return control.InstanceView{Name: name, Declared: true}, nil
+}
+
+// RemoveInstance tears an instance down.
+func (h *handler) RemoveInstance(ctx context.Context, name string, wipe bool) error {
+	return h.d.RemoveInstance(ctx, name, wipe)
 }
 
 // eventView enriches a registry snapshot into a full InstanceView for the events
