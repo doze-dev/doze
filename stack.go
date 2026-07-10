@@ -172,7 +172,7 @@ func (m *Module) render(b *strings.Builder) {
 		fmt.Fprintf(b, "  enabled = %s\n", strconv.FormatBool(*m.enabled))
 	}
 	if len(m.dependsOn) > 0 {
-		fmt.Fprintf(b, "  depends_on = %s\n", hclStringList(m.dependsOn))
+		fmt.Fprintf(b, "  depends_on = %s\n", hclDependsMap(m.dependsOn))
 	}
 	for _, a := range m.attrs {
 		fmt.Fprintf(b, "  %s = %s\n", a.key, a.val)
@@ -264,7 +264,7 @@ func (pb *processBlock) render(b *strings.Builder) {
 		fmt.Fprintf(b, "  enabled = %s\n", strconv.FormatBool(*p.Enabled))
 	}
 	if len(p.DependsOn) > 0 {
-		fmt.Fprintf(b, "  depends_on = %s\n", hclStringList(p.DependsOn))
+		fmt.Fprintf(b, "  depends_on = %s\n", hclDependsMap(p.DependsOn))
 	}
 	if h := p.Health; h != nil {
 		b.WriteString("  health {\n")
@@ -346,6 +346,17 @@ func hclValue(v any) string {
 
 func hclString(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace(s) + `"`
+}
+
+// hclDependsMap renders depends_on as HCL: a map of instance name → readiness
+// condition. doze's depends_on is `{ "name" = "healthy" }`, not a list; the
+// default condition is "healthy" (the runtime waits for Healthy regardless).
+func hclDependsMap(names []string) string {
+	parts := make([]string, len(names))
+	for i, n := range names {
+		parts[i] = fmt.Sprintf("%s = %q", hclIdent(n), "healthy")
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
 func hclStringList(items []string) string {

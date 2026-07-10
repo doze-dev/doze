@@ -65,24 +65,7 @@ type Session struct {
 // Topology returns the declared instance graph as data — the static model from
 // the config, available whether or not the daemon is running. Use it to render
 // the stack, walk dependencies, or drive your own UI.
-func (s *Session) Topology() []Node {
-	out := make([]Node, 0, len(s.cfg.Instances))
-	for _, d := range s.cfg.Instances {
-		deps := make([]string, 0, len(d.Deps))
-		for _, dep := range d.Deps {
-			deps = append(deps, dep.Name)
-		}
-		out = append(out, Node{
-			Name:      d.Name,
-			Engine:    d.Type,
-			Version:   d.Version.String(),
-			Port:      d.Port,
-			Enabled:   d.Enabled,
-			DependsOn: deps,
-		})
-	}
-	return out
-}
+func (s *Session) Topology() []Node { return topologyOf(s.cfg) }
 
 // Attach connects to the background daemon for the config (spawning it unless
 // NoSpawn), returning a Session whose lifecycle commands steer it. The stack
@@ -188,9 +171,10 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 	}
 }
 
-// newSession initializes the engine host and loads (or builds) the config,
-// shared by both entry points.
-func newSession(opts Options) (*Session, error) {
+// loadHostAndConfig initializes the process-global engine host and loads (or
+// builds, for a Stack) the config — the shared preamble of newSession (Serve/
+// Attach) and Load (daemon-less inspection). It creates no daemon.
+func loadHostAndConfig(opts Options) (cfg *config.Config, host *hostboot.Host, workDir string, err error) {
 	logf := opts.Logf
 	if logf == nil {
 		logf = func(string, ...any) {}
@@ -204,7 +188,7 @@ func newSession(opts Options) (*Session, error) {
 	// dir; the file path (real for Attach, virtual for Serve) is what module
 	// pinning + project-dir slugging key on.
 	configPath := opts.ConfigPath
-	workDir := opts.WorkDir
+	workDir = opts.WorkDir
 	if opts.Stack != nil {
 		if workDir == "" {
 			workDir = filepath.Join(home, "stacks", opts.Stack.name)
@@ -212,7 +196,7 @@ func newSession(opts Options) (*Session, error) {
 		configPath = filepath.Join(workDir, "doze.hcl")
 	}
 
-	host, err := hostboot.Init(hostboot.Options{
+	host, err = hostboot.Init(hostboot.Options{
 		Home: home,
 		Logf: logf,
 		LockPath: func() string {
@@ -223,22 +207,35 @@ func newSession(opts Options) (*Session, error) {
 		PersistLock: func() bool { return false },
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
 
-	var cfg *config.Config
 	if opts.Stack != nil {
 		cfg, err = config.Parse([]byte(opts.Stack.HCL()), configPath)
 	} else {
 		cfg, err = config.LoadWithVars(configPath, opts.Vars)
 		if err != nil && os.IsNotExist(err) {
 			host.Close()
-			return nil, fmt.Errorf("no doze config found (looked for %q) — set Options.ConfigPath or Options.Stack", firstNonEmpty(configPath, "doze.hcl"))
+			return nil, nil, "", fmt.Errorf("no doze config found (looked for %q) — set Options.ConfigPath or Options.Stack", firstNonEmpty(configPath, "doze.hcl"))
 		}
 	}
 	if err != nil {
 		host.Close()
+		return nil, nil, "", err
+	}
+	return cfg, host, workDir, nil
+}
+
+// newSession initializes the engine host and loads (or builds) the config,
+// shared by both entry points.
+func newSession(opts Options) (*Session, error) {
+	cfg, host, workDir, err := loadHostAndConfig(opts)
+	if err != nil {
 		return nil, err
+	}
+	logf := opts.Logf
+	if logf == nil {
+		logf = func(string, ...any) {}
 	}
 	client := control.NewClient(daemon.ControlSocketPath(cfg))
 	return &Session{
