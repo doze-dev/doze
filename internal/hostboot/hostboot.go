@@ -84,7 +84,7 @@ func Init(opts Options) (*Host, error) {
 	defer mu.Unlock()
 	if current != nil {
 		if current.home != opts.Home {
-			return nil, fmt.Errorf("hostboot: already initialized for home %q; cannot re-init for %q in the same process", current.home, opts.Home)
+			return nil, fmt.Errorf("doze: this process already hosts stacks under DOZE_HOME %q and cannot also host %q — the module/engine wiring is process-global. Use one Home per process (many stacks can share it), or run separate processes for separate Homes", current.home, opts.Home)
 		}
 		refcount++
 		return current, nil

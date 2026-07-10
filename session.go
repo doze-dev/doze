@@ -45,6 +45,29 @@ func (s *Session) Up(ctx context.Context, names ...string) error {
 	return nil
 }
 
+// Progress is one step of a long operation — a service changing lifecycle state
+// while Up (or a boot) runs. Feed it to a UI to show boot progress live.
+type Progress struct {
+	Instance string // the service that changed
+	State    string // "booting" | "active" | "idle" | "healthy" | "reaped"
+	Detail   string // optional detail (e.g. the error on a failure)
+}
+
+// UpWithProgress is Up with a live progress feed: it streams state transitions
+// to onProgress while the stack comes up, then returns like Up. It's a thin
+// convenience over Up + Events, so a UI has something to render during a slow
+// cold boot instead of a blocking call.
+func (s *Session) UpWithProgress(ctx context.Context, names []string, onProgress func(Progress)) error {
+	ectx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		_ = s.Events(ectx, func(in Instance) {
+			onProgress(Progress{Instance: in.Name, State: in.State, Detail: in.LastError})
+		})
+	}()
+	return s.Up(ctx, names...)
+}
+
 // Boot wakes a single service (and its dependencies) without the full converge
 // semantics of Up. An empty name boots the whole stack.
 func (s *Session) Boot(ctx context.Context, name string) error {

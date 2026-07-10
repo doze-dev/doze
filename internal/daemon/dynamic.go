@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
@@ -18,6 +19,18 @@ import (
 // a supervised process), and tears all of that down again on Remove. It backs
 // the control "add"/"remove" ops, which back the embeddable facade's
 // Session.AddProcess/AddModule/Remove.
+
+// looksLikeUnresolvedRef reports whether a decode error is a reference to
+// another service that couldn't resolve because the block was decoded alone.
+func looksLikeUnresolvedRef(err error) bool {
+	msg := err.Error()
+	for _, s := range []string{"Unknown variable", "Variables not allowed", "no such variable", "There is no variable named"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
+}
 
 // startProxyInstance opens a proxy listener for a proxied instance and serves it
 // on its own cancelable context so Remove can stop just this one. The caller
@@ -51,8 +64,13 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 // document); AWS-builtin/ingress engines are not yet supported live.
 func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) {
 	// Decode the block in isolation via the same pipeline (incl. plugin decode).
+	// Because it's decoded alone, references to sibling services can't resolve —
+	// surface that clearly (with the workaround) rather than a raw HCL error.
 	mini, err := config.Parse([]byte(block), d.cfg.Path())
 	if err != nil {
+		if looksLikeUnresolvedRef(err) {
+			return "", fmt.Errorf("a live-added service can't reference other services yet — pass the literal value instead (look it up with the client's Instance/Status): %w", err)
+		}
 		return "", fmt.Errorf("decoding block: %w", err)
 	}
 	if len(mini.Instances) != 1 {
