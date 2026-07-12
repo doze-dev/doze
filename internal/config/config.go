@@ -620,12 +620,16 @@ func (c *Config) DomainFor(name string) string {
 }
 
 // awsBuiltinTypes are the built-in AWS engines served behind ONE shared,
-// port-less endpoint per type — s3./sqs./sns.<stack>.doze on the :80
-// ingress — rather than each at its own address. A client reaches every bucket,
-// queue, or topic through the one endpoint (routed by resource), exactly as real
-// AWS puts everything under s3.amazonaws.com; the backends' high ports are an
-// internal detail and are never surfaced or published.
-var awsBuiltinTypes = map[string]bool{"s3": true, "sqs": true, "sns": true}
+// port-less endpoint per type — e.g. s3./dynamodb./lambda.<stack>.doze on the
+// :80 ingress — rather than each at its own address. A client reaches every
+// bucket, table, function, etc. through the one endpoint (routed by resource),
+// exactly as real AWS puts everything under s3.amazonaws.com; the backends' high
+// ports are an internal detail and are never surfaced or published.
+var awsBuiltinTypes = map[string]bool{
+	"s3": true, "sqs": true, "sns": true,
+	"dynamodb": true, "lambda": true, "secretsmanager": true,
+	"kms": true, "ssm": true, "eventbridge": true,
+}
 
 // IsAWSBuiltin reports whether an engine type is served behind a shared AWS
 // endpoint (its per-instance address is internal-only).

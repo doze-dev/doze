@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -32,8 +33,13 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 )
 
-// awsTypes are the built-in AWS engines that get a shared endpoint.
-var awsTypes = map[string]bool{"s3": true, "sqs": true, "sns": true}
+// awsTypes are the built-in AWS engines that get a shared endpoint. Must stay in
+// sync with config.awsBuiltinTypes.
+var awsTypes = map[string]bool{
+	"s3": true, "sqs": true, "sns": true,
+	"dynamodb": true, "lambda": true, "secretsmanager": true,
+	"kms": true, "ssm": true, "eventbridge": true,
+}
 
 // awsRoute is one type-host's resource→backend table (e.g. s3.demo.doze:
 // {uploads: 127.0.0.5:9000, thumbs: 127.0.0.6:9000}).
@@ -135,9 +141,166 @@ func (a *awsRouter) serve(w http.ResponseWriter, r *http.Request, rt awsRoute) {
 		a.serveSQS(w, r, rt)
 	case "sns":
 		a.serveSNS(w, r, rt)
+	case "dynamodb":
+		a.serveDynamoDB(w, r, rt)
+	case "lambda":
+		a.serveLambda(w, r, rt)
+	case "secretsmanager":
+		a.serveSecrets(w, r, rt)
+	case "kms", "ssm", "eventbridge":
+		// One instance per type is the norm for these, and their requests don't
+		// always name a routable resource (KMS Decrypt carries no KeyId, SSM
+		// GetParametersByPath is hierarchical, EventBridge has an implicit default
+		// bus). Route by the identifier when present, else to the single backend.
+		a.serveSingle(w, r, rt)
 	default:
 		http.Error(w, "doze: unknown AWS engine "+rt.Engine, http.StatusNotFound)
 	}
+}
+
+// firstTarget returns a deterministic backend for a type-host — the resource
+// whose name sorts first. The fallback for requests that don't name a routable
+// resource (identifier-less operations, and the common single-backend case).
+func firstTarget(rt awsRoute) string {
+	best := ""
+	for name := range rt.Resources {
+		if best == "" || name < best {
+			best = name
+		}
+	}
+	if best == "" {
+		return ""
+	}
+	return rt.Resources[best]
+}
+
+// routeResource proxies to the named resource's backend, falling back to the
+// single/first backend when the name is empty or unknown — so a single-instance
+// service and identifier-less operations still reach a backend. Unlike the strict
+// s3/sqs/sns handlers, the newer services prefer reaching a backend (which
+// answers authoritatively) over a synthesized not-found.
+func (a *awsRouter) routeResource(w http.ResponseWriter, r *http.Request, rt awsRoute, resource string) {
+	if resource != "" {
+		if t, ok := rt.Resources[resource]; ok {
+			a.proxyTo(t).ServeHTTP(w, r)
+			return
+		}
+	}
+	if t := firstTarget(rt); t != "" {
+		a.proxyTo(t).ServeHTTP(w, r)
+		return
+	}
+	awsError(w, r, "ResourceNotFoundException", "no "+rt.Engine+" backend is running", http.StatusNotFound)
+}
+
+// --- DynamoDB: table is TableName in the JSON body ---
+
+func (a *awsRouter) serveDynamoDB(w http.ResponseWriter, r *http.Request, rt awsRoute) {
+	body := readBody(r)
+	if awsAction(r, body) == "ListTables" {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.0")
+		_ = json.NewEncoder(w).Encode(map[string]any{"TableNames": sortedResources(rt)})
+		return
+	}
+	a.routeResource(w, r, rt, awsParam(r, body, "TableName"))
+}
+
+// --- Lambda: function name is the /2015-03-31/functions/<name> path segment ---
+
+func (a *awsRouter) serveLambda(w http.ResponseWriter, r *http.Request, rt awsRoute) {
+	fn := lambdaFunctionFromPath(r.URL.Path)
+	if fn == "" && r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/functions") {
+		// ListFunctions: synthesize from the known function set.
+		var fns []map[string]any
+		for _, name := range sortedResources(rt) {
+			fns = append(fns, map[string]any{
+				"FunctionName": name,
+				"FunctionArn":  "arn:aws:lambda:" + awsRegion + ":" + awsAccountID + ":function:" + name,
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"Functions": fns})
+		return
+	}
+	a.routeResource(w, r, rt, fn)
+}
+
+// lambdaFunctionFromPath extracts the function name from a Lambda REST path like
+// /2015-03-31/functions/<name>/invocations, or "" for the collection path.
+func lambdaFunctionFromPath(path string) string {
+	const marker = "/functions/"
+	i := strings.Index(path, marker)
+	if i < 0 {
+		return ""
+	}
+	rest := path[i+len(marker):]
+	if rest == "" {
+		return ""
+	}
+	if j := strings.IndexByte(rest, '/'); j >= 0 {
+		return rest[:j]
+	}
+	return rest
+}
+
+// --- Secrets Manager: secret is SecretId (name or ARN) in the JSON body ---
+
+func (a *awsRouter) serveSecrets(w http.ResponseWriter, r *http.Request, rt awsRoute) {
+	body := readBody(r)
+	if awsAction(r, body) == "ListSecrets" {
+		var list []map[string]any
+		for _, name := range sortedResources(rt) {
+			list = append(list, map[string]any{"Name": name})
+		}
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		_ = json.NewEncoder(w).Encode(map[string]any{"SecretList": list})
+		return
+	}
+	a.routeResource(w, r, rt, secretName(awsParam(r, body, "SecretId")))
+}
+
+// secretName reduces a SecretId (bare name or ARN with a random -XXXXXX suffix)
+// to the stored secret name, matching how the backend is keyed.
+func secretName(id string) string {
+	if !strings.HasPrefix(id, "arn:") {
+		return id
+	}
+	parts := strings.SplitN(id, ":", 7)
+	if len(parts) != 7 {
+		return id
+	}
+	name := parts[6]
+	if i := strings.LastIndexByte(name, '-'); i > 0 && len(name)-i == 7 {
+		name = name[:i]
+	}
+	return name
+}
+
+// serveSingle routes KMS/SSM/EventBridge: by the request's identifier when it
+// names one, else to the single backend.
+func (a *awsRouter) serveSingle(w http.ResponseWriter, r *http.Request, rt awsRoute) {
+	body := readBody(r)
+	res := ""
+	switch rt.Engine {
+	case "eventbridge":
+		res = awsParam(r, body, "EventBusName")
+	case "ssm":
+		res = awsParam(r, body, "Name")
+	case "kms":
+		res = awsParam(r, body, "KeyId")
+	}
+	a.routeResource(w, r, rt, res)
+}
+
+// sortedResources returns the resource names of a type-host, sorted — for the
+// synthesized List operations.
+func sortedResources(rt awsRoute) []string {
+	names := make([]string, 0, len(rt.Resources))
+	for name := range rt.Resources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // --- S3: bucket is the first path segment (path-style addressing) ---
@@ -415,8 +578,14 @@ func awsResourceURL(engineType, host, resource string) string {
 		return "http://" + host + "/" + awsAccountID + "/" + resource
 	case "sns":
 		return "arn:aws:sns:" + awsRegion + ":" + awsAccountID + ":" + resource
-	default: // s3: path-style bucket URL
-		return "http://" + host + "/" + resource
+	case "s3":
+		return "http://" + host + "/" + resource // path-style bucket URL
+	case "lambda":
+		return "http://" + host + "/2015-03-31/functions/" + resource
+	default:
+		// dynamodb/kms/ssm/secretsmanager/eventbridge: the resource is named in
+		// the request, so the addressable thing is the shared endpoint itself.
+		return "http://" + host
 	}
 }
 
