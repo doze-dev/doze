@@ -400,6 +400,15 @@ func (r *Runtime) bootDeps(ctx context.Context, name string, depList []engine.De
 		if bp, ok := depDrv.(engine.BackendProvider); ok {
 			dep.URL = bp.BackendURL(depInst)
 		}
+		// AWS built-ins expose a shared per-service endpoint on the :80 ingress
+		// (http://<svc>.<stack>.doze). It's the SDK-reachable URL a dependent's
+		// spawned process — e.g. a Lambda handler calling a sibling — needs, since
+		// the backend itself listens only on a unix socket.
+		if dep.URL == "" {
+			if shared, ok := r.cfg.AWSEndpoint(depDecl.Type); ok {
+				dep.URL = shared
+			}
+		}
 		deps[dn] = dep
 	}
 	return deps, held, nil
