@@ -77,11 +77,17 @@ out of your way the moment you stop using it.
 brew install doze-dev/tap/doze
 
 # 2. Describe what you need
-doze init                      # writes a starter doze.hcl
+doze init                      # scaffolds a doze.hcl (a Postgres + cache to start)
 
-# 3. Use it — the database boots on the first connection
-doze shell app                 # opens a real psql shell (cold-boots `app` for you)
-doze run -- <your command>     # ensures the backends are up, then runs your command
+# 3. Bring it up — the daemon auto-starts; engines stay cold until first use
+doze up
+doze status                    # what's declared, what's awake, and each endpoint
+
+# 4. Connect — the database boots on the first connection
+eval "$(doze env)"             # export DATABASE_URL, REDIS_URL, AWS_ENDPOINT_URL_*, …
+psql "$DATABASE_URL"           # first connect cold-boots + converges `app`; next is instant
+
+doze run -- <your command>     # or: ensure the backends are up, then run your command
 ```
 
 That's the whole loop. The first connection boots the engine and converges it to
@@ -191,7 +197,7 @@ and published by the companion repo
 New here? Read these in order:
 
 1. **[Why doze](https://doze.nerdmenot.in/why/doze/)** — the case for it, and whether it's for you.
-2. **[Getting started](https://doze.nerdmenot.in/start/getting-started/)** — from zero to a running app, step by step.
+2. **[Getting started](docs/getting-started.md)** — from zero to a running app, step by step (in this repo). Also on the [site](https://doze.nerdmenot.in/start/getting-started/).
 3. **[Core concepts](https://doze.nerdmenot.in/start/concepts/)** — the daemon, lazy boot, reaping, convergence, endpoints.
 4. **[The engines](https://doze.nerdmenot.in/guides/engines/)** — what each engine is and when to reach for it.
 
