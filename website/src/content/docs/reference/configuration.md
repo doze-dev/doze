@@ -15,13 +15,14 @@ valkey   "cache" { version = 9 }
 ```
 
 Jump to an engine: [postgres](#postgres) · [valkey](#valkey) ·
-[kvrocks](#kvrocks) · [ferret](#ferret) · [s3](#s3) · [sqs](#sqs) ·
-[sns](#sns). Project-level blocks: [modules](#modules) · [TLS](#tls).
+[kvrocks](#kvrocks) · [ferret](#ferret) · [mariadb](#mariadb) ·
+[temporal](#temporal) · [kafka](#kafka) · [aws](#aws).
+Project-level blocks: [modules](#modules) · [TLS](#tls).
 
 This is the field-by-field reference. For what each engine *is* and when to use
-it, see **[The engines](/guides/engines/)**. Every engine's full argument
-reference is also one command away — `doze modules docs <engine>` — generated
-from the module itself, so it can't be stale.
+it, see **[The engines](/guides/engines/)**. Each engine's page on the
+[registry](https://doze.nerdmenot.in/registry/) carries the same reference,
+generated from the module itself, so it can't be stale.
 
 ## Root
 
@@ -53,7 +54,7 @@ Every `<engine> "<name>" { … }` block accepts:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for database engines; the AWS engines (`s3`/`sqs`/`sns`) take no version. |
+| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for every engine except `aws` and `process`, which take none. |
 | `listen` | string | next port from root `listen` | Per-instance client address (`"127.0.0.1:5544"` or `"unix:/path.sock"`). |
 
 `version` is the only version you declare. The *module* (the plugin that
@@ -341,99 +342,155 @@ ferret "shop" {
 | `database` | block | — | A Mongo database to ensure (repeatable; label = name), with nested `collection` blocks. |
 | `settings` | map(string) | — | Extra `FERRETDB_*` gateway settings. |
 
-Full argument/block reference: `doze modules docs ferret` or its
+Full argument/block reference: its
 [registry page](https://doze.nerdmenot.in/registry/doze/ferret).
 
 ---
 
-## s3
+## mariadb
 
-Local object storage. Buckets are created on boot / `doze sync`.
+MySQL-compatible relational database (the MariaDB 11.4 LTS series). **Linux
+x86_64 only** — MariaDB publishes portable binaries for no other platform;
+`doze lint` says so up front.
 
 ```hcl
-s3 "media" {
-  bucket "uploads" {}
-  bucket "thumbs" { versioning = true }
+mariadb "db" {
+  version = 11.4
+
+  user "app" { password = "app" }
+  grant { user = "app"  privileges = "ALL"  database = "db" }
 }
 ```
 
-**`bucket "<name>" { … }`**
-
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `versioning` | bool | `false` | Enable object versioning (best-effort on the dev backend). |
+| `version` | string | — | MariaDB server version (e.g. `11.4`). **Required.** |
+| `character_set` | string | — | Default charset for the instance database (e.g. `utf8mb4`). |
+| `collation` | string | — | Default collation. |
+| `settings` | map(string) | — | Extra `[mysqld]` my.cnf entries. |
+
+**`user "<name>" { … }`** — a MariaDB account (`host`, `password`).
+**`grant { … }`** — a privilege grant (`user`, `privileges`, `database`, `table`).
 
 ---
 
-## sqs
+## temporal
 
-Local message queues.
+A durable workflow engine: the Temporal dev server (single pure-Go binary —
+services, SQLite store, Web UI). Workers long-poll it, which holds it awake.
 
 ```hcl
-sqs "jobs" {
-  queue "emails" { visibility_timeout = "30s" }
-  queue "emails-dlq" {}
-  redrive "emails" {
-    dead_letter       = "emails-dlq"
-    max_receive_count = 5
-  }
+temporal "dev" {
+  version = 1.1
+  port    = 7233
+  ui_port = 8233
+
+  namespace "orders" {}
 }
 ```
 
-**`queue "<name>" { … }`** — durations accept Go syntax (`30s`, `5m`, `12h`) or bare seconds.
-
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `fifo` | bool | `false` | FIFO queue (name must end in `.fifo`). |
-| `content_based_dedup` | bool | `false` | FIFO: dedupe by body hash (5-minute window). |
-| `visibility_timeout` | duration | `30s` | How long a received message stays invisible. |
-| `delay` | duration | `0s` | Delivery delay for new messages. |
-| `retention` | duration | `96h` (4 days) | How long messages are kept. |
-| `wait_time` | duration | `0s` | Default long-poll wait (server caps at `20s`). |
-| `max_message_size` | number | `262144` | Max message bytes (256 KiB). |
+| `version` | string | — | Temporal CLI version (e.g. `1.1`). **Required.** |
+| `port` | number | `7233` | Frontend gRPC port. |
+| `ui_port` | number | `8233` | Web UI port. |
+| `headless` | bool | `false` | Disable the Web UI. |
 
-**`redrive "<queue>" { … }`** — dead-letter policy for the named queue.
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `dead_letter` | string | — | Target dead-letter queue (in the same `sqs` instance). **Required.** |
-| `max_receive_count` | number | — | Move to the DLQ after this many receives. **Required.** |
+**`namespace "<name>" { … }`** — a namespace to create (`retention`, `description`).
+**`restart { … }`** — supervisor restart policy (`policy`, `backoff`, `max_retries`).
 
 ---
 
-## sns
+## kafka
 
-Local pub/sub with SNS→SQS fanout and webhooks.
+A single-node Kafka-protocol broker, no JVM. `version` is the **advertised
+protocol profile** (1–4), not a broker build. Its web console serves one port
+above the broker.
 
 ```hcl
-sns "events" {
-  sqs = sqs.jobs.name
-  topic "signups" {}
-  subscribe "signups" {
-    protocol = "sqs"
-    endpoint = "emails"
-    raw      = true
-    filter   = { eventType = ["created"] }
-  }
+kafka "events" {
+  version = 4
+
+  auto_create_topics = true
+  retention          = "168h"
+
+  topic "orders"   { partitions = 3 }
+  topic "payments" { config = { "cleanup.policy" = "compact" } }
 }
 ```
 
-**Block field**
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `version` | number | — | Advertised Kafka protocol profile — 1, 2, 3, or 4. **Required.** |
+| `auto_create_topics` | bool | `true` | Create unknown topics on first reference. |
+| `default_partitions` | number | `1` | Partition count for auto-created topics. |
+| `retention` | duration | unbounded | Delete segments older than this (`"168h"`). |
+| `retention_bytes` | number | `0` (unbounded) | Delete old segments past this per-partition size. |
+
+**`topic "<name>" { … }`**
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `sqs` | string | none | Name of a declared `sqs` instance to deliver to (held running while SNS runs). |
+| `partitions` | number | `1` | Partition count. |
+| `config` | map(string) | — | Per-topic config (e.g. `"cleanup.policy" = "compact"`). |
 
-**`topic "<name>" { }`** — no fields; just declares the topic.
+References: `kafka.<name>.address` is the bootstrap `host:port`.
 
-**`subscribe "<topic>" { … }`** — a subscription on the named topic.
+---
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `protocol` | string | — | `sqs`, `http`, or `https`. **Required.** |
-| `endpoint` | string | — | Queue name/ARN (for `sqs`) or a URL (for `http(s)`). **Required.** |
-| `raw` | bool | `false` | Raw delivery (deliver the bare message, not the SNS envelope). |
-| `filter` | object | none | Message-attribute filter policy, e.g. `{ type = ["a","b"] }`. |
+## aws
+
+The whole local AWS as **one instance**: S3, SQS, SNS, DynamoDB (with
+Streams), Lambda, EventBridge, KMS, SSM, and Secrets Manager behind a single
+endpoint, with a web console at `/_console`. Takes no `version`. Resources are
+nested blocks, converged on boot; their labels are the resource names your SDK
+uses.
+
+```hcl
+aws "local" {
+  bucket "uploads"     { versioning = true }
+  queue  "emails"      { dlq = "auto"  max_receives = 5 }
+  queue  "orders.fifo" { fifo = true  content_dedup = true }
+
+  topic "signups" {
+    subscribe { queue = "emails"  raw = true }
+  }
+
+  table "sessions" {
+    key = "session_id:S"
+    ttl = "expires_at"
+  }
+
+  function "resize" {
+    code    = "./functions/resize"    # dir with a provided.al2 bootstrap
+    timeout = 10
+  }
+
+  rule "order_placed" {
+    pattern = "{\"source\":[\"shop.checkout\"]}"
+    targets = ["lambda:resize", "queue:emails"]
+  }
+
+  key       "app_key"      {}
+  parameter "/demo/flag"   { value = "on" }
+  secret    "db_password"  { value = "local-only" }
+}
+```
+
+**Resource blocks** (each repeatable; the label is the name):
+
+| Block | What it declares |
+|---|---|
+| `bucket` | An S3 bucket — `versioning`, `object_lock` (implies versioning). |
+| `queue` | An SQS queue — `fifo`, `content_dedup`, `dlq` (`"auto"` creates + wires a dead-letter companion), `max_receives`, timing fields. FIFO names end in `.fifo`. |
+| `topic` | An SNS topic with `subscribe` blocks (`queue`/`lambda`/`http`, `raw`, `filter`). |
+| `table` | A DynamoDB table — `key = "pk:S"` shorthand (add `sort = "at:N"`), `ttl`, `gsi`/`lsi` blocks. Streams on. |
+| `function` | A Lambda running as a real local process — `code` (local dir with a `provided.al2` bootstrap), `timeout`, `env`. |
+| `rule` | An EventBridge rule — `pattern` (a **literal JSON string** — HCL functions aren't available here), `targets` as `"kind:name"` shorthand. |
+| `key` / `parameter` / `secret` | KMS key (real local crypto) / SSM parameter (label = full `/path`) / Secrets Manager secret (never stomped without force). |
+
+References: `aws.<name>.url` is the endpoint for every `AWS_ENDPOINT_URL_*`
+variable. Resource names inside the block are plain strings to your app.
 
 ---
 
@@ -531,12 +588,12 @@ modules {
 | `<type> { source }` | string | `doze/<type>` | Which `<namespace>/<name>` provides this engine type. |
 | `<type> { version }` | string | auto | Exact **module** release pin — the escape hatch for holding back a regressed release. Not the engine version. |
 
-Module workflow in one breath: discovery is `doze modules search`, docs are
-`doze modules docs <type>`, provenance is `doze modules info <source>`, and
-updates are explicit — `doze modules upgrade --check` reports, `doze modules
-upgrade` moves the pins (commit the updated `doze.lock`). A declared engine
-version the pinned module doesn't support fails with exactly that upgrade
-command. See the [CLI reference](/reference/cli/#doze-modules-alias-mod).
+Module workflow in one breath: discovery and docs live on the
+[registry](https://doze.nerdmenot.in/registry/); updates are explicit —
+`doze modules upgrade --check` reports, `doze modules upgrade` moves the pins
+(commit the updated `doze.lock`). A declared engine version the pinned module
+doesn't support fails with exactly that upgrade command. See the
+[CLI reference](/reference/cli/).
 
 ## Splitting config across files
 

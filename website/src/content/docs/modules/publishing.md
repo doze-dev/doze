@@ -57,9 +57,8 @@ official one per-module. The design is
 ## 4. What users see
 
 ```sh
-doze modules search           # your module, its tagline, engine versions
-doze modules docs httpd       # your Describe(), rendered
-doze modules info acme/httpd  # your releases, protocol, signature status
+# your registry page now shows the module: tagline, engine versions, the
+# config reference rendered from your Describe(), releases + signature status
 ```
 
 …and in `doze.hcl`:

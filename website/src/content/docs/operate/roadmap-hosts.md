@@ -36,7 +36,7 @@ modules {
   bare `<ns>` read as the default host — existing locks stay valid.
 - The mirror override keeps meaning "the default host"; explicit hosts are
   never redirected — a project that names `registry.acme.dev` means it.
-- Discovery (`doze modules search`) stays on the default host; explicit hosts
+- Discovery (the registry catalog) stays on the default host; explicit hosts
   are for use, not federation.
 
 ## What operators should do about it now

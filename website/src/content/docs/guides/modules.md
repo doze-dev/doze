@@ -1,33 +1,48 @@
 ---
 title: "Modules, for users"
-description: How engines are provided, selected, locked, and upgraded — and every command you need.
+description: How engines are provided, selected, locked, and upgraded — and the one version that's actually yours.
 ---
 
 Every engine except `process` is a **module**: a signed plugin doze fetches
 from the registry the first time your config names its type. This page is the
 user's side of that machinery — [authors go here](/modules/overview/).
 
-## The two versions (only one is yours)
+## The one version that's yours
 
-- **Engine version** — what you declare: `version = 18`. The actual Postgres.
-- **Module version** — the plugin's own release, selected automatically: the
-  newest release compatible with your doze and every engine version you
-  declared, then pinned in `doze.lock`.
+The only version you ever write is the **engine version** — the thing itself:
 
-You never write a module version. You meet them in `doze modules` output and
-in errors that name their own fix.
+```hcl
+postgres "app" { version = 18 }   # the actual Postgres major
+kafka    "bus" { version = 4  }   # the Kafka protocol level
+```
 
-## The lifecycle, command by command
+Behind that sit two numbers you'll see in `doze.lock` and occasionally in an
+error, and it's worth knowing what they are so you can ignore them with
+confidence:
+
+- **Module version** (`0.2.3`) — the plugin's own release. doze picks the
+  newest one compatible with your doze and the engine versions you declared,
+  pins it in `doze.lock`, and never moves it on its own. It says nothing about
+  the engine — postgres module 0.2.3 runs Postgres 14–18.
+- **Plugin protocol** (`1`) — the module↔doze wire contract. Purely internal;
+  if a module and your doze can't speak, doze tells you before anything runs.
+
+Neither of these tells you whether an engine "is usable" — that's the engine
+version list and the platform list, both on each module's
+[registry page](https://doze.nerdmenot.in/registry/), generated from the module
+itself so they can't drift.
+
+## The lifecycle
 
 ```sh
-doze modules search              # discover: what does the registry publish?
-doze modules docs postgres      # the full config reference, in your terminal
-doze up                          # first use fetches, verifies, pins — done
-doze modules list                # what this project runs, and from where
-doze modules info doze/postgres # provenance: releases, protocol, signatures
-doze modules upgrade --check    # anything newer that's compatible? (CI: exit 1)
-doze modules upgrade             # move the pins; commit the updated doze.lock
+doze up                        # first use fetches, verifies, pins — done
+doze modules upgrade --check   # anything newer that's compatible? (CI: exit 1)
+doze modules upgrade           # move the pins; commit the updated doze.lock
 ```
+
+That's the whole command surface. Discovery lives on the
+[registry](https://doze.nerdmenot.in/registry/) — every module's page shows its
+engine versions, platforms, full config reference, and release history.
 
 Pins **never move on their own** — a moving registry can't drift a locked
 project, and warm caches resolve fully offline.

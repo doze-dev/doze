@@ -67,7 +67,7 @@ Cheap and sufficient for static files:
 
 - CI: `validate` on every PR/push; `validate:remote` scheduled daily (catches
   archive-host bitrot).
-- A canary: `DOZE_MODULES_MIRROR=<your base> doze modules info <ns>/<name>`
+- A canary: `DOZE_MODULES_MIRROR=<your base> doze modules upgrade --check`
   in a scheduled job — exercises the exact client path, signatures included.
 - Availability is the CDN's problem; *integrity* failures are what your alerts
   are for, and clients enforce those anyway. The registry being down never

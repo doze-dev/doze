@@ -103,4 +103,5 @@ than YAML. That's a real cost — paid once, in the first hour. The YAML costs
 above are paid on every silent typo, every stringly-typed reference, and every
 template layer, forever. doze also keeps the learning surface small: most
 projects use exactly what's on this page — blocks, attributes, references —
-and `doze modules docs <engine>` puts every valid argument one command away.
+and each engine's registry page puts every valid argument one click away,
+generated from the module itself.

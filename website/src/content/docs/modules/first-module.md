@@ -62,7 +62,7 @@ doc-comment explaining its half of the contract.
 ## 4. The habits that keep you honest
 
 - **`Describe()` is not optional.** The release tool refuses to package
-  without it; docs, the registry page, `doze modules docs`, and the signed
+  without it; docs, the registry page, and the signed
   engine-support gate all generate from it.
   [Details](/modules/describe/).
 - **The drift-guard test** (in the template) fails when `Describe()` and your

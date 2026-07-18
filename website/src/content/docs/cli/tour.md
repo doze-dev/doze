@@ -142,8 +142,8 @@ users](/guides/modules/), [managing binaries](/reference/binaries/) — but the
 commands live here:
 
 ```sh
-doze modules search          # what engines can I use?
-doze modules docs postgres   # the full config reference for one, in your terminal
+# discovery lives on the registry — doze.nerdmenot.in/registry — engine
+# versions, platforms, and the config reference, generated from each module
 doze modules upgrade --check # anything newer worth pulling? (CI-friendly)
 doze binaries available postgres   # which engine versions exist
 ```

@@ -13,9 +13,9 @@ and the release tool refuses to package a module without it.
 | Surface | From |
 |---|---|
 | The module's registry page (config tables, example, tagline) | `Describe()` → `meta.yaml` |
-| `doze modules docs <type>` in the terminal | same `meta.yaml` |
+| The raw `meta.yaml` a registry serves | the same document |
 | The **signed index's engine-support gate** (`releases.<v>.engines`) | `Describe().Versions` |
-| The catalog (`doze modules search` rows) | title/tagline/category/versions |
+| The catalog (`index.json` — registry search, init wizard) | title/tagline/category/versions |
 
 That third row is the one with teeth: the versions you claim become the
 machine-enforced compatibility contract. Claim `{"14"…"18"}` and a user
@@ -73,4 +73,4 @@ func TestDescribeMatchesConfig(t *testing.T) {
 
 Cheap insurance: the moment a PR adds a config field without documenting it
 (or documents fiction), CI says so — which is the entire reason users can
-trust `doze modules docs` over a README.
+trust the generated registry page over a README.

@@ -1,7 +1,7 @@
 ---
 title: "The engines"
+description: Every engine doze runs, what it speaks, which versions you can declare, and where it works.
 ---
-
 
 doze runs a deliberately chosen set of engines. Postgres is the real thing. The
 rest are picked to be **cheap, real, and license-clean local stand-ins** for
@@ -9,19 +9,29 @@ software that's otherwise heavy, costly, or legally encumbered to run yourself �
 so you get the API your code already speaks, without the baggage.
 
 Every engine boots on first connect and reaps when idle, the same way
-([concepts](/start/concepts/)). What differs is *what* each one is and *when* you'd
-reach for it.
+([concepts](/start/concepts/)). What differs is *what* each one is and *when*
+you'd reach for it.
 
 ## At a glance
 
-| Engine | Speaks | Use it as | Why this one |
-|---|---|---|---|
-| **PostgreSQL** | the Postgres wire protocol | your primary SQL database | the real, unmodified upstream |
-| **Valkey** | the Redis (RESP) protocol | an in-memory cache | the open-source Redis after the 2024 relicense |
-| **Kvrocks** | the Redis (RESP) protocol | a durable, disk-backed KV store | Redis API without keeping everything in RAM |
-| **DocumentDB** | the MongoDB wire protocol | a document store | "Mongo" without MongoDB's license, on Postgres |
-| **S3 / SQS / SNS** | the AWS APIs | object storage, queues, pub/sub | local AWS with no LocalStack, Docker, or JVM |
-| **process** | anything you can run | *your own* services (API, worker, frontend…) | a native local orchestrator — see [Running your own services](/guides/microservices/) |
+The **version** column is the one you write in `doze.hcl` — it's the engine's
+own version (the actual Postgres major, the Kafka protocol level), never a
+plugin or SDK number. Each engine links to its page on the
+[registry](https://doze.nerdmenot.in/registry/), where the version list and the
+full config reference are generated from the module itself, so they can't
+drift.
+
+| Engine | Speaks | Use it as | `version =` | Runs on |
+|---|---|---|---|---|
+| [**PostgreSQL**](https://doze.nerdmenot.in/registry/doze/postgres/) | the Postgres wire protocol | your primary SQL database | 14 – 18 | macOS · Linux |
+| [**Valkey**](https://doze.nerdmenot.in/registry/doze/valkey/) | Redis (RESP) | an in-memory cache | 8 – 9 | macOS · Linux |
+| [**Kvrocks**](https://doze.nerdmenot.in/registry/doze/kvrocks/) | Redis (RESP) | a durable, disk-backed KV store | 2 | macOS · Linux |
+| [**DocumentDB**](https://doze.nerdmenot.in/registry/doze/ferret/) | the MongoDB wire protocol | a document store | 2 | macOS · Linux |
+| [**MariaDB**](https://doze.nerdmenot.in/registry/doze/mariadb/) | MySQL | a MySQL-compatible SQL database | 11 | Linux x86_64 only |
+| [**Temporal**](https://doze.nerdmenot.in/registry/doze/temporal/) | Temporal gRPC + Web UI | a durable workflow engine | 1.1 | macOS · Linux |
+| [**Kafka**](https://doze.nerdmenot.in/registry/doze/kafka/) | the Kafka protocol | an event stream / message log | 1 – 4 | macOS · Linux |
+| [**AWS**](https://doze.nerdmenot.in/registry/doze/aws/) | the AWS APIs (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager) | the whole local cloud, one block | — | macOS · Linux |
+| **process** | anything you can run | *your own* services (API, worker, frontend…) | — | macOS · Linux |
 
 That last row is easy to overlook and shouldn't be: the `process` engine runs
 **your** services — supervised, ordered, health-gated — so a `doze.hcl` can
@@ -31,11 +41,18 @@ covers running your code.
 
 ## PostgreSQL — the real database
 
-doze runs genuine upstream PostgreSQL (majors 14–17). Not a fork, not an
+doze runs genuine upstream PostgreSQL (majors 14–18). Not a fork, not an
 emulation — the same binary you'd run in production, so every extension, every
 client, and every wire feature behaves identically. On first boot doze creates
 the database and converges your declared roles, schemas, grants, and extensions,
 then gets out of the way.
+
+```hcl
+postgres "app" {
+  version = 18
+  database "app" {}
+}
+```
 
 → [PostgreSQL recipes](/guides/recipes/postgres/)
 
@@ -98,37 +115,109 @@ development, not a reimplementation of every MongoDB feature.
 
 ```hcl
 ferret "docs" {
-  version = "2.7"        # the FerretDB gateway version
+  version = 2
   port    = 27017
 }
 ```
 
 → [DocumentDB recipes](/guides/recipes/documentdb/)
 
-## S3, SQS, SNS — local AWS, no LocalStack
+## MariaDB — MySQL, without Oracle
+
+MariaDB is the community fork of MySQL (GPLv2, MariaDB Foundation), begun by
+MySQL's original authors after the Oracle acquisition. It speaks the MySQL
+protocol, so `mysql://` clients and drivers connect unchanged. doze runs the
+upstream 11.4 LTS series.
+
+One honest caveat: MariaDB publishes portable binaries only for **x86_64
+Linux** — so this engine runs on Linux (including CI containers), not on
+Apple Silicon Macs. The registry page and `doze lint` both say so rather than
+letting you find out at boot.
+
+```hcl
+mariadb "db" {
+  version = 11.4
+}
+```
+
+## Temporal — durable workflows, one binary
+
+Temporal's dev server is a single pure-Go binary bundling the Temporal
+services, a SQLite store, and the Web UI — no JVM, no Docker, no external
+database.[^temporal] doze supervises it like everything else (workers long-poll
+it, so it stays awake while in use), converges your declared namespaces, and
+exposes both the gRPC frontend and the Web UI.
+
+```hcl
+temporal "dev" {
+  version = 1.1
+  port    = 7233
+  ui_port = 8233
+
+  namespace "orders" {}
+}
+```
+
+## Kafka — the protocol, without the JVM
+
+Kafka itself is a JVM heavyweight; the usual local answer is Docker plus a
+gigabyte of images. doze's Kafka engine is a **single-node, Kafka-protocol
+broker written in Go** (the [doze-kafka](https://github.com/doze-dev/doze-kafka)
+project) — real wire protocol, real consumer groups (classic and KIP-848),
+compaction, retention — verified against franz-go, usable from any Kafka
+client. The `version` you declare is the **Kafka protocol profile** (1–4) your
+clients expect, not a broker build.
+
+It ships with a **web console** — topics, a live message tape, a produce
+panel, consumer groups with lag — served one port above the broker
+(`:9093` for a `:9092` broker).
+
+```hcl
+kafka "events" {
+  version = 4
+
+  topic "orders"   { partitions = 3 }
+  topic "payments" { config = { "cleanup.policy" = "compact" } }
+}
+```
+
+A dev-grade single node for building and testing against — not a replacement
+for a production cluster.
+
+→ [Kafka recipe](/guides/recipes/kafka/)
+
+## AWS — the whole local cloud, one block
 
 The usual way to fake AWS locally is LocalStack: a ~1.2 GB Docker image running
-Python, with a JVM behind some services. doze takes a different path — **S3, SQS,
-and SNS are implemented in pure Go and compiled into the doze binary.** There's no
-image to pull, no Python, no Java; doze runs each as a short-lived child process
-behind the same proxy, so they cold-boot, persist to disk, and reap like every
-other engine. Your AWS SDK talks to them through the injected
-`AWS_ENDPOINT_URL_*` variables, unchanged.
+Python, with a JVM behind some services. doze takes a different path: **one
+`aws` block runs the whole local cloud as a single ~20 MB process** — S3, SQS,
+SNS, DynamoDB (with Streams), Lambda, EventBridge, KMS, SSM Parameter Store,
+and Secrets Manager, all pure Go (the
+[doze-aws](https://github.com/doze-dev/doze-aws) project), behind one endpoint
+your SDK already understands.
 
-- **S3** — object storage with buckets, multipart uploads, and presigned URLs
-  (embeds [gofakes3](https://github.com/johannesboyne/gofakes3)).
-- **SQS** — standard and FIFO queues, dead-letter redrive, long polling.
-- **SNS** — topics, SNS→SQS fanout, filter policies, and HTTP webhooks.
+Buckets, queues, topics, tables, functions, and rules are **declared inside the
+block** and converged on boot. A **web console** at `/_console` covers all of it
+— browse a bucket, peek a queue, invoke a function, watch live API traffic.
 
-These are dev-grade conveniences — fast and faithful enough to build and test
-against, not a replacement for real AWS in production.
+```hcl
+aws "local" {
+  bucket "uploads" {}
+  queue  "emails"  { dlq = "auto" }
+  topic  "signups" { subscribe { queue = "emails" } }
+  table  "sessions" { key = "session_id:S"  ttl = "expires_at" }
+}
+```
 
-→ [S3](/guides/recipes/s3/) · [SQS](/guides/recipes/sqs/) · [SNS](/guides/recipes/sns/)
-recipes
+There is no `version =` here — the services track current AWS APIs, and the
+whole thing is dev-grade: fast and faithful enough to build and test against,
+not a replacement for real AWS in production.
+
+→ [AWS recipe](/guides/recipes/aws/)
 
 ---
 
-**Next:** put them together in **[Recipes](/guides/engines/)**, or see every
+**Next:** put them together in **[Recipes](/guides/recipes/postgres/)**, or see every
 field in the **[Configuration reference](/reference/configuration/)**.
 
 [^redis]: Redis adopted dual RSALv2 / SSPLv1 licensing starting with Redis 7.4
@@ -152,3 +241,7 @@ field in the **[Configuration reference](/reference/configuration/)**.
     extension](https://github.com/microsoft/documentdb) for PostgreSQL with a
     [FerretDB](https://github.com/FerretDB/FerretDB) gateway (Apache-2.0) that
     speaks the MongoDB wire protocol — all run privately and exposed as one engine.
+
+[^temporal]: The [Temporal CLI](https://github.com/temporalio/cli) dev server
+    (MIT) bundles the server, persistence, and Web UI in one process — the same
+    tool `temporal server start-dev` runs.

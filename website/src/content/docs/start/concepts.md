@@ -152,10 +152,10 @@ providers. What keeps this invisible day to day:
   waiting updates (exit 1 in CI); `doze modules upgrade` moves the pins. When a
   config needs a newer module — you declared `version = 19`, or used an
   argument added in a later release — the error names that exact command.
-- **Everything is inspectable.** `doze modules search` (discovery),
-  `doze modules docs <type>` (the config reference, generated from the module),
-  `doze modules info <source>` (signatures + compatibility),
-  `doze modules list` (what this project runs).
+- **Everything is inspectable.** The [registry](https://doze.nerdmenot.in/registry/)
+  shows every module's engine versions, platforms, config reference, and release
+  history — generated from the module itself; `doze.lock` shows exactly what
+  this project runs and the signatures it pinned.
 
 Offline behavior matches the lockfile promise: a pinned, cached module resolves
 with zero network. Writing your own engine? Start at

@@ -76,8 +76,9 @@ Honesty section: signatures prove *who published*, not that the code is
 benign — a malicious publisher signs malware happily. The official `doze/`
 namespace is built in public CI from public source; for third-party modules,
 the trust decision is yours, and the tooling's job is to make identity
-unforgeable and changes visible (`doze modules info` shows provenance;
-`doze modules docs` shows exactly what config it accepts). Verification also
+unforgeable and changes visible (each module's registry page shows its
+provenance, signature status, and exactly what config it accepts —
+generated from the module itself). Verification also
 starts at first fetch — the initial key pin is trust-on-first-use, the same
 model as SSH.
 

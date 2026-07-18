@@ -99,14 +99,16 @@ func rootCmd() *cobra.Command {
 		Use:   "doze",
 		Short: "Weightless local databases & AWS services — real engines, lazy boot, idle reap",
 		Long: "doze runs real local backing services without Docker — Postgres, MariaDB,\n" +
-			"Valkey, Kvrocks, FerretDB (Mongo wire), Temporal, and built-in S3/SQS/SNS.\n" +
+			"Valkey, Kvrocks, FerretDB (Mongo wire), Temporal, Kafka, and the whole\n" +
+			"local AWS (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, …) as one service.\n" +
 			"A thin proxy boots each service on its first connection and reaps it when\n" +
 			"idle.\n\n" +
 			"Running `doze` opens the dash — the primary surface: the live fleet, logs,\n" +
 			"charts, a command palette (:wake · :sleep · :restart · :reset · :logs …),\n" +
-			"and a manager for each built-in AWS service (press enter on it). The\n" +
-			"commands below are the headless automation core (CI, scripts, Makefiles)\n" +
-			"plus the tools for before the dash can run.",
+			"engine pages for aws and kafka, and an APPS view for your own processes\n" +
+			"(o opens a service's web console). The commands below are the headless\n" +
+			"automation core (CI, scripts, Makefiles) plus the tools for before the\n" +
+			"dash can run.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
