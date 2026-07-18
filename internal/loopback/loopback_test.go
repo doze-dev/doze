@@ -6,7 +6,18 @@ import (
 	"testing"
 )
 
+// requireLoopback skips on machines where addresses past 127.0.0.1 can't be
+// bound (macOS without `doze dns-setup` — including CI runners); Linux always
+// can, so CI's ubuntu leg keeps these covered.
+func requireLoopback(t *testing.T) {
+	t.Helper()
+	if !Available() {
+		t.Skip("loopback range not aliased on this machine (doze dns-setup); covered on Linux")
+	}
+}
+
 func TestAllocatorDistinctAndStable(t *testing.T) {
+	requireLoopback(t)
 	home := t.TempDir()
 	a := NewAllocator(home, os.Getpid())
 
@@ -37,6 +48,7 @@ func TestAllocatorDistinctAndStable(t *testing.T) {
 }
 
 func TestAllocatorReapsDeadStacks(t *testing.T) {
+	requireLoopback(t)
 	home := t.TempDir()
 	// Record an allocation owned by a definitely-dead pid.
 	dead := NewAllocator(home, 999999)

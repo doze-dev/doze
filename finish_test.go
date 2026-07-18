@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,16 +24,23 @@ func TestUpWithProgress(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// The progress callback runs on the event-feed goroutine; guard the slice.
+	var mu sync.Mutex
 	var got []string
 	err := sess.UpWithProgress(ctx, nil, func(p doze.Progress) {
+		mu.Lock()
 		got = append(got, p.Instance+":"+p.State)
+		mu.Unlock()
 	})
 	if err != nil {
 		t.Fatalf("UpWithProgress: %v", err)
 	}
 	// Give the async feed a beat to flush the final transition.
 	time.Sleep(200 * time.Millisecond)
-	if len(got) == 0 {
+	mu.Lock()
+	n := len(got)
+	mu.Unlock()
+	if n == 0 {
 		t.Fatal("no progress events delivered during Up")
 	}
 }
