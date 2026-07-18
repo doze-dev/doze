@@ -20,11 +20,11 @@ fake "x" {
   color   = "red"
 }
 `
-	useCfg, err := Parse([]byte(useSrc), "doze.hcl")
+	useCfg, err := Parse([]byte(useSrc), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("use form: unexpected error: %v", err)
 	}
-	bareCfg, err := Parse([]byte(bareSrc), "doze.hcl")
+	bareCfg, err := Parse([]byte(bareSrc), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("bare form: unexpected error: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestUseAndBareCoexist(t *testing.T) {
 use fake "a" { version = 1 }
 fake "b"     { version = 1 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestUseRejectsBadForms(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := Parse([]byte(tc.src), "doze.hcl")
+			_, err := Parse([]byte(tc.src), "doze.hcl", nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("got %v, want error containing %q", err, tc.want)
 			}

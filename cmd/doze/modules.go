@@ -2,15 +2,14 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/modules"
+	"github.com/doze-dev/doze/internal/ui"
 )
 
 func modulesCmd() *cobra.Command {
@@ -90,9 +89,9 @@ func modulesUpgradeCmd() *cobra.Command {
 				return nil
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 0, 2, 3, ' ', 0)
-			fmt.Fprintln(w, "ENGINE\tSOURCE\tPINNED\tSELECTED\tSTATUS")
+			table := ui.NewTable("ENGINE", "SOURCE", "PINNED", "SELECTED", "STATUS")
 			upgrades, failures := 0, 0
+			var failDetails []string // "engine: error", printed under the table
 			for _, t := range types {
 				pin, source, _ := mm.Pinned(t)
 				from := pin.Version
@@ -104,12 +103,13 @@ func modulesUpgradeCmd() *cobra.Command {
 					switch {
 					case err != nil:
 						failures++
-						fmt.Fprintf(w, "%s\t%s\t%s\t-\t%v\n", t, source, from, err)
+						table.Row(t, source, from, "-", ui.Fail("failed"))
+						failDetails = append(failDetails, fmt.Sprintf("%s: %v", t, err))
 					case insp.Version != pin.Version:
 						upgrades++
-						fmt.Fprintf(w, "%s\t%s\t%s\t%s\tupgrade available\n", t, source, from, insp.Version)
+						table.Row(t, source, from, insp.Version, ui.Warn("upgrade available"))
 					default:
-						fmt.Fprintf(w, "%s\t%s\t%s\t%s\tup to date\n", t, source, from, insp.Version)
+						table.Row(t, source, from, insp.Version, ui.Muted("up to date"))
 					}
 					continue
 				}
@@ -117,24 +117,28 @@ func modulesUpgradeCmd() *cobra.Command {
 				switch {
 				case err != nil:
 					failures++
-					fmt.Fprintf(w, "%s\t%s\t%s\t-\t%v\n", t, source, from, err)
+					table.Row(t, source, from, "-", ui.Fail("failed"))
+					failDetails = append(failDetails, fmt.Sprintf("%s: %v", t, err))
 				case changed:
 					upgrades++
 					if old == "" {
 						old = "-"
 					}
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\tupgraded\n", t, source, old, next)
+					table.Row(t, source, old, next, ui.OK("upgraded"))
 				default:
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\tup to date\n", t, source, from, next)
+					table.Row(t, source, from, next, ui.Muted("up to date"))
 				}
 			}
-			_ = w.Flush()
+			fmt.Println(table.String())
+			for _, d := range failDetails {
+				fmt.Println(ui.Fail("✗") + " " + d)
+			}
 			if failures > 0 {
 				return fmt.Errorf("%d module(s) failed", failures)
 			}
 			if check {
 				if upgrades > 0 {
-					return fmt.Errorf("%d module upgrade(s) available — run 'doze modules upgrade'", upgrades)
+					return fmt.Errorf("%d module upgrade(s) available — run doze modules upgrade", upgrades)
 				}
 				fmt.Println("\nall module pins are at their newest compatible releases")
 				return nil

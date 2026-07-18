@@ -8,7 +8,7 @@ import (
 
 func TestHomeAndProjectLayout(t *testing.T) {
 	t.Setenv("DOZE_HOME", "/srv/doze")
-	cfg, err := Parse([]byte(`fake "x" { version = 1 }`), "/work/myapp/doze.hcl")
+	cfg, err := Parse([]byte(`fake "x" { version = 1 }`), "/work/myapp/doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,8 +35,8 @@ func TestProjectsDoNotCollide(t *testing.T) {
 	t.Setenv("DOZE_HOME", "/srv/doze")
 	// Two different projects with the same directory base name must get
 	// distinct project dirs (the hash disambiguates).
-	a, _ := Parse([]byte(`fake "x" { version = 1 }`), "/work/a/api/doze.hcl")
-	b, _ := Parse([]byte(`fake "x" { version = 1 }`), "/work/b/api/doze.hcl")
+	a, _ := Parse([]byte(`fake "x" { version = 1 }`), "/work/a/api/doze.hcl", nil)
+	b, _ := Parse([]byte(`fake "x" { version = 1 }`), "/work/b/api/doze.hcl", nil)
 	if a.ProjectDir() == b.ProjectDir() {
 		t.Fatalf("distinct projects collided on %q", a.ProjectDir())
 	}
@@ -50,7 +50,7 @@ func TestExplicitDataDirOverridesNamespacing(t *testing.T) {
 	cfg, err := Parse([]byte(`
 data_dir = "/tmp/ephemeral"
 fake "x" { version = 1 }
-`), "/work/myapp/doze.hcl")
+`), "/work/myapp/doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,6 +13,12 @@ and reaps when idle.
 
 ### Added
 
+- **`bind` field on status**: `doze status --json` (and the control API's
+  `InstanceView`) now carry `bind` — the address the backend actually occupies
+  (the per-instance loopback bind, a process's self-bound address, or the
+  internal backend behind an AWS built-in's shared host). The dash shows it as
+  the raw line under each instance's `connect` address. Additive; `endpoint`
+  is unchanged.
 - **Database engines**: PostgreSQL, Valkey, Kvrocks (Redis protocol), and
   DocumentDB (MongoDB wire), each a declarative config block (`postgres "n" {}`,
   `valkey "n" {}`, …).

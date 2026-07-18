@@ -48,7 +48,7 @@ func initCmd() *cobra.Command {
 				picks, app, doLint = runWizard(offers)
 			}
 			if len(picks) == 0 && app == "" {
-				fmt.Println("Nothing selected — run `doze init` again to pick services.")
+				fmt.Println("nothing selected — run doze init again to pick services")
 				return nil
 			}
 
@@ -56,7 +56,7 @@ func initCmd() *cobra.Command {
 				return err
 			}
 			fmt.Println(ui.OK("✓") + " wrote " + configPath + " — " + strings.Join(append(append([]string{}, picks...), appLabel(app)...), ", "))
-			fmt.Println(ui.Muted("  next:") + " doze lint   ·   doze up   ·   doze tree")
+			fmt.Println(ui.Muted("  next:") + " doze lint   ·   doze up   ·   doze status")
 
 			if doLint {
 				if cfg, err := loadConfig(); err != nil {
@@ -159,7 +159,7 @@ func runWizard(offers []initEngine) (picks []string, app string, lint bool) {
 		return picks, app, false
 	}
 
-	fmt.Print(ui.Title("Validate") + ui.Muted(" it now with `doze lint`? [y/N]: "))
+	fmt.Print(ui.Title("Validate") + ui.Muted(" it now with doze lint? [y/N]: "))
 	ans, _ := r.ReadString('\n')
 	a := strings.ToLower(strings.TrimSpace(ans))
 	lint = a == "y" || a == "yes"
@@ -194,8 +194,8 @@ func scaffoldFor(picks []string, app string, offers []initEngine) string {
 	var b strings.Builder
 	b.WriteString("# doze.hcl — declarative local services, no Docker.\n")
 	b.WriteString("# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n")
-	b.WriteString("# Edit freely, then: doze lint · doze up · doze tree\n\n")
-	b.WriteString("defaults {\n  idle_timeout = \"5m\"\n  domains      = true # <name>.local via mDNS, e.g. app.local:5432\n}\n")
+	b.WriteString("# Edit freely, then: doze lint · doze up · doze status\n\n")
+	b.WriteString("defaults {\n  idle_timeout = \"5m\"\n  domains      = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n")
 	hasPostgres := false
 	for _, p := range picks {
 		for _, e := range offers {

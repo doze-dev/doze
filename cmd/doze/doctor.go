@@ -17,6 +17,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/daemon"
 	"github.com/doze-dev/doze/internal/loopback"
+	"github.com/doze-dev/doze/internal/ui"
 )
 
 // doctorCheck is one diagnostic result — collected first, rendered as the
@@ -114,7 +115,7 @@ func doctorCmd() *cobra.Command {
 					case probe == "":
 						// nothing declared; nothing to probe
 					case !daemonRunning(cfg):
-						add("domains", "daemon stopped — names publish while it runs (`doze up`)", true)
+						add("domains", "daemon stopped — names publish while it runs (doze up)", true)
 					case resolvesToLoopback(probe):
 						how := "mDNS — no setup needed"
 						if daemon.ResolverConfigured() {
@@ -131,7 +132,7 @@ func doctorCmd() *cobra.Command {
 					if loopback.Available() {
 						add("shared ports", "loopback range active — services can share canonical ports (every Postgres on 5432)", true)
 					} else if hasDuplicatePorts(cfg) {
-						add("shared ports", "duplicate ports declared but the range isn't set up — run `doze dns-setup` (one sudo)", false)
+						add("shared ports", "duplicate ports declared but the range isn't set up — run doze dns-setup (one sudo)", false)
 					}
 				}
 			}
@@ -161,10 +162,10 @@ func doctorCmd() *cobra.Command {
 			}
 			fmt.Println()
 			if ok {
-				fmt.Println("all checks passed")
+				fmt.Println(ui.OK("✓") + " all checks passed")
 				return nil
 			}
-			fmt.Println("some checks need attention (see ✗ above)")
+			fmt.Println(ui.Fail("✗") + " some checks need attention (see ✗ above)")
 			return exitCodeError(1)
 		},
 	}
@@ -175,9 +176,9 @@ func doctorCmd() *cobra.Command {
 // renderCheck prints one check line, indenting a multi-line detail (a config
 // error, typically) under the label column.
 func renderCheck(c doctorCheck) {
-	mark := "✓"
+	mark := ui.OK("✓")
 	if !c.OK {
-		mark = "✗"
+		mark = ui.Fail("✗")
 	}
 	lines := strings.Split(strings.TrimRight(c.Detail, "\n"), "\n")
 	fmt.Printf("  %s  %-16s %s\n", mark, c.Name, lines[0])

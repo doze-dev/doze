@@ -39,7 +39,7 @@ process "api" {
   ingress = true
 }
 `
-	cfg, err := config.Parse([]byte(src), "doze.hcl")
+	cfg, err := config.Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

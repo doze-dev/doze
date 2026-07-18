@@ -63,19 +63,19 @@ var registry = []Action{
 	// Human lifecycle verbs live in the dash only — the CLI keeps just the
 	// automation core (up/down/sync/status/env/run) and the before-the-dash
 	// tools (init/lint/doctor).
-	{Name: "wake", Aliases: []string{"boot"}, Summary: "boot a service now (with its dependencies); no arg wakes all",
-		Arg: ArgInstanceOptional, Kind: KindOp, Op: "boot", CLI: false, Dash: true, Key: "b"},
-	{Name: "sleep", Aliases: []string{"reap"}, Summary: "reap a service (dependents first); no arg sleeps all awake",
-		Arg: ArgInstanceOptional, Kind: KindOp, Op: "down", OpAcceptsAll: true, Confirm: true, CLI: false, Dash: true, Key: "d"},
+	{Name: "wake", Aliases: []string{"boot"}, Summary: "wake a service now (with its dependencies); no arg wakes all",
+		Arg: ArgInstanceOptional, Kind: KindOp, Op: "boot", CLI: false, Dash: true, Key: "w"},
+	{Name: "sleep", Aliases: []string{"reap"}, Summary: "put a service to sleep (dependents first); data is kept; no arg sleeps all awake",
+		Arg: ArgInstanceOptional, Kind: KindOp, Op: "down", OpAcceptsAll: true, Confirm: true, CLI: false, Dash: true, Key: "s"},
 	{Name: "restart", Summary: "restart a service's backend",
 		Arg: ArgInstanceRequired, Kind: KindOp, Op: "restart", Confirm: true, CLI: false, Dash: true, Key: "R"},
 	// reset maps to the daemon's "reset" op (stop + wipe data dirs; the next
-	// boot re-provisions and re-converges) — NOT "destroy", which is the sync
+	// wake re-provisions and re-converges) — NOT "destroy", which is the sync
 	// lifecycle's drop-the-declared-objects and leaves the data dir (and a
 	// stale converged marker) behind.
 	{Name: "reset", Summary: "wipe a service's data and re-provision fresh",
 		Arg: ArgInstanceRequired, Kind: KindOp, Op: "reset", Confirm: true, CLI: false, Dash: true},
-	{Name: "up", Summary: "converge structure and boot every enabled service",
+	{Name: "up", Summary: "converge structure and wake every enabled service",
 		Arg: ArgInstanceOptional, Kind: KindOp, Op: "up", OpAcceptsAll: true, CLI: true, Dash: true},
 	{Name: "sync", Aliases: []string{"apply"}, Summary: "reconcile a service with the config (create new, update changed, prune removed)",
 		Arg: ArgInstanceOptional, Kind: KindOp, Op: "apply", OpAcceptsAll: true, CLI: true, Dash: true},
@@ -85,7 +85,7 @@ var registry = []Action{
 		Arg: ArgInstanceOptional, Kind: KindLocal, CLI: false, Dash: true},
 	{Name: "env", Summary: "show the connection env vars (DATABASE_URL, AWS_ENDPOINT_URL_*, …)",
 		Arg: ArgInstanceOptional, Kind: KindLocal, CLI: true, Dash: false},
-	{Name: "url", Aliases: []string{"copy"}, Summary: "copy a service's connection URL",
+	{Name: "url", Aliases: []string{"copy"}, Summary: "copy a service's connect line",
 		Arg: ArgInstanceRequired, Kind: KindLocal, CLI: false, Dash: true, Key: "y"},
 
 	// Headless-only verbs: the dash either IS the thing (status) or the verb

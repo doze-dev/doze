@@ -29,17 +29,18 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/doze-dev/doze/internal/netutil"
 )
 
 // FreePort returns an available loopback TCP port for an instance's client-facing
 // listener (declared as `port =` in config).
 func FreePort(t *testing.T) int {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	port, err := netutil.FreePort()
 	if err != nil {
 		t.Fatalf("finding a free port: %v", err)
 	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
+	return port
 }
 
 // modulesDir locates the doze-modules checkout (for building plugins from source).

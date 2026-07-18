@@ -14,7 +14,7 @@ import (
 // (+ create / ~ update / - destroy), with a Terraform-style summary footer.
 func renderPlan(plan state.Plan) {
 	if plan.Empty() {
-		fmt.Println("No changes. Declared structure is up to date.")
+		fmt.Println("no changes — declared structure is up to date")
 		return
 	}
 	fmt.Println("doze will perform the following actions:")
@@ -31,7 +31,7 @@ func renderPlan(plan state.Plan) {
 		fmt.Println()
 	}
 	add, change, destroy := plan.Counts()
-	fmt.Printf("Plan: %d to add, %d to change, %d to destroy.\n", add, change, destroy)
+	fmt.Printf("plan: %d to add, %d to change, %d to destroy\n", add, change, destroy)
 }
 
 func changeSymbol(k state.ChangeKind) string {

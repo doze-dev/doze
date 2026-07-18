@@ -26,6 +26,13 @@ func syncCmd() *cobra.Command {
 			"pruned, so its data survives. --dry-run shows the changes without making them.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			// --dry-run must not touch the tree — but loadConfig pins fetched
+			// modules to doze.lock, and sync is marked mutating(), so disarm the
+			// lock write before it runs (the annotation is per-command, not
+			// flag-aware). Without this, a dry run rewrites the lockfile.
+			if dryRun {
+				lockWritesAllowed = false
+			}
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
@@ -50,7 +57,7 @@ func syncCmd() *cobra.Command {
 				return nil
 			}
 			if !autoApprove && !confirm("Apply these changes?") {
-				fmt.Println("Sync cancelled.")
+				fmt.Println("sync cancelled")
 				return nil
 			}
 

@@ -66,7 +66,7 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 	// Decode the block in isolation via the same pipeline (incl. plugin decode).
 	// Because it's decoded alone, references to sibling services can't resolve —
 	// surface that clearly (with the workaround) rather than a raw HCL error.
-	mini, err := config.Parse([]byte(block), d.cfg.Path())
+	mini, err := config.Parse([]byte(block), d.cfg.Path(), d.hooks)
 	if err != nil {
 		if looksLikeUnresolvedRef(err) {
 			return "", fmt.Errorf("a live-added service can't reference other services yet — pass the literal value instead (look it up with the client's Instance/Status): %w", err)

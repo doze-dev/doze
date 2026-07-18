@@ -32,7 +32,7 @@ func dnsSetupCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if runtime.GOOS == "linux" {
-				fmt.Println(ui.OK("✓") + " Linux binds all of 127.0.0.0/8 — no setup needed.")
+				fmt.Println(ui.OK("✓") + " Linux binds all of 127.0.0.0/8 — no setup needed")
 				return nil
 			}
 			if runtime.GOOS != "darwin" {
@@ -70,10 +70,10 @@ func dnsSetupCheck() error {
 	fmt.Printf("  %s  persists across reboots %s\n", mark(persistent), plistStateText(persistent))
 	fmt.Printf("  %s  resolver route          %s\n", mark(resolver), resolverStateText(resolver))
 	if aliased && persistent && resolver {
-		fmt.Println("\n" + ui.OK("ready") + " — services can share canonical ports by DNS name.")
+		fmt.Println("\n" + ui.OK("ready") + " — services can share canonical ports by DNS name")
 		return nil
 	}
-	fmt.Println("\nrun " + ui.Title("doze dns-setup") + " to enable it (one sudo).")
+	fmt.Println("\nrun " + ui.Title("doze dns-setup") + " to enable it (one sudo)")
 	return exitCodeError(1)
 }
 
@@ -106,7 +106,7 @@ func dnsSetupInstall() error {
 	// the update actually lands.
 	if loopback.Available() && daemon.ResolverConfigured() {
 		if cur, err := os.ReadFile(loopback.LaunchdPath); err == nil && string(cur) == loopback.LaunchdPlist() {
-			fmt.Println(ui.OK("✓") + " already set up — nothing to do.")
+			fmt.Println(ui.OK("✓") + " already set up — nothing to do")
 			return nil
 		}
 	}
@@ -139,7 +139,7 @@ printf 'nameserver 127.0.0.1\nport %d\n' > /etc/resolver/%s`,
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := c.Run(); err != nil {
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, ui.Fail("✗")+" sudo step failed. To do it by hand:")
+		fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" sudo step failed. To do it by hand:")
 		fmt.Fprintln(os.Stderr, "  sudo tee "+loopback.LaunchdPath+" <<'PLIST'")
 		fmt.Fprint(os.Stderr, loopback.LaunchdPlist())
 		fmt.Fprintln(os.Stderr, "PLIST")
@@ -161,8 +161,8 @@ printf 'nameserver 127.0.0.1\nport %d\n' > /etc/resolver/%s`,
 		return fmt.Errorf("dns-setup ran but 127.0.0.2 is still not bindable — check `sudo ifconfig lo0` (the launchd job may take a moment; re-run `doze dns-setup --check`)")
 	}
 	fmt.Println()
-	fmt.Println(ui.OK("✓") + " loopback range aliased + *." + config.DomainSuffix + " routed to the doze resolver.")
-	fmt.Println(ui.Muted("  services now share canonical ports by DNS name — e.g. two Postgres both on 5432."))
+	fmt.Println(ui.OK("✓") + " loopback range aliased + *." + config.DomainSuffix + " routed to the doze resolver")
+	fmt.Println(ui.Muted("  services now share canonical ports by DNS name — e.g. two Postgres both on 5432"))
 	return nil
 }
 
@@ -177,6 +177,6 @@ func dnsSetupUninstall() error {
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("dns-setup --uninstall: %w", err)
 	}
-	fmt.Println(ui.OK("✓") + " removed. Aliases clear on the next reboot (or `sudo ifconfig lo0 -alias 127.0.0.2` …).")
+	fmt.Println(ui.OK("✓") + " removed — aliases clear on the next reboot (or sudo ifconfig lo0 -alias 127.0.0.2 …)")
 	return nil
 }

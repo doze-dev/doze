@@ -58,7 +58,8 @@ func mergedVars(global, stamp *hcl.EvalContext) map[string]cty.Value {
 	return out
 }
 
-func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance, ctx *hcl.EvalContext) error {
+func (l *loader) evaluate(cfg *Config, pending []*pendingInstance, ctx *hcl.EvalContext) error {
+	parser := l.parser
 	// An engine type is "known" (a resource reference root, not var/local) if some
 	// declared instance uses it — config can't enumerate engines (they're modules),
 	// so the declared set is the source of truth for reference resolution.
@@ -134,7 +135,7 @@ func (cfg *Config) evaluate(parser *hclparse.Parser, pending []*pendingInstance,
 				// (best-effort, error path only) whether an upgrade would help — a
 				// schema mismatch on an old plugin should read as its fix, not as an
 				// opaque "unsupported argument".
-				return fmt.Errorf("%s %q: %s%s", p.decl.Type, p.decl.Name, msg, remoteDecodeErrSuffix(p.decl.Type))
+				return fmt.Errorf("%s %q: %s%s", p.decl.Type, p.decl.Name, msg, l.hooks.remoteDecodeErrSuffix(p.decl.Type))
 			}
 			p.decl.Spec = spec
 		}

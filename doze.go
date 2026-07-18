@@ -131,7 +131,7 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 		s.host.Close()
 		return nil, fmt.Errorf("a doze daemon is already running for %s — use Attach", s.cfg.Path())
 	}
-	d, err := daemon.New(s.cfg, s.logf)
+	d, err := daemon.New(s.cfg, s.logf, s.host.ConfigHooks())
 	if err != nil {
 		s.host.Close()
 		return nil, err
@@ -211,9 +211,9 @@ func loadHostAndConfig(opts Options) (cfg *config.Config, host *hostboot.Host, w
 	}
 
 	if opts.Stack != nil {
-		cfg, err = config.Parse([]byte(opts.Stack.HCL()), configPath)
+		cfg, err = config.Parse([]byte(opts.Stack.HCL()), configPath, host.ConfigHooks())
 	} else {
-		cfg, err = config.LoadWithVars(configPath, opts.Vars)
+		cfg, err = config.LoadWithVars(configPath, opts.Vars, host.ConfigHooks())
 		if err != nil && os.IsNotExist(err) {
 			host.Close()
 			return nil, nil, "", fmt.Errorf("no doze config found (looked for %q) — set Options.ConfigPath or Options.Stack", firstNonEmpty(configPath, "doze.hcl"))

@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,11 +28,11 @@ func upCmd() *cobra.Command {
 	var follow, detach bool
 	cmd := &cobra.Command{
 		Use:   "up [service…]",
-		Short: "Bring the stack up in the background (converge structure + boot every service)",
-		Long: "up converges declared structure and boots every enabled service in\n" +
+		Short: "Bring the stack up in the background (converge structure + wake every service)",
+		Long: "up converges declared structure and wakes every enabled service in\n" +
 			"dependency order, gating on each health probe — then returns. The daemon\n" +
 			"keeps supervising everything in the background; nothing stays attached to\n" +
-			"your terminal. Watch logs in the dash (`doze`), or pass `-f` to boot and\n" +
+			"your terminal. Watch logs in the dash (`doze`), or pass `-f` to wake and\n" +
 			"stream in one step (Ctrl-C then just detaches — it does not stop anything).\n" +
 			"`doze down` stops the stack. Disabled services are skipped.",
 		Args:              cobra.ArbitraryArgs,
@@ -61,7 +64,7 @@ func upCmd() *cobra.Command {
 			return runUp(cfg, targets, follow)
 		},
 	}
-	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "stream logs after booting (Ctrl-C detaches; services keep running)")
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "stream logs after waking (Ctrl-C detaches; services keep running)")
 	cmd.Flags().BoolVar(&detach, "detach", false, "deprecated: up is always detached")
 	_ = cmd.Flags().MarkHidden("detach")
 	return cmd
@@ -80,20 +83,17 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	client := control.NewClient(daemon.ControlSocketPath(cfg))
 
 	for _, name := range bootClosure(cfg, targets) {
-		fmt.Println(ui.Muted("→") + " " + name + " starting…")
-		bootCtx, cancel := context.WithTimeout(context.Background(), bootBudget)
-		_, err := client.DoContext(bootCtx, control.Request{Op: "up", DB: name}) // boot + converge
-		cancel()
-		if err != nil {
+		if err := bootOne(client, cfg, name); err != nil {
+			// The styled line is the report; exitCodeError keeps main from
+			// printing the same failure a second time.
 			fmt.Println(ui.Fail("✗") + " " + name + ": " + err.Error())
-			return fmt.Errorf("bringing up %q: %w", name, err)
+			return exitCodeError(1)
 		}
-		fmt.Println(ui.OK("✓") + " " + name + " ready")
 	}
 
 	if !follow {
 		fmt.Println(ui.Muted("›") + " up — supervised in the background. " +
-			ui.Muted("`doze` for the dash · `doze down` to stop"))
+			ui.Muted("doze for the dash · doze down to stop"))
 		return nil
 	}
 
@@ -101,7 +101,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	// keeps supervising everything.
 	procs := processNames(cfg, targets)
 	if len(procs) == 0 {
-		fmt.Println(ui.Muted("up — no process services to follow; the dash (`doze`) has the backend logs"))
+		fmt.Println(ui.Muted("up — no process services to follow; the dash (doze) has the backend logs"))
 		return nil
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -115,12 +115,126 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	case <-ctx.Done():
 	case err := <-streamErr:
 		if err != nil && ctx.Err() == nil {
-			fmt.Fprintln(os.Stderr, ui.Fail("✗")+" log stream ended: "+err.Error())
+			fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" log stream ended: "+err.Error())
 		}
 	}
 	stop()
-	fmt.Println("\n" + ui.Muted("detached — services keep running. `doze down` to stop"))
+	fmt.Println("\n" + ui.Muted("detached — services keep running. doze down to stop"))
 	return nil
+}
+
+// bootOne wakes a single instance and keeps the terminal honest while it does:
+// the daemon's own progress (engine downloads can dominate a first boot) goes
+// to its log file, so we tail that file and relay download/verify lines here,
+// plus an elapsed-time tick on the waking line when stdout is a terminal.
+func bootOne(client *control.Client, cfg *config.Config, name string) error {
+	statusLine := ui.Muted("→") + " " + name + " waking…"
+	tty := stdoutIsTerminal()
+	if tty {
+		fmt.Print(statusLine)
+	} else {
+		fmt.Println(statusLine)
+	}
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		relayBootProgress(daemon.LogFilePath(cfg), statusLine, tty, done)
+	}()
+
+	bootCtx, cancel := context.WithTimeout(context.Background(), bootBudget)
+	_, err := client.DoContext(bootCtx, control.Request{Op: "up", DB: name}) // boot + converge
+	cancel()
+	close(done)
+	wg.Wait()
+	if tty {
+		fmt.Print("\r\033[K") // clear the ticking line; the result line replaces it
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Println(ui.OK("✓") + " " + name + " awake")
+	return nil
+}
+
+// relayBootProgress tails the daemon log from its current end until done,
+// relaying progress lines (downloads/verification) so a long first boot isn't
+// silent. On a terminal it also re-renders statusLine with the elapsed time;
+// piped output gets only the plain relayed lines.
+func relayBootProgress(logPath, statusLine string, tty bool, done <-chan struct{}) {
+	var offset int64
+	if fi, err := os.Stat(logPath); err == nil {
+		offset = fi.Size()
+	}
+	start := time.Now()
+	tick := time.NewTicker(250 * time.Millisecond)
+	defer tick.Stop()
+	var pending string // partial trailing line between polls
+	for {
+		select {
+		case <-done:
+			return
+		case <-tick.C:
+		}
+		for _, line := range readNewLines(logPath, &offset, &pending) {
+			if !bootProgressLine(line) {
+				continue
+			}
+			// The daemon writes through its own logger prefixes; strip them so
+			// the relayed line reads as ours.
+			for _, p := range []string{"doze: ", "› ", "→ ", "✓ ", "✗ "} {
+				line = strings.TrimPrefix(line, p)
+			}
+			msg := "  " + ui.Muted("› "+line)
+			if tty {
+				fmt.Print("\r\033[K" + msg + "\n")
+			} else {
+				fmt.Println(msg)
+			}
+		}
+		if tty {
+			if elapsed := time.Since(start); elapsed >= 3*time.Second {
+				fmt.Print("\r\033[K" + statusLine + ui.Muted(fmt.Sprintf(" %ds", int(elapsed.Seconds()))))
+			}
+		}
+	}
+}
+
+// readNewLines returns the complete lines appended to path since *offset,
+// carrying any trailing partial line in *pending until it completes.
+func readNewLines(path string, offset *int64, pending *string) []string {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	if _, err := f.Seek(*offset, io.SeekStart); err != nil {
+		return nil
+	}
+	buf, err := io.ReadAll(f)
+	if err != nil || len(buf) == 0 {
+		return nil
+	}
+	*offset += int64(len(buf))
+	chunk := *pending + string(buf)
+	lines := strings.Split(chunk, "\n")
+	*pending = lines[len(lines)-1] // "" when the chunk ended on a newline
+	var out []string
+	for _, l := range lines[:len(lines)-1] {
+		if l = strings.TrimRight(l, "\r"); l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// bootProgressLine picks the daemon log lines worth relaying during a boot —
+// the slow parts (fetching modules, downloading and verifying engine builds),
+// not the routine supervision chatter.
+func bootProgressLine(line string) bool {
+	return containsAny(line, "downloading", "verifying", "fetching", "extracting")
 }
 
 // printLogLine renders one streamed log frame with a faint instance prefix.

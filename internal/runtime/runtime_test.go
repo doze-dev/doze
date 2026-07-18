@@ -70,7 +70,7 @@ tdep "app" {
   version = 1
   base    = tleaf.base.name
 }
-`), "")
+`), "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestBackendCrashDetected(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
 	engine.Register(leafDriver{})
 
-	cfg, err := config.Parse([]byte("tleaf \"solo\" { version = 1 }\n"), "")
+	cfg, err := config.Parse([]byte("tleaf \"solo\" { version = 1 }\n"), "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

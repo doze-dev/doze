@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -20,10 +18,8 @@ func downCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !daemonRunning(cfg) {
-				fmt.Println("doze is not running")
-				return nil
-			}
+			// stopDaemon handles the not-running case itself (by pid file, which
+			// also catches a daemon whose control socket has gone quiet).
 			return stopDaemon(cfg) // shutting the daemon down reaps every backend
 		},
 	}

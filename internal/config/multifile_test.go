@@ -34,7 +34,7 @@ fake "b" {
 }
 `)
 
-	cfg, err := Load(main)
+	cfg, err := Load(main, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestLoadDirectory(t *testing.T) {
   port    = 7002
 }`)
 
-	cfg, err := Load(dir)
+	cfg, err := Load(dir, nil)
 	if err != nil {
 		t.Fatalf("Load(dir): %v", err)
 	}
@@ -72,7 +72,7 @@ func TestDuplicateAcrossFiles(t *testing.T) {
 	write(t, main, `fake "dup" { version = "1" }`)
 	write(t, filepath.Join(dir, "x.doze.hcl"), `fake "dup" { version = "1" }`)
 
-	_, err := Load(main)
+	_, err := Load(main, nil)
 	if err == nil || !strings.Contains(err.Error(), "already declared") {
 		t.Fatalf("expected cross-file duplicate error, got %v", err)
 	}
@@ -83,14 +83,14 @@ func TestDuplicateAcrossFiles(t *testing.T) {
 }
 
 func TestUnknownBlockSuggests(t *testing.T) {
-	_, err := Parse([]byte(`fak "a" { version = "1" }`), "doze.hcl")
+	_, err := Parse([]byte(`fak "a" { version = "1" }`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), `did you mean "fake"`) {
 		t.Fatalf("expected did-you-mean suggestion, got %v", err)
 	}
 }
 
 func TestPositionedMissingVersion(t *testing.T) {
-	_, err := Parse([]byte("fake \"a\" {\n}\n"), "doze.hcl")
+	_, err := Parse([]byte("fake \"a\" {\n}\n"), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "missing required") {
 		t.Fatalf("expected missing-version error, got %v", err)
 	}

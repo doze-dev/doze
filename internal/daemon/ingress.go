@@ -46,8 +46,8 @@ func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, pla
 	pid := os.Getpid()
 	if len(awsRoutes) > 0 {
 		publishAWSRoutes(d.cfg.Home, awsRoutes, pid)
-		for host, rt := range awsRoutes {
-			d.logf("aws: http://%s → %d %s resource(s)", host, len(rt.Resources), rt.Engine)
+		for host, r := range awsRoutes {
+			d.logf("aws: http://%s → %s (console at /%s)", host, r.Target, "_console")
 		}
 	}
 	routes := d.ingressRoutes(eps, plan)

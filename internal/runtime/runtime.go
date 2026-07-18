@@ -387,12 +387,19 @@ func (r *Runtime) bootDeps(ctx context.Context, name string, depList []engine.De
 		if cond == "" {
 			cond = engine.Healthy
 		}
-		if _, err := r.bootCond(ctx, dn, cond); err != nil {
-			release()
-			return nil, nil, fmt.Errorf("booting dependency %q: %w", dn, err)
+		if cond == engine.Lazy {
+			// Wire the dependency without waking it: resolve its endpoints and
+			// sockets below, but neither boot nor hold. The dependent reaches
+			// it through a client endpoint that wakes it on demand (or fails
+			// until something else does).
+		} else {
+			if _, err := r.bootCond(ctx, dn, cond); err != nil {
+				release()
+				return nil, nil, fmt.Errorf("booting dependency %q: %w", dn, err)
+			}
+			r.Acquire(dn) // hold so the reaper keeps the dependency alive while we run
+			held = append(held, dn)
 		}
-		r.Acquire(dn) // hold so the reaper keeps the dependency alive while we run
-		held = append(held, dn)
 
 		depDrv, _ := engine.Lookup(depDecl.Type)
 		depInst := r.instanceFor(depDecl, depDrv)

@@ -75,18 +75,18 @@ func TestHydrateEndpointShowsRealBind(t *testing.T) {
 	}
 }
 
-// An AWS built-in's Endpoint is prettified to the shared per-type host, but
-// Bind must keep the internal backend address — it's the raw line the dash
-// shows under the connect address.
+// The aws engine's Endpoint is prettified to the stack's AWS host, but Bind
+// must keep the internal backend address — it's the raw line the dash shows
+// under the connect address.
 func TestHydrateEndpointAWSKeepsRawBind(t *testing.T) {
 	cfg := &config.Config{StackName: "demo", Defaults: config.Defaults{Domains: true}}
-	cfg.Add(&config.InstanceDecl{Type: "sqs", Name: "jobs", Enabled: true})
-	d := &Daemon{cfg: cfg, logf: t.Logf, binds: map[string]string{"jobs": "127.0.0.1:53987"}}
+	cfg.Add(&config.InstanceDecl{Type: "aws", Name: "local", Enabled: true})
+	d := &Daemon{cfg: cfg, logf: t.Logf, binds: map[string]string{"local": "127.0.0.1:53987"}}
 	h := &handler{d: d}
-	v := control.InstanceView{Name: "jobs", Engine: "sqs"}
-	h.hydrateEndpoint(&v, endpoints.Endpoint{Name: "jobs", Engine: "sqs", Address: "127.0.0.1:53987"})
-	if v.Endpoint != "sqs.demo.doze" {
-		t.Errorf("endpoint = %q, want the shared host sqs.demo.doze", v.Endpoint)
+	v := control.InstanceView{Name: "local", Engine: "aws"}
+	h.hydrateEndpoint(&v, endpoints.Endpoint{Name: "local", Engine: "aws", Address: "127.0.0.1:53987"})
+	if v.Endpoint != "aws.demo.doze" {
+		t.Errorf("endpoint = %q, want the shared host aws.demo.doze", v.Endpoint)
 	}
 	if v.Bind != "127.0.0.1:53987" {
 		t.Errorf("bind = %q, want the raw backend 127.0.0.1:53987", v.Bind)

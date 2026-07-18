@@ -68,7 +68,7 @@ fakeproc "api" {
   env  = { DATABASE_URL = fake.db.url }
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -103,7 +103,7 @@ fakeproc "api" {
   health { http = "http://x" interval = "2s" }
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil {
 		t.Fatal("a single-line multi-argument block should be a parse error")
 	}
@@ -117,7 +117,7 @@ func TestMissingPortIsAClearError(t *testing.T) {
 	// actionable message at load time (not a silent fallback or an opaque bind error).
 	dir := t.TempDir()
 	writeFile(t, dir, "doze.hcl", `fake "db" { version = 1 }`) // a proxied engine needs a port
-	_, err := Load(dir + "/doze.hcl")
+	_, err := Load(dir+"/doze.hcl", nil)
 	if err == nil {
 		t.Fatal("a portless proxied engine should error on load")
 	}
@@ -130,7 +130,7 @@ func TestPortlessProcessIsAllowed(t *testing.T) {
 	// A supervised process with no endpoint (a background worker) needs no port.
 	dir := t.TempDir()
 	writeFile(t, dir, "doze.hcl", `fakeproc "worker" {}`)
-	if _, err := Load(dir + "/doze.hcl"); err != nil {
+	if _, err := Load(dir+"/doze.hcl", nil); err != nil {
 		t.Fatalf("a portless worker process should load fine: %v", err)
 	}
 }
@@ -141,7 +141,7 @@ func TestPortConflictIsAClearError(t *testing.T) {
 fakeproc "a" { port = 8080 }
 fakeproc "b" { port = 8080 }
 `)
-	_, err := Load(dir + "/doze.hcl")
+	_, err := Load(dir+"/doze.hcl", nil)
 	if err == nil {
 		t.Fatal("two instances on the same port should error")
 	}

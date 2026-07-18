@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,23 @@ const EnvHome = "DOZE_HOME"
 //	  projects/<slug>/             per-project state
 //	    clusters/<instance>/       data directories
 //	    run/                       sockets, pidfile, log, admin socket
+
+func (cfg *Config) resolveHome() error {
+	if cfg.Home == "" {
+		cfg.Home = os.Getenv(EnvHome)
+	}
+	if cfg.Home == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("resolving home dir for default doze home: %w", err)
+		}
+		cfg.Home = filepath.Join(home, ".doze")
+	}
+	if cfg.DataDir == "" {
+		cfg.DataDir = filepath.Join(cfg.Home, "projects", projectSlug(cfg.path))
+	}
+	return nil
+}
 
 // CacheDir holds transient downloads and metadata.
 func (c *Config) CacheDir() string { return filepath.Join(c.Home, "cache") }

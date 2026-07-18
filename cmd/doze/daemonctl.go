@@ -54,7 +54,7 @@ func daemonCmd() *cobra.Command {
 func runDaemonForeground(cfg *config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	d, err := daemon.New(cfg, stderrLogger)
+	d, err := daemon.New(cfg, stderrLogger, activeHost.ConfigHooks())
 	if err != nil {
 		return err
 	}

@@ -75,7 +75,7 @@ type Manager struct {
 	// almost everyone: selection + doze.lock do the work.
 	versions map[string]string
 	// requires accumulates the engine MAJORS declared in config per engine type
-	// (fed by config.SetEngineRequirer before the first driver lookup), so fresh
+	// (fed by config.Hooks.RequireEngine before the first driver lookup), so fresh
 	// module selection picks a release that supports what the project declares.
 	requires map[string]map[string]bool
 	misses   map[string]bool // engine types with no published module (negative cache)
@@ -145,7 +145,7 @@ func (m *Manager) Configure(mirror string, enabled bool, sources, versions map[s
 
 // Require records that config declares engine type at the given engine version,
 // so module selection only accepts releases supporting its major. Called by the
-// config loader (via config.SetEngineRequirer) before the driver lookup that
+// config loader (via config.Hooks.RequireEngine) before the driver lookup that
 // triggers the fetch.
 func (m *Manager) Require(engineType, version string) {
 	if version == "" || version == "builtin" {

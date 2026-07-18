@@ -22,6 +22,11 @@ var (
 	configPath string
 	varFlags   []string // --var name=value (repeatable)
 
+	// activeHost is the process-global engine host booted by realMain; loadConfig
+	// takes its config decode hooks from it. Nil until hostboot.Init succeeds
+	// (Host.ConfigHooks is nil-safe, so decode degrades to pure parse).
+	activeHost *hostboot.Host
+
 	// lockWritesAllowed is set per-invocation by rootCmd's PersistentPreRun:
 	// true only for commands that materialize state (up, sync, wake, shell, …).
 	// Read commands (status, lint, doctor, …) resolve modules in memory and
@@ -72,6 +77,7 @@ func realMain() int {
 		fmt.Fprintln(os.Stderr, ui.ErrFail("error:")+" "+err.Error())
 		return 1
 	}
+	activeHost = host
 	defer host.Close()
 
 	if err := rootCmd().Execute(); err != nil {
@@ -276,7 +282,7 @@ func loadConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := config.LoadWithVars(configPath, cliVars)
+	cfg, err := config.LoadWithVars(configPath, cliVars, activeHost.ConfigHooks())
 	if err != nil && os.IsNotExist(err) {
 		// The very first command in a new project shouldn't greet anyone with a
 		// stat error — point at the way in.

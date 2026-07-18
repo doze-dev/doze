@@ -100,78 +100,6 @@ func TestFilterToggleAndClear(t *testing.T) {
 	}
 }
 
-// sqsActs mirrors the sqs engine's published actions.
-func sqsActs() []control.ActionView {
-	return []control.ActionView{
-		{ID: "peek", Label: "Peek", Kind: "queue"},
-		{ID: "send", Label: "Send", Kind: "queue", InputHint: "message body"},
-		{ID: "purge", Label: "Purge", Kind: "queue", Destructive: true},
-		{ID: "redrive", Label: "Redrive", Kind: "queue"},
-	}
-}
-
-// inspectorModel builds an inspector scoped to a sqs instance, queue selected,
-// with two messages already loaded.
-func inspectorModel() model {
-	return model{
-		width: 110, height: 30,
-		cmd:         textinput.New(),
-		adminMode:   true,
-		adminLoaded: true,
-		adminName:   "jobs_sqs",
-		adminActs:   sqsActs(),
-		adminRes:    []control.ResourceView{{Kind: "queue", Name: "emails", Status: "2 msgs"}, {Kind: "queue", Name: "orders.fifo"}},
-		adminCursor: 0,
-		itemVP:      viewport.New(70, 20),
-		inspItems: []inspItem{
-			{title: "hello", meta: "group a", detail: "hello", delArg: "h1"},
-			{title: "world", detail: "world", delArg: "h2"},
-		},
-	}
-}
-
-func TestParseItems(t *testing.T) {
-	// queue messages: body + group + receive count + attributes + delete handle.
-	items, err := parseItems("queue", `[{"body":"hi","group":"g1","received":"2","attrs":{"tier":"gold"},"handle":"rh"}]`)
-	if err != nil || len(items) != 1 {
-		t.Fatalf("parse queue: err=%v n=%d", err, len(items))
-	}
-	if items[0].title != "hi" || items[0].delArg != "rh" ||
-		!strings.Contains(items[0].meta, "tier=gold") || !strings.Contains(items[0].meta, "group g1") {
-		t.Fatalf("queue item = %+v", items[0])
-	}
-	// bucket objects are deletable by key.
-	items, _ = parseItems("bucket", `[{"key":"a.txt","size":1024,"modified":"2026"}]`)
-	if len(items) != 1 || items[0].title != "a.txt" || items[0].delArg != "a.txt" {
-		t.Fatalf("bucket item = %+v", items[0])
-	}
-	// topic subscriptions show protocol + filter.
-	items, _ = parseItems("topic", `[{"protocol":"sqs","endpoint":"emails","filter":"eventType ∈ [created]","raw":true,"confirmed":true}]`)
-	if len(items) != 1 || !strings.Contains(items[0].title, "emails") || !strings.Contains(items[0].meta, "eventType") {
-		t.Fatalf("topic item = %+v", items[0])
-	}
-	// a test publish annotates each subscription with whether it matched.
-	items, _ = parseItems("topic", `[{"protocol":"sqs","endpoint":"emails","filter":"eventType ∈ [created]","matched":true},{"protocol":"http","endpoint":"hook","filter":"eventType ∈ [deleted]","matched":false}]`)
-	if len(items) != 2 || !strings.HasPrefix(items[0].title, "✓") || !strings.HasPrefix(items[1].title, "✗") {
-		t.Fatalf("routing badges = %q / %q", items[0].title, items[1].title)
-	}
-	if !strings.Contains(items[0].meta, "MATCHED") || !strings.Contains(items[1].meta, "filtered out") {
-		t.Fatalf("routing meta = %q / %q", items[0].meta, items[1].meta)
-	}
-}
-
-func TestPrettyJSON(t *testing.T) {
-	// a JSON body is indented for the detail pane.
-	got := prettyJSON(`{"to":"a@x.com","tmpl":"welcome"}`)
-	if !strings.Contains(got, "\n  \"to\": \"a@x.com\"") {
-		t.Fatalf("prettyJSON did not indent: %q", got)
-	}
-	// non-JSON is returned verbatim.
-	if got := prettyJSON("just a plain string"); got != "just a plain string" {
-		t.Fatalf("prettyJSON mangled plain text: %q", got)
-	}
-}
-
 func TestResBadges(t *testing.T) {
 	if b := resBadges(control.ResourceView{Info: map[string]string{"fifo": "true"}}); b != "FIFO" {
 		t.Fatalf("fifo badge = %q", b)
@@ -181,143 +109,6 @@ func TestResBadges(t *testing.T) {
 	}
 	if b := resBadges(control.ResourceView{}); b != "" {
 		t.Fatalf("no-info badge = %q, want empty", b)
-	}
-}
-
-func TestInspectorNav(t *testing.T) {
-	m := inspectorModel()
-	m.refreshItemView()
-	m = send(m, key("down"))
-	if m.inspCursor != 1 {
-		t.Fatalf("down → cursor %d, want 1", m.inspCursor)
-	}
-	m = send(m, key("enter"))
-	if !m.inspExpanded {
-		t.Fatal("enter should expand the selected item")
-	}
-	// d stages a delete confirm carrying the item's handle.
-	m = send(m, key("d"))
-	if m.adminPending != "del:h2" {
-		t.Fatalf("d should stage del:h2, got %q", m.adminPending)
-	}
-	// a non-confirm key cancels.
-	m = send(m, key("x"))
-	if m.adminPending != "" {
-		t.Fatalf("cancel should clear pending, got %q", m.adminPending)
-	}
-}
-
-func TestInspectorTabs(t *testing.T) {
-	m := inspectorModel()
-	m.refreshItemView()
-	// ↓ always moves the item list (no focus juggling).
-	m = send(m, key("down"))
-	if m.inspCursor != 1 {
-		t.Fatalf("down → inspCursor %d, want 1", m.inspCursor)
-	}
-	// →/← switch the resource tab.
-	m = send(m, key("right"))
-	if m.adminCursor != 1 {
-		t.Fatalf("right → adminCursor %d, want 1", m.adminCursor)
-	}
-	m = send(m, key("left"))
-	if m.adminCursor != 0 {
-		t.Fatalf("left → adminCursor %d, want 0", m.adminCursor)
-	}
-}
-
-func TestTabHitTest(t *testing.T) {
-	m := inspectorModel() // tabs: "emails(2 msgs→2)" active, "orders.fifo"
-	// The first tab starts at column 1; clicking there selects index 0.
-	if got := m.tabAt(1); got != 0 {
-		t.Fatalf("tabAt(1) = %d, want 0", got)
-	}
-	// A column far to the right past both tabs is a miss.
-	if got := m.tabAt(500); got != -1 {
-		t.Fatalf("tabAt(500) = %d, want -1", got)
-	}
-}
-
-func TestInspectorComposeKey(t *testing.T) {
-	m := inspectorModel()
-	m = send(m, key("n")) // new → the queue's send composer
-	if !m.composerMode || m.composerVerb != "send" {
-		t.Fatalf("n should open the send composer, got mode=%v verb=%q", m.composerMode, m.composerVerb)
-	}
-}
-
-func TestComposerFIFOAware(t *testing.T) {
-	m := inspectorModel()
-	// cursor 0 = "emails" (standard) → the group field is dropped.
-	flds := m.composerFieldsFor("send")
-	for _, f := range flds {
-		if f.key == "group" {
-			t.Fatal("standard queue should not offer a group field")
-		}
-	}
-	// cursor 1 = "orders.fifo" → group is present, required-labelled, pre-filled.
-	m.adminCursor = 1
-	if !m.selectedIsFIFO() {
-		t.Fatal("orders.fifo should be detected as FIFO")
-	}
-	flds = m.composerFieldsFor("send")
-	var grp *composerField
-	for i := range flds {
-		if flds[i].key == "group" {
-			grp = &flds[i]
-		}
-	}
-	if grp == nil || grp.value != "default" || !strings.Contains(grp.label, "required") {
-		t.Fatalf("FIFO group field = %+v", grp)
-	}
-	// Opening the composer on a FIFO queue pre-fills the group so a send works
-	// out of the box (no MessageGroupId dead-end).
-	nm, _ := m.openComposer("send")
-	m = nm.(model)
-	got := ""
-	for _, f := range m.composerFlds {
-		if f.key == "group" {
-			got = f.value
-		}
-	}
-	if got != "default" {
-		t.Fatalf("FIFO composer group pre-fill = %q, want default", got)
-	}
-}
-
-func TestComposerSubmit(t *testing.T) {
-	m := inspectorModel()
-	nm, _ := m.openComposer("send")
-	m = nm.(model)
-	// emails is a standard queue → body + attributes (no FIFO group field).
-	if len(m.composerFlds) != 2 {
-		t.Fatalf("standard send composer should have 2 fields, got %d", len(m.composerFlds))
-	}
-	m.composerFlds[0].value = "hello"
-	m.composerFlds[1].value = "tier=gold"
-	next, _ := m.composerSubmit()
-	m = next.(model)
-	if m.composerMode {
-		t.Fatal("submit should close the composer")
-	}
-}
-
-func TestInlinePayloadParsing(t *testing.T) {
-	// publish: body tokens + k=v attributes + subject.
-	got := inlinePayload("publish", `Welcome aboard tier=gold subject=Hi`)
-	if !strings.Contains(got, `"message":"Welcome aboard"`) ||
-		!strings.Contains(got, `"tier":"gold"`) || !strings.Contains(got, `"subject":"Hi"`) {
-		t.Fatalf("publish inline payload = %s", got)
-	}
-	// send: group= maps to the group field.
-	got = inlinePayload("send", `hello group=orders`)
-	if !strings.Contains(got, `"body":"hello"`) || !strings.Contains(got, `"group":"orders"`) {
-		t.Fatalf("send inline payload = %s", got)
-	}
-	// put: first token key, rest body.
-	got = inlinePayload("put", `report.txt the body here`)
-	if !strings.Contains(got, `"key":"report.txt"`) || !strings.Contains(got, `"body":"the body here"`) {
-		t.Fatalf("put inline payload = %s", got)
 	}
 }
 
@@ -343,39 +134,10 @@ func TestCharSelectionText(t *testing.T) {
 	}
 }
 
-func TestInspectorRenders(t *testing.T) {
-	m := threeInstances()
-	m.cursor = 2                   // media (s3)
-	m.resp.Instances[2].PID = 4242 // awake, so its contents render (asleep shows a wake prompt)
-	m.cmd = textinput.New()
-	m.adminMode = true
-	m.adminLoaded = true
-	m.adminName = "media"
-	m.adminActs = []control.ActionView{
-		{ID: "browse", Label: "Browse", Kind: "bucket"},
-		{ID: "put", Label: "Put object", Kind: "bucket", InputHint: "key"},
-		{ID: "empty", Label: "Empty", Kind: "bucket", Destructive: true},
-	}
-	m.adminRes = []control.ResourceView{{Kind: "bucket", Name: "uploads", Status: "2 objects"}}
-	m.itemVP = viewport.New(60, 12)
-	m.inspItems = []inspItem{
-		{title: "logo.png", meta: "12K · 2026", delArg: "logo.png"},
-		{title: "data.json", meta: "1.2K · 2026", delArg: "data.json"},
-	}
-	m.refreshItemView()
-	out := m.View()
-	// header instance, the resource rail, the item list, and the action bar.
-	for _, want := range []string{"media", "uploads", "logo.png", "put", "delete", "esc"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("inspector view missing %q:\n%s", want, out)
-		}
-	}
-}
-
 func TestViewRendersInstancesAndKeys(t *testing.T) {
 	m := threeInstances()
 	out := m.View()
-	for _, want := range []string{"app", "cache", "media", "boot", "reap", "doze"} {
+	for _, want := range []string{"app", "cache", "media", "wake", "sleep", "doze"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("view missing %q:\n%s", want, out)
 		}
@@ -383,7 +145,7 @@ func TestViewRendersInstancesAndKeys(t *testing.T) {
 	// The full key set (incl. restart) and the mouse/state legend live in `?` help.
 	m.showHelp = true
 	help := m.View()
-	for _, want := range []string{"restart", "Mouse", "asleep", "cycle theme"} {
+	for _, want := range []string{"restart", "Mouse", "asleep", "cycle theme", "web console"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("help overlay missing %q:\n%s", want, help)
 		}
@@ -424,7 +186,7 @@ func TestFooterTrimsToWidth(t *testing.T) {
 	// At full width the core actions are all present.
 	m.width = 110
 	f := m.viewFooter()
-	for _, want := range []string{"boot", "reap", "help", "quit"} {
+	for _, want := range []string{"wake", "sleep", "help", "quit"} {
 		if !strings.Contains(f, want) {
 			t.Fatalf("footer at 110 missing %q: %s", want, f)
 		}
@@ -465,13 +227,13 @@ func TestTaintedGlyphAndTotals(t *testing.T) {
 
 func TestDashConfirmFlow(t *testing.T) {
 	m := threeInstances()
-	// d stages a reap confirm rather than executing.
-	m = send(m, key("d"))
+	// s stages a sleep confirm rather than executing.
+	m = send(m, key("s"))
 	if m.dashPending != "down:app" {
 		t.Fatalf("d should stage down:app, got %q", m.dashPending)
 	}
 	// The confirm renders as a centered modal (not a lowkey footer line).
-	if out := m.View(); !strings.Contains(out, "reap app?") || !strings.Contains(out, "data is kept") {
+	if out := m.View(); !strings.Contains(out, "sleep app?") || !strings.Contains(out, "data is kept") {
 		t.Fatalf("confirm modal should show the verb, target and consequence:\n%s", out)
 	}
 	// y confirms: pending clears and the action command is dispatched.
@@ -524,39 +286,6 @@ func TestTruncateWideChars(t *testing.T) {
 	}
 	if got := truncate("hello world", 6); lipgloss.Width(got) > 6 || !strings.HasSuffix(got, "…") {
 		t.Fatalf("ascii truncate = %q", got)
-	}
-}
-
-func TestConsoleRowMath(t *testing.T) {
-	// inspectorModel: item 0 has a meta line (2 rows), item 1 does not (1 row).
-	m := inspectorModel()
-	for row, want := range map[int]int{0: 0, 1: 0, 2: 1, 3: -1} {
-		if got := m.itemIndexAtRow(row); got != want {
-			t.Fatalf("collapsed: itemIndexAtRow(%d) = %d, want %d", row, got, want)
-		}
-	}
-	// Expanding item 0 (detail "hello" = rule + 1 line) grows it to 4 rows.
-	m.inspCursor, m.inspExpanded = 0, true
-	for row, want := range map[int]int{0: 0, 3: 0, 4: 1, 5: -1} {
-		if got := m.itemIndexAtRow(row); got != want {
-			t.Fatalf("expanded: itemIndexAtRow(%d) = %d, want %d", row, got, want)
-		}
-	}
-}
-
-func TestItemIdentityPinning(t *testing.T) {
-	m := inspectorModel()
-	m.inspCursor = 1 // "world" (handle h2)
-	// A refresh where a new message lands at the head must keep the cursor on
-	// the same message, not the same position.
-	shifted := []inspItem{
-		{title: "new arrival", delArg: "h0"},
-		{title: "hello", meta: "group a", detail: "hello", delArg: "h1"},
-		{title: "world", detail: "world", delArg: "h2"},
-	}
-	m = send(m, itemsMsg{name: "jobs_sqs", resource: "emails", kind: "queue", items: shifted})
-	if it, _ := m.selectedItem(); it.delArg != "h2" {
-		t.Fatalf("selection drifted to %q, want the h2 item", it.delArg)
 	}
 }
 
@@ -623,17 +352,6 @@ func TestPaletteSuggestions(t *testing.T) {
 	if labels["status"] {
 		t.Fatal("CLI-only verbs must not appear in the palette")
 	}
-	// The console local verb matches by its aliases too.
-	m.palInput = "man"
-	found := false
-	for _, s := range m.paletteSuggestions() {
-		if s.label == "console" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("alias prefix 'man' should surface the console verb")
-	}
 	// An alias prefix still surfaces the action under its primary name.
 	m.palInput = "boo"
 	sugs := m.paletteSuggestions()
@@ -646,17 +364,18 @@ func TestPaletteSuggestions(t *testing.T) {
 	if len(sugs) != 1 || sugs[0].label != "theme" {
 		t.Fatalf("'the' should suggest the local theme verb, got %+v", sugs)
 	}
-	// Argument position: instance names, prefix-filtered, engine as the summary.
+	// The web-console door completes instance names in argument position.
+	m.palInput = "open me"
+	sugs = m.paletteSuggestions()
+	if len(sugs) == 0 || sugs[0].label != "media" || sugs[0].summary != "s3" {
+		t.Fatalf("arg suggestions for 'open me' = %+v", sugs)
+	}
+	// Argument position: instance names, fuzzy-ranked — the prefix match ranks
+	// ahead of substring matches — with the engine as the summary.
 	m.palInput = "wake a"
 	sugs = m.paletteSuggestions()
-	if len(sugs) != 1 || sugs[0].label != "app" || sugs[0].summary != "postgres" {
+	if len(sugs) == 0 || sugs[0].label != "app" || sugs[0].summary != "postgres" {
 		t.Fatalf("arg suggestions for 'wake a' = %+v", sugs)
-	}
-	// :console narrows to manageable builtins — only the s3 instance qualifies.
-	m.palInput = "console "
-	sugs = m.paletteSuggestions()
-	if len(sugs) != 1 || sugs[0].label != "media" {
-		t.Fatalf(":console should suggest only builtins, got %+v", sugs)
 	}
 }
 
@@ -702,9 +421,9 @@ func TestPaletteConfirmFlow(t *testing.T) {
 	m.palInput = "sleep"
 	m = send(m, key("enter"))
 	if m.dashPending != "down:" {
-		t.Fatalf("bare :sleep should stage a fleet-wide reap, got %q", m.dashPending)
+		t.Fatalf("bare :sleep should stage a fleet-wide sleep, got %q", m.dashPending)
 	}
-	if out := m.View(); !strings.Contains(out, "reap ALL services?") {
+	if out := m.View(); !strings.Contains(out, "sleep ALL services?") {
 		t.Fatalf("fleet-wide confirm modal missing:\n%s", out)
 	}
 	m = send(m, key("n")) // cancel
@@ -716,7 +435,7 @@ func TestPaletteConfirmFlow(t *testing.T) {
 func TestPaletteDiscoverability(t *testing.T) {
 	m := threeInstances()
 	m.width = 80
-	if f := m.viewFooter(); !strings.Contains(f, "cmds") {
+	if f := m.viewFooter(); !strings.Contains(f, "commands") {
 		t.Fatalf("footer at 80 cols should keep the ':' hint: %s", f)
 	}
 	m.width = 110
@@ -771,7 +490,7 @@ func TestPaletteEnterRunsHighlightedSuggestion(t *testing.T) {
 	}
 }
 
-// ── round 2: spotlight palette, confirm modal, charts, copy, management ────
+// ── spotlight palette, confirm modal, charts, copy, web hand-off ────────────
 
 func TestPaletteRendersCentered(t *testing.T) {
 	// A tall sidebar so services fall on the palette's rows — the overlay must
@@ -828,11 +547,11 @@ func TestPaletteRendersCentered(t *testing.T) {
 func TestConfirmModalCenteredAndKeys(t *testing.T) {
 	m := threeInstances()
 	m.width, m.height = 100, 30
-	m = send(m, key("d")) // stage reap app
+	m = send(m, key("s")) // stage sleep app
 	lines := strings.Split(m.View(), "\n")
 	promptRow := -1
 	for i, ln := range lines {
-		if strings.Contains(ln, "reap app?") {
+		if strings.Contains(ln, "sleep app?") {
 			promptRow = i
 			break
 		}
@@ -849,7 +568,7 @@ func TestConfirmModalCenteredAndKeys(t *testing.T) {
 		t.Fatalf("esc should cancel the staged action, got %q", m.dashPending)
 	}
 	// y executes (staged again first).
-	m = send(m, key("d"))
+	m = send(m, key("s"))
 	next, cmd := m.Update(key("y"))
 	m = next.(model)
 	if m.dashPending != "" || cmd == nil {
@@ -868,34 +587,82 @@ func TestSteadySeriesDetection(t *testing.T) {
 	}
 }
 
-// blockRunes are the eighth-block glyphs banned from the redesigned charts.
+// blockRunes are the eighth-block glyphs banned from the charts.
 const blockRunes = "▁▂▃▄▅▆▇█"
 
 func containsAnyRune(s, set string) bool {
 	return strings.ContainsAny(s, set)
 }
 
-func TestCurveChartGlyphs(t *testing.T) {
-	// Rise then fall: levels 0,0,3,3,1,1 across 6 columns and 4 rows.
-	vals := []float64{0, 0, 3, 3, 1, 1}
-	rows := curveChart(vals, 6, 4)
-	if len(rows) != 4 {
-		t.Fatalf("curveChart rows = %d, want 4", len(rows))
-	}
-	out := strings.Join(rows, "\n")
-	for _, want := range []string{"╭", "╯", "╮", "╰", "│", "─"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("curve chart missing %q:\n%s", want, out)
+// isBraille reports whether s contains at least one non-empty braille cell.
+func hasBraille(s string) bool {
+	for _, r := range s {
+		if r > 0x2800 && r <= 0x28FF {
+			return true
 		}
 	}
-	if containsAnyRune(out, blockRunes) {
-		t.Fatalf("curve chart must not use block glyphs:\n%s", out)
+	return false
+}
+
+func TestBrailleChartShape(t *testing.T) {
+	// Rise then fall across 6 columns and 2 rows.
+	vals := []float64{0, 0, 3, 3, 1, 1}
+	rows := brailleChart(vals, 6, 2)
+	if len(rows) != 2 {
+		t.Fatalf("brailleChart rows = %d, want 2", len(rows))
 	}
-	// Flat series → a single mid-height '─' run.
-	flatRows := curveChart([]float64{5, 5, 5}, 6, 4)
-	flat := strings.Join(flatRows, "\n")
-	if strings.Count(flat, "─") != 6 || containsAnyRune(flat, "╭╮╰╯│") {
-		t.Fatalf("flat series should be one plain run:\n%s", flat)
+	out := strings.Join(rows, "\n")
+	if !hasBraille(out) {
+		t.Fatalf("chart should be drawn in braille dots:\n%s", out)
+	}
+	if containsAnyRune(out, blockRunes) {
+		t.Fatalf("chart must not use block glyphs:\n%s", out)
+	}
+	// Every column carries ink somewhere — the line is continuous.
+	for x := 0; x < 6; x++ {
+		inked := false
+		for _, row := range rows {
+			if []rune(row)[x] != 0x2800 {
+				inked = true
+			}
+		}
+		if !inked {
+			t.Fatalf("column %d has no dots — the line broke:\n%s", x, out)
+		}
+	}
+	// A flat series holds the middle: dots only in the middle row region.
+	flat := brailleChart([]float64{5, 5, 5}, 6, 4)
+	if !hasBraille(strings.Join(flat, "\n")) {
+		t.Fatal("flat series should still draw a line")
+	}
+	for _, bad := range []string{flat[0], flat[3]} { // top and bottom rows stay empty
+		if hasBraille(bad) {
+			t.Fatalf("flat line should hold the middle rows:\n%s", strings.Join(flat, "\n"))
+		}
+	}
+}
+
+func TestResampleBucketsMean(t *testing.T) {
+	// Downsampling must average buckets, not index-pick (aliasing loses spikes).
+	vals := make([]float64, 100)
+	for i := range vals {
+		vals[i] = 10
+	}
+	vals[50] = 110 // a one-sample spike between pick points
+	out := resample(vals, 10)
+	found := false
+	for _, v := range out {
+		if v > 15 { // the spike survives as a raised bucket mean
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("bucket-mean resample lost the spike: %v", out)
+	}
+	// Upsampling interpolates between the two points.
+	up := resample([]float64{0, 10}, 5)
+	if up[0] != 0 || up[4] != 10 || up[2] <= up[1] || up[3] <= up[2] {
+		t.Fatalf("interpolated upsample off: %v", up)
 	}
 }
 
@@ -904,7 +671,7 @@ func TestMemorySectionLayout(t *testing.T) {
 	// Steady: chart still renders (flat), title carries "steady · value".
 	h := &history{}
 	for i := 0; i < 50; i++ {
-		h.push(float64(10*mb), 1)
+		h.push(float64(10*mb), 0, 1)
 	}
 	sec := memorySection(h, 10*mb, 80)
 	if len(sec) != 5 { // title + 4 chart rows
@@ -936,15 +703,15 @@ func TestMemorySectionLayout(t *testing.T) {
 	// Varying, current == peak: the title prints the value once.
 	h2 := &history{}
 	for i := 0; i < 50; i++ {
-		h2.push(float64(10*mb+i*mb/5), 1)
+		h2.push(float64(10*mb+i*mb/5), 0, 1)
 	}
 	cur := int64(10*mb + 49*mb/5)
 	sec2 := memorySection(h2, cur, 80)
 	if got := strings.Count(sec2[0], memStr(cur)); got != 1 {
 		t.Fatalf("now==peak should print once, got %d in %q", got, sec2[0])
 	}
-	if !strings.Contains(strings.Join(sec2[1:], "\n"), "╭") {
-		t.Fatalf("varying memory should draw the curved line:\n%s", strings.Join(sec2[1:], "\n"))
+	if !hasBraille(strings.Join(sec2[1:], "\n")) {
+		t.Fatalf("varying memory should draw a braille line:\n%s", strings.Join(sec2[1:], "\n"))
 	}
 	// Distinct peak shows in the title, not beside the chart.
 	sec3 := memorySection(h2, 10*mb+5*mb, 80)
@@ -953,11 +720,46 @@ func TestMemorySectionLayout(t *testing.T) {
 	}
 }
 
+func TestCPUSectionThresholds(t *testing.T) {
+	// Never moved a whole percentage point → one quiet row (or nothing at 0).
+	h := &history{}
+	for i := 0; i < 50; i++ {
+		h.push(1, 2.2, 1)
+	}
+	sec := cpuSection(h, 2.2, 80)
+	if len(sec) != 1 || !strings.Contains(sec[0], "cpu · 2% for ") {
+		t.Fatalf("flat cpu should be one text row, got %+v", sec)
+	}
+	// Truly idle the whole window → no section at all (the title fact covers it).
+	h0 := &history{}
+	for i := 0; i < 50; i++ {
+		h0.push(1, 0.1, 1)
+	}
+	if sec := cpuSection(h0, 0.1, 80); sec != nil {
+		t.Fatalf("idle cpu should render nothing, got %+v", sec)
+	}
+	// Real movement → title + 2 braille rows with % gutter labels.
+	h2 := &history{}
+	for i := 0; i < 50; i++ {
+		h2.push(1, float64(5+i%40), 1)
+	}
+	sec2 := cpuSection(h2, 12, 80)
+	if len(sec2) != 3 {
+		t.Fatalf("moving cpu rows = %d, want 3 (title + 2 chart)", len(sec2))
+	}
+	if !strings.Contains(sec2[0], "12% now") || !strings.Contains(sec2[0], "peak 44%") {
+		t.Fatalf("cpu title = %q", sec2[0])
+	}
+	if !hasBraille(strings.Join(sec2[1:], "\n")) {
+		t.Fatalf("cpu chart should be braille:\n%s", strings.Join(sec2[1:], "\n"))
+	}
+}
+
 func TestConnsSectionCollapsesAndSteps(t *testing.T) {
 	// Constant count: one quiet row, no chart, no blocks.
 	h := &history{}
 	for i := 0; i < 60; i++ {
-		h.push(1, 4)
+		h.push(1, 0, 4)
 	}
 	sec := connsSection(h, 4, 80)
 	if len(sec) != 1 || !strings.Contains(sec[0], "conns · 4 for ") {
@@ -966,7 +768,7 @@ func TestConnsSectionCollapsesAndSteps(t *testing.T) {
 	// Varying count: title + 2-row step line with integer gutter labels.
 	h2 := &history{}
 	for i := 0; i < 60; i++ {
-		h2.push(1, float64(i%5))
+		h2.push(1, 0, float64(i%5))
 	}
 	sec2 := connsSection(h2, 3, 80)
 	if len(sec2) != 3 {
@@ -994,7 +796,7 @@ func TestDetailCardLayout(t *testing.T) {
 	m.resp.Instances[0].EnvVar = "DATABASE_URL"
 	h := &history{}
 	for i := 0; i < 30; i++ {
-		h.push(10*1024*1024, 4)
+		h.push(10*1024*1024, 0, 4)
 	}
 	m.hist["app"] = h
 	v := m.resp.Instances[0]
@@ -1010,22 +812,27 @@ func TestDetailCardLayout(t *testing.T) {
 			t.Fatalf("old state row survived: %q", ln)
 		}
 	}
-	// Structure: blank / endpoint / url / data / blank / memory… (1-line URL, no
-	// presumed var name — apps take the value under their own name).
+	// Structure: blank / connect / bind / data / blank / memory…. The connect
+	// line is the paste-able address; the bind line is the raw truth with pid
+	// and the conventional env-var name riding dim.
 	if lines[1] != "" {
 		t.Fatalf("row 1 should be blank, got %q", lines[1])
 	}
-	if !strings.Contains(lines[2], "endpoint") || !strings.Contains(lines[3], "url") ||
-		!strings.Contains(lines[3], "postgres://") || strings.Contains(lines[3], "DATABASE_URL") {
-		t.Fatalf("connection rows off: %q / %q", lines[2], lines[3])
+	if !strings.Contains(lines[2], "connect") || !strings.Contains(lines[2], "postgres://") {
+		t.Fatalf("connect row off: %q", lines[2])
 	}
-	if !strings.Contains(lines[4], "data") || !strings.Contains(lines[4], "pid 63710") {
-		t.Fatalf("data row should carry the dim pid: %q", lines[4])
+	if !strings.Contains(lines[3], "bind") || !strings.Contains(lines[3], "127.0.0.1:5432") ||
+		!strings.Contains(lines[3], "pid 63710") || !strings.Contains(lines[3], "env DATABASE_URL") {
+		t.Fatalf("bind row off: %q", lines[3])
+	}
+	if !strings.Contains(lines[4], "data") || strings.Contains(lines[4], "pid") {
+		t.Fatalf("data row should exist without the pid (it moved to bind): %q", lines[4])
 	}
 	if lines[5] != "" || !strings.Contains(lines[6], "memory · steady · 10.00 MB") {
 		t.Fatalf("memory section should follow one blank row: %q / %q", lines[5], lines[6])
 	}
-	// Chart rows 7..10, then a blank, then the constant-conns row.
+	// Chart rows 7..10, then a blank, then the constant-conns row. Idle CPU (0%)
+	// renders no section at all — the title fact covers it.
 	if lines[11] != "" || !strings.Contains(lines[12], "conns · 4 for ") {
 		t.Fatalf("conns section should follow one blank row: %q / %q", lines[11], lines[12])
 	}
@@ -1048,33 +855,40 @@ func TestDetailCardLayout(t *testing.T) {
 	}
 }
 
-func TestBuiltinStatusStripSeparated(t *testing.T) {
+func TestBuiltinStatusStrip(t *testing.T) {
 	m := threeInstances()
-	m.resp.Instances[2].PID = 9 // media (s3) running
-	m.resp.Instances[2].State = "active"
-	m.resp.Instances[2].LastError = "" // healthy — the strip shows resources
-	m.adminName = "media"
-	m.adminRes = []control.ResourceView{{Kind: "queue", Name: "emails"}, {Kind: "queue", Name: "jobs"}}
+	m.resp.Instances[2] = control.InstanceView{
+		Name: "local", Engine: "aws", State: "active", PID: 9,
+		URL: "http://aws.demo.doze"}
+	m.adminName = "local"
+	m.adminRes = []control.ResourceView{
+		{Kind: "service", Name: "s3", Status: "4 buckets"},
+		{Kind: "service", Name: "sqs", Status: "5 queues"},
+	}
 	h := &history{}
 	for i := 0; i < 20; i++ {
-		h.push(5*1024*1024, 0)
+		h.push(5*1024*1024, 0, 0)
 	}
-	m.hist["media"] = h
+	m.hist["local"] = h
 	lines := m.detailLines(m.resp.Instances[2], 100)
 	strip := -1
 	for i, ln := range lines {
-		if strings.Contains(ln, ":console") {
+		if strings.Contains(ln, "2 services") {
 			strip = i
 		}
 	}
 	if strip < 1 {
-		t.Fatalf("builtin status strip missing:\n%s", strings.Join(lines, "\n"))
+		t.Fatalf("aws status strip missing:\n%s", strings.Join(lines, "\n"))
 	}
 	if lines[strip-1] != "" {
 		t.Fatalf("status strip must keep a blank row above, got %q", lines[strip-1])
 	}
-	if !strings.Contains(lines[strip+1], "emails") {
-		t.Fatalf("resource names should follow the strip: %q", lines[strip+1])
+	if !strings.Contains(lines[strip+1], "s3 4 buckets") {
+		t.Fatalf("service rows should carry their counts: %q", lines[strip+1])
+	}
+	// The aws engine serves its own console — the strip advertises the web door.
+	if !strings.Contains(strings.Join(lines, "\n"), "opens the web console") {
+		t.Fatalf("strip should advertise the web console:\n%s", strings.Join(lines, "\n"))
 	}
 }
 
@@ -1108,75 +922,163 @@ func TestCopyModeFeedback(t *testing.T) {
 	}
 }
 
-func TestEnterBootsInsteadOfConsole(t *testing.T) {
+// ── web hand-off (enter / o / :open) ─────────────────────────────────────────
+
+func withAWS(m model) model {
+	m.resp.Instances = append(m.resp.Instances, control.InstanceView{
+		Name: "local", Engine: "aws", State: "active", PID: 7,
+		URL: "http://aws.demo.doze"})
+	return m
+}
+
+func TestWebURLResolution(t *testing.T) {
+	m := withAWS(threeInstances())
+	// The aws engine opens its own console, never the bare gateway (whose
+	// root answers as S3 ListBuckets XML).
+	local, _ := m.instanceByName("local")
+	if got := m.webURL(local); got != "http://aws.demo.doze/_console" {
+		t.Fatalf("webURL(aws) = %q, want its /_console", got)
+	}
+	// A database has nothing to open.
+	app, _ := m.instanceByName("app")
+	if got := m.webURL(app); got != "" {
+		t.Fatalf("webURL(postgres) = %q, want empty", got)
+	}
+}
+
+func TestEnterWakesOrOpens(t *testing.T) {
+	// enter on an asleep instance wakes it.
 	m := threeInstances()
-	m.resp.Instances[2].PID = 42 // media (s3) is running — old behavior opened the console
-	m.cursor = 2
+	m.cursor = 0 // app, PID 0
 	next, cmd := m.Update(key("enter"))
 	m = next.(model)
-	if m.adminMode || m.mgmtMode {
-		t.Fatal("enter must not open the console anymore")
+	if cmd == nil || !strings.Contains(m.flash, "waking app") {
+		t.Fatalf("enter should wake an asleep instance (flash=%q)", m.flash)
 	}
-	if cmd == nil || !strings.Contains(m.flash, "booting media") {
-		t.Fatalf("enter should boot (flash=%q)", m.flash)
+	// enter on the running aws instance opens its console.
+	m = withAWS(threeInstances())
+	m.cursor = 3 // the appended aws instance
+	next, cmd = m.Update(key("enter"))
+	m = next.(model)
+	if cmd == nil || !strings.Contains(m.flash, "opening http://aws.demo.doze/_console") {
+		t.Fatalf("enter on the aws instance should open its console (flash=%q)", m.flash)
 	}
-}
-
-func TestManagementView(t *testing.T) {
-	m := threeInstances()
-	// The rail lists only the manageable builtins.
-	bs := m.builtinInstances()
-	if len(bs) != 1 || bs[0].Name != "media" {
-		t.Fatalf("builtinInstances = %+v, want just media", bs)
-	}
-	// :console opens straight into the console — no rail-focus step to tab through.
-	m = send(m, key(":"))
-	m.palInput = "console"
-	m = send(m, key("enter"))
-	if !m.mgmtMode || !m.adminMode {
-		t.Fatalf("bare :console should open straight into the console (mgmt=%v admin=%v)",
-			m.mgmtMode, m.adminMode)
-	}
-	out := m.View()
-	if !strings.Contains(out, "SERVICES") || !strings.Contains(out, "media") {
-		t.Fatalf("console view missing the switcher rail:\n%s", out)
-	}
-	// esc leaves straight for the dash (no rail limbo in between).
-	m = send(m, key("esc"))
-	if m.mgmtMode || m.adminMode {
-		t.Fatal("esc in the console should leave straight for the dash")
-	}
-	// A named non-builtin errors; no builtins at all errors too.
-	m = send(m, key(":"))
-	m.palInput = "console app"
-	m = send(m, key("enter"))
-	if !m.flashErr || !strings.Contains(m.flash, "manageable") {
-		t.Fatalf("non-builtin :console target should error, got %q", m.flash)
-	}
-	empty := threeInstances()
-	empty.resp.Instances = empty.resp.Instances[:2] // postgres + valkey only
-	nm, _ := empty.openMgmt("")
-	empty = nm.(model)
-	if !empty.flashErr || !strings.Contains(empty.flash, "nothing to manage") {
-		t.Fatalf("no builtins should error, got %q", empty.flash)
-	}
-}
-
-func TestDomainAddrDisplay(t *testing.T) {
-	v := control.InstanceView{Name: "orders", Engine: "postgres",
-		Endpoint: "127.0.0.1:5432", Domain: "orders-pg.local"}
-	if got := domainAddr(v); got != "orders-pg.local:5432" {
-		t.Fatalf("domainAddr = %q", got)
-	}
-	if got := domainAddr(control.InstanceView{Endpoint: "127.0.0.1:5432"}); got != "" {
-		t.Fatalf("no domain should yield empty, got %q", got)
-	}
-	// The detail card leads with the friendly name.
-	m := threeInstances()
-	m.resp.Instances[0].Domain = "app-pg.local"
-	m.resp.Instances[0].Endpoint = "127.0.0.1:5432"
+	// o opens explicitly; on a running service with no web door it says so.
+	m = threeInstances()
 	m.resp.Instances[0].PID = 7
-	if out := m.View(); !strings.Contains(out, "app-pg.local:") {
-		t.Fatalf("detail card should show the domain endpoint:\n%s", out)
+	m.cursor = 0
+	next, _ = m.Update(key("o"))
+	m = next.(model)
+	if !strings.Contains(m.flash, "nothing to open") {
+		t.Fatalf("o on a database should explain itself (flash=%q)", m.flash)
+	}
+	// w wakes explicitly.
+	m = threeInstances()
+	m.cursor = 0
+	next, cmd = m.Update(key("w"))
+	m = next.(model)
+	if cmd == nil || !strings.Contains(m.flash, "waking app") {
+		t.Fatalf("w should wake (flash=%q)", m.flash)
+	}
+}
+
+func TestPaletteOpenVerb(t *testing.T) {
+	m := withAWS(threeInstances())
+	m = send(m, key(":"))
+	m.palInput = "open local"
+	next, cmd := m.Update(key("enter"))
+	m = next.(model)
+	if cmd == nil || !strings.Contains(m.flash, "opening http://aws.demo.doze/_console") {
+		t.Fatalf(":open local should open the console (flash=%q)", m.flash)
+	}
+	// :console is an alias for :open.
+	m = send(m, key(":"))
+	m.palInput = "console local"
+	next, cmd = m.Update(key("enter"))
+	m = next.(model)
+	if cmd == nil || !strings.Contains(m.flash, "opening http://aws.demo.doze/_console") {
+		t.Fatalf(":console <name> should open (flash=%q)", m.flash)
+	}
+	// Unknown name errors actionably.
+	m = send(m, key(":"))
+	m.palInput = "open nope"
+	m = send(m, key("enter"))
+	if !m.flashErr || !strings.Contains(m.flash, "unknown service") {
+		t.Fatalf(":open nope flash = %q", m.flash)
+	}
+}
+
+func TestConnectLinePrecedence(t *testing.T) {
+	// URL wins over everything.
+	v := control.InstanceView{URL: "postgres://app@db:5432/app",
+		Resource: "http://s3.demo.doze/uploads", Domain: "db.demo.doze", Endpoint: "127.0.0.1:5432"}
+	if got := connectLine(v); got != "postgres://app@db:5432/app" {
+		t.Fatalf("connectLine = %q, want the URL", got)
+	}
+	// Resource next (AWS built-in / forwarded process).
+	v.URL = ""
+	if got := connectLine(v); got != "http://s3.demo.doze/uploads" {
+		t.Fatalf("connectLine = %q, want the resource", got)
+	}
+	// Then the DNS name with the endpoint's port — never a raw IP.
+	v.Resource = ""
+	if got := connectLine(v); got != "db.demo.doze:5432" {
+		t.Fatalf("connectLine = %q, want domain:port", got)
+	}
+	// Raw endpoint only as the last resort (unix sockets, no domains).
+	v.Domain = ""
+	if got := connectLine(v); got != "127.0.0.1:5432" {
+		t.Fatalf("connectLine = %q, want the endpoint", got)
+	}
+	// The detail card leads with the connect line and shows the raw bind under it.
+	m := threeInstances()
+	m.resp.Instances[0].Domain = "app-pg.demo.doze"
+	m.resp.Instances[0].Endpoint = "127.0.0.11:5432"
+	m.resp.Instances[0].Bind = "127.0.0.11:5432"
+	m.resp.Instances[0].PID = 7
+	out := m.View()
+	if !strings.Contains(out, "app-pg.demo.doze:") {
+		t.Fatalf("detail card should lead with the domain connect line:\n%s", out)
+	}
+	if !strings.Contains(out, "127.0.0.11:5432") {
+		t.Fatalf("detail card should show the raw bind line:\n%s", out)
+	}
+}
+
+func TestSidebarGroupsByEngineType(t *testing.T) {
+	m := threeInstances()
+	m.resp.Instances = append(m.resp.Instances,
+		control.InstanceView{Name: "jobs", Engine: "sqs", State: "active"},
+		control.InstanceView{Name: "emails", Engine: "sqs", State: "active"},
+		control.InstanceView{Name: "worker", Engine: "process", State: "active"},
+		control.InstanceView{Name: "billing", Engine: "postgres", State: "active", Group: "team billing"},
+	)
+	var headers []string
+	for _, ln := range m.sidebarLines() {
+		if ln.header != "" {
+			headers = append(headers, ln.header)
+		}
+	}
+	// Engine-type lanes in architecture order — databases, caches, AWS, custom
+	// group= headings, processes last — with member counts where they help.
+	want := []string{"postgres", "valkey", "s3", "sqs · 2", "team billing", "processes"}
+	if len(headers) != len(want) {
+		t.Fatalf("headers = %v, want %v", headers, want)
+	}
+	for i := range want {
+		if headers[i] != want[i] {
+			t.Fatalf("headers = %v, want %v", headers, want)
+		}
+	}
+	// An explicit group= heading owns its instance.
+	vis := m.visible()
+	var order []string
+	for _, i := range vis {
+		order = append(order, m.resp.Instances[i].Name)
+	}
+	// billing (custom group) sits after the AWS lanes, before processes.
+	joined := strings.Join(order, ",")
+	if !strings.Contains(joined, "emails,jobs,billing,worker") {
+		t.Fatalf("display order = %v", order)
 	}
 }

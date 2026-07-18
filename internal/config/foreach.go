@@ -130,9 +130,9 @@ func parseDependsOn(parser *hclparse.Parser, attr *hcl.Attribute, ctx *hcl.EvalC
 			return nil, posErr(parser, attr.Range, "invalid depends_on", "condition must be a string")
 		}
 		cond := engine.Condition(v.AsString())
-		if cond != engine.Healthy && cond != engine.Started {
+		if cond != engine.Healthy && cond != engine.Started && cond != engine.Lazy {
 			return nil, posErr(parser, attr.Range, "invalid depends_on condition",
-				fmt.Sprintf("%q is not a condition (want %q or %q)", v.AsString(), engine.Healthy, engine.Started))
+				fmt.Sprintf("%q is not a condition (want %q, %q or %q)", v.AsString(), engine.Healthy, engine.Started, engine.Lazy))
 		}
 		out[dependsOnName(k.AsString())] = cond
 	}

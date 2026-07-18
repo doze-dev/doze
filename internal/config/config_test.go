@@ -63,7 +63,7 @@ fake "b" {
   version = "17.2"
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +90,7 @@ fake "b" {
 }
 
 func TestVersionRequired(t *testing.T) {
-	_, err := Parse([]byte(`fake "x" {}`), "doze.hcl")
+	_, err := Parse([]byte(`fake "x" {}`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "version") {
 		t.Errorf("expected missing-version error, got %v", err)
 	}
@@ -101,21 +101,21 @@ func TestDuplicateInstance(t *testing.T) {
 fake "dup" { version = 1 }
 fake "dup" { version = 1 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "already declared") {
 		t.Errorf("expected duplicate error, got %v", err)
 	}
 }
 
 func TestUnknownEngine(t *testing.T) {
-	_, err := Parse([]byte(`mysql "x" { version = 8 }`), "doze.hcl")
+	_, err := Parse([]byte(`mysql "x" { version = 8 }`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "mysql") {
 		t.Errorf("expected unknown-engine error mentioning mysql, got %v", err)
 	}
 }
 
 func TestDefaultsApplied(t *testing.T) {
-	cfg, err := Parse([]byte(`fake "x" { version = 1 }`), "doze.hcl")
+	cfg, err := Parse([]byte(`fake "x" { version = 1 }`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestDefaultsApplied(t *testing.T) {
 }
 
 func TestBadDuration(t *testing.T) {
-	_, err := Parse([]byte(`defaults { idle_timeout = "not-a-duration" }`), "doze.hcl")
+	_, err := Parse([]byte(`defaults { idle_timeout = "not-a-duration" }`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "idle_timeout") {
 		t.Errorf("expected duration error, got %v", err)
 	}
@@ -143,7 +143,7 @@ defaults {
   bogus_key = "oops"
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "bogus_key") {
 		t.Errorf("expected unknown-key error, got %v", err)
 	}
@@ -157,7 +157,7 @@ fake "b" {
   ref     = fake.a.name
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -186,7 +186,7 @@ fake "b" {
   ref     = fake.ghost.name
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "undeclared instance") || !strings.Contains(err.Error(), "ghost") {
 		t.Errorf("expected undeclared-instance error, got %v", err)
 	}
@@ -203,7 +203,7 @@ fake "y" {
   ref     = fake.x.name
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "cycle") {
 		t.Errorf("expected cycle error, got %v", err)
 	}
@@ -216,7 +216,7 @@ fake "a" {
   color   = upper("red")
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -234,7 +234,7 @@ fake "a" {
 }
 output "the_color" { value = fake.a.name }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -255,7 +255,7 @@ fake "a" {
   color   = var.color
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -276,7 +276,7 @@ fake "x" {
   color   = local.b
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -293,7 +293,7 @@ locals {
 }
 fake "x" { version = 1 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "cycle") {
 		t.Errorf("expected locals cycle error, got %v", err)
 	}
@@ -307,7 +307,7 @@ fake "x" {
   color   = var.needed
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "required variable") || !strings.Contains(err.Error(), "needed") {
 		t.Errorf("expected required-variable error, got %v", err)
 	}
@@ -321,7 +321,7 @@ output "secret" {
   sensitive = true
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -347,7 +347,7 @@ fake "a" {
 	writeFile(t, dir, "x.auto.doze.vars", `env = "fromfile"`)
 
 	// Auto-vars file beats the default.
-	cfg, err := LoadWithVars(dir+"/doze.hcl", nil)
+	cfg, err := LoadWithVars(dir+"/doze.hcl", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +356,7 @@ fake "a" {
 	}
 
 	// --var beats the auto-vars file, and a number var converts from a string.
-	cfg, err = LoadWithVars(dir+"/doze.hcl", map[string]string{"env": "fromcli", "n": "7"})
+	cfg, err = LoadWithVars(dir+"/doze.hcl", map[string]string{"env": "fromcli", "n": "7"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ fake "node" {
   color    = each.key
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -406,7 +406,7 @@ fake "n" {
   color    = each.value
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -426,7 +426,7 @@ fake "rep" {
   color   = "c${count.index}"
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -449,7 +449,7 @@ fake "rep" {
 }
 
 func TestCountZeroProducesNoInstances(t *testing.T) {
-	cfg, err := Parse([]byte(`fake "none" { count = 0 }`), "doze.hcl")
+	cfg, err := Parse([]byte(`fake "none" { count = 0 }`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -465,7 +465,7 @@ fake "x" {
   for_each = toset(["a"])
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "count or for_each") {
 		t.Errorf("expected count/for_each conflict error, got %v", err)
 	}
@@ -483,7 +483,7 @@ fake "client" {
   ref     = fake.node_a.name
 }
 `
-	cfg, err := Parse([]byte(src), "doze.hcl")
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -503,7 +503,7 @@ fake "b" {
   version = 1
   ref     = fake.a.name
 }
-`), "doze.hcl")
+`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +520,7 @@ fake "b" {
   version    = 1
   depends_on = { "fake.a" = "started" }
 }
-`), "doze.hcl")
+`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +538,7 @@ fake "b" {
   ref        = fake.a.name
   depends_on = { "fake.a" = "started" }
 }
-`), "doze.hcl")
+`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -554,7 +554,7 @@ fake "b" {
   version    = 1
   depends_on = { "fake.ghost" = "healthy" }
 }
-`), "doze.hcl")
+`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "depends_on") || !strings.Contains(err.Error(), "ghost") {
 		t.Errorf("expected depends_on undeclared error, got %v", err)
 	}
@@ -567,7 +567,7 @@ fake "b" {
   version    = 1
   depends_on = { "fake.a" = "whenever" }
 }
-`), "doze.hcl")
+`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "condition") {
 		t.Errorf("expected invalid-condition error, got %v", err)
 	}
@@ -588,7 +588,7 @@ fake "anchor" {
 }`)
 	writeFile(t, dir, "ignored.hcl", `fake "nope" { version = 1 }`) // not *.doze.hcl
 
-	cfg, err := Load(dir + "/doze.hcl")
+	cfg, err := Load(dir+"/doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -636,14 +636,44 @@ fake "orders-pg" {
   port    = 1002
 }
 `
-	_, err := Parse([]byte(src), "doze.hcl")
+	_, err := Parse([]byte(src), "doze.hcl", nil)
 	// Parse doesn't run the CLI-only port/domain validation; call it directly.
-	cfg, perr := Parse([]byte(src), "doze.hcl")
+	cfg, perr := Parse([]byte(src), "doze.hcl", nil)
 	if perr != nil {
 		t.Fatalf("parse: %v", perr)
 	}
 	_ = err
 	if verr := cfg.validateDomains(); verr == nil || !strings.Contains(verr.Error(), "domain conflict") {
 		t.Fatalf("expected a domain conflict error, got %v", verr)
+	}
+}
+
+func TestHooksReceiveDeclaredEngines(t *testing.T) {
+	// The Hooks integration is explicit (no package globals), so a caller's
+	// RequireEngine must be told each declared (type, version) before the
+	// driver lookup — verify the capture fires with the right values.
+	type req struct{ engineType, version string }
+	var got []req
+	hooks := &Hooks{
+		RequireEngine: func(engineType, version string) {
+			got = append(got, req{engineType, version})
+		},
+		EngineNames: func() []string { return []string{"postgres"} },
+	}
+	src := `
+fake "a" { version = 16 }
+fake "b" { version = "17.2" }
+`
+	if _, err := Parse([]byte(src), "doze.hcl", hooks); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []req{{"fake", "16"}, {"fake", "17.2"}}
+	if len(got) != len(want) {
+		t.Fatalf("RequireEngine fired %d times (%+v), want %d", len(got), got, len(want))
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("RequireEngine[%d] = %+v, want %+v", i, got[i], w)
+		}
 	}
 }

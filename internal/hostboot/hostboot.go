@@ -1,14 +1,16 @@
 // Package hostboot wires the process-global engine host: the module manager,
-// the plugin manager, the engine plugin resolver, and the six config.Set* hooks
-// that let declared engine blocks be decoded and validated by their pinned
-// modules. Both entry points into a doze process share it — the `doze` CLI
-// (cmd/doze) and the embeddable facade (root package `doze`) — so the wiring
-// lives here exactly once and can't drift between them.
+// the plugin manager, the engine plugin resolver, and the config.Hooks that
+// let declared engine blocks be decoded and validated by their pinned modules
+// (pass Host.ConfigHooks() to config.Load/Parse). Both entry points into a
+// doze process share it — the `doze` CLI (cmd/doze) and the embeddable facade
+// (root package `doze`) — so the wiring lives here exactly once and can't
+// drift between them.
 //
-// The config.Set* hooks are process-global, so at most one Host may be active
-// per process. Init is ref-counted: repeated Init with the SAME Home returns the
-// same Host (incrementing the count); a DIFFERENT Home while one is active is an
-// error. Close decrements; the plugins are reaped when the count reaches zero.
+// Parts of the wiring remain process-global (engine.SetPluginResolver,
+// process.Logf), so at most one Host may be active per process. Init is
+// ref-counted: repeated Init with the SAME Home returns the same Host
+// (incrementing the count); a DIFFERENT Home while one is active is an error.
+// Close decrements; the plugins are reaped when the count reaches zero.
 package hostboot
 
 import (
@@ -48,6 +50,17 @@ type Host struct {
 	pluginMgr *plugin.Manager
 	modMgr    *modules.Manager // nil if modules couldn't be initialized
 	resolver  plugin.Resolver  // the resolver chain: DOZE_<TYPE>_PLUGIN, then modules
+	hooks     *config.Hooks    // module integration for config decode; nil if modules are disabled
+}
+
+// ConfigHooks returns the module-integration hooks to pass to config.Load/
+// LoadWithVars/Parse. Nil-safe: a nil Host (or one whose modules are disabled)
+// yields nil, which config treats as pure parse.
+func (h *Host) ConfigHooks() *config.Hooks {
+	if h == nil {
+		return nil
+	}
+	return h.hooks
 }
 
 // ResolvePlugin resolves an engine type to its plugin binary path (and any extra
@@ -99,6 +112,7 @@ func Init(opts Options) (*Host, error) {
 	// keep it warm for config eval + boot, and reap it when the host closes.
 	resolvers := []plugin.Resolver{plugin.EnvResolver()}
 	var modMgr *modules.Manager
+	var hooks *config.Hooks
 	if mgr, err := modules.NewManager(opts.Home); err != nil {
 		warnf(opts, "doze: modules disabled: %v", err)
 	} else {
@@ -108,31 +122,33 @@ func Init(opts Options) (*Host, error) {
 		// lazily since the config path isn't known until a command runs.
 		modMgr.UseLock(opts.LockPath)
 		modMgr.PersistWhen(opts.PersistLock)
-		config.SetModulesConfigurer(func(mc config.ModulesConfig) {
-			modMgr.Configure(mc.Mirror, mc.Enabled, mc.Sources, mc.Versions)
-		})
-		config.SetEngineRequirer(modMgr.Require)
-		config.SetModuleSupportChecker(modMgr.CheckSupport)
-		config.SetLookupErrorReporter(modMgr.LastError)
-		config.SetEngineNamesProvider(modMgr.KnownTypes)
-		config.SetRemoteDecodeHint(func(engineType string) string {
-			pin, source, ok := modMgr.Pinned(engineType)
-			if !ok {
-				return ""
-			}
-			hint := fmt.Sprintf("this block is decoded by module %s %s (pinned in doze.lock)", source, pin.Version)
-			if up := modMgr.UpgradeHint(engineType); up != "" {
-				hint += "; " + up
-			}
-			return hint
-		})
+		hooks = &config.Hooks{
+			ConfigureModules: func(mc config.ModulesConfig) {
+				modMgr.Configure(mc.Mirror, mc.Enabled, mc.Sources, mc.Versions)
+			},
+			RequireEngine: modMgr.Require,
+			CheckSupport:  modMgr.CheckSupport,
+			LookupError:   modMgr.LastError,
+			EngineNames:   modMgr.KnownTypes,
+			RemoteDecodeHint: func(engineType string) string {
+				pin, source, ok := modMgr.Pinned(engineType)
+				if !ok {
+					return ""
+				}
+				hint := fmt.Sprintf("this block is decoded by module %s %s (pinned in doze.lock)", source, pin.Version)
+				if up := modMgr.UpgradeHint(engineType); up != "" {
+					hint += "; " + up
+				}
+				return hint
+			},
+		}
 		resolvers = append(resolvers, modMgr.Lookup)
 	}
 	chain := plugin.Chain(resolvers...)
 	pluginMgr := plugin.NewManager(chain)
 	engine.SetPluginResolver(pluginMgr.Lookup)
 
-	current = &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr, resolver: chain}
+	current = &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr, resolver: chain, hooks: hooks}
 	refcount = 1
 	return current, nil
 }

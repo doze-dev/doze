@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+
+	"github.com/doze-dev/doze/internal/netutil"
 )
 
 // The pool is a small contiguous range in the first /24 — 127.0.0.2 … .(1+size).
@@ -38,7 +40,7 @@ func ipAt(n int) net.IP { return net.IPv4(127, 0, 0, byte(hostStart+n)) }
 // bindable reports whether ip can be bound right now — true on Linux for all of
 // 127/8, true on macOS only for addresses aliased onto lo0.
 func bindable(ip net.IP) bool {
-	l, err := net.Listen("tcp", net.JoinHostPort(ip.String(), "0"))
+	l, _, err := netutil.ListenFree(ip.String())
 	if err != nil {
 		return false
 	}
