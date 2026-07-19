@@ -31,10 +31,26 @@ mariadb "app" {
 ## Versions you can declare
 
 The `version =` you write is the **engine's own version** — the only version
-that's yours. doze fetches and verifies it, pins it in `doze.lock`, and picks
-the module release providing it automatically.
+that's yours. Declare a series and doze pins its newest published build, or
+declare an exact build; either way it's fetched, verified, and pinned in
+`doze.lock` (so it never moves on its own).
 
-`11`
+| `version =` | pins (today) | exact builds |
+|---|---|---|
+| `11.4` | `11.4.12` | 11 |
+| `11.8` | `11.8.8` | 7 |
+
+<details>
+<summary>Every exact build, per series</summary>
+
+**11.4** — `11.4.12` · `11.4.11` · `11.4.10` · `11.4.9` · `11.4.8` · `11.4.7` · `11.4.6` · `11.4.5` · `11.4.4` · `11.4.3` · `11.4.2`
+
+**11.8** — `11.8.8` · `11.8.7` · `11.8.6` · `11.8.5` · `11.8.4` · `11.8.3` · `11.8.2`
+
+</details>
+
+_The mirror also publishes `12.0` · `12.1` · `12.2` — declarable once the module adds support for those series._
+
 
 ## Configuration
 

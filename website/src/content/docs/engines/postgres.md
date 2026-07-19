@@ -57,10 +57,33 @@ postgres "app" {
 ## Versions you can declare
 
 The `version =` you write is the **engine's own version** — the only version
-that's yours. doze fetches and verifies it, pins it in `doze.lock`, and picks
-the module release providing it automatically.
+that's yours. Declare a series and doze pins its newest published build, or
+declare an exact build; either way it's fetched, verified, and pinned in
+`doze.lock` (so it never moves on its own).
 
-`14` · `15` · `16` · `17` · `18`
+| `version =` | pins (today) | exact builds |
+|---|---|---|
+| `14` | `14.23.0` | 24 |
+| `15` | `15.18.0` | 19 |
+| `16` | `16.14.0` | 15 |
+| `17` | `17.10.0` | 11 |
+| `18` | `18.4.0` | 5 |
+
+<details>
+<summary>Every exact build, per series</summary>
+
+**14** — `14.23.0` · `14.22.0` · `14.21.0` · `14.20.0` · `14.19.0` · `14.18.0` · `14.17.0` · `14.16.0` · `14.15.0` · `14.14.0` · `14.13.0` · `14.12.0` · `14.11.0` · `14.10.0` · `14.9.0` · `14.8.0` · `14.7.0` · `14.6.0` · `14.5.0` · `14.4.0` · `14.3.0` · `14.2.0` · `14.1.0` · `14.0.0`
+
+**15** — `15.18.0` · `15.17.0` · `15.16.0` · `15.15.0` · `15.14.0` · `15.13.0` · `15.12.0` · `15.11.0` · `15.10.0` · `15.9.0` · `15.8.0` · `15.7.0` · `15.6.0` · `15.5.0` · `15.4.0` · `15.3.0` · `15.2.0` · `15.1.0` · `15.0.0`
+
+**16** — `16.14.0` · `16.13.0` · `16.12.0` · `16.11.0` · `16.10.0` · `16.9.0` · `16.8.0` · `16.7.0` · `16.6.0` · `16.5.0` · `16.4.0` · `16.3.0` · `16.2.0` · `16.1.0` · `16.0.0`
+
+**17** — `17.10.0` · `17.9.0` · `17.8.0` · `17.7.0` · `17.6.0` · `17.5.0` · `17.4.0` · `17.3.0` · `17.2.0` · `17.1.0` · `17.0.0`
+
+**18** — `18.4.0` · `18.3.0` · `18.2.0` · `18.1.0` · `18.0.0`
+
+</details>
+
 
 ## Configuration
 

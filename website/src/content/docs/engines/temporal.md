@@ -25,10 +25,45 @@ temporal "dev" {
 ## Versions you can declare
 
 The `version =` you write is the **engine's own version** — the only version
-that's yours. doze fetches and verifies it, pins it in `doze.lock`, and picks
-the module release providing it automatically.
+that's yours. Declare a series and doze pins its newest published build, or
+declare an exact build; either way it's fetched, verified, and pinned in
+`doze.lock` (so it never moves on its own).
 
-`1`
+| `version =` | pins (today) | exact builds |
+|---|---|---|
+| `1.0` | `1.0.0` | 1 |
+| `1.1` | `1.1.2` | 3 |
+| `1.2` | `1.2.0` | 1 |
+| `1.3` | `1.3.0` | 1 |
+| `1.4` | `1.4.1` | 2 |
+| `1.5` | `1.5.1` | 2 |
+| `1.6` | `1.6.2` | 3 |
+| `1.7` | `1.7.3` | 4 |
+| `1.8` | `1.8.0` | 1 |
+
+<details>
+<summary>Every exact build, per series</summary>
+
+**1.0** — `1.0.0`
+
+**1.1** — `1.1.2` · `1.1.1` · `1.1.0`
+
+**1.2** — `1.2.0`
+
+**1.3** — `1.3.0`
+
+**1.4** — `1.4.1` · `1.4.0`
+
+**1.5** — `1.5.1` · `1.5.0`
+
+**1.6** — `1.6.2` · `1.6.1` · `1.6.0`
+
+**1.7** — `1.7.3` · `1.7.2` · `1.7.1` · `1.7.0`
+
+**1.8** — `1.8.0`
+
+</details>
+
 
 ## Configuration
 

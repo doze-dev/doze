@@ -25,10 +25,21 @@ ferret "shop" {
 ## Versions you can declare
 
 The `version =` you write is the **engine's own version** — the only version
-that's yours. doze fetches and verifies it, pins it in `doze.lock`, and picks
-the module release providing it automatically.
+that's yours. Declare a series and doze pins its newest published build, or
+declare an exact build; either way it's fetched, verified, and pinned in
+`doze.lock` (so it never moves on its own).
 
-`2`
+| `version =` | pins (today) | exact builds |
+|---|---|---|
+| `2` | `2.7.0` | 1 |
+
+<details>
+<summary>Every exact build, per series</summary>
+
+**2** — `2.7.0`
+
+</details>
+
 
 ## Configuration
 

@@ -53,6 +53,36 @@ function blockSections(args) {
 	return out;
 }
 
+// backendVersions resolves what a user can actually DECLARE, from
+// doze-binaries' published index: every series (the `version =` you write —
+// a bare series pins its newest build) with its exact builds, filtered to the
+// majors the current module release supports. null = no fetched backend
+// (kafka's version is a protocol profile; aws takes none) or lookup failure.
+const BINARIES = { postgres: 'postgres', valkey: 'valkey', kvrocks: 'kvrocks', mariadb: 'mariadb', temporal: 'temporal', ferret: 'ferretdb' };
+const numDesc = (a, b) => b.localeCompare(a, undefined, { numeric: true });
+async function backendVersions(name, supportedMajors) {
+	const recipe = BINARIES[name];
+	if (!recipe) return null;
+	try {
+		const res = await fetch(`https://github.com/doze-dev/doze-binaries/releases/download/${recipe}/index.yaml`, { redirect: 'follow' });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const eng = parse(await res.text())?.engines?.[recipe];
+		const fulls = Object.keys(eng?.artifacts || {});
+		const all = Object.entries(eng?.versions || {}).map(([ser, latest]) => ({
+			series: ser,
+			latest,
+			supported: supportedMajors.some((m) => ser === m || ser.startsWith(m + '.')),
+			fulls: fulls.filter((f) => f === ser || f.startsWith(ser + '.')).sort(numDesc),
+		}));
+		const series = all.filter((x) => x.supported).sort((a, b) => numDesc(b.series, a.series));
+		const pending = all.filter((x) => !x.supported).map((x) => x.series).sort((a, b) => numDesc(b, a));
+		return series.length ? { series, pending } : null;
+	} catch (e) {
+		console.warn(`  ⚠ ${name}: backend version lookup failed (${e.message})`);
+		return null;
+	}
+}
+
 async function get(path) {
 	const res = await fetch(`${BASE}/${path}`, { redirect: 'follow' });
 	if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
@@ -82,6 +112,9 @@ try {
 			.map(([v, r]) => ({ v, engines: (r.engines || []).map(String), plats: Object.keys(r.artifacts || {}).length, stable: v === stable }))
 			.sort((a, b) => b.v.localeCompare(a.v, undefined, { numeric: true }));
 		const args = meta.config?.arguments || [];
+		const inv = await backendVersions(name, versions);
+		const series = inv?.series;
+		const pending = inv?.pending || [];
 
 		const page = `---
 title: "${title}"
@@ -100,7 +133,25 @@ ${meta.description || meta.tagline || ''}
 ${(meta.example || '').trim()}
 \`\`\`
 
-${versions.length ? `## Versions you can declare
+${series ? `## Versions you can declare
+
+The \`version =\` you write is the **engine's own version** — the only version
+that's yours. Declare a series and doze pins its newest published build, or
+declare an exact build; either way it's fetched, verified, and pinned in
+\`doze.lock\` (so it never moves on its own).
+
+| \`version =\` | pins (today) | exact builds |
+|---|---|---|
+${series.map((sr) => `| \`${sr.series}\` | \`${sr.latest}\` | ${sr.fulls.length} |`).join('\n')}
+
+<details>
+<summary>Every exact build, per series</summary>
+
+${series.map((sr) => `**${sr.series}** — ${sr.fulls.map((f) => `\`${f}\``).join(' · ')}`).join('\n\n')}
+
+</details>
+${pending.length ? `\n_The mirror also publishes ${pending.map((p) => `\`${p}\``).join(' · ')} — declarable once the module adds support for ${pending.length === 1 ? 'that series' : 'those series'}._\n` : ''}
+` : versions.length ? `## Versions you can declare
 
 The \`version =\` you write is the **engine's own version** — the only version
 that's yours. doze fetches and verifies it, pins it in \`doze.lock\`, and picks

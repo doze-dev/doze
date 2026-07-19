@@ -35,10 +35,21 @@ kvrocks "store" {
 ## Versions you can declare
 
 The `version =` you write is the **engine's own version** — the only version
-that's yours. doze fetches and verifies it, pins it in `doze.lock`, and picks
-the module release providing it automatically.
+that's yours. Declare a series and doze pins its newest published build, or
+declare an exact build; either way it's fetched, verified, and pinned in
+`doze.lock` (so it never moves on its own).
 
-`2`
+| `version =` | pins (today) | exact builds |
+|---|---|---|
+| `2` | `2.16.0` | 20 |
+
+<details>
+<summary>Every exact build, per series</summary>
+
+**2** — `2.16.0` · `2.15.0` · `2.14.0` · `2.13.0` · `2.12.1` · `2.12.0` · `2.11.1` · `2.11.0` · `2.10.1` · `2.10.0` · `2.9.0` · `2.8.0` · `2.7.0` · `2.6.0` · `2.5.1` · `2.5.0` · `2.4.0` · `2.3.0` · `2.2.0` · `2.1.0`
+
+</details>
+
 
 ## Configuration
 
