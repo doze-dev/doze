@@ -83,6 +83,20 @@ export default defineConfig({
           ],
         },
         {
+          label: "Engines",
+          items: [
+            { slug: "guides/engines", label: "Overview" },
+            { slug: "engines/postgres" },
+            { slug: "engines/valkey" },
+            { slug: "engines/kvrocks" },
+            { slug: "engines/ferret" },
+            { slug: "engines/mariadb" },
+            { slug: "engines/temporal" },
+            { slug: "engines/kafka" },
+            { slug: "engines/aws" },
+          ],
+        },
+        {
           label: "Guides",
           items: [
             { slug: "guides/microservices" },

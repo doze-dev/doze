@@ -16,21 +16,20 @@ you'd reach for it.
 
 The **version** column is the one you write in `doze.hcl` — it's the engine's
 own version (the actual Postgres major, the Kafka protocol level), never a
-plugin or SDK number. Each engine links to its page on the
-[registry](https://doze.nerdmenot.in/registry/), where the version list and the
-full config reference are generated from the module itself, so they can't
-drift.
+plugin or SDK number. Each engine links to its own page — versions, platforms,
+config reference, and release history, generated from the module itself at
+build time, so they can't drift.
 
 | Engine | Speaks | Use it as | `version =` | Runs on |
 |---|---|---|---|---|
-| [**PostgreSQL**](https://doze.nerdmenot.in/registry/doze/postgres/) | the Postgres wire protocol | your primary SQL database | 14 – 18 | macOS · Linux |
-| [**Valkey**](https://doze.nerdmenot.in/registry/doze/valkey/) | Redis (RESP) | an in-memory cache | 8 – 9 | macOS · Linux |
-| [**Kvrocks**](https://doze.nerdmenot.in/registry/doze/kvrocks/) | Redis (RESP) | a durable, disk-backed KV store | 2 | macOS · Linux |
-| [**DocumentDB**](https://doze.nerdmenot.in/registry/doze/ferret/) | the MongoDB wire protocol | a document store | 2 | macOS · Linux |
-| [**MariaDB**](https://doze.nerdmenot.in/registry/doze/mariadb/) | MySQL | a MySQL-compatible SQL database | 11 | Linux x86_64 only |
-| [**Temporal**](https://doze.nerdmenot.in/registry/doze/temporal/) | Temporal gRPC + Web UI | a durable workflow engine | 1.1 | macOS · Linux |
-| [**Kafka**](https://doze.nerdmenot.in/registry/doze/kafka/) | the Kafka protocol | an event stream / message log | 1 – 4 | macOS · Linux |
-| [**AWS**](https://doze.nerdmenot.in/registry/doze/aws/) | the AWS APIs (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager) | the whole local cloud, one block | — | macOS · Linux |
+| [**PostgreSQL**](/engines/postgres/) | the Postgres wire protocol | your primary SQL database | 14 – 18 | macOS · Linux |
+| [**Valkey**](/engines/valkey/) | Redis (RESP) | an in-memory cache | 8 – 9 | macOS · Linux |
+| [**Kvrocks**](/engines/kvrocks/) | Redis (RESP) | a durable, disk-backed KV store | 2 | macOS · Linux |
+| [**DocumentDB**](/engines/ferret/) | the MongoDB wire protocol | a document store | 2 | macOS · Linux |
+| [**MariaDB**](/engines/mariadb/) | MySQL | a MySQL-compatible SQL database | 11 | Linux x86_64 only |
+| [**Temporal**](/engines/temporal/) | Temporal gRPC + Web UI | a durable workflow engine | 1.1 | macOS · Linux |
+| [**Kafka**](/engines/kafka/) | the Kafka protocol | an event stream / message log | 1 – 4 | macOS · Linux |
+| [**AWS**](/engines/aws/) | the AWS APIs (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager) | the whole local cloud, one block | — | macOS · Linux |
 | **process** | anything you can run | *your own* services (API, worker, frontend…) | — | macOS · Linux |
 
 That last row is easy to overlook and shouldn't be: the `process` engine runs
