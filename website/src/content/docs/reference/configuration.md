@@ -349,9 +349,9 @@ Full argument/block reference: its
 
 ## mariadb
 
-MySQL-compatible relational database (the MariaDB 11.4 LTS series). **Linux
-x86_64 only** — MariaDB publishes portable binaries for no other platform;
-`doze lint` says so up front.
+MySQL-compatible relational database (the MariaDB 11.4 LTS series). Runs on
+macOS and Linux — doze repackages upstream's x86_64-Linux binary and builds
+the other platforms from source.
 
 ```hcl
 mariadb "db" {

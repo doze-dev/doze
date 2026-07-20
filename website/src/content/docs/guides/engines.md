@@ -26,7 +26,7 @@ build time, so they can't drift.
 | [**Valkey**](/engines/valkey/) | Redis (RESP) | an in-memory cache | 8 – 9 | macOS · Linux |
 | [**Kvrocks**](/engines/kvrocks/) | Redis (RESP) | a durable, disk-backed KV store | 2 | macOS · Linux |
 | [**DocumentDB**](/engines/ferret/) | the MongoDB wire protocol | a document store | 2 | macOS · Linux |
-| [**MariaDB**](/engines/mariadb/) | MySQL | a MySQL-compatible SQL database | 11 | Linux x86_64 only |
+| [**MariaDB**](/engines/mariadb/) | MySQL | a MySQL-compatible SQL database | 11 | macOS · Linux |
 | [**Temporal**](/engines/temporal/) | Temporal gRPC + Web UI | a durable workflow engine | 1.1 | macOS · Linux |
 | [**Kafka**](/engines/kafka/) | the Kafka protocol | an event stream / message log | 1 – 4 | macOS · Linux |
 | [**AWS**](/engines/aws/) | the AWS APIs (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager) | the whole local cloud, one block | — | macOS · Linux |
@@ -128,10 +128,10 @@ MySQL's original authors after the Oracle acquisition. It speaks the MySQL
 protocol, so `mysql://` clients and drivers connect unchanged. doze runs the
 upstream 11.4 LTS series.
 
-One honest caveat: MariaDB publishes portable binaries only for **x86_64
-Linux** — so this engine runs on Linux (including CI containers), not on
-Apple Silicon Macs. The registry page and `doze lint` both say so rather than
-letting you find out at boot.
+MariaDB publishes a portable binary only for x86_64 Linux, so doze repackages
+that one and **builds every other platform from source** (the postgres
+approach) — you get the same engine on Apple Silicon Macs and arm64 Linux
+without upstream shipping a binary for them.
 
 ```hcl
 mariadb "db" {
