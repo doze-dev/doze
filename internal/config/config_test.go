@@ -624,6 +624,30 @@ func TestDomainForSanitizes(t *testing.T) {
 	}
 }
 
+// TestStackFromRelativeConfigPath covers the path every CLI command actually
+// takes. A doze.hcl found in the working directory is held as a relative path,
+// so the config directory is "." — whose base sanitizes to nothing and used to
+// fall through to "default". The daemon resolves the path before loading, so it
+// registered the directory's real name while the CLI printed a different one:
+// `doze env` handed out an AWS_ENDPOINT_URL whose host was NXDOMAIN.
+//
+// The case above passes an absolute path, which is why it never caught this.
+func TestStackFromRelativeConfigPath(t *testing.T) {
+	proj := filepath.Join(t.TempDir(), "shop-api")
+	if err := os.Mkdir(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(proj)
+
+	c := &Config{path: "doze.hcl"}
+	if got := c.Stack(); got != "shop-api" {
+		t.Errorf("Stack() = %q, want shop-api (relative path must agree with absolute)", got)
+	}
+	if got := c.DomainFor("orders-pg"); got != "orders-pg.shop-api.doze" {
+		t.Errorf("DomainFor = %q, want orders-pg.shop-api.doze", got)
+	}
+}
+
 func TestValidateDomainsCollision(t *testing.T) {
 	src := `
 defaults { domains = true }

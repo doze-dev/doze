@@ -38,7 +38,17 @@ func DomainLabel(name string) string {
 func (c *Config) Stack() string {
 	n := c.StackName
 	if n == "" {
-		n = filepath.Base(configDirOf(c.path))
+		// Absolute first. A config found in the working directory has a
+		// relative path, so the directory is "." and its base is "." — which
+		// sanitizes to nothing and falls through to "default". The daemon
+		// resolves the path before it loads, so it registered the real name
+		// while every CLI command printed aws.default.doze, a host that
+		// resolves to NXDOMAIN. `doze env` emitted it too.
+		dir := configDirOf(c.path)
+		if abs, err := filepath.Abs(dir); err == nil {
+			dir = abs
+		}
+		n = filepath.Base(dir)
 	}
 	if l := DomainLabel(n); l != "" {
 		return l
