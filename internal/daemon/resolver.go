@@ -1,9 +1,17 @@
-// The doze resolver: a tiny built-in DNS server answering
-// *.doze → 127.0.0.1, so every stack's services get real hostnames
-// (<service>.<stack>.doze) without touching /etc/hosts. The OS routes
-// the suffix here via a one-time /etc/resolver/doze drop-in on macOS
-// (see doctor); the answer is a constant, so whichever running daemon bound
-// the port first serves every stack on the machine.
+// The doze resolver: a tiny built-in DNS server answering *.doze, so every
+// stack's services get real hostnames (<service>.<stack>.doze) without
+// touching /etc/hosts. The OS routes the suffix here via a one-time
+// /etc/resolver/doze drop-in on macOS (see doctor).
+//
+// Each name resolves to its OWN address, via the resolve callback — the
+// per-service loopback IPs dns-setup aliases onto lo0, which is what lets every
+// Postgres answer on 5432 rather than on a hand-picked high port. A name this
+// machine does not own is NXDOMAIN, in-zone or not: the resolver only answers
+// for what has been registered.
+//
+// Whichever daemon binds the port first serves every stack on the machine, so
+// the callback reads the machine-wide union (domains.go) rather than one
+// stack's own names. A second daemon finds the port taken and defers.
 package daemon
 
 import (
