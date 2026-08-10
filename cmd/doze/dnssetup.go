@@ -1,6 +1,8 @@
 package main
 
 import (
+	names "github.com/doze-dev/doze-names"
+
 	"fmt"
 	"os"
 	"os/exec"
@@ -79,7 +81,7 @@ func dnsSetupCheck() error {
 
 func resolverStateText(ok bool) string {
 	if ok {
-		return ui.Muted("*." + config.DomainSuffix + " → 127.0.0.1:" + fmt.Sprint(daemon.DNSPort))
+		return ui.Muted("*." + config.DomainSuffix + " → " + names.ResolverAddr())
 	}
 	return ui.Muted("/etc/resolver/" + config.DomainSuffix + " not installed")
 }
@@ -126,10 +128,10 @@ launchctl bootout system %s 2>/dev/null || launchctl unload %s 2>/dev/null || tr
 launchctl load -w %s 2>/dev/null || launchctl bootstrap system %s 2>/dev/null || true
 mkdir -p /etc/resolver
 rm -f /etc/resolver/doze.local
-printf 'nameserver 127.0.0.1\nport %d\n' > /etc/resolver/%s`,
+printf 'nameserver 127.0.0.1\nport %s\n' > /etc/resolver/%s`,
 		loopback.LaunchdPath, loopback.LaunchdPlist(), loopback.LaunchdPath, loopback.LaunchdPath,
 		loopback.LaunchdPath, loopback.LaunchdPath,
-		daemon.DNSPort, config.DomainSuffix)
+		daemon.ResolverPort(), config.DomainSuffix)
 
 	fmt.Println(ui.Muted("doze needs sudo once to alias a small loopback pool (127.0.0.2–127.0.0.65) onto lo0"))
 	fmt.Println(ui.Muted("and install a launchd job so they persist. You'll be prompted for your password."))

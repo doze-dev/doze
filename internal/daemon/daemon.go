@@ -4,6 +4,8 @@
 package daemon
 
 import (
+	names "github.com/doze-dev/doze-names"
+
 	"context"
 	"fmt"
 	"net"
@@ -49,6 +51,12 @@ type Daemon struct {
 	cfg  *config.Config
 	rt   *runtime.Runtime
 	logf func(format string, args ...any)
+	// zone is this daemon's handle on the shared .doze registry — shared with
+	// doze-aws and doze-kafka, not doze's own. Nil until setupDomains runs, and
+	// nil for the whole run when domains are off.
+	zone *names.Registry
+	// zoneLeases are the names this daemon registered, released at shutdown.
+	zoneLeases []*names.Lease
 	// hooks is the module integration for config decode, used when a live-added
 	// instance block is parsed (see dynamic.go). Nil means pure parse.
 	hooks *config.Hooks

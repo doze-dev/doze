@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	names "github.com/doze-dev/doze-names"
+
 	"context"
 	"fmt"
 	"net"
@@ -234,10 +236,34 @@ func (d *Daemon) rollbackAdd(name, domain string) {
 // the resolver (which reads resolveMap first, then the shared union) stays
 // current. Caller holds d.mu.
 func (d *Daemon) republishDomains() {
-	if !d.cfg.Defaults.Domains {
+	if !d.cfg.Defaults.Domains || d.zone == nil {
 		return
 	}
-	publishDomains(d.cfg.Home, d.resolveMap, os.Getpid())
+	// Re-claim the whole live map. Claiming a name this process already holds
+	// refreshes it rather than conflicting, so a service added to a running
+	// stack lands in the shared registry — and one that was removed is dropped
+	// by the release below.
+	live := make(map[string]*names.Lease, len(d.resolveMap))
+	for host, ip := range d.resolveMap {
+		l, err := d.zone.ClaimAt(names.Name{Host: host, Tier: names.TierQualified}, ip)
+		if err != nil {
+			d.logf("domains: could not register %s: %v", host, err)
+			continue
+		}
+		live[host] = l
+	}
+	// Drop what is no longer declared. Tracking the leases from THIS pass, not
+	// the previous set, is what makes a live-added name released at shutdown
+	// too — otherwise it would linger until the pid sweep noticed.
+	for _, l := range d.zoneLeases {
+		if _, ok := live[l.Name.Host]; !ok {
+			_ = l.Release()
+		}
+	}
+	d.zoneLeases = d.zoneLeases[:0]
+	for _, l := range live {
+		d.zoneLeases = append(d.zoneLeases, l)
+	}
 }
 
 // writeManifest refreshes the endpoints manifest after a topology change, and

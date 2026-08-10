@@ -66,19 +66,48 @@ func TestAllocatorReapsDeadStacks(t *testing.T) {
 }
 
 func TestSetupCommandsCoverRange(t *testing.T) {
+	// Aliasing covers a WIDER range than allocation: the shared zone's apex
+	// names sit at .2–.9, so those have to be aliased even though the allocator
+	// will never hand one out. Asserting poolSize here — as this test used to —
+	// silently stopped aliasing them, which leaves aws.doze pointing at an
+	// address nothing can bind.
 	cmds := SetupCommands()
-	if len(cmds) != poolSize {
-		t.Fatalf("SetupCommands = %d, want %d", len(cmds), poolSize)
+	if len(cmds) != aliasCount {
+		t.Fatalf("SetupCommands = %d, want %d (the ALIAS range, not the pool)", len(cmds), aliasCount)
 	}
-	if cmds[0] != "ifconfig lo0 alias 127.0.0.2 up" {
-		t.Fatalf("first cmd = %q", cmds[0])
+	if cmds[0] != fmt.Sprintf("ifconfig lo0 alias 127.0.0.%d up", aliasStart) {
+		t.Fatalf("first cmd = %q, want the range to start at the apex names", cmds[0])
+	}
+	if aliasStart >= hostStart {
+		t.Fatalf("aliasing must start below the pool: alias %d, pool %d", aliasStart, hostStart)
 	}
 	// A small, contiguous pool in the first /24 — kept modest so macOS's
 	// mDNSResponder isn't handed hundreds of aliases to register.
-	if last := cmds[len(cmds)-1]; last != fmt.Sprintf("ifconfig lo0 alias 127.0.0.%d up", hostStart+poolSize-1) {
+	if last := cmds[len(cmds)-1]; last != fmt.Sprintf("ifconfig lo0 alias 127.0.0.%d up", aliasStart+aliasCount-1) {
 		t.Fatalf("last cmd = %q", last)
 	}
 	if poolSize > 128 {
 		t.Fatalf("pool of %d is too large for macOS aliasing comfort", poolSize)
+	}
+}
+
+func TestAllocatorNeverHandsOutAReservedAddress(t *testing.T) {
+	// .2–.9 belong to the shared zone's apex names and .54 to the resolver on
+	// Linux. Handing any of them to a stack service would put two things on one
+	// address — and for .54, take the machine's DNS down to serve one instance.
+	requireLoopback(t)
+	a := NewAllocator(t.TempDir(), os.Getpid())
+	for i := 0; i < 12; i++ {
+		ip, err := a.For("demo", fmt.Sprintf("svc%d", i))
+		if err != nil {
+			break // pool exhaustion is fine; wrong addresses are not
+		}
+		last := ip.To4()[3]
+		if last < hostStart {
+			t.Errorf("%v is reserved for an apex name", ip)
+		}
+		if int(last) == resolverHost {
+			t.Errorf("%v is the resolver's own address", ip)
+		}
 	}
 }

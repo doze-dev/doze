@@ -19,19 +19,31 @@ import (
 	"github.com/doze-dev/doze/internal/netutil"
 )
 
-// The pool is a small contiguous range in the first /24 — 127.0.0.2 … .(1+size).
-// Deliberately SMALL: on macOS every address has to be aliased onto lo0 (see
-// `doze dns-setup`) and macOS's mDNSResponder registers each interface address,
-// so a large alias set pressures that daemon (hundreds of aliases have been seen
-// to peg it). A few dozen covers "many services share a canonical port" for real
-// local dev — bump poolSize (and re-run dns-setup) only if you truly run more
-// same-port services than this at once. On Linux all of 127.0.0.0/8 binds for
-// free; the cap is only a formality there. The allocator probes bindability and
-// hands out only addresses that actually bind, so a stale larger/smaller alias
-// set degrades gracefully.
+// Two ranges, and they are deliberately not the same range.
+//
+// ALIASING covers 127.0.0.2–127.0.0.65. The apex names of the shared zone live
+// at .2–.9 (aws.doze, kafka.doze, …) and something has to alias them, or those
+// names resolve to an address nothing can bind. `doze dns-setup` uses this.
+//
+// ALLOCATION starts at .10, because .2–.9 are spoken for by those apex names
+// and handing one to a stack service would put two things on one address. .54
+// is skipped too: it is where the resolver listens on Linux.
+//
+// The range stays SMALL on purpose: on macOS every address is aliased onto lo0
+// and mDNSResponder registers each interface address, so a large alias set
+// pressures that daemon (hundreds have been seen to peg it). A few dozen covers
+// "many services share a canonical port" for real local dev. On Linux all of
+// 127.0.0.0/8 binds for free and the cap is a formality. The allocator probes
+// bindability and hands out only addresses that actually bind, so a stale
+// larger or smaller alias set degrades gracefully.
 const (
-	hostStart = 2
-	poolSize  = 64 // 127.0.0.2 … 127.0.0.65
+	aliasStart = 2
+	aliasCount = 64 // 127.0.0.2 … 127.0.0.65
+
+	hostStart = 10
+	poolSize  = 56 // 127.0.0.10 … 127.0.0.65
+	// resolverHost is excluded from the pool; see names.ResolverAddr.
+	resolverHost = 54
 )
 
 // ipAt returns the nth address in the pool (n in [0, poolSize)).
@@ -113,6 +125,11 @@ func (a *Allocator) For(stack, instance string) (net.IP, error) {
 	if chosen == nil {
 		for n := 0; n < poolSize; n++ {
 			ip := ipAt(n)
+			// The resolver holds this one on Linux; handing it to a service
+			// would take DNS down for the whole machine to serve one instance.
+			if hostStart+n == resolverHost {
+				continue
+			}
 			if inUse[ip.String()] || !bindable(ip) {
 				continue
 			}
@@ -181,9 +198,9 @@ func pidAlive(pid int) bool {
 // lo0 for the current session (macOS). Linux needs nothing. Each line is safe
 // to run under sudo.
 func SetupCommands() []string {
-	cmds := make([]string, 0, poolSize)
-	for n := 0; n < poolSize; n++ {
-		cmds = append(cmds, fmt.Sprintf("ifconfig lo0 alias %s up", ipAt(n)))
+	cmds := make([]string, 0, aliasCount)
+	for n := 0; n < aliasCount; n++ {
+		cmds = append(cmds, fmt.Sprintf("ifconfig lo0 alias 127.0.0.%d up", aliasStart+n))
 	}
 	return cmds
 }
@@ -198,7 +215,7 @@ const (
 // LaunchdPlist renders the launchd job that re-aliases the pool at every boot.
 func LaunchdPlist() string {
 	script := fmt.Sprintf("for i in $(seq %d %d); do /sbin/ifconfig lo0 alias 127.0.0.$i up; done",
-		hostStart, hostStart+poolSize-1)
+		aliasStart, aliasStart+aliasCount-1)
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

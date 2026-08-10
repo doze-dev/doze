@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze/internal/config"
 )
 
@@ -31,22 +33,46 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 		return nil, err
 	}
 
-	// Publish our names into the shared registry so whichever daemon owns the
-	// unicast resolver can answer for every stack on the machine; the resolver
-	// consults our in-memory map first, then that shared union.
-	pid := os.Getpid()
-	publishDomains(d.cfg.Home, own, pid)
-	release = func() { unclaim(); unpublishDomains(d.cfg.Home, pid) }
+	// Publish our names into the SHARED registry — the same one doze-aws and
+	// doze-kafka write to. Before this, doze kept its own domains.json and its
+	// own resolver on the same port as theirs, so whichever binary started
+	// first served the zone and the others' names silently stopped resolving.
+	reg := names.Open(d.cfg.Home, "doze")
+	d.zone = reg
+	leases := make([]*names.Lease, 0, len(own))
+	for host, ip := range own {
+		// ClaimAt, not Claim: these addresses come from doze's own allocator,
+		// which persists them per (stack, service).
+		l, err := reg.ClaimAt(names.Name{Host: host, Tier: names.TierQualified}, ip)
+		if err != nil {
+			if held, ok := names.Held(err); ok {
+				d.logf("domains: %s is held by pid %d (%s)", held.Host, held.PID, held.Owner)
+			} else {
+				d.logf("domains: could not register %s: %v", host, err)
+			}
+			continue
+		}
+		leases = append(leases, l)
+	}
+	d.zoneLeases = leases
+	release = func() {
+		unclaim()
+		for _, l := range leases {
+			_ = l.Release()
+		}
+	}
 	resolve := func(name string) net.IP {
 		// own is the live bind-plan resolve map, which live Add/Remove mutates
-		// under d.mu — lock so a concurrent add can't race the DNS read.
+		// under d.mu — lock so a concurrent add can't race the DNS read. It is
+		// consulted first so a service added to a running stack answers at once,
+		// then the registry, which carries every peer's names too.
 		d.mu.Lock()
 		ip, ok := own[name]
 		d.mu.Unlock()
 		if ok {
 			return ip
 		}
-		return sharedResolve(d.cfg.Home, name)
+		return reg.Resolve(name)
 	}
 
 	// The unicast resolver on 127.0.0.1:5323 backs the /etc/resolver drop-in
@@ -54,21 +80,16 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 	// it; via the shared registry above it answers for every stack. We no longer
 	// run an mDNS responder: the suffix is a plain unicast domain, not .local, so
 	// there's no multicast path — and mDNS pressured macOS's mDNSResponder.
-	bound, dnsErr := serveDNS(ctx, resolve)
-	switch {
-	case dnsErr != nil:
-		d.logf("domains: resolver failed to start: %v", dnsErr)
-	case bound:
-		d.logf("domains: *.%s.%s → per-service IP (resolver on 127.0.0.1:%d)", stack, config.DomainSuffix, DNSPort)
-	default:
-		d.logf("domains: *.%s.%s → per-service IP (resolver served by another stack's daemon)", stack, config.DomainSuffix)
-	}
+	srv := names.ServeResolve(ctx, resolve, d.logf)
+	prev := release
+	release = func() { prev(); srv.Close() }
+	d.logf("domains: *.%s.%s → per-service IP (zone on %s)", stack, config.DomainSuffix, names.ResolverAddr())
 
 	if !ResolverConfigured() {
 		if runtime.GOOS == "darwin" {
 			d.logf("domains: names won't resolve until you run `doze dns-setup` (one sudo)")
 		} else {
-			d.logf("domains: point your resolver's %s zone at 127.0.0.1:%d (systemd-resolved or dnsmasq)", config.DomainSuffix, DNSPort)
+			d.logf("domains: point your resolver's %s zone at %s (systemd-resolved or dnsmasq)", config.DomainSuffix, names.ResolverAddr())
 		}
 	}
 	return release, nil

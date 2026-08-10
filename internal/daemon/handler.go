@@ -30,7 +30,7 @@ func (h *handler) Status() control.Response {
 		}
 	}
 	stats := ui.ProcStats(pids) // one ps for every running backend (+ its subtree)
-	tree := ui.ProcTree(pids)  // …and each backend's own child processes
+	tree := ui.ProcTree(pids)   // …and each backend's own child processes
 	seen := map[string]bool{}
 	for _, inst := range snapshot {
 		engineType, version, declared := "", "", false
