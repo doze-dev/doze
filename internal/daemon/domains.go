@@ -61,6 +61,7 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 			_ = l.Release()
 		}
 	}
+	_ = leases
 	resolve := func(name string) net.IP {
 		// own is the live bind-plan resolve map, which live Add/Remove mutates
 		// under d.mu — lock so a concurrent add can't race the DNS read. It is

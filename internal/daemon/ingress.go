@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	names "github.com/doze-dev/doze-names"
 	"sync"
 	"time"
 
@@ -71,15 +73,44 @@ func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, pla
 		release = func() { removeRoutes(path, d.cfg.Stack(), pid) }
 	}
 
-	// One shared handler served on every distinct forward port. Each listener
-	// binds the wildcard address: macOS allows unprivileged low-port binds on
-	// INADDR_ANY but (counterintuitively) NOT on 127.0.0.1 specifically. The
-	// handler rejects every non-loopback client, so nothing is exposed off-box.
-	// The :80 listener also fronts the AWS single endpoints.
+	// Port 80 is not ours alone: doze-aws and doze-kafka front their own names
+	// on it too. It is served by the shared front door in doze-names, which
+	// routes every peer's names from the shared registry — so whichever binary
+	// starts first fronts for all of them. Publishing our :80 routes there and
+	// letting it bind is what stops two programs owning one port with two
+	// different route tables, each invisible to the other.
+	for host, r := range routes {
+		if ingressPortOr80(r.Port) != IngressPort {
+			continue
+		}
+		if err := d.zoneRoute(host, r.Target); err != nil {
+			d.logf("ingress: could not publish %s: %v", host, err)
+		}
+	}
+	for host, r := range awsRoutes {
+		if err := d.zoneRoute(host, r.Target); err != nil {
+			d.logf("ingress: could not publish %s: %v", host, err)
+		}
+	}
+	front := names.ServeIngress(ctx, d.zone, d.logf)
+	prevRelease := release
+	release = func() { prevRelease(); front.Close() }
+
+	// Every OTHER forward port is still ours: only :80 is contended with the
+	// sibling binaries. Each listener binds the wildcard address, because macOS
+	// allows unprivileged low-port binds on INADDR_ANY but (counterintuitively)
+	// NOT on 127.0.0.1 specifically. The handler rejects every non-loopback
+	// client, so nothing is exposed off-box.
 	srv := &http.Server{Handler: newIngressHandler(path, d.cfg.Home), ReadHeaderTimeout: 10 * time.Second}
 	bound := 0
 	for _, port := range ingressPorts(routes, awsRoutes) {
-		ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if port == IngressPort {
+			continue // the shared front door has it
+		}
+		// tcp4 explicitly: ":80" takes the IPv6 wildcard, which macOS grants
+		// even when another program holds the IPv4 one — the bind then reports
+		// success on a socket no client reaches.
+		ln, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%d", port))
 		if err != nil {
 			if isAddrInUse(err) {
 				d.logf("ingress: :%d already served (another stack's daemon owns it)", port)
@@ -276,4 +307,13 @@ func (h *ingressHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+// zoneRoute publishes where the shared front door should send a name this
+// daemon holds. It is a no-op when domains are off, since there are no names.
+func (d *Daemon) zoneRoute(host, target string) error {
+	if d.zone == nil {
+		return nil
+	}
+	return d.zone.RouteFor(host, target)
 }
