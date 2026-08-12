@@ -73,8 +73,12 @@ Values are HCL expressions, not just literals. You can call functions and—most
 usefully—**reference other instances** by `<engine>.<name>.<attribute>`:
 
 ```hcl
-sns "events_bus" {
-  sqs = sqs.jobs.name              # reference → builds the dependency edge
+process "api" {
+  command = "go run ./cmd/api"
+  port    = 8080
+  env = {
+    DATABASE_URL = postgres.app.url   # reference → builds the dependency edge
+  }
 }
 ```
 
@@ -136,12 +140,12 @@ variables, functions, and earlier locals.
 
 Stamp several similar instances from one block. Each stamp becomes its own
 instance with a flat name — `<label>_<key>` (for_each) or `<label>_<index>`
-(count) — addressable like any other (`valkey.shard_0.url`, `sqs.worker_emails.url`).
+(count) — addressable like any other (`valkey.shard_0.url`, `postgres.tenant_eu.url`).
 
 ```hcl
-sqs "worker" {
-  for_each = toset(["emails", "orders", "billing"])  # → worker_emails, worker_orders, worker_billing
-  queue "main" {}
+postgres "tenant" {
+  for_each = toset(["eu", "us", "apac"])   # → tenant_eu, tenant_us, tenant_apac
+  version  = 16
 }
 
 valkey "shard" {
@@ -165,9 +169,9 @@ References already create dependencies, so you rarely need this. For an ordering
 that isn't expressed through a reference, `depends_on` adds it:
 
 ```hcl
-sqs "jobs" {
-  queue "main" {}
-  depends_on = { "s3.media" = "healthy" }
+process "worker" {
+  command    = "go run ./cmd/worker"
+  depends_on = { "aws.cloud" = "healthy" }
 }
 ```
 
@@ -448,12 +452,24 @@ uses.
 
 ```hcl
 aws "local" {
-  bucket "uploads"     { versioning = true }
-  queue  "emails"      { dlq = "auto"  max_receives = 5 }
-  queue  "orders.fifo" { fifo = true  content_dedup = true }
+  port = 4566
+
+  bucket "uploads" { versioning = true }
+  queue "emails" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+
+  queue "orders.fifo" {
+    fifo          = true
+    content_dedup = true
+  }
 
   topic "signups" {
-    subscribe { queue = "emails"  raw = true }
+    subscribe {
+      queue = "emails"
+      raw   = true
+    }
   }
 
   table "sessions" {
