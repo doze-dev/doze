@@ -6,7 +6,8 @@
 
 ### Real databases on your laptop — asleep until you need them.
 
-doze runs **Postgres, Valkey, Kvrocks, DocumentDB**, and local **S3, SQS, and SNS**
+doze runs **Postgres, MariaDB, Valkey, Kvrocks, DocumentDB, Kafka, Temporal** and a
+complete local **AWS**
 as real services — no Docker, no JVM, no always-on stack. Declare what your app
 needs in one file; doze fetches the real engines, boots each the moment something
 connects, and puts it back to sleep when you walk away. At rest, your whole
@@ -22,14 +23,15 @@ backend is one ~15 MB daemon.
 # doze.hcl — your whole local backend, declared
 postgres "app"   { version = 16 }
 valkey   "cache" { version = 9 }
-s3 "uploads" {
-  bucket "files" {}
+aws "cloud" {
+  port = 4566
+  bucket "uploads" {}
 }
 ```
 
 ```sh
 $ doze run -- <your tests>      # npm test · pytest · go test · cargo test · rails test
-  ✓ app (postgres 16) ready   ✓ cache (valkey 9) ready   ✓ uploads (s3) ready
+  ✓ app (postgres 16) ready   ✓ cache (valkey 9) ready   ✓ cloud (aws) ready
   real engines, booted on demand on the ports you declared — gone again when you walk away
 ```
 
@@ -62,7 +64,7 @@ returns the RAM when you walk away.
 | Run only what you use | no — whole stack | no | no | **yes — boot on connect** |
 | Pinned versions | image tags | none | image tag | **`doze.lock`, exact** |
 | Apple Silicon | often emulated | native | emulated | **native** |
-| Local AWS | extra tooling | n/a | yes (heavy) | **built in, pure Go** |
+| Local AWS | extra tooling | n/a | yes (heavy) | **one block, pure Go** |
 
 Because doze runs **real, unmodified engines** — not emulations — every client,
 extension, and wire-protocol feature behaves exactly like production. It just gets
@@ -120,7 +122,7 @@ the API your code already speaks, without the heavy or encumbered originals.
 | **Valkey** | a Redis-compatible in-memory cache | the open-source Redis after the 2024 relicense |
 | **Kvrocks** | Redis-compatible, RocksDB-backed durable KV | Redis API without keeping it all in RAM |
 | **DocumentDB** | a MongoDB-wire document store | "Mongo" on Postgres, without MongoDB's license |
-| **S3 / SQS / SNS** | object storage, queues, pub/sub | local AWS with no LocalStack, Docker, or JVM |
+| **AWS** | S3, SQS, SNS, DynamoDB, Lambda, KMS and more — one endpoint, one block | local AWS with no LocalStack, Docker, or JVM |
 
 Mix as many as you want in one file. → **[The engines](https://doze.nerdmenot.in/guides/engines/)** ·
 **[Recipes for each](https://doze.nerdmenot.in/guides/engines/)**
@@ -154,7 +156,7 @@ spinning up a realistic backend for a new project in seconds. If you've ever run
 **Not for** production. doze runs **single** local instances (no replication, no
 HA, no failover), tuned toward fast iteration over durability, and reaps them when
 idle — so it's not a place to keep data you can't lose. The local AWS services
-(S3/SQS/SNS) are dev-grade conveniences, not a stand-in for real AWS. Use managed
+are dev-grade conveniences, not a stand-in for real AWS. Use managed
 databases and real AWS in production. (Full rationale in the
 [FAQ](https://doze.nerdmenot.in/guides/faq/#is-doze-production-ready).)
 

@@ -78,35 +78,32 @@ ferret "events" {
   port    = 27017
 }
 
-# --- Local AWS (built into doze: no Docker, no JVM, no LocalStack) -----------
-# One block is ONE resource: the instance name is the bucket/queue/topic name.
-# `doze env` (or `doze run --env`) exports AWS_ENDPOINT_URL_S3/SQS/SNS plus
-# dummy creds + region, so an unmodified AWS SDK or the `aws` CLI talks to
-# these. (Enable path-style addressing for S3, as with MinIO/LocalStack.)
+# --- Local AWS (one engine, every service) ----------------------------------
+# ONE block is the whole local AWS: S3, SQS, SNS, DynamoDB, Lambda, KMS and the
+# rest behind a single endpoint, with the web console at /_console. Declare the
+# resources you want to exist; your app and its deploy tooling own the rest.
+#
+# `doze env` exports AWS_ENDPOINT_URL plus dummy creds and a region, so an
+# unmodified AWS SDK or the `aws` CLI talks to it with no other change.
 
-s3 "uploads" {
-  port       = 9000
-  versioning = true
-}
+aws "cloud" {
+  port = 4566
 
-sqs "jobs" {
-  port               = 9324
-  visibility_timeout = "30s"
-
-  dead_letter {                  # adds a companion DLQ with redrive
-    max_receive_count = 5
+  bucket "uploads" {
+    versioning = true
   }
-}
 
-sns "signups" {
-  port = 9911
-  sqs  = sqs.jobs.name           # typed reference: builds the dependency edge
+  queue "jobs" {
+    dlq          = "auto"   # a companion jobs-dlq, with redrive
+    max_receives = 5
+    visibility   = 30
+  }
 
-  subscribe {                    # fan out to the jobs queue
-    protocol = "sqs"
-    endpoint = "jobs"
-    raw      = true
-    filter   = { event_type = ["created"] }   # message-attribute filter policy
+  topic "signups" {
+    subscribe {
+      queue = "jobs"
+      raw   = true
+    }
   }
 }
 
