@@ -37,11 +37,12 @@ valkey "cache" {
   port    = 6379
 }
 
-sqs "jobs" {
-  port = 9324
+aws "cloud" {
+  port = 4566
   queue "emails" {
-    visibility_timeout = "30s"
-    dead_letter { max_receive_count = 5 }
+    visibility    = 30
+    dlq           = "auto"
+    max_receives  = 5
   }
 }
 

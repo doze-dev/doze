@@ -37,11 +37,14 @@ This is the feature the others can't fake. doze blocks reference each other as
 **values**:
 
 ```hcl
-sqs "jobs" { port = 9324 }
+postgres "app" { version = 16 }
 
-sns "signups" {
-  port = 9911
-  sqs  = sqs.jobs.name        # a typed reference, not a string that happens to match
+process "api" {
+  command = "go run ./cmd/api"
+  port    = 8080
+  env = {
+    DATABASE_URL = postgres.app.url   # a typed reference, not a string that happens to match
+  }
 }
 ```
 

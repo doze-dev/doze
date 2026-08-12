@@ -13,6 +13,7 @@ defaults { idle_timeout = "10m" }
 
 postgres "app" {
   version = 16
+  port    = 5432
   owner   = "app"
   role "app" { password = "app" }
   grant {
@@ -25,15 +26,16 @@ postgres "app" {
 
 valkey "cache" {
   version   = 9
+  port      = 6379
   maxmemory = "256mb"
 }
 
-s3 "uploads" {
+aws "cloud" {
+  port = 4566
+
   bucket "user-uploads" {}
   bucket "exports" {}
-}
 
-sqs "jobs" {
   queue "email"  {}
   queue "export" {}
 }
@@ -48,24 +50,22 @@ doze run -- ./bin/worker           # same env; processes the queues
 ## Event-driven services: SNS fanout into SQS
 
 ```hcl
-sqs "bus" {
-  queue "email-svc"  {}
-  queue "audit-svc"  {}
-}
+aws "cloud" {
+  port = 4566
 
-sns "events" {
-  sqs = "bus"
-  topic "user-events" {}
-  subscribe "user-events" {
-    protocol = "sqs"
-    endpoint = "email-svc"
-    raw      = true
-    filter   = { type = ["signup", "password_reset"] }
-  }
-  subscribe "user-events" {
-    protocol = "sqs"
-    endpoint = "audit-svc"     # gets everything (no filter)
-    raw      = true
+  queue "email-svc" {}
+  queue "audit-svc" {}
+
+  topic "user-events" {
+    subscribe {
+      queue  = "email-svc"
+      raw    = true
+      filter = "{\"type\":[\"signup\",\"password_reset\"]}"
+    }
+    subscribe {
+      queue = "audit-svc"     # gets everything (no filter)
+      raw   = true
+    }
   }
 }
 ```
@@ -108,19 +108,17 @@ ferret "mongo" {
 ```
 ```hcl
 # aws.doze.hcl
-s3 "blob" {
+aws "cloud" {
+  port = 4566
+
   bucket "data" {}
-}
-sqs "queue" {
-  queue "tasks" {}
-}
-sns "topic" {
-  sqs = "queue"
-  topic "events" {}
-  subscribe "events" {
-    protocol = "sqs"
-    endpoint = "tasks"
-    raw      = true
+  queue  "tasks" {}
+
+  topic "events" {
+    subscribe {
+      queue = "tasks"
+      raw   = true
+    }
   }
 }
 ```

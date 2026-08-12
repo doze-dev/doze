@@ -85,8 +85,9 @@ valkey "cache" {
   port    = 6379
 }
 
-s3 "uploads" {
-  port = 9000        # S3 API, no MinIO container
+aws "cloud" {
+  port = 4566        # all of AWS, no MinIO or LocalStack container
+  bucket "uploads" {}
 }
 ```
 

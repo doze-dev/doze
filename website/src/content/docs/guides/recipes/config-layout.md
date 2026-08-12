@@ -31,16 +31,15 @@ postgres "app" {
 
 ```hcl
 # aws.doze.hcl
-s3 "media" {
+aws "cloud" {
+  port = 4566
   bucket "uploads" {}
-}
-sqs "jobs" {
-  queue "emails" {}
+  queue  "emails" {}
 }
 ```
 
 ```sh
-doze status     # shows app (doze.hcl) + media, jobs (aws.doze.hcl)
+doze status     # shows app (doze.hcl) + cloud (aws.doze.hcl)
 doze doctor     # validates the merged whole
 ```
 

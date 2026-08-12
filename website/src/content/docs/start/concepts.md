@@ -175,12 +175,16 @@ You express it with a typed reference, and doze derives the dependency and handl
 the lifecycle:
 
 ```hcl
-sqs "jobs" {
+aws "cloud" {
+  port = 4566
   queue "emails" {}
 }
-sns "events" {
-  sqs = sqs.jobs.name        # reference → events depends on jobs
-  topic "signups" {}
+
+process "worker" {
+  command = "go run ./cmd/worker"
+  env = {
+    AWS_ENDPOINT_URL = aws.cloud.url   # reference → worker depends on cloud
+  }
 }
 ```
 
