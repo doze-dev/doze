@@ -2,12 +2,15 @@ package runtime_test
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/runtime"
 )
@@ -314,4 +317,78 @@ module tdep "api" {
 		t.Fatalf("a stopped instance has no holders, got %+v", got)
 	}
 	_ = rt.Stop(ctx, "db")
+}
+
+// The journal says what woke each instance and how long it took: the wake
+// trace, as far as declared references go.
+func TestJournalRecordsCauseAndDuration(t *testing.T) {
+	t.Setenv("DOZE_HOME", t.TempDir())
+	engine.Register(leafDriver{})
+	engine.Register(depDriver{})
+	cfg, err := config.Parse([]byte(`
+module tleaf "db" { version = 1 }
+module tdep "api" {
+  version = 1
+  base    = module.db.name
+}
+`), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.EnsureDataRoot(); err != nil {
+		t.Fatal(err)
+	}
+	j, err := journal.Open(filepath.Join(t.TempDir(), "journal.jsonl"), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer j.Close()
+	rt.SetJournal(j)
+
+	ctx := journal.WithCause(context.Background(), journal.ByConnection, "")
+	if _, err := rt.Boot(ctx, "api"); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+	rt.ToggleKeepAwake("db")
+	if err := rt.Stop(journal.WithCause(context.Background(), journal.ByIdle, ""), "api"); err != nil {
+		t.Fatal(err)
+	}
+
+	events, err := j.Since(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range events {
+		line := e.Kind + " " + e.Instance
+		if e.Cause.Kind != "" {
+			line += " by " + e.Cause.Kind
+			if e.Cause.By != "" {
+				line += ":" + e.Cause.By
+			}
+		}
+		if e.Detail != "" {
+			line += " (" + e.Detail + ")"
+		}
+		got = append(got, line)
+		if e.Kind == journal.Ready && e.Took <= 0 {
+			t.Errorf("%s has no duration", line)
+		}
+	}
+	want := []string{
+		"wake api by connection",
+		"wake db by dependency:api",
+		"ready db",
+		"ready api",
+		"pin db by command (on)",
+		"sleep api by idle",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("journal:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+	_ = rt.Stop(context.Background(), "db")
 }

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // Router is the subset of the runtime the proxy needs.
@@ -216,7 +217,7 @@ func (p *Proxy) bootBackend(ctx context.Context, name string, drv engine.Driver)
 	}
 	bootCtx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
-	return p.router.Boot(bootCtx, name)
+	return p.router.Boot(journal.WithCause(bootCtx, journal.ByConnection, ""), name)
 }
 
 func writeError(drv engine.Driver, w io.Writer, code, message string) {

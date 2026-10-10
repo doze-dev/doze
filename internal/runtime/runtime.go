@@ -28,6 +28,7 @@ import (
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/state"
 	"github.com/doze-dev/doze/internal/supervisor"
@@ -62,6 +63,9 @@ type Runtime struct {
 	statePath string // .doze/state.json for apply/destroy object tracking
 
 	logf func(format string, args ...any)
+
+	// journal records wakes, sleeps and crashes; nil records nothing.
+	journal *journal.Journal
 }
 
 // New constructs a Runtime for cfg.
@@ -222,6 +226,8 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	inst := r.instanceFor(decl, drv)
 
 	r.reg.MarkBooting(name)
+	started := time.Now()
+	r.journal.Append(journal.Event{Kind: journal.Wake, Instance: name, Cause: journal.CauseOf(ctx)})
 	r.logf("waking %q (%s %s)…", name, decl.Type, decl.Version) // the sleep metaphor, everywhere users see it
 
 	// Dependencies: boot and hold any instances this one references (derived from
@@ -231,6 +237,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	if len(decl.Deps) > 0 {
 		deps, h, err := r.bootDeps(ctx, name, decl.Deps)
 		if err != nil {
+			r.journal.Append(journal.Event{Kind: journal.Failed, Instance: name, Took: time.Since(started), Detail: err.Error()})
 			r.reg.MarkFailed(name, err.Error())
 			return engine.Endpoint{}, err
 		}
@@ -242,6 +249,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		for _, dn := range held {
 			r.Release(dn)
 		}
+		r.journal.Append(journal.Event{Kind: journal.Failed, Instance: name, Took: time.Since(started), Detail: err.Error()})
 		r.reg.MarkFailed(name, err.Error())
 		return engine.Endpoint{}, err
 	}
@@ -352,13 +360,22 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		}
 	}
 
+	r.journal.Append(journal.Event{Kind: journal.Ready, Instance: name, Took: time.Since(started)})
 	r.logf("%q ready (pid %d)", name, proc.PID())
 	return inst.Endpoint, nil
 }
 
 // ToggleKeepAwake flips an instance's idle-reaper exemption and returns the new
 // value, so a slow-booting engine can be pinned awake from the dashboard.
-func (r *Runtime) ToggleKeepAwake(name string) bool { return r.reg.ToggleKeepAwake(name) }
+func (r *Runtime) ToggleKeepAwake(name string) bool {
+	on := r.reg.ToggleKeepAwake(name)
+	detail := "off"
+	if on {
+		detail = "on"
+	}
+	r.journal.Append(journal.Event{Kind: journal.Pin, Instance: name, Cause: journal.Cause{Kind: journal.ByCommand}, Detail: detail})
+	return on
+}
 
 // bootDeps boots and holds (via Acquire) every instance the named instance
 // depends on, returning the resolved deps and the list of held names. On any
@@ -394,7 +411,7 @@ func (r *Runtime) bootDeps(ctx context.Context, name string, depList []engine.De
 			// it through a client endpoint that wakes it on demand (or fails
 			// until something else does).
 		} else {
-			if _, err := r.bootCond(ctx, dn, cond); err != nil {
+			if _, err := r.bootCond(journal.WithCause(ctx, journal.ByDependency, name), dn, cond); err != nil {
 				release()
 				return nil, nil, fmt.Errorf("booting dependency %q: %w", dn, err)
 			}
@@ -491,6 +508,9 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 	}
 	r.removePidfile(name)
 	r.reg.MarkReaped(name)
+	if p != nil {
+		r.journal.Append(journal.Event{Kind: journal.Sleep, Instance: name, Cause: journal.CauseOf(ctx)})
+	}
 	return err
 }
 
@@ -521,6 +541,9 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 	}
 	r.removePidfile(name)
 	r.reg.MarkReaped(name)
+	if !r.shuttingDown.Load() {
+		r.journal.Append(journal.Event{Kind: journal.Crash, Instance: name, Detail: exitText(exitErr)})
+	}
 
 	// A supervised process may restart per its policy instead of staying down —
 	// but never during the daemon's final reap: StopAll kills dependencies in
@@ -544,6 +567,7 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 			return
 		}
 		r.reg.MarkFailed(name, fmt.Sprintf("%s; gave up after %d restarts", exitText(exitErr), spec.MaxRetries))
+		r.journal.Append(journal.Event{Kind: journal.GiveUp, Instance: name, Detail: fmt.Sprintf("after %d restarts", spec.MaxRetries)})
 		r.logf("process %q exited; gave up after %d restarts", name, spec.MaxRetries)
 		return
 	}
@@ -615,7 +639,7 @@ func (r *Runtime) scheduleRestart(name string, delay time.Duration) {
 		if r.shuttingDown.Load() {
 			return // the daemon is reaping everything; nothing may respawn behind it
 		}
-		if _, err := r.Boot(rctx, name); err != nil {
+		if _, err := r.Boot(journal.WithCause(rctx, journal.ByRestart, ""), name); err != nil {
 			r.logf("restart of %q failed: %v", name, err)
 		}
 	}()
@@ -859,7 +883,7 @@ func (r *Runtime) RunReaper(ctx context.Context) {
 				if r.supervised(name) {
 					continue // a supervised (always-on) instance is exempt from the reaper
 				}
-				if err := r.Stop(context.Background(), name); err != nil {
+				if err := r.Stop(journal.WithCause(context.Background(), journal.ByIdle, ""), name); err != nil {
 					r.logf("reaping %q failed: %v", name, err)
 				} else {
 					r.logf("reaped %q after %s idle", name, timeout)

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // fixturePorts are the ports examples/shop declares.
@@ -48,8 +49,9 @@ type Result struct {
 	Arch string `json:"arch"`
 	// Idle is the daemon with every service asleep and no client connected.
 	Idle Memory `json:"idle"`
-	// Wake is the time a `boot` request takes for a sleeping module whose data
-	// is already provisioned: spawn, readiness, reply.
+	// Wake is how long a sleeping module whose data is already provisioned takes
+	// to become ready, as the daemon measured it: the `ready` event in its
+	// journal.
 	Wake map[string]Latency `json:"wake"`
 }
 
@@ -141,14 +143,12 @@ func TestFixtureStack(t *testing.T) {
 		t.Fatalf("expected one control socket under the bench home, found %v", socks)
 	}
 	client := control.NewClient(socks[0])
-	do := func(op, name string) time.Duration {
+	do := func(op, name string) {
 		t.Helper()
-		start := time.Now()
 		resp, err := client.Do(control.Request{Op: op, DB: name})
 		if err != nil || resp.Error != "" {
 			t.Fatalf("%s %q: %v %s", op, name, err, resp.Error)
 		}
-		return time.Since(start)
 	}
 
 	// Everything to sleep; the daemon stays.
@@ -181,11 +181,30 @@ func TestFixtureStack(t *testing.T) {
 		}
 	}
 
+	journalPath := filepath.Join(filepath.Dir(socks[0]), "journal.jsonl")
+	before, err := journal.Read(journalPath)
+	if err != nil {
+		t.Fatalf("reading the journal: %v", err)
+	}
+	for _, name := range modules {
+		for i := 0; i < wakeRounds; i++ {
+			do("boot", name)
+			do("down", name)
+		}
+	}
+	after, err := journal.Read(journalPath)
+	if err != nil {
+		t.Fatalf("reading the journal: %v", err)
+	}
 	for _, name := range modules {
 		var took []float64
-		for i := 0; i < wakeRounds; i++ {
-			took = append(took, float64(do("boot", name).Microseconds())/1000)
-			do("down", name)
+		for _, e := range after[len(before):] {
+			if e.Kind == journal.Ready && e.Instance == name {
+				took = append(took, float64(e.Took.Microseconds())/1000)
+			}
+		}
+		if len(took) != wakeRounds {
+			t.Fatalf("%s: the journal has %d ready events for %d wakes", name, len(took), wakeRounds)
 		}
 		sort.Float64s(took)
 		res.Wake[name] = Latency{MedianMS: took[len(took)/2], MinMS: took[0], MaxMS: took[len(took)-1]}

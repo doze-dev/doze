@@ -19,6 +19,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
+	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/loopback"
 	"github.com/doze-dev/doze/internal/proxy"
 	"github.com/doze-dev/doze/internal/runtime"
@@ -119,6 +120,13 @@ func (d *Daemon) Handler() control.Handler { return &handler{d: d} }
 func (d *Daemon) Run(ctx context.Context) error {
 	if err := d.rt.EnsureDataRoot(); err != nil {
 		return err
+	}
+	// The journal is the record screens read. Without it the daemon still runs.
+	if j, err := journal.Open(filepath.Join(d.cfg.RunDir(), "journal.jsonl"), 0); err != nil {
+		d.logf("journal: %v (nothing will be recorded)", err)
+	} else {
+		d.rt.SetJournal(j)
+		defer j.Close()
 	}
 	// Reclaim any backends orphaned by a previous crash before we rebind their
 	// sockets (macOS has no PDEATHSIG to do this for us).
@@ -269,7 +277,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// so the budget bounds the slowest backend, not the sum.
 	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	d.rt.StopAll(stopCtx)
+	d.rt.StopAll(journal.WithCause(stopCtx, journal.ByShutdown, ""))
 	d.logf("all backends reaped")
 	wg.Wait()
 	return nil
