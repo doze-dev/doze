@@ -25,10 +25,8 @@ var initSeed = []initEngine{
 	{"postgres", "SQL database (Postgres)", "module postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}"},
 	{"valkey", "in-memory cache (Redis API)", "module valkey \"cache\" {\n  version          = 9\n  port             = 6379\n  maxmemory        = \"256mb\"\n  maxmemory_policy = \"allkeys-lru\"\n}"},
 	{"kvrocks", "durable Redis API on disk", "module kvrocks \"store\" {\n  version = 2\n  port    = 6380\n}"},
-	{"documentdb", "MongoDB-compatible store", "documentdb \"docs\" {\n  port = 27017\n}"},
-	{"s3", "S3 object storage", "s3 \"media\" {\n  port = 9000\n  bucket \"uploads\" {}\n}"},
-	{"sqs", "SQS message queue", "sqs \"jobs\" {\n  port = 9324\n  queue \"tasks\" {}\n}"},
-	{"sns", "SNS pub/sub topics", "sns \"events\" {\n  port = 9911\n  topic \"updates\" {}\n}"},
+	{"kafka", "event streaming (Kafka API)", "module kafka \"events\" {\n  version = 4\n  port    = 9092\n\n  topic \"orders\" {}\n}"},
+	{"aws", "local AWS: S3, SQS, SNS and the rest", "module aws \"cloud\" {\n  port = 4566\n\n  bucket \"uploads\" {}\n  queue \"jobs\" {}\n}"},
 }
 
 func initCmd() *cobra.Command {
@@ -87,7 +85,7 @@ func gatherOffers() []initEngine {
 	var offers []initEngine
 	for _, e := range entries {
 		if !e.Official {
-			continue // wizard offers official starters; third-party via `search` + modules{}
+			continue // the wizard offers official starters
 		}
 		offers = append(offers, initEngine{key: e.Name, desc: e.Tagline, block: blockFromCatalog(e)})
 	}
@@ -119,7 +117,7 @@ func blockFromCatalog(e modules.CatalogEntry) string {
 		label = e.Name
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s %q {\n", e.Name, label)
+	fmt.Fprintf(&b, "module %s %q {\n", e.Name, label)
 	if len(e.EngineVersions) > 0 {
 		fmt.Fprintf(&b, "  version = %s\n", e.EngineVersions[len(e.EngineVersions)-1])
 	}

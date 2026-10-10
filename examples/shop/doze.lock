@@ -54,5 +54,3 @@ modules:
             aarch64-apple-darwin: sha256:4d4ccc27eafeced61dc6597fb9089fac8ab64803dbf4d67e01f98fc52e987f13
             aarch64-unknown-linux-gnu: sha256:f800301cfc0427474587d20cbee3387613593dda3cfc7819e9961e4b0f6a42b4
             x86_64-unknown-linux-gnu: sha256:d06d41ea23051a8310dee5ad94bce2c6c06f0912c9bf3360fd73402d2fdac458
-keys:
-    doze: Nu5y8mbjYv7XEtNFBXwPVl+C8SBteVApIROefBwGWjw=
