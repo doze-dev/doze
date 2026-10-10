@@ -143,7 +143,7 @@ type model struct {
 	boardFocus  bool
 	boardSel    int
 	wireAnchor  int64 // seq of the wire row pinned to the top; 0 = follow live
-	showRawLogs bool // l flips an engine page back to plain logs
+	showRawLogs bool  // l flips an engine page back to plain logs
 
 	// APPS view (htop for the process fleet): its own selection, sort and
 	// staged confirm — the fleet cursor stays where it was.

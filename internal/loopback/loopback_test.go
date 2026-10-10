@@ -32,8 +32,9 @@ func TestAllocatorDistinctAndStable(t *testing.T) {
 	if ip1.Equal(ip2) {
 		t.Fatalf("two services got the same IP: %v", ip1)
 	}
-	if ip1.String() != "127.0.0.2" {
-		t.Fatalf("first alloc = %v, want 127.0.0.2", ip1)
+	// .2 to .9 belong to the apex names; allocation starts at .10.
+	if ip1.String() != "127.0.0.10" {
+		t.Fatalf("first alloc = %v, want 127.0.0.10", ip1)
 	}
 	// Same key → same IP (stable across calls / restarts).
 	again, _ := a.For("demo", "orders_pg")
