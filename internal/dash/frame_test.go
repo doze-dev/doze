@@ -379,3 +379,27 @@ func TestResetMakesYouTypeTheName(t *testing.T) {
 		t.Fatalf("verbs = %v", got)
 	}
 }
+
+func TestPaletteListsVerbsWithTheirCommandLines(t *testing.T) {
+	d := shop()
+	s := newSession(t, d, 120, 36)
+	s.key("j", "j", "j", "j", "j", ":") // on db
+	out := s.screen()
+	for _, want := range []string{"Palette  on db", "wake db", "doze wake db", "doze sleep db"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("the palette lacks %q:\n%s", want, out)
+		}
+	}
+	golden(t, "palette_120x36", out)
+
+	// Typing filters, best match first; enter runs it.
+	s.key("r", "e", "s", "t")
+	out = s.screen()
+	if !strings.Contains(out, "restart db") || strings.Contains(out, "wake db") {
+		t.Fatalf("filtering by 'rest':\n%s", out)
+	}
+	s.key("enter")
+	if got := d.Done(); len(got) != 1 || got[0] != (control.Verb{Name: "restart", Target: "db"}) {
+		t.Fatalf("verbs = %v", got)
+	}
+}

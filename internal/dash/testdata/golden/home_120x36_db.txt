@@ -33,4 +33,4 @@ Tasks  2                                                                │
                                                                         │
                                                                         │
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  q quit
+↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  : pal…
