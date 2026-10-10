@@ -68,7 +68,15 @@ var (
 // buildDoze compiles the doze CLI once per test binary and returns its path.
 func buildDoze(t *testing.T) string {
 	dozeBinOnce.Do(func() {
-		out := filepath.Join(t.TempDir(), "doze")
+		// Not t.TempDir(): the binary is built once and used by every test in the
+		// package, and a test's temp dir is deleted when that test ends — which
+		// left every test after the first without a doze to run.
+		dir, err := os.MkdirTemp("", "doze-bin")
+		if err != nil {
+			dozeBinErr = err
+			return
+		}
+		out := filepath.Join(dir, "doze")
 		// The repo root is two levels up from test/integration.
 		cmd := exec.Command("go", "build", "-o", out, "./cmd/doze")
 		cmd.Dir = repoRoot(t)

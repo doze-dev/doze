@@ -75,7 +75,7 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 	// it; via the shared registry above it answers for every stack. We no longer
 	// run an mDNS responder: the suffix is a plain unicast domain, not .local, so
 	// there's no multicast path — and mDNS pressured macOS's mDNSResponder.
-	srv := names.ServeResolve(ctx, resolve, d.logf)
+	srv := names.ServeResolveIn(ctx, reg, resolve, d.logf)
 	prev := release
 	release = func() { prev(); srv.Close() }
 	d.logf("domains: *.%s.%s → per-service IP (zone on %s)", stack, config.DomainSuffix, names.ResolverAddr())

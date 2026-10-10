@@ -66,3 +66,29 @@ jobs:
           name: bench-${{ matrix.os }}
           path: ${{ runner.temp }}/bench-${{ matrix.os }}.json
           if-no-files-found: ignore
+
+  # The .doze zone, end to end. The first step is the one-time machine setup a
+  # user runs (it needs sudo, which a runner has); the test then starts a stack
+  # and looks one of its names up through the operating system's own resolver,
+  # the way psql and curl do. The other two tests run doze beside a second
+  # program in a private zone, in each start order.
+  names:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Set the machine up for .doze names
+        run: go run ./cmd/doze doctor --fix
+      - name: Names
+        env:
+          DOZE_TEST_SYSTEM_RESOLVER: "1"
+        run: >
+          go test -tags integration -count=1 -v
+          -run 'TestNamesThroughTheSystemResolver|TestDozeAndAStandaloneToolShareTheZone|TestANameAStandaloneToolHoldsStopsTheStack'
+          ./test/integration/
