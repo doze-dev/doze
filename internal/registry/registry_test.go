@@ -147,3 +147,34 @@ func TestTaintPersistsUntilCleared(t *testing.T) {
 		t.Fatal("ClearTainted should clear taint")
 	}
 }
+
+// An instance with an idle time of its own sleeps on that clock, not the
+// stack's; and one that is always on is never reapable, because with nobody
+// connected it is active, not idle.
+func TestIdlePolicyIsPerInstance(t *testing.T) {
+	r := New()
+	clock := time.Unix(1_000_000, 0)
+	r.now = func() time.Time { return clock }
+
+	r.SetIdlePolicy("quick", false, 10*time.Second)
+	r.SetIdlePolicy("app", true, 0)
+	for _, name := range []string{"quick", "default", "app"} {
+		r.MarkRunning(name, "", 0, 1)
+	}
+	if app, _ := r.Get("app"); app.State != Active {
+		t.Fatalf("an always-on instance with no connections is %s, want active", app.State)
+	}
+
+	clock = clock.Add(11 * time.Second)
+	if got := r.Reapable(5 * time.Minute); len(got) != 1 || got[0] != "quick" {
+		t.Fatalf("after 11s: reapable = %v, want only the one with a 10s idle time", got)
+	}
+	clock = clock.Add(5 * time.Minute)
+	if got := r.Reapable(5 * time.Minute); len(got) != 2 || got[0] != "default" || got[1] != "quick" {
+		t.Fatalf("after 5m: reapable = %v, want default and quick, never app", got)
+	}
+	// With no stack default, only an instance with its own idle time sleeps.
+	if got := r.Reapable(0); len(got) != 1 || got[0] != "quick" {
+		t.Fatalf("with no default: reapable = %v, want only quick", got)
+	}
+}

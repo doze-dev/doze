@@ -123,9 +123,12 @@ type InstanceView struct {
 	Holders   []HolderView `json:"holders,omitempty"`
 	StartedAt time.Time    `json:"started_at"`
 	IdleSince time.Time    `json:"idle_since,omitempty"` // when Conns hit 0; drives the reap countdown
-	RAM       int64        `json:"ram,omitempty"`        // resident bytes of the backend, 0 when reaped
-	CPU       float64      `json:"cpu,omitempty"`        // CPU usage percent (one core = 100), 0 when reaped
-	Endpoint  string       `json:"endpoint,omitempty"`   // client-facing address
+	// IdleAfter is this instance's own idle time, when it has one; zero means the
+	// stack's (Response.IdleTimeout).
+	IdleAfter time.Duration `json:"idle_after,omitempty"`
+	RAM       int64         `json:"ram,omitempty"`      // resident bytes of the backend, 0 when reaped
+	CPU       float64       `json:"cpu,omitempty"`      // CPU usage percent (one core = 100), 0 when reaped
+	Endpoint  string        `json:"endpoint,omitempty"` // client-facing address
 	// Bind is the address the backend/listener actually occupies (host:port or
 	// unix:/path) — the dialable truth behind the client-facing Endpoint: the
 	// per-instance loopback bind (127.0.0.11:5432) for proxied services, the
@@ -235,6 +238,7 @@ func ViewFromRegistry(inst registry.Instance, engineType, version string, declar
 		Conns:        inst.Conns,
 		StartedAt:    inst.StartedAt,
 		IdleSince:    inst.IdleSince,
+		IdleAfter:    inst.IdleAfter,
 		LastError:    inst.LastError,
 		Tainted:      inst.Tainted,
 		Declared:     declared,

@@ -76,6 +76,9 @@ type Instance struct {
 	// AlwaysOn marks an instance the idle reaper never stops (an app). Running
 	// with no connections, it is Active, not Idle: nothing is counting down.
 	AlwaysOn bool
+	// IdleAfter is this instance's own idle time before it is put to sleep. Zero
+	// means the stack's default.
+	IdleAfter time.Duration
 	// Healthy is the result of the most recent periodic liveness probe for a
 	// supervised process: nil = not yet probed (or no probe), true/false otherwise.
 	// Distinct from State (which tracks running/idle/reaped).
@@ -208,12 +211,14 @@ func (r *Registry) MarkDone(name string) {
 	r.emit(inst)
 }
 
-// SetAlwaysOn marks whether the idle reaper leaves name alone. The runtime sets
-// it before the instance is marked running.
-func (r *Registry) SetAlwaysOn(name string, on bool) {
+// SetIdlePolicy says how the idle reaper treats name: never (alwaysOn), or
+// after idleAfter with nothing holding it — zero for the stack's default. The
+// runtime sets it before the instance is marked running.
+func (r *Registry) SetIdlePolicy(name string, alwaysOn bool, idleAfter time.Duration) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.ensure(name).AlwaysOn = on
+	inst := r.ensure(name)
+	inst.AlwaysOn, inst.IdleAfter = alwaysOn, idleAfter
 }
 
 // SetHealthy records the result of the most recent periodic liveness probe.
@@ -304,7 +309,9 @@ func (r *Registry) Release(name string) int {
 }
 
 // Reapable returns the names of instances that are Idle (zero connections)
-// and have been so for at least idleTimeout. The reaper calls this on a tick.
+// and have been so for at least their idle time: their own if they set one,
+// else idleTimeout, the stack's. With no default and none of their own, never.
+// The reaper calls this on a tick.
 func (r *Registry) Reapable(idleTimeout time.Duration) []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -313,8 +320,15 @@ func (r *Registry) Reapable(idleTimeout time.Duration) []string {
 		if inst.KeepAwake {
 			continue // pinned: exempt from the idle reaper
 		}
+		limit := idleTimeout
+		if inst.IdleAfter > 0 {
+			limit = inst.IdleAfter
+		}
+		if limit <= 0 {
+			continue
+		}
 		if inst.State == Idle && inst.Conns == 0 && !inst.IdleSince.IsZero() {
-			if r.now().Sub(inst.IdleSince) >= idleTimeout {
+			if r.now().Sub(inst.IdleSince) >= limit {
 				out = append(out, name)
 			}
 		}

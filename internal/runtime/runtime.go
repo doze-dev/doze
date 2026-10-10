@@ -356,7 +356,15 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	r.procs[name] = proc
 	r.deps[name] = held
 	r.mu.Unlock()
-	r.reg.SetAlwaysOn(name, r.isSupervised(drv, inst))
+	// An app runs until it is stopped, unless it asked to sleep when idle.
+	alwaysOn := r.isSupervised(drv, inst)
+	var idleAfter time.Duration
+	if s, ok := decl.Spec.(interface{ IdleAfter() (time.Duration, bool) }); ok {
+		if d, set := s.IdleAfter(); set {
+			alwaysOn, idleAfter = false, d
+		}
+	}
+	r.reg.SetIdlePolicy(name, alwaysOn, idleAfter)
 	r.reg.MarkRunning(name, inst.SocketDir, inst.Port, proc.PID())
 	r.writePidfile(name, proc.PID()) // for orphan reconciliation after a daemon crash
 	go r.watch(name, proc)           // detect an unexpected exit and mark it reaped
@@ -904,16 +912,13 @@ func (r *Runtime) Backend(name string) engine.Process {
 // only when it has had zero connections for the whole idle_timeout — never on
 // query inactivity, so pools holding idle connections keep their backend alive.
 func (r *Runtime) RunReaper(ctx context.Context) {
-	timeout := r.cfg.Defaults.IdleTimeout
-	if timeout <= 0 {
-		return
-	}
+	timeout := r.cfg.Defaults.IdleTimeout // zero: only instances with an idle time of their own sleep
 	// Check at least once a second so an instance reaps within ~1s of crossing
 	// its deadline — keeping the dashboard's "sleeps in" countdown honest rather
 	// than reaping a coarse interval late. The scan is a cheap in-memory pass
 	// over a handful of instances, so a 1s cadence is negligible.
 	interval := timeout / 10
-	if interval > time.Second {
+	if interval > time.Second || interval <= 0 {
 		interval = time.Second
 	}
 	if interval < 250*time.Millisecond {
@@ -926,14 +931,13 @@ func (r *Runtime) RunReaper(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// An always-on instance never shows up here: with nobody connected
+			// it is active, not idle.
 			for _, name := range r.reg.Reapable(timeout) {
-				if r.supervised(name) {
-					continue // a supervised (always-on) instance is exempt from the reaper
-				}
 				if err := r.Stop(journal.WithCause(context.Background(), journal.ByIdle, ""), name); err != nil {
 					r.logf("reaping %q failed: %v", name, err)
 				} else {
-					r.logf("reaped %q after %s idle", name, timeout)
+					r.logf("%q went to sleep: nothing held it for its idle time", name)
 				}
 			}
 		}

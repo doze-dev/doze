@@ -39,9 +39,9 @@ type Config struct {
 	ReadyTimeout time.Duration
 	Restart      Restart
 
-	// Parsed and validated, not acted on yet: per-app idle time, the dash's
-	// front tab, console link and log volume, file watching, and opting out of
-	// the proxy.
+	// Sleep is the app's own idle time (see IdleAfter) and Direct opts out of
+	// the proxy. The rest are parsed and validated, not acted on yet: the dash's
+	// front tab, console link and log volume, and file watching.
 	Sleep     runspec.Sleep
 	Front     string
 	Console   string
@@ -207,6 +207,10 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 // http() probe.
 func (c *Config) BindPort(port int) error {
 	c.declaredPort = port
+	if _, sleeps := c.IdleAfter(); sleeps && !c.Proxied() {
+		// Only a connection through doze's listener can wake an app again.
+		return fmt.Errorf("sleep = %q needs doze to hold the app's port, so that a connection can wake it: declare a `port`, and do not set `direct`", c.Sleep.After)
+	}
 	if c.Proxied() {
 		// doze holds the declared port and tells the app where to listen. An
 		// env that sets these itself would send the app somewhere doze is not
@@ -365,6 +369,16 @@ func versionMatches(want, got string) bool {
 		}
 	}
 	return true
+}
+
+// IdleAfter is how long the app may sit with nothing holding it before doze
+// puts it to sleep, when it asked for that with `sleep = "10m"`. An app that
+// did not, or said "never", runs until it is stopped.
+func (c *Config) IdleAfter() (time.Duration, bool) {
+	if c.Sleep.Set && !c.Sleep.Never {
+		return c.Sleep.After, true
+	}
+	return 0, false
 }
 
 // Proxied reports whether doze fronts this app: it declares a port and has not

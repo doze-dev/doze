@@ -335,3 +335,29 @@ func TestAProxiedAppMayNotSetItsOwnPort(t *testing.T) {
 		t.Fatalf("a portless app may set PORT: %v", err)
 	}
 }
+
+// An app can sleep when idle only if a connection can wake it again: only if
+// doze holds its port.
+func TestSleepNeedsDozeToHoldThePort(t *testing.T) {
+	c, _ := decode(t, "run = \"x\"\nsleep = \"10m\"")
+	if d, set := c.IdleAfter(); !set || d != 10*time.Minute {
+		t.Fatalf("IdleAfter = %s, %v", d, set)
+	}
+	if err := c.BindPort(8080); err != nil {
+		t.Fatalf("a fronted app may sleep: %v", err)
+	}
+	if err := c.BindPort(0); err == nil || !strings.Contains(err.Error(), "declare a `port`") {
+		t.Fatalf("a portless app that sleeps could never wake: %v", err)
+	}
+	direct, _ := decode(t, "run = \"x\"\nsleep = \"10m\"\ndirect = true")
+	if err := direct.BindPort(8080); err == nil {
+		t.Fatal("a direct app that sleeps could never wake")
+	}
+	never, _ := decode(t, "run = \"x\"\nsleep = \"never\"")
+	if _, set := never.IdleAfter(); set {
+		t.Fatal(`sleep = "never" is the default: always on`)
+	}
+	if err := never.BindPort(0); err != nil {
+		t.Fatalf(`a portless app with sleep = "never": %v`, err)
+	}
+}
