@@ -256,3 +256,7 @@ Found while bringing up the fixture stack, and still open:
 | 9 | Three files in `internal/tui` are not gofmt-clean under the current Go, so `make check` fails before any test runs. | `appsview.go`, `enginepage.go`, `tui.go` |
 | 10 | The registry served aws module 0.1.1 although `doze-modules/modules.yaml` says 0.1.2. Not checked further. | registry index, or an unpublished release |
 | 11 | `TestAllocatorDistinctAndStable` expects the first address to be `127.0.0.2`; the allocator starts at `.10`. It is skipped where the loopback aliases are absent, so CI never runs it, and it fails on a machine that has run setup. | `internal/loopback/loopback_test.go` |
+| 12 | `doze init` wrote bare `<type> "<name>"` blocks for every module it took from the registry catalog, so its output stopped parsing the moment the `module` keyword became required. | **Fixed** in `cmd/doze/init.go`, with `TestInitWritesAConfigDozeReads`. |
+| 13 | Eight doc pages and `doze run --help` said doze injects connection strings into a supervised app. It never did: `engine/process` passes on only the environment the block declares. | **Fixed** in the docs and the help text. |
+| 14 | Eleven `hcl` examples in the docs never parsed (one-line blocks with several arguments, `;` separators, a call to `index()`, which doze does not have). | **Fixed**, and `TestDocExamplesParse` now checks every example. |
+| 15 | The aws module's published example is not valid HCL (see phase 1 status). | `doze-modules/modules/aws/describe.go` |

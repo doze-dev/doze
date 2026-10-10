@@ -50,11 +50,32 @@ Exit: every open question has an answer and a date.
 
 Contract: [config.md](config.md).
 
-Progress, 2026-10-10: units 1.1, 1.2 and 1.3 are done, along with the code
-half of 1.5 and 1.6 (the shape pass exists as `config.LoadShape`; the parser
-rejects every old form with the new one in the message; the Go tests, the
-repo's `doze.hcl`, `examples/shop` and `doze init` are ported). Still to do:
-1.4, wiring `doze lint` to the shape pass, the website docs, and 1.7.
+Status, 2026-10-10: **done**, all seven units. Measured against the exit:
+
+- `examples/shop`, ported, ran the same stack end to end: a page rendered from
+  postgres through the api, and an order through postgres and kafka to a
+  receipt in S3. The repo's own `doze.hcl` lints through the real modules; it
+  was not booted, because it turns local names on and this machine has other
+  stacks in the shared zone.
+- `doze lint` passes with an empty cache and an unreachable registry, naming
+  the module types it could not check. With a warm cache it runs both passes
+  offline.
+- No old form is left. The Go tests are ported, and `TestDocExamplesParse`
+  runs every `hcl` example in the README, the getting-started guide and the
+  website through the offline pass (80 examples). Each old form fails with
+  the new one in the message (`TestOldFormsNameTheNewOne`).
+
+Not done here, and needed before this reaches anyone:
+
+- A doze-sdk release. Two SDK changes are committed there but doze still
+  builds against v0.7.0: the lock's `keys:` map is removed, and a cache hit
+  is checked against the lock.
+- The integration suite (`test/integration`) is ported but was not run.
+- The website was not built: its dependencies are not installed here.
+- The aws module's own example (`doze-modules/modules/aws/describe.go`) has
+  one-line blocks with two arguments, which is not valid HCL. The committed
+  engine page is fixed by hand; regenerating the site brings the bad lines
+  back until the module's example is fixed and republished.
 
 Behaviour that is deliberately interim until a later phase replaces it:
 
