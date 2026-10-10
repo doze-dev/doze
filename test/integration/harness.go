@@ -131,7 +131,7 @@ type Project struct {
 // Cleanup (registered via t.Cleanup).
 func NewProject(t *testing.T, engine, name string, port int, cfg string) *Project {
 	dir := t.TempDir()
-	home := t.TempDir()
+	home := shortHome(t)
 	if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(cfg), 0o644); err != nil {
 		t.Fatalf("writing config: %v", err)
 	}
@@ -243,4 +243,19 @@ func splitHostPort(t *testing.T, addr string) (host, port string) {
 		t.Fatalf("splitting %q: %v", addr, err)
 	}
 	return h, p
+}
+
+// shortHome is a DOZE_HOME on a short path. The daemon's control socket lives
+// under the home, and a unix socket path is limited to about 100 bytes on
+// macOS: t.TempDir() is /var/folders/…/T/<TestName><digits>/001, which a long
+// test name pushes over — "bind: invalid argument", and a daemon that never
+// comes up.
+func shortHome(t *testing.T) string {
+	t.Helper()
+	home, err := os.MkdirTemp("/tmp", "dz")
+	if err != nil {
+		t.Fatalf("temp home: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(home) })
+	return home
 }

@@ -27,7 +27,7 @@ require (
 	github.com/clipperhouse/displaywidth v0.9.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.5.0 // indirect
-	github.com/doze-dev/doze-names v0.1.1-0.20261010112057-fcf6a9e32a36
+	github.com/doze-dev/doze-names v0.1.1-0.20261010120959-b41aceb0fc43
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
