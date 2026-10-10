@@ -1082,3 +1082,19 @@ func TestSidebarGroupsByEngineType(t *testing.T) {
 		t.Fatalf("display order = %v", order)
 	}
 }
+
+// Every action that asks for confirmation must say what it will do. reset was
+// staged with an empty consequence line because the modal only knew the
+// daemon's older name for it.
+func TestConfirmModalStatesTheConsequence(t *testing.T) {
+	for _, verb := range []string{"down", "restart", "destroy", "reset"} {
+		m := threeInstances()
+		m.width, m.height = 100, 30
+		m.dashPending = verb + ":app"
+		lines := strings.Split(m.confirmView(), "\n")
+		// The box is border, padding, head, consequence, …
+		if len(lines) < 4 || strings.Trim(lines[3], " │") == "" {
+			t.Errorf("%s: confirm modal has no consequence line:\n%s", verb, m.confirmView())
+		}
+	}
+}

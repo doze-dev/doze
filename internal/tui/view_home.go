@@ -463,7 +463,7 @@ func (m model) confirmView() string {
 		}
 	case "restart":
 		why = "stops and re-wakes the backend in place"
-	case "destroy":
+	case "destroy", "reset":
 		why = "wipes its data; the next wake re-provisions fresh"
 	}
 	keys := stAccent.Render("enter") + stDim.Render("/") + stAccent.Render("y") + stDim.Render(" confirm") +

@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	names "github.com/doze-dev/doze-names"
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/daemon"
@@ -125,7 +126,7 @@ func doctorCmd() *cobra.Command {
 					case runtime.GOOS == "darwin":
 						add("domains", probe+" did not resolve — mDNS may be blocked here; install the fallback once:\n"+daemon.ResolverSetupHint, false)
 					default:
-						add("domains", probe+" did not resolve — route "+config.DomainSuffix+" to 127.0.0.1:5323 (systemd-resolved or dnsmasq)", false)
+						add("domains", probe+" did not resolve — route "+config.DomainSuffix+" to "+names.ResolverAddr()+" (systemd-resolved or dnsmasq)", false)
 					}
 					// Per-service addressing (share canonical ports by name) — a
 					// nice-to-have; flag it but never fail the check on its absence.
