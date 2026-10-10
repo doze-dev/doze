@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/frame"
 	"github.com/doze-dev/doze/internal/dash/layout"
@@ -39,12 +40,14 @@ var groups = []group{
 
 // Model is the home page.
 type Model struct {
-	w, h    int
-	sel     string
-	lay     layout.Map
-	logs    map[string][]control.LogFrame
-	logWant string // the instance whose lines are being fetched
-	notice  string // the last thing a verb said, until the next key
+	w, h      int
+	sel       string
+	lay       layout.Map
+	logs      map[string][]control.LogFrame
+	logWant   string // the instance whose lines are being fetched
+	notice    string // the last thing a verb said, until the next key
+	menu      bool   // the copy menu is open
+	noticeBad bool   // the notice is a failure, not a confirmation
 }
 
 // New returns the home page.
@@ -93,7 +96,7 @@ func (m *Model) selected(c *core.Context) (control.InstanceView, bool) {
 func (m *Model) Keys() []core.Key {
 	return []core.Key{
 		{Keys: "↑↓", Label: "select"}, {Keys: "enter", Label: "open"}, {Keys: "L", Label: "all logs"}, {Keys: "w", Label: "wake"}, {Keys: "s", Label: "sleep"},
-		{Keys: "r", Label: "restart"}, {Keys: "p", Label: "pin"}, {Keys: "q", Label: "quit"},
+		{Keys: "r", Label: "restart"}, {Keys: "p", Label: "pin"}, {Keys: "c", Label: "copy"}, {Keys: "q", Label: "quit"},
 	}
 }
 
@@ -110,14 +113,19 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 		if msg.Err == nil {
 			m.logs[msg.Instance] = msg.Lines
 		}
+	case core.Notice:
+		m.notice, m.noticeBad = msg.Text, msg.Bad
 	case core.Done:
 		if msg.Err != nil {
-			m.notice = fmt.Sprintf("%s %s: %v", msg.Verb, msg.Target, msg.Err)
+			m.notice, m.noticeBad = fmt.Sprintf("%s %s: %v", msg.Verb, msg.Target, msg.Err), true
 		} else {
 			m.notice = ""
 		}
 	case tea.KeyPressMsg:
 		m.notice = ""
+		if m.menu {
+			return m, m.menuKey(c, msg.String())
+		}
 		switch msg.String() {
 		case "up", "k":
 			m.move(rs, -1)
@@ -136,6 +144,10 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 		case "enter", "l", "right":
 			if v, ok := m.selected(c); ok {
 				return m, func() tea.Msg { return core.Navigate{To: frame.New(v.Name, v)} }
+			}
+		case "c":
+			if _, ok := m.selected(c); ok {
+				m.menu = true
 			}
 		case "w":
 			return m, m.verb(c, control.VerbWake)
@@ -218,6 +230,10 @@ func (m *Model) View(c *core.Context, w, h int) string {
 	if !preview.Empty() {
 		pv = m.preview(c, preview)
 	}
+	if m.menu {
+		// The menu takes the whole body: what it lists is too long for a pane.
+		lines, list, preview = m.menuView(c), body, layout.Rect{}
+	}
 	for i := 0; i < body.H; i++ {
 		l := pad(lineAt(lines, i), list.W)
 		if !preview.Empty() {
@@ -289,7 +305,11 @@ func (m *Model) list(c *core.Context, rs []row, r layout.Rect) []string {
 		out = append(out, line)
 	}
 	if m.notice != "" && len(out) < r.H {
-		out = append(out, "", st.Bad.Render(ansi.Truncate(m.notice, r.W, "…")))
+		style := st.Good
+		if m.noticeBad {
+			style = st.Bad
+		}
+		out = append(out, "", style.Render(ansi.Truncate(m.notice, r.W, "…")))
 	}
 	return out
 }
@@ -384,6 +404,59 @@ func (m *Model) preview(c *core.Context, r layout.Rect) []string {
 		}
 	}
 	return out
+}
+
+// copyItem is one thing the copy menu offers.
+type copyItem struct{ label, text string }
+
+func (m *Model) copyItems(c *core.Context) []copyItem {
+	v, ok := m.selected(c)
+	if !ok {
+		return nil
+	}
+	var out []copyItem
+	add := func(label, text string) {
+		if text != "" {
+			out = append(out, copyItem{label, text})
+		}
+	}
+	add("name", v.Domain)
+	add("address", v.Endpoint)
+	add("connection string", v.URL)
+	if v.EnvVar != "" && v.URL != "" {
+		add("env line", v.EnvVar+"="+v.URL)
+	}
+	add("instance name", v.Name)
+	return out
+}
+
+func (m *Model) menuView(c *core.Context) []string {
+	st := c.Styles
+	out := []string{" " + st.Title.Render("copy"), ""}
+	items := m.copyItems(c)
+	if len(items) == 0 {
+		out = append(out, " "+st.Dim.Render("nothing to copy"))
+	}
+	for i, it := range items {
+		out = append(out, fmt.Sprintf(" %s %s  %s", st.Key.Render(fmt.Sprint(i+1)), st.Dim.Render(fmt.Sprintf("%-18s", it.label)), st.Text.Render(it.text)))
+	}
+	out = append(out, "", " "+st.Dim.Render("esc closes"))
+	return out
+}
+
+func (m *Model) menuKey(c *core.Context, key string) tea.Cmd {
+	switch {
+	case key == "esc" || key == "c" || key == "q":
+		m.menu = false
+	case len(key) == 1 && key[0] >= '1' && key[0] <= '9':
+		items := m.copyItems(c)
+		if i := int(key[0] - '1'); i < len(items) {
+			m.menu = false
+			text, label := items[i].text, items[i].label
+			return tea.Batch(copymode.Clipboard(text), func() tea.Msg { return core.Notice{Text: "copied the " + label} })
+		}
+	}
+	return nil
 }
 
 func (m *Model) footer(c *core.Context, w int) string {

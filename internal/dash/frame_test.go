@@ -300,3 +300,21 @@ func TestCopyTextCanDropTimestamps(t *testing.T) {
 		t.Fatalf("range %d..%d", from, to)
 	}
 }
+
+func TestCopyMenuOnARow(t *testing.T) {
+	d := shop()
+	d.Snap.Instances[3].URL = "postgres://app@db.shop.doze:5432/db"
+	d.Snap.Instances[3].EnvVar = "DATABASE_URL"
+	s := newSession(t, d, 120, 36)
+	s.key("j", "j", "j", "j", "j", "c") // db
+	out := s.screen()
+	for _, want := range []string{"1 name", "db.shop.doze", "connection string", "DATABASE_URL=postgres://app@db.shop.doze:5432/db"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("the copy menu lacks %q:\n%s", want, out)
+		}
+	}
+	s.key("esc")
+	if out := s.screen(); strings.Contains(out, "esc closes") {
+		t.Fatalf("esc should close the menu:\n%s", out)
+	}
+}
