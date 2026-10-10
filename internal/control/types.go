@@ -48,6 +48,11 @@ type Request struct {
 	Since    uint64   `json:"since,omitempty"`
 	Interval string   `json:"interval,omitempty"` // a duration, e.g. "1s"
 	Backlog  int      `json:"backlog,omitempty"`
+
+	// The logs op (see LogQuery): which run, how many lines, and from when.
+	Run       int       `json:"run,omitempty"`
+	Tail      int       `json:"tail,omitempty"`
+	SinceTime time.Time `json:"since_time,omitzero"`
 }
 
 // LogFrame is one streamed, instance-tagged log line (logs follow op).
@@ -167,6 +172,7 @@ type Response struct {
 	IdleTimeout time.Duration  `json:"idle_timeout,omitempty"` // reap window, for the countdown
 	Instances   []InstanceView `json:"instances,omitempty"`
 	Lines       []string       `json:"lines,omitempty"`
+	Log         []LogFrame     `json:"log,omitempty"`       // the same lines with their time, stream and run
 	Resources   []ResourceView `json:"resources,omitempty"` // builtin sub-resources (resources op)
 	Actions     []ActionView   `json:"actions,omitempty"`   // available data actions (resources op)
 	Result      string         `json:"result,omitempty"`    // an admin action's result line (admin op)
@@ -180,6 +186,8 @@ type Handler interface {
 	Boot(ctx context.Context, db string) error
 	Restart(ctx context.Context, db string) error
 	Logs(db string) ([]string, error)
+	// LogLines reads lines an instance printed, running or not.
+	LogLines(q LogQuery) ([]LogFrame, error)
 	// StreamLogs follows the named instances' logs (empty = all running backends),
 	// calling emit for each new line until ctx is cancelled or emit returns an error
 	// (the client disconnected).

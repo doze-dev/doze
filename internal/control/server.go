@@ -216,8 +216,11 @@ func (s *Server) unary(ctx context.Context, req Request) Response {
 	case "reset":
 		return done(s.h.Reset(ctx, req.DB))
 	case "logs":
-		lines, err := s.h.Logs(req.DB)
-		resp.Lines = lines
+		log, err := s.h.LogLines(LogQuery{Instance: req.DB, Run: req.Run, Tail: req.Tail, Since: req.SinceTime})
+		resp.Log = log
+		for _, l := range log {
+			resp.Lines = append(resp.Lines, l.Line)
+		}
 		return done(err)
 	case "add":
 		view, err := s.h.AddInstance(ctx, req.Block)

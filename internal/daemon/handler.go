@@ -214,16 +214,43 @@ const logBacklog = 200
 // Logs returns the last lines of an instance's newest run. The instance need
 // not be running: the log of a sleeping or crashed instance is still there.
 func (h *handler) Logs(name string) ([]string, error) {
-	if h.d.cfg.Lookup(name) == nil {
-		return nil, fmt.Errorf("instance %q is not declared", name)
-	}
-	lines, _, err := h.d.rt.Logs().Tail(name, 0, logBacklog)
+	log, err := h.LogLines(control.LogQuery{Instance: name})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]string, len(lines))
-	for i, l := range lines {
-		out[i] = l.Text
+	out := make([]string, len(log))
+	for i, l := range log {
+		out[i] = l.Line
+	}
+	return out, nil
+}
+
+// LogLines reads lines from one run of an instance's log, each with its time,
+// stream and run.
+func (h *handler) LogLines(q control.LogQuery) ([]control.LogFrame, error) {
+	if h.d.cfg.Lookup(q.Instance) == nil {
+		return nil, fmt.Errorf("instance %q is not declared", q.Instance)
+	}
+	return ReadLog(h.d.rt.Logs(), q)
+}
+
+// ReadLog answers a LogQuery from a log store. It is what the daemon serves,
+// and what a command run with no daemon reads straight from disk.
+func ReadLog(store *logstore.Store, q control.LogQuery) ([]control.LogFrame, error) {
+	tail := q.Tail
+	if tail <= 0 {
+		tail = logBacklog
+	}
+	lines, _, err := store.Tail(q.Instance, q.Run, tail)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]control.LogFrame, 0, len(lines))
+	for _, l := range lines {
+		if !q.Since.IsZero() && l.Time.Before(q.Since) {
+			continue
+		}
+		out = append(out, control.LogFrame{Instance: l.Instance, Line: l.Text, Stream: l.Stream, Run: l.Run, Time: l.Time})
 	}
 	return out, nil
 }
