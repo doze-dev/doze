@@ -21,6 +21,13 @@ func TestActionRegistryParity(t *testing.T) {
 		}
 	}
 
+	// Nothing is dash-only: whatever a key or a palette row does, a command does.
+	for _, a := range actions.All() {
+		if a.Dash && !a.CLI {
+			t.Errorf("action %q is offered in the dash but has no CLI form", a.Name)
+		}
+	}
+
 	for _, a := range actions.All() {
 		if !a.CLI {
 			continue

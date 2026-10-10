@@ -5,9 +5,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
@@ -29,7 +31,7 @@ type statusServiceJSON struct {
 	Name       string   `json:"name"`
 	Engine     string   `json:"engine"`
 	Version    string   `json:"version,omitempty"`
-	Group      string   `json:"group"` // "service" | "process"
+	Group      string   `json:"group"` // "module" | "app"
 	State      string   `json:"state"`
 	Enabled    bool     `json:"enabled"`
 	Endpoint   string   `json:"endpoint,omitempty"`
@@ -47,9 +49,9 @@ func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView,
 	out := statusJSON{Daemon: statusDaemonJSON{Running: daemonUp}, Services: []statusServiceJSON{}}
 	for _, d := range cfg.Instances {
 		v, running := views[d.Name]
-		group := "service"
+		group := config.KindModule
 		if categoryOf(d.Type) == "process" {
-			group = "process"
+			group = config.KindApp
 		}
 		var deps []string
 		for _, dep := range d.Deps {
@@ -114,14 +116,13 @@ func plainState(v control.InstanceView, running bool, decl *config.InstanceDecl)
 	}
 }
 
-// category groups: just two divisions — the backing services doze runs for you,
-// and your own supervised app processes. (Engines arrive as plugin modules, but
-// that's plumbing — users think in services.)
+// category groups: the two kinds of block that run today — modules, and your
+// own apps.
 var categoryOrder = []string{"module", "process"}
 
 var categoryLabel = map[string]string{
-	"module":  "Services",
-	"process": "Processes",
+	"module":  "Modules",
+	"process": "Apps",
 }
 
 // categoryOf maps an engine type to its display group: your `process` apps are
@@ -135,14 +136,12 @@ func categoryOf(engineType string) string {
 
 // renderTable prints the stack as a grouped, column-aligned table: one section per
 // category, sharing column widths across the whole output so everything lines up.
-func renderTable(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) {
-	depsOf := map[string][]string{}
-	for _, d := range cfg.Instances {
-		for _, dep := range d.Deps {
-			depsOf[d.Name] = append(depsOf[d.Name], dep.Name)
-		}
-	}
+// now is the clock the status table reads for "sleeps in 4m"; a test fixes it.
+var now = time.Now
 
+// renderTable writes the status table. idle is the stack's idle time, for the
+// countdown in the note of something about to sleep.
+func renderTable(out io.Writer, cfg *config.Config, views map[string]control.InstanceView, daemonUp bool, idle time.Duration) {
 	type rowData struct {
 		name  string
 		cells []string
@@ -150,8 +149,6 @@ func renderTable(cfg *config.Config, views map[string]control.InstanceView, daem
 	rowsByCat := map[string][]rowData{}
 	for _, d := range cfg.Instances {
 		v, running := views[d.Name]
-		deps := append([]string(nil), depsOf[d.Name]...)
-		sort.Strings(deps)
 		cells := []string{
 			stateDot(d.Type, v, running, d),
 			ui.Title(d.Name),
@@ -161,17 +158,17 @@ func renderTable(cfg *config.Config, views map[string]control.InstanceView, daem
 			metricConns(v, running),
 			metricMem(v, running),
 			metricCPU(v, running),
-			strings.Join(deps, ", "),
+			noteCell(v, idle),
 		}
 		cat := categoryOf(d.Type)
 		rowsByCat[cat] = append(rowsByCat[cat], rowData{name: d.Name, cells: cells})
 	}
 
 	if !daemonUp {
-		fmt.Println(ui.Muted("doze is not running — showing declared services") + "\n")
+		fmt.Fprintln(out, ui.Muted("doze is not running — showing declared services")+"\n")
 	}
 	// The state glyph gets its own headerless column so names line up under NAME.
-	t := ui.NewTable("", "NAME", "ENGINE", "STATE", "ENDPOINT", "CONNS", "MEM", "CPU", "DEPENDS ON")
+	t := ui.NewTable("", "NAME", "ENGINE", "STATE", "ENDPOINT", "CONNS", "MEM", "CPU", "NOTE")
 	for _, cat := range categoryOrder {
 		rows := rowsByCat[cat]
 		if len(rows) == 0 {
@@ -183,7 +180,7 @@ func renderTable(cfg *config.Config, views map[string]control.InstanceView, daem
 			t.Row(r.cells...)
 		}
 	}
-	fmt.Println(t.String())
+	fmt.Fprintln(out, t.String())
 
 	if daemonUp {
 		awake, ram := 0, int64(0)
@@ -193,9 +190,54 @@ func renderTable(cfg *config.Config, views map[string]control.InstanceView, daem
 				ram += v.RAM
 			}
 		}
-		fmt.Println()
-		fmt.Println(ui.Muted(fmt.Sprintf("%d awake · %s resident · connect to any endpoint to wake it", awake, ui.HumanBytes(ram))))
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, ui.Muted(fmt.Sprintf("%d awake · %s resident · connect to any endpoint to wake it", awake, ui.HumanBytes(ram))))
 	}
+}
+
+// noteCell is the one thing worth knowing about a row beyond its state: what
+// went wrong, what is holding it awake, or when it will sleep.
+func noteCell(v control.InstanceView, idle time.Duration) string {
+	switch {
+	case v.State == "crashing" || v.State == "failed":
+		return ui.Fail(firstLine(v.LastError))
+	case v.Tainted:
+		note := "its last sync did not finish"
+		if v.LastError != "" {
+			note += ": " + firstLine(v.LastError)
+		}
+		return ui.Fail(note)
+	case v.LastError != "" && !awakeState(v.State):
+		return ui.Muted(firstLine(v.LastError))
+	}
+	var parts []string
+	var by []string
+	clients := 0
+	for _, h := range v.Holders {
+		switch h.Kind {
+		case "dependant":
+			by = append(by, h.Name)
+		case "connection":
+			clients = h.Count
+		}
+	}
+	if len(by) > 0 {
+		parts = append(parts, "held by "+strings.Join(by, ", "))
+	}
+	if v.KeepAwake {
+		parts = append(parts, "pinned")
+	}
+	if len(parts) == 0 && clients == 0 && v.State == "idle" && idle > 0 && !v.IdleSince.IsZero() {
+		if left := idle - now().Sub(v.IdleSince); left > 0 {
+			parts = append(parts, "sleeps in "+left.Round(time.Second).String())
+		}
+	}
+	return ui.Muted(strings.Join(parts, " · "))
+}
+
+func firstLine(s string) string {
+	line, _, _ := strings.Cut(s, "\n")
+	return line
 }
 
 // --- cell renderers ---
@@ -238,11 +280,19 @@ func stateText(v control.InstanceView, running bool, decl *config.InstanceDecl) 
 	}
 }
 
-// displayWord maps internal state words to the user-facing sleep metaphor
-// ("booting" reads as "waking"); JSON keeps the raw internal words.
+// displayWord maps the daemon's state words to the ones a person reads: awake,
+// dozing (awake with nobody holding it, counting down to sleep), waking and
+// asleep. JSON keeps the daemon's words.
 func displayWord(s string) string {
-	if s == "booting" {
+	switch s {
+	case "active":
+		return "awake"
+	case "idle":
+		return "dozing"
+	case "booting":
 		return "waking"
+	case "reaped":
+		return "asleep"
 	}
 	return stateWord(s)
 }
@@ -251,6 +301,9 @@ func displayWord(s string) string {
 func engineCell(decl *config.InstanceDecl, v control.InstanceView, running bool) string {
 	if decl == nil {
 		return ""
+	}
+	if decl.Type == config.AppEngine {
+		return ui.Muted("app")
 	}
 	ver := versionOf(decl, v, running)
 	if ver == "" || ver == "builtin" || ver == "0" {

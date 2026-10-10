@@ -82,8 +82,12 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	}
 	client := control.NewClient(daemon.ControlSocketPath(cfg))
 
+	// How long each one took comes from the daemon's journal, not from a
+	// stopwatch here: it is the daemon's number, the same one the dash shows.
+	took := watchReady(context.Background(), client.Daemon())
+	defer took.stop()
 	for _, name := range bootClosure(cfg, targets) {
-		if err := bootOne(client, cfg, name); err != nil {
+		if err := bootOne(client, cfg, name, took); err != nil {
 			// The styled line is the report; exitCodeError keeps main from
 			// printing the same failure a second time.
 			fmt.Println(ui.Fail("✗") + " " + name + ": " + err.Error())
@@ -127,7 +131,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 // the daemon's own progress (engine downloads can dominate a first boot) goes
 // to its log file, so we tail that file and relay download/verify lines here,
 // plus an elapsed-time tick on the waking line when stdout is a terminal.
-func bootOne(client *control.Client, cfg *config.Config, name string) error {
+func bootOne(client *control.Client, cfg *config.Config, name string, took *readyWatch) error {
 	statusLine := ui.Muted("→") + " " + name + " waking…"
 	tty := stdoutIsTerminal()
 	if tty {
@@ -145,7 +149,9 @@ func bootOne(client *control.Client, cfg *config.Config, name string) error {
 	}()
 
 	bootCtx, cancel := context.WithTimeout(context.Background(), bootBudget)
+	start := time.Now()
 	_, err := client.DoContext(bootCtx, control.Request{Op: "up", DB: name}) // boot + converge
+	verbTook := time.Since(start)
 	cancel()
 	close(done)
 	wg.Wait()
@@ -155,7 +161,7 @@ func bootOne(client *control.Client, cfg *config.Config, name string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(ui.OK("✓") + " " + name + " awake")
+	fmt.Println(ui.OK("✓") + " " + name + " awake" + took.suffix(name, verbTook))
 	return nil
 }
 

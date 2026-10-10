@@ -38,6 +38,8 @@ var (
 
 	stateStyles = map[string]lipgloss.Style{
 		"active":   goodStyle.Bold(true),
+		"awake":    goodStyle.Bold(true),                      // display word for active
+		"dozing":   lipgloss.NewStyle().Foreground(warnColor), // display word for idle
 		"idle":     lipgloss.NewStyle().Foreground(warnColor),
 		"booting":  lipgloss.NewStyle().Foreground(coolColor),
 		"waking":   lipgloss.NewStyle().Foreground(coolColor), // display word for booting
@@ -113,9 +115,9 @@ func State(s string) string {
 // tainted=! (bold red), disabled=⊘, asleep/anything else=· dim.
 func StateGlyph(state string) string {
 	switch state {
-	case "active", "running":
+	case "active", "awake", "running":
 		return paint(stateStyles["active"], "●")
-	case "idle":
+	case "idle", "dozing":
 		return paint(stateStyles["idle"], "○")
 	case "booting", "waking":
 		return paint(stateStyles["waking"], "◌")

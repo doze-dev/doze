@@ -103,14 +103,22 @@ func rootCmd() *cobra.Command {
 			"local AWS (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, …) as one service.\n" +
 			"A thin proxy boots each service on its first connection and reaps it when\n" +
 			"idle.\n\n" +
-			"Running `doze` opens the dash — the primary surface: the live fleet, logs,\n" +
-			"charts, a command palette (:wake · :sleep · :restart · :reset · :logs …),\n" +
-			"engine pages for aws and kafka, and an APPS view for your own processes\n" +
-			"(o opens a service's web console). The commands below are the headless\n" +
-			"automation core (CI, scripts, Makefiles) plus the tools for before the\n" +
-			"dash can run.",
+			"Running `doze` opens the dash: the live fleet, logs, charts, a command\n" +
+			"palette, engine pages for aws and kafka, and an APPS view for your own\n" +
+			"code. Everything the dash does is also a command below, so a script, a\n" +
+			"Makefile or a terminal with no room for a dash can do the same. Piped,\n" +
+			"`doze` prints the status table.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args:          cobra.NoArgs,
+		// Bare `doze`: the dash on a terminal, the status table anywhere else —
+		// so `doze | less`, a CI log and a Makefile all get something readable.
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+				return dashCmd().RunE(cmd, nil)
+			}
+			return treeCmd().RunE(cmd, nil)
+		},
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			lockWritesAllowed = cmd.Annotations[lockWritesKey] == "true"
 			// A dry run must leave doze.lock byte-identical, whatever the
@@ -129,13 +137,11 @@ func rootCmd() *cobra.Command {
 	root.PersistentFlags().StringVarP(&configPath, "config", "c", "doze.hcl", "path to doze.hcl")
 	root.PersistentFlags().StringArrayVar(&varFlags, "var", nil, "set a config variable: --var name=value (repeatable)")
 
-	// The CLI is deliberately small: the dash (`doze`) is the human surface —
-	// wake/sleep/restart/reset/logs/resource-management all live inside it —
-	// and what remains here is the automation projection (CI, Makefiles,
-	// scripts) plus the tools for before the dash can run (init/lint/doctor).
-	// The cobra groups mirror that structure so --help isn't flat-alphabetical.
+	// Every dash action has a command (the parity test enforces it). The cobra
+	// groups keep --help from being flat-alphabetical.
 	root.AddGroup(
-		&cobra.Group{ID: groupCore, Title: "Automation core (scriptable stack lifecycle):"},
+		&cobra.Group{ID: groupCore, Title: "The stack:"},
+		&cobra.Group{ID: groupOne, Title: "One service:"},
 		&cobra.Group{ID: groupTools, Title: "Before-the-dash tools:"},
 		&cobra.Group{ID: groupDash, Title: "The dash:"},
 		&cobra.Group{ID: groupLock, Title: "Lockfile maintenance (CI):"},
@@ -148,6 +154,14 @@ func rootCmd() *cobra.Command {
 		grouped(groupCore, treeCmd()),
 		grouped(groupCore, envCmd()),
 		grouped(groupCore, mutating(runCmd())),
+		// One service at a time: what the dash's keys do
+		grouped(groupOne, mutating(wakeCmd())),
+		grouped(groupOne, sleepCmd()),
+		grouped(groupOne, mutating(restartCmd())),
+		grouped(groupOne, mutating(resetCmd())),
+		grouped(groupOne, pinCmd()),
+		grouped(groupOne, logsCmd()),
+		grouped(groupOne, urlCmd()),
 		// Before-the-dash tools
 		grouped(groupTools, lintCmd()),
 		grouped(groupTools, initCmd()),
@@ -167,6 +181,7 @@ func rootCmd() *cobra.Command {
 // Help group IDs, mirroring the deliberate command grouping above.
 const (
 	groupCore  = "core"
+	groupOne   = "one"
 	groupTools = "tools"
 	groupDash  = "dash"
 	groupLock  = "lock"

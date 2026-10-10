@@ -60,33 +60,32 @@ type Action struct {
 // registry is ordered: palette suggestions and docs render in this order, most
 // used first.
 var registry = []Action{
-	// Human lifecycle verbs live in the dash only — the CLI keeps just the
-	// automation core (up/down/sync/status/env/run) and the before-the-dash
-	// tools (init/lint/doctor).
+	// The lifecycle verbs. Each is a key or a palette row in the dash and a
+	// command on the CLI: nothing the dash can do needs the dash.
 	{Name: "wake", Aliases: []string{"boot"}, Summary: "wake a service now (with its dependencies); no arg wakes all",
-		Arg: ArgInstanceOptional, Kind: KindOp, Op: "boot", CLI: false, Dash: true, Key: "w"},
+		Arg: ArgInstanceOptional, Kind: KindOp, Op: "boot", CLI: true, Dash: true, Key: "w"},
 	{Name: "sleep", Aliases: []string{"reap"}, Summary: "put a service to sleep (dependents first); data is kept; no arg sleeps all awake",
-		Arg: ArgInstanceOptional, Kind: KindOp, Op: "down", OpAcceptsAll: true, Confirm: true, CLI: false, Dash: true, Key: "s"},
+		Arg: ArgInstanceOptional, Kind: KindOp, Op: "down", OpAcceptsAll: true, Confirm: true, CLI: true, Dash: true, Key: "s"},
 	{Name: "restart", Summary: "restart a service's backend",
-		Arg: ArgInstanceRequired, Kind: KindOp, Op: "restart", Confirm: true, CLI: false, Dash: true, Key: "R"},
+		Arg: ArgInstanceRequired, Kind: KindOp, Op: "restart", Confirm: true, CLI: true, Dash: true, Key: "R"},
 	// reset maps to the daemon's "reset" op (stop + wipe data dirs; the next
 	// wake re-provisions and re-converges) — NOT "destroy", which is the sync
 	// lifecycle's drop-the-declared-objects and leaves the data dir (and a
 	// stale converged marker) behind.
 	{Name: "reset", Summary: "wipe a service's data and re-provision fresh",
-		Arg: ArgInstanceRequired, Kind: KindOp, Op: "reset", Confirm: true, CLI: false, Dash: true},
+		Arg: ArgInstanceRequired, Kind: KindOp, Op: "reset", Confirm: true, CLI: true, Dash: true},
 	{Name: "up", Summary: "converge structure and wake every enabled service",
 		Arg: ArgInstanceOptional, Kind: KindOp, Op: "up", OpAcceptsAll: true, CLI: true, Dash: true},
 	{Name: "sync", Aliases: []string{"apply"}, Summary: "reconcile a service with the config (create new, update changed, prune removed)",
 		Arg: ArgInstanceOptional, Kind: KindOp, Op: "apply", OpAcceptsAll: true, CLI: true, Dash: true},
 	{Name: "pin", Aliases: []string{"keepawake"}, Summary: "keep a service awake past its idle timeout",
-		Arg: ArgInstanceRequired, Kind: KindOp, Op: "keepawake", CLI: false, Dash: true, Key: "p"},
+		Arg: ArgInstanceRequired, Kind: KindOp, Op: "keepawake", CLI: true, Dash: true, Key: "p"},
 	{Name: "logs", Summary: "show a service's logs; no arg aggregates all",
-		Arg: ArgInstanceOptional, Kind: KindLocal, CLI: false, Dash: true},
+		Arg: ArgInstanceOptional, Kind: KindLocal, CLI: true, Dash: true},
 	{Name: "env", Summary: "show the connection env vars (DATABASE_URL, AWS_ENDPOINT_URL_*, …)",
 		Arg: ArgInstanceOptional, Kind: KindLocal, CLI: true, Dash: false},
 	{Name: "url", Aliases: []string{"copy"}, Summary: "copy a service's connect line",
-		Arg: ArgInstanceRequired, Kind: KindLocal, CLI: false, Dash: true, Key: "y"},
+		Arg: ArgInstanceRequired, Kind: KindLocal, CLI: true, Dash: true, Key: "y"},
 
 	// Headless-only verbs: the dash either IS the thing (status) or the verb
 	// makes no sense inside a live view (down kills the daemon under it; init
