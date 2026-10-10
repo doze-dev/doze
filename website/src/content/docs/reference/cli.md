@@ -58,6 +58,23 @@ Reconcile the running stack with the config — create new instances, update
 changed ones, prune removed ones. `up` implies it; `sync` does it without
 waking anything that's asleep.
 
+It also says which **blocks** differ from the ones the running daemon started
+with, because the daemon reads `doze.hcl` once, when it starts:
+
+```
+doze.hcl differs from what the running daemon started with:
+
+  ~ api       app      changed  restarts
+  + mail      service  new      starts when something uses it
+  - old       app      removed  stops; its data is kept
+
+  1 block unchanged
+
+  the daemon reads doze.hcl when it starts: doze down && doze up applies this
+```
+
+A comment or a reordering is not a change; only a block's arguments are.
+
 ### `doze status` (aliases `tree`, `ls`, `ps`)
 
 Every module and app: state, endpoint, connections, memory, CPU, and a note.
@@ -165,10 +182,43 @@ running.
 
 ## Before the dash
 
-### `doze init [--force]`
+### `doze init [--force] [--wizard] [--yes]`
 
-Scaffold a `doze.hcl` — an interactive wizard when on a terminal, a starter
-config otherwise.
+Write a `doze.hcl` for this project from what it says. `init` reads `go.mod`
+and the imports and environment variables of your Go main packages,
+`package.json`, a compose file, a `Makefile` and `.env`, and writes the apps to
+run, the modules and services they talk to, and the tasks that prepare them —
+each block with a comment saying why it is there, and each app's `env` wired to
+the module that answers what it reads (`DATABASE_URL = module.db.url`). An app
+that reads a database waits for its `migrate` task.
+
+It shows what it found and asks before writing (`--yes` skips the question). A
+project it finds nothing in, or `--wizard`, gets the questions instead.
+
+### `doze add <module|service> [name]`
+
+Add a block to `doze.hcl`, beside what is there — your comments and ordering are
+left alone. `doze add postgres` writes a registry module with the newest engine
+version and its usual port, and prints the line that wires it into an app:
+
+```
+$ doze add postgres
+→ module postgres "db"
+  module postgres "db" {
+    version = 18
+    port    = 5432
+  }
+
+  use it from an app:  DATABASE_URL = module.db.url
+```
+
+A name that is not a module — `doze add mongo` — is added as a **service**, and
+there are three ways to run one: `--as installed` (a binary on your `PATH`),
+`--as container` (a `docker run` command; a container is just a command) and
+`--as download` (a URL, pinned in `doze.lock`). With no `--as` it takes the first
+that works on this machine and says the others. `--dry-run` shows the block and
+writes nothing; `--version`, `--port` and a second argument set the rest. A
+name that is taken is refused, and what would be written has to parse.
 
 ### `doze lint`
 
@@ -181,11 +231,18 @@ Diagnose the environment: config, daemon, module pins, and each part of the
 machine setup for `.doze` names — including which doze program is currently
 answering for the zone. Says what's wrong and the command that fixes it.
 
+When a port the stack declares is held by another program, doctor says which —
+its name, pid and address — and the options in order of how little they ask:
+stop it (`kill <pid>`), give every service an address of its own (`doze doctor
+--fix`, so ports never clash), or use another port in the block. It is silent
+about ports once each service has an address of its own.
+
 `doze doctor --fix` runs the one-time setup that makes
 `<service>.<stack>.doze` names work: it routes the `.doze` zone to doze's
-resolver and, on macOS, gives services loopback addresses of their own so
-several can share a port (three Postgres instances, each at
-`<name>.<stack>.doze:5432`). It needs sudo once. `--print-fix` prints the
+resolver and, on macOS, installs a small network daemon that gives every
+service an address of its own, so several can share a port (three Postgres
+instances, each at `<name>.<stack>.doze:5432`) with no limit on how many. It
+needs sudo once. `--print-fix` prints the
 script instead of running it. The setup is shared with doze-aws and
 doze-kafka: whichever of them you run first installs it for all three.
 

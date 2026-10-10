@@ -23,6 +23,10 @@ func dashCmd() *cobra.Command {
 			}
 			cfg, err := loadConfig()
 			if err != nil {
+				if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
+					firstRun()
+					return nil
+				}
 				return err
 			}
 			// The dashboard reflects live daemon state; start it if needed.

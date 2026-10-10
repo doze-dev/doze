@@ -326,3 +326,31 @@ func confirmDefaultYes(question string) bool {
 	line = strings.ToLower(strings.TrimSpace(line))
 	return line == "" || line == "y" || line == "yes"
 }
+
+// firstRun is what `doze` shows in a directory with no doze.hcl: not an error,
+// but the way in — what it found here, and the three ways to start.
+func firstRun() {
+	fmt.Println(ui.Title("No doze.hcl here yet."))
+	fmt.Println()
+	res, _ := detect.Scan(configDir(configPath))
+	if n := len(res.Apps) + len(res.Modules) + len(res.Services) + len(res.Tasks); n > 0 {
+		fmt.Println("Found in this project:")
+		for _, a := range res.Apps {
+			fmt.Printf("  app      %s\n", a.Name)
+		}
+		for _, m := range res.Modules {
+			fmt.Printf("  module   %s\n", m.Type)
+		}
+		for _, s := range res.Services {
+			fmt.Printf("  service  %s\n", s.Name)
+		}
+		for _, t := range res.Tasks {
+			fmt.Printf("  task     %s\n", t.Name)
+		}
+		fmt.Println()
+	}
+	fmt.Println("Three ways to start:")
+	fmt.Printf("  %s   %s\n", ui.OK("doze init"), ui.Muted("write a doze.hcl from what this project says"))
+	fmt.Printf("  %s   %s\n", ui.OK("doze add postgres"), ui.Muted("start from one module (valkey, kafka, aws, … or a service like mongo)"))
+	fmt.Printf("  %s   %s\n", ui.OK("write it by hand"), ui.Muted("see doze init --wizard, or the docs for the four blocks"))
+}

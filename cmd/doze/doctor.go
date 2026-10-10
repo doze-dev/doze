@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	names "github.com/doze-dev/doze-names"
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/portholder"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -87,6 +89,15 @@ func doctorCmd() *cobra.Command {
 					add("daemon", "running", true)
 				} else {
 					add("daemon", "stopped (starts automatically on first use)", true)
+				}
+
+				// Who holds a port the stack wants, and what to do about it.
+				daemonPID := 0
+				if daemonRunning(cfg) {
+					daemonPID = readPID(filepath.Join(cfg.RunDir(), "doze.pid"))
+				}
+				for _, t := range takenPorts(cfg, names.PoolUsable(), daemonPID, portholder.Who) {
+					add(fmt.Sprintf("port %d", t.port), portAdvice(t, names.PoolUsable()), false)
 				}
 
 				if cfg.Defaults.Domains {
@@ -231,4 +242,58 @@ func hasDuplicatePorts(cfg *config.Config) bool {
 		}
 	}
 	return false
+}
+
+// portTaken is one declared port something else is listening on.
+type portTaken struct {
+	port   int
+	name   string
+	holder portholder.Holder
+}
+
+// takenPorts lists the stack's declared ports that another program holds.
+// Ports the daemon itself holds are not a conflict, and neither is any port
+// when each service has an address of its own — then 5432 on 198.19.x.y does
+// not meet 5432 on 127.0.0.1.
+func takenPorts(cfg *config.Config, perServiceAddresses bool, daemonPID int, who func(int) (portholder.Holder, bool)) []portTaken {
+	if perServiceAddresses && cfg.Defaults.Domains {
+		return nil
+	}
+	var out []portTaken
+	seen := map[int]bool{}
+	for _, d := range cfg.Instances {
+		if !d.Enabled || d.Port == 0 || seen[d.Port] || d.Kind == config.KindTask {
+			continue
+		}
+		seen[d.Port] = true
+		h, ok := who(d.Port)
+		if !ok || h.PID == daemonPID {
+			continue
+		}
+		out = append(out, portTaken{port: d.Port, name: d.Name, holder: h})
+	}
+	return out
+}
+
+// portAdvice is what to do about a port someone else holds, in the order of
+// how little it asks of the person.
+func portAdvice(t portTaken, perServiceAddresses bool) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "held by %s (pid %d) on %s\n", t.holder.Command, t.holder.PID, t.holder.Addr)
+	fmt.Fprintf(&b, "stop it:               kill %d\n", t.holder.PID)
+	if !perServiceAddresses {
+		fmt.Fprintf(&b, "or give %s its own address: doze doctor --fix   (every service gets one, so ports never clash)\n", t.name)
+	}
+	fmt.Fprintf(&b, "or use another port:   port = … in the %q block of doze.hcl", t.name)
+	return b.String()
+}
+
+// readPID reads the pid on the first line of a pid file, or 0.
+func readPID(path string) int {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	n, _ := strconv.Atoi(strings.TrimSpace(strings.SplitN(string(raw), "\n", 2)[0]))
+	return n
 }

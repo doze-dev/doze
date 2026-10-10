@@ -17,7 +17,7 @@ starts by re-reading its own files and replacing its range with a number.
 | 4 | Services, apps and tasks | 9 to 13 (built) | 1, 2, 3 |
 | 5 | The dash | 14 to 20 (built) | 2 |
 | 6 | Module consoles | 8 to 12 (built) | 5 |
-| 7 | add, init, doctor, sync | 7 to 10 | 1, 4, 5 |
+| 7 | add, init, doctor, sync | 7 to 10 (built) | 1, 4, 5 |
 | | Total | 63 to 91 | |
 
 Phases 1 and 2 do not depend on each other. Phase 5 can start as soon as
@@ -534,6 +534,46 @@ Exit measures:
   recreates a file that runs the stack.
 - `doze add postgres` and `doze add mongo` each produce a file that passes
   lint.
+
+### Status
+
+Units 7.1 to 7.6 are built.
+
+| Unit | Built |
+|---|---|
+| 7.1 | `doze add <module>`: a block written with hclwrite beside what is there, the newest engine version and the usual port from the registry (or the starters offline), the wiring line, `--dry-run`, a taken name refused, and what would be written has to parse |
+| 7.2 | `doze add <not a module>`: a service, as a binary on the PATH, a container, or a download, with the first that works on this machine taken and the others named |
+| 7.3 | `internal/detect`: Go main packages with the imports and `os.Getenv` names of each, `package.json`, compose files, Makefile targets, `.env` |
+| 7.4 | `doze init` from detection, wired, with a reason on every block; the first-run screen for `doze` in a directory with no `doze.hcl` |
+| 7.5 | `doze sync` says which blocks differ from the running daemon's and what applying them does |
+| 7.6 | `doze doctor` says who holds a declared port and the options |
+
+Exit measures: `TestInitRecreatesTheShopStack` (three apps, four modules,
+wired, from a copy of `examples/shop` with its `doze.hcl` removed) and
+`TestAddPostgresAndMongoProduceFilesThatLint`.
+
+What changed from the plan:
+
+- **The daemon does not re-read `doze.hcl`**, so the block-level `sync` is a
+  comparison against what the daemon recorded at start (`run/blocks.json`),
+  and what it says is that `doze down && doze up` applies a change. A live
+  reload is a larger change and is not built.
+- **Detection is per main package**, by its imports and the environment
+  variables it reads, because that is what wires an app to a module. A project
+  whose code reads a connection string under a name doze does not know gets the
+  module (from the import) and no env line.
+- **The version picker, rename and preview** of `doze add` are the `--version`,
+  second-argument and always-shown block of the CLI; the dash has no add screen.
+
+What is not done:
+
+- **"Found 2 apps not in doze.hcl"** on `doze add` (dream tier).
+- **The first-run screen is text**, printed by `doze` and `doze dash` without a
+  `doze.hcl`; it is not a screen of the dash.
+- **A reload of `doze.hcl` into a running daemon.**
+- **Python, Ruby and other stacks** are not detected: Go and Node only, plus
+  compose and a Makefile.
+- **Not pushed.**
 
 ## After phase 7
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/portholder"
 )
 
 // inProject points the CLI at a fresh directory and offline starters.
@@ -202,4 +203,45 @@ func TestInitFindsNothingAndSaysSo(t *testing.T) {
 	if err != nil || done {
 		t.Fatalf("an empty project: done = %v, err = %v — it should leave the wizard to ask", done, err)
 	}
+}
+
+func TestDoctorSaysWhoHoldsAPortAndWhatToDo(t *testing.T) {
+	inProject(t, "stack = \"p\"\n\ndefaults {\n  domains = false\n}\n\nmodule postgres \"db\" {\n  version = 16\n  port    = 5432\n}\n\napp \"web\" {\n  run  = \"x\"\n  port = 8080\n}\n")
+	cfg, err := config.ParseShape([]byte(read(t)), configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	who := func(port int) (portholder.Holder, bool) {
+		if port == 5432 {
+			return portholder.Holder{PID: 412, Command: "postgres", Addr: "127.0.0.1:5432"}, true
+		}
+		return portholder.Holder{}, false
+	}
+	got := takenPorts(cfg, false, 0, who)
+	if len(got) != 1 || got[0].port != 5432 || got[0].name != "db" {
+		t.Fatalf("taken = %+v", got)
+	}
+	advice := portAdvice(got[0], false)
+	for _, want := range []string{"held by postgres (pid 412) on 127.0.0.1:5432", "kill 412", "doze doctor --fix", `"db" block`} {
+		if !strings.Contains(advice, want) {
+			t.Errorf("advice lacks %q:\n%s", want, advice)
+		}
+	}
+	// What the daemon itself holds is not a conflict.
+	if got := takenPorts(cfg, false, 412, who); len(got) != 0 {
+		t.Errorf("the daemon's own port was reported: %+v", got)
+	}
+	// With an address each there is nothing to clash with — when names are on.
+	cfg.Defaults.Domains = true
+	if got := takenPorts(cfg, true, 0, who); len(got) != 0 {
+		t.Errorf("ports do not clash when each service has an address: %+v", got)
+	}
+	if strings.Contains(portAdvice(got0(cfg, who), true), "doctor --fix") {
+		t.Errorf("a machine that is set up is not told to set up")
+	}
+}
+
+func got0(cfg *config.Config, who func(int) (portholder.Holder, bool)) portTaken {
+	cfg.Defaults.Domains = false
+	return takenPorts(cfg, false, 0, who)[0]
 }
