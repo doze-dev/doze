@@ -34,7 +34,7 @@ func shallowProjectManager() (*modules.Manager, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	mm, err := shallowManager(sc.Modules, sc.Path())
+	mm, err := shallowManager(sc.Path())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -50,12 +50,11 @@ func shallowProjectManager() (*modules.Manager, []string, error) {
 	return mm, types, nil
 }
 
-func shallowManager(mc config.ModulesConfig, cfgPath string) (*modules.Manager, error) {
+func shallowManager(cfgPath string) (*modules.Manager, error) {
 	mm, err := modules.NewManager(dozeHome())
 	if err != nil {
 		return nil, err
 	}
-	mm.Configure(mc.Mirror, mc.Enabled, mc.Sources, mc.Versions)
 	mm.SetLogger(stderrLogger)
 	mm.UseLock(func() string { return filepath.Join(configDir(cfgPath), binaries.LockFileName) })
 	mm.PersistWhen(func() bool { return lockWritesAllowed })

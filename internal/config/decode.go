@@ -1,5 +1,4 @@
-// HCL decode targets and decoders for the fixed root blocks (defaults, tls,
-// modules) and the common fields config reads from every engine block.
+// HCL decode targets and decoders for the fixed root blocks (defaults, tls) and the common fields config reads from every engine block.
 package config
 
 import (
@@ -31,21 +30,6 @@ type hclDefaults struct {
 	Domains     bool   `hcl:"domains,optional"`
 }
 
-type hclModules struct {
-	Mirror  string      `hcl:"mirror,optional"`
-	Enabled bool        `hcl:"enabled,optional"`
-	Modules []hclModule `hcl:"module,block"`
-}
-
-type hclModule struct {
-	Name   string `hcl:"name,label"`
-	Source string `hcl:"source,optional"`
-	// Version pins the MODULE (plugin) release exactly — the escape hatch for
-	// holding back a regressed release. Not the engine version: that stays
-	// `version =` on the instance block. Exact only, no ranges.
-	Version string `hcl:"version,optional"`
-}
-
 func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
 	var d hclDefaults
 	if diags := gohcl.DecodeBody(block.Body, ctx, &d); diags.HasErrors() {
@@ -74,24 +58,5 @@ func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block, ctx *hcl
 	if (cfg.TLS.Cert == "") != (cfg.TLS.Key == "") {
 		return posErr(parser, block.DefRange, "incomplete tls block", "set both cert and key, or neither (to auto-generate a self-signed cert)")
 	}
-	return nil
-}
-
-func (cfg *Config) decodeModules(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
-	var m hclModules
-	if diags := gohcl.DecodeBody(block.Body, ctx, &m); diags.HasErrors() {
-		return diagError(parser, diags)
-	}
-	mc := ModulesConfig{
-		Mirror:   m.Mirror,
-		Enabled:  m.Enabled || m.Mirror != "",
-		Sources:  map[string]string{},
-		Versions: map[string]string{},
-	}
-	for _, md := range m.Modules {
-		mc.Sources[md.Name] = md.Source
-		mc.Versions[md.Name] = md.Version
-	}
-	cfg.Modules = mc
 	return nil
 }

@@ -1,15 +1,10 @@
 package config
 
 // Hooks lets the caller integrate the module fetcher into config decode:
-// pointing it at the configured mirror/pins, feeding it declared engine
-// versions, and enriching lookup/decode errors with module context. A nil
+// feeding it declared engine versions, and enriching lookup/decode errors with module context. A nil
 // *Hooks (or any nil field) means "pure parse" — config decodes with no
 // module integration.
 type Hooks struct {
-	// ConfigureModules is handed the decoded modules{} block so the plugin
-	// module fetcher can be pointed at the configured mirror/versions before
-	// any instance's driver is resolved.
-	ConfigureModules func(ModulesConfig)
 	// RequireEngine is told each declared (engine type, engine version) just
 	// before the driver lookup that may fetch its module — so module selection
 	// can pick a release supporting what the project declares.
@@ -38,13 +33,6 @@ type Hooks struct {
 
 // The invokers below are nil-safe on both the receiver and the field, so the
 // decode pipeline calls them unconditionally.
-
-func (h *Hooks) configureModules(mc ModulesConfig) {
-	if h == nil || h.ConfigureModules == nil {
-		return
-	}
-	h.ConfigureModules(mc)
-}
 
 func (h *Hooks) requireEngine(engineType, version string) {
 	if h == nil || h.RequireEngine == nil {

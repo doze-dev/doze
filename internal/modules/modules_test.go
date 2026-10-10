@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +20,10 @@ import (
 	"github.com/doze-dev/doze-sdk/modindex"
 	dozeplugin "github.com/doze-dev/doze-sdk/plugin"
 )
+
+// registryKeys maps a test registry's root directory to the key it is signed
+// with, so newTestManager can stand it in for the compiled-in one.
+var registryKeys = map[string]ed25519.PublicKey{}
 
 // release describes one published module release for the test registry.
 type release struct {
@@ -50,10 +53,7 @@ func signedRegistry(t *testing.T, ns, name string, priv ed25519.PrivateKey, rele
 	if err := os.MkdirAll(modDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	keys, _ := json.Marshal(keysDoc{Namespace: ns, Key: pubB64})
-	if err := os.WriteFile(filepath.Join(nsDir, "keys.json"), keys, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	registryKeys[root] = priv.Public().(ed25519.PublicKey)
 
 	idx := &modindex.Index{
 		Schema: modindex.Schema, Module: name, Namespace: ns,
@@ -129,14 +129,15 @@ func newTestManager(t *testing.T, base string) *Manager {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m.base = base // bypass env; point at the on-disk registry
+	m.base = base // point at the on-disk registry, and trust the key it was signed with
+	m.key = registryKeys[strings.TrimPrefix(base, "file://")]
 	m.UseLock(func() string { return lockPath })
 	return m
 }
 
 func TestResolveSignedModule(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
-	base, pub := signedRegistry(t, "doze", "valkey", priv,
+	base, _ := signedRegistry(t, "doze", "valkey", priv,
 		release{version: "0.2.0", protocol: dozeplugin.ProtocolVersion, engines: []string{"8", "9"}})
 	m := newTestManager(t, base)
 	m.Require("valkey", "9")
@@ -149,13 +150,9 @@ func TestResolveSignedModule(t *testing.T) {
 		t.Fatalf("plugin exe = %q, want …valkey-plugin", exe)
 	}
 
-	// The publisher key must be pinned in the lock (trust-on-first-use).
 	lock, err := binaries.LoadLock(m.lockPath())
 	if err != nil {
 		t.Fatal(err)
-	}
-	if got, ok := lock.GetKey("doze"); !ok || got != pub {
-		t.Fatalf("lock key for doze = %q (ok=%v), want %q", got, ok, pub)
 	}
 	// The module pin carries the release's compatibility metadata.
 	pin, ok := lock.GetModule("doze/valkey")
@@ -363,69 +360,47 @@ func TestRejectTamperedMetadata(t *testing.T) {
 	}
 }
 
-func TestRejectKeyRotation(t *testing.T) {
+// The registry key is compiled in, not fetched: a registry signed by any
+// other key is rejected outright, with nothing to trust on first use.
+func TestRejectRegistrySignedByAnotherKey(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
 	base, _ := signedRegistry(t, "doze", "valkey", priv)
 	m := newTestManager(t, base)
-	if _, err := m.Resolve(context.Background(), "valkey"); err != nil {
-		t.Fatalf("first resolve: %v", err)
+
+	other, _, _ := ed25519.GenerateKey(nil)
+	m.key = other
+	if _, err := m.Resolve(context.Background(), "valkey"); err == nil {
+		t.Fatal("a registry signed by a key doze does not hold must be rejected")
+	} else if !strings.Contains(err.Error(), "signature") {
+		t.Fatalf("error = %v, want a signature failure", err)
 	}
+	// And nothing about it is written down for next time.
+	if lock, err := binaries.LoadLock(m.lockPath()); err == nil && len(lock.Modules) != 0 {
+		t.Fatalf("a rejected module must not be pinned: %+v", lock.Modules)
+	}
+}
 
-	// Swap the publisher key in the registry; the pinned key must now block it.
-	_, priv2, _ := ed25519.GenerateKey(nil)
-	pub2 := base64.StdEncoding.EncodeToString(priv2.Public().(ed25519.PublicKey))
-	keys, _ := json.Marshal(keysDoc{Namespace: "doze", Key: pub2})
-	os.WriteFile(filepath.Join(strings.TrimPrefix(base, "file://"), "doze", "keys.json"), keys, 0o644)
-
-	// Fresh manager (cold key + module cache) so it re-reads keys.json against the lock.
-	m2, err := NewManager(t.TempDir())
+func TestOneRegistryOneNamespace(t *testing.T) {
+	m, err := NewManager(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	m2.base = base
-	m2.UseLock(m.lockPath)
-	if _, err := m2.Resolve(context.Background(), "valkey"); err == nil {
-		t.Fatal("expected rotated key to be rejected by the TOFU pin")
-	} else if !strings.Contains(err.Error(), "key for namespace") {
-		t.Fatalf("error = %v, want a key-rotation rejection", err)
+	if m.base != RegistryBase {
+		t.Fatalf("base = %q, want the doze registry", m.base)
 	}
-}
-
-func TestSourceOverride(t *testing.T) {
-	_, priv, _ := ed25519.GenerateKey(nil)
-	base, _ := signedRegistry(t, "acme", "redis", priv)
-	m := newTestManager(t, base)
-	// Engine type "valkey" served by acme/redis via a modules{} source override.
-	m.Configure("", true, map[string]string{"valkey": "acme/redis"}, nil)
-
-	exe, err := m.Resolve(context.Background(), "valkey")
-	if err != nil {
-		t.Fatalf("Resolve with source override: %v", err)
+	want, err := binaries.ParsePublicKey(RegistryKey)
+	if err != nil || !m.key.Equal(want) {
+		t.Fatalf("a fresh manager must hold the compiled-in registry key (err %v)", err)
 	}
-	if !strings.HasSuffix(exe, "redis-plugin") {
-		t.Fatalf("plugin exe = %q, want …redis-plugin", exe)
+	// The registry cannot be pointed elsewhere from the environment.
+	t.Setenv("DOZE_MODULES_MIRROR", "file:///somewhere/else")
+	if m2, _ := NewManager(t.TempDir()); m2.base != RegistryBase {
+		t.Fatalf("DOZE_MODULES_MIRROR must be ignored, got base %q", m2.base)
 	}
-}
-
-func TestModulesVersionKnob(t *testing.T) {
-	_, priv, _ := ed25519.GenerateKey(nil)
-	base, _ := signedRegistry(t, "doze", "valkey", priv,
-		release{version: "0.1.0", protocol: dozeplugin.ProtocolVersion},
-		release{version: "0.2.0", protocol: dozeplugin.ProtocolVersion})
-	m := newTestManager(t, base)
-	// Hold the module back to 0.1.0 (bisecting a regression).
-	m.Configure("", true, nil, map[string]string{"valkey": "0.1.0"})
-
-	if _, err := m.Resolve(context.Background(), "valkey"); err != nil {
-		t.Fatalf("Resolve with version knob: %v", err)
+	if got := m.sourceFor("valkey"); got != "doze/valkey" {
+		t.Fatalf("source = %q", got)
 	}
-	pin, _, _ := m.Pinned("valkey")
-	if pin.Version != "0.1.0" {
-		t.Fatalf("pin = %s, want the knob's 0.1.0", pin.Version)
-	}
-	// Upgrade honors the knob: it stays put.
-	_, to, changed, err := m.Upgrade(context.Background(), "valkey")
-	if err != nil || changed || to != "0.1.0" {
-		t.Fatalf("Upgrade with knob = to %s changed=%v err=%v", to, changed, err)
+	if _, err := m.Inspect("acme/redis", ""); err == nil || !strings.Contains(err.Error(), "one registry") {
+		t.Fatalf("a module outside the doze namespace must be refused, got %v", err)
 	}
 }

@@ -2,10 +2,8 @@
 // module registry, reusing the same download / verify / content-addressed cache
 // machinery as engine binaries (doze-sdk/binaries). A module is one plugin
 // executable published at a registry source address <namespace>/<name>. doze maps
-// an engine type to a source (default doze/<type>, overridable in a modules{}
-// block), pins the namespace's ed25519 publisher key on first use, and accepts an
-// artifact only if it carries a valid signature from that key — so a public
-// registry is signed by default and key rotation can't happen silently.
+// an engine type to the source doze/<type> and accepts an index or artifact only
+// if it carries a valid signature from the registry key compiled into doze.
 package modules
 
 import (
@@ -29,16 +27,21 @@ import (
 	dozeplugin "github.com/doze-dev/doze-sdk/plugin"
 )
 
-// DefaultRegistryBase is the doze registry base every source resolves under:
-// <base>/<namespace>/keys.json and <base>/<namespace>/<name>/index.yaml. It is the
-// doze-registry site on Cloudflare Pages (which serves the signed discovery layer;
-// the index.yaml artifact URLs point at the archive host, e.g. GitHub Releases).
-// Override with DOZE_MODULES_MIRROR (a local/dev mirror, including a file:// path)
-// or a modules{} block's mirror.
-const DefaultRegistryBase = "https://doze.nerdmenot.in/registry"
+// RegistryBase is the doze registry: the one place modules come from. A module
+// lives at <base>/<namespace>/<name>/index.yaml. It is the doze-registry site on
+// Cloudflare Pages (which serves the signed discovery layer; the index.yaml
+// artifact URLs point at the archive host, e.g. GitHub Releases). There is no
+// override: a module under development is run with DOZE_<TYPE>_PLUGIN instead.
+const RegistryBase = "https://doze.nerdmenot.in/registry"
 
-// DefaultNamespace is the namespace an engine type's source defaults to when no
-// explicit source is given: type "postgres" -> "doze/postgres".
+// RegistryKey is the registry's ed25519 signing key, base64. Every module index
+// and artifact must verify against it. It is compiled in rather than fetched
+// and trusted on first use, so a compromised registry host cannot hand a fresh
+// install its own key. Rotating it takes a doze release.
+const RegistryKey = "Nu5y8mbjYv7XEtNFBXwPVl+C8SBteVApIROefBwGWjw="
+
+// DefaultNamespace is the registry namespace every module lives in: type
+// "postgres" is the module "doze/postgres".
 const DefaultNamespace = "doze"
 
 // DefaultChannel is the release channel a fresh (unpinned) resolve follows in
@@ -48,16 +51,10 @@ const DefaultNamespace = "doze"
 // channel head.
 const DefaultChannel = "stable"
 
-// keysDoc is the per-namespace keys.json: the publisher's base64 ed25519 key.
-type keysDoc struct {
-	Namespace string `json:"namespace"`
-	Key       string `json:"key"`
-}
-
 // Manager resolves + fetches plugin modules from the signed registry. It builds a
-// per-namespace binaries.Manager on demand (sharing all the verify/cache/atomic-
-// install logic, scoped to <home>/modules/<namespace> and the namespace's signing
-// key) and remembers which engine types have no module so a miss costs one lookup.
+// binaries.Manager on demand (sharing all the verify/cache/atomic-install logic,
+// scoped to <home>/modules/doze and the registry's signing key) and remembers
+// which engine types have no module so a miss costs one lookup.
 type Manager struct {
 	home string
 	plat engine.Platform
@@ -68,12 +65,8 @@ type Manager struct {
 
 	mu      sync.Mutex
 	enabled bool              // fetch modules at all
-	base    string            // registry base URL (default or override)
-	sources map[string]string // engine type -> source address override (from modules{})
-	// versions holds per-engine exact module-version pins from the modules{}
-	// block — the escape hatch for holding back a regressed release. Empty for
-	// almost everyone: selection + doze.lock do the work.
-	versions map[string]string
+	base    string            // RegistryBase; a test points it at a registry on disk
+	key     ed25519.PublicKey // RegistryKey; a test swaps in the key it signed with
 	// requires accumulates the engine MAJORS declared in config per engine type
 	// (fed by config.Hooks.RequireEngine before the first driver lookup), so fresh
 	// module selection picks a release that supports what the project declares.
@@ -84,63 +77,32 @@ type Manager struct {
 	// a fetch/verification failure reads as itself, not as "unknown engine type".
 	verifyErrs map[string]error
 
-	nsm  map[string]*binaries.Manager // memoized per-namespace fetchers (keyed by namespace)
-	keys map[string]ed25519.PublicKey // verified publisher keys (keyed by namespace)
+	fetcher *binaries.Manager // memoized; built on first use
 
 	knownTypes *[]string // memoized catalog type names for suggestions (nil = not yet fetched)
 }
 
-// NewManager builds a module Manager caching under <home>/modules. The registry
-// base is DOZE_MODULES_MIRROR when set, else the public doze-registry.
+// NewManager builds a module Manager caching under <home>/modules.
 func NewManager(home string) (*Manager, error) {
 	plat, err := binaries.HostPlatform()
 	if err != nil {
 		return nil, err
 	}
-	base := DefaultRegistryBase
-	if v := os.Getenv("DOZE_MODULES_MIRROR"); v != "" {
-		base = v
+	key, err := binaries.ParsePublicKey(RegistryKey)
+	if err != nil {
+		return nil, fmt.Errorf("the compiled-in registry key is invalid: %w", err)
 	}
 	return &Manager{
 		home:       home,
 		plat:       plat,
 		logf:       func(string, ...any) {},
 		enabled:    os.Getenv("DOZE_MODULES") != "off", // default-on: core ships no backing engines
-		base:       base,
-		sources:    map[string]string{},
-		versions:   map[string]string{},
+		base:       RegistryBase,
+		key:        key,
 		requires:   map[string]map[string]bool{},
 		misses:     map[string]bool{},
 		verifyErrs: map[string]error{},
-		nsm:        map[string]*binaries.Manager{},
-		keys:       map[string]ed25519.PublicKey{},
 	}, nil
-}
-
-// Configure applies a decoded modules{} block: an optional registry override,
-// whether fetching is enabled, per-engine source overrides, and per-engine exact
-// module-version pins. It runs before any instance's driver is resolved.
-func (m *Manager) Configure(mirror string, enabled bool, sources, versions map[string]string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if mirror != "" {
-		m.base = mirror
-		m.nsm = map[string]*binaries.Manager{} // re-scope namespace fetchers to the new base
-		m.keys = map[string]ed25519.PublicKey{}
-	}
-	if enabled {
-		m.enabled = true
-	}
-	for k, v := range sources {
-		if v != "" {
-			m.sources[k] = v
-		}
-	}
-	for k, v := range versions {
-		if v != "" {
-			m.versions[k] = v
-		}
-	}
 }
 
 // Require records that config declares engine type at the given engine version,
@@ -174,11 +136,11 @@ func (m *Manager) requiredMajors(engineType string) []string {
 // SetLogger installs a progress logger for downloads.
 func (m *Manager) SetLogger(f func(string, ...any)) { m.mu.Lock(); m.logf = f; m.mu.Unlock() }
 
-// UseLock makes Resolve pin each fetched module + namespace key in the project
-// doze.lock, and verify re-fetches against the locked checksum + pinned key.
+// UseLock makes Resolve pin each fetched module in the project doze.lock, and
+// verify re-fetches against the locked checksum.
 func (m *Manager) UseLock(lockPath func() string) { m.lockPath = lockPath }
 
-// PersistWhen gates doze.lock writes on f: pins and TOFU keys are only saved
+// PersistWhen gates doze.lock writes on f: pins are only saved
 // while f reports true. Read commands (status, lint, doctor, …) must never
 // mutate the lockfile — they still resolve and verify, but any new pin lives
 // only in this process; commands that materialize state (up, sync, wake, …)
@@ -190,12 +152,9 @@ func (m *Manager) PersistWhen(f func() bool) { m.persist = f }
 // wires PersistWhen so read commands opt out.
 func (m *Manager) mayPersist() bool { return m.persist == nil || m.persist() }
 
-// sourceFor returns the registry source address for an engine type: an explicit
-// modules{} override, else doze/<type>.
+// sourceFor returns the registry address of an engine type's module:
+// doze/<type>. It is also the module's key in doze.lock.
 func (m *Manager) sourceFor(engineType string) string {
-	if s := m.sources[engineType]; s != "" {
-		return s
-	}
 	return DefaultNamespace + "/" + engineType
 }
 
@@ -212,9 +171,9 @@ func splitSource(source string) (ns, name string, err error) {
 // returns its executable path. The MODULE version is chosen here, never by the
 // user: a doze.lock pin wins (gated offline against this doze's plugin protocol
 // and the declared engine majors); otherwise the newest compatible release from
-// the signed index is selected and pinned. It resolves the type's source, pins
-// the namespace publisher key (trust-on-first-use), verifies the index-level
-// signature, and verifies each artifact's signature before running it.
+// the signed index is selected and pinned. It verifies the index-level
+// signature and each artifact's signature, against the compiled-in registry
+// key, before running anything.
 func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error) {
 	source := m.sourceFor(engineType)
 	ns, name, err := splitSource(source)
@@ -222,15 +181,12 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 		return "", err
 	}
 	lock := m.loadLock()
-	m.mu.Lock()
-	want := m.versions[engineType] // modules{} exact-version knob, "" for almost everyone
-	m.mu.Unlock()
 	majors := m.requiredMajors(engineType)
 
 	// Pinned path: the lock's pin wins so a moving channel can't drift. Its
 	// compatibility gates run offline from the metadata frozen at pin time, and
 	// a warm cache never touches the network — not even for keys.json.
-	if pin, ok := lock.GetModule(source); ok && (want == "" || want == pin.Version) {
+	if pin, ok := lock.GetModule(source); ok {
 		if pin.Protocol != 0 && pin.Protocol != dozeplugin.ProtocolVersion {
 			return "", fmt.Errorf("module %s %s (pinned in doze.lock) speaks plugin protocol %d; this doze requires %d — run 'doze modules upgrade %s'",
 				source, pin.Version, pin.Protocol, dozeplugin.ProtocolVersion, engineType)
@@ -272,7 +228,7 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 		return pluginExe(binDir, name, pin.Version)
 	}
 
-	// Fresh path (no pin, or the modules{} knob overrides it): select from the
+	// Fresh path (no pin): select from the
 	// verified index and freeze the choice.
 	bm, err := m.nsManager(ns, lock)
 	if err != nil {
@@ -282,7 +238,7 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 	if err != nil {
 		return "", err
 	}
-	version, rel, err := m.selectRelease(idx, engineType, want, majors)
+	version, rel, err := m.selectRelease(idx, majors)
 	if err != nil {
 		return "", err
 	}
@@ -298,31 +254,14 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 	return pluginExe(binDir, name, version)
 }
 
-// selectRelease picks a module release: the modules{} exact pin when set (still
-// protocol- and engine-gated, with precise errors), else modindex.Select's
-// newest-compatible policy.
-func (m *Manager) selectRelease(idx *modindex.Index, engineType, want string, majors []string) (string, modindex.Release, error) {
-	if want == "" {
-		return modindex.Select(idx, dozeplugin.ProtocolVersion, majors, DefaultChannel)
-	}
-	rel, ok := idx.Releases[want]
-	if !ok {
-		return "", modindex.Release{}, fmt.Errorf("module %s/%s has no release %s (modules{} pins it); published: %s",
-			idx.Namespace, idx.Module, want, strings.Join(releaseVersions(idx), ", "))
-	}
-	if rel.Protocol != dozeplugin.ProtocolVersion {
-		return "", modindex.Release{}, fmt.Errorf("module %s/%s %s (pinned in modules{}) speaks plugin protocol %d; this doze requires %d",
-			idx.Namespace, idx.Module, want, rel.Protocol, dozeplugin.ProtocolVersion)
-	}
-	if !modindex.Supports(rel, majors) {
-		return "", modindex.Release{}, fmt.Errorf("module %s/%s %s (pinned in modules{}) supports %s %s, not the declared version(s) %s",
-			idx.Namespace, idx.Module, want, engineType, strings.Join(rel.Engines, ", "), strings.Join(majors, ", "))
-	}
-	return want, rel, nil
+// selectRelease picks a module release by modindex.Select's newest-compatible
+// policy. A project holds a module back by keeping its pin in doze.lock.
+func (m *Manager) selectRelease(idx *modindex.Index, majors []string) (string, modindex.Release, error) {
+	return modindex.Select(idx, dozeplugin.ProtocolVersion, majors, DefaultChannel)
 }
 
 // fetchIndex fetches a module's schema-1 index and verifies its index-level
-// signature against the namespace's (TOFU-pinned) publisher key — so protocol,
+// signature against the registry key — so protocol,
 // engine support, and channel heads are attacker-controlled nowhere.
 func (m *Manager) fetchIndex(bm *binaries.Manager, ns, name string) (*modindex.Index, error) {
 	url := strings.TrimRight(m.base, "/") + "/" + ns + "/" + name + "/index.yaml"
@@ -344,12 +283,7 @@ func (m *Manager) fetchIndex(bm *binaries.Manager, ns, name string) (*modindex.I
 	if idx.Module != name {
 		return nil, fmt.Errorf("%s: index is for module %q, expected %q", url, idx.Module, name)
 	}
-	m.mu.Lock()
-	key := m.keys[ns]
-	m.mu.Unlock()
-	if key == nil {
-		return nil, fmt.Errorf("no verified publisher key for namespace %q", ns)
-	}
+	key := m.key
 	if err := modindex.Verify(idx, key); err != nil {
 		return nil, fmt.Errorf("module index for %s/%s: %w", ns, name, err)
 	}
@@ -376,69 +310,25 @@ func releaseVersions(idx *modindex.Index) []string {
 	return out
 }
 
-// nsManager returns the binaries.Manager scoped to a registry namespace: cache
-// under <home>/modules/<ns>, mirror at <base>/<ns> (so Ensure(name) fetches
-// <base>/<ns>/<name>/index.yaml), and the namespace's verified publisher key as
-// its SigningKey. The key is fetched + pinned on first use.
-func (m *Manager) nsManager(ns string, lock *binaries.Lock) (*binaries.Manager, error) {
+// nsManager returns the binaries.Manager for the registry: cache under
+// <home>/modules/doze, mirror at <base>/doze (so Ensure(name) fetches
+// <base>/doze/<name>/index.yaml), and the registry key as its SigningKey. ns is
+// the namespace half of a module's address, which can only be DefaultNamespace.
+func (m *Manager) nsManager(ns string, _ *binaries.Lock) (*binaries.Manager, error) {
+	if ns != DefaultNamespace {
+		return nil, fmt.Errorf("module namespace %q: doze has one registry, and its modules are all under %q", ns, DefaultNamespace)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if bm, ok := m.nsm[ns]; ok {
-		return bm, nil
-	}
-	key, err := m.keyForLocked(ns, lock)
-	if err != nil {
-		return nil, err
+	if m.fetcher != nil {
+		return m.fetcher, nil
 	}
 	bm := binaries.NewManager(filepath.Join(m.home, "modules", ns))
 	bm.MirrorRoot = strings.TrimRight(m.base, "/") + "/" + ns
-	bm.SigningKey = key
+	bm.SigningKey = m.key
 	bm.Logf = m.logf
-	m.nsm[ns] = bm
+	m.fetcher = bm
 	return bm, nil
-}
-
-// keyForLocked fetches a namespace's publisher key from <base>/<ns>/keys.json and
-// applies trust-on-first-use against the lock: a previously pinned key that
-// differs is a hard error (possible registry compromise); an unpinned key is
-// recorded. Caller holds m.mu.
-func (m *Manager) keyForLocked(ns string, lock *binaries.Lock) (ed25519.PublicKey, error) {
-	if k, ok := m.keys[ns]; ok {
-		return k, nil
-	}
-	url := strings.TrimRight(m.base, "/") + "/" + ns + "/keys.json"
-	// A throwaway fetcher just for keys.json (reuses the file:// + http transport).
-	body, err := binaries.NewManager(m.home).Fetch(url)
-	if err != nil {
-		return nil, fmt.Errorf("fetching publisher key for namespace %q (%s): %w", ns, url, err)
-	}
-	if looksLikeHTML(body) {
-		return nil, fmt.Errorf("namespace %q is not published in the registry (%s serves no keys.json)", ns, url)
-	}
-	var doc keysDoc
-	if err := json.Unmarshal(body, &doc); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", url, err)
-	}
-	if doc.Key == "" {
-		return nil, fmt.Errorf("namespace %q publishes no key in %s", ns, url)
-	}
-	if pinned, ok := lock.GetKey(ns); ok && pinned != doc.Key {
-		return nil, fmt.Errorf("publisher key for namespace %q changed (locked %s…, registry %s…); "+
-			"if this rotation is intentional, clear the keys entry for %q in doze.lock",
-			ns, short(pinned), short(doc.Key), ns)
-	}
-	key, err := binaries.ParsePublicKey(doc.Key)
-	if err != nil {
-		return nil, fmt.Errorf("namespace %q key: %w", ns, err)
-	}
-	if lock != nil {
-		lock.RecordKey(ns, doc.Key)
-		if m.mayPersist() {
-			_ = lock.Save()
-		}
-	}
-	m.keys[ns] = key
-	return key, nil
 }
 
 // looksLikeHTML sniffs a response body that should have been YAML/JSON but is a
@@ -450,13 +340,6 @@ func looksLikeHTML(body []byte) bool {
 	}
 	lower := strings.ToLower(trimmed)
 	return strings.HasPrefix(lower, "<!doctype") || strings.HasPrefix(lower, "<html")
-}
-
-func short(b64 string) string {
-	if len(b64) > 12 {
-		return b64[:12]
-	}
-	return b64
 }
 
 // pluginExe finds the plugin executable in binDir (convention bin/<name>-plugin).
@@ -548,7 +431,7 @@ func (m *Manager) CheckSupport(engineType, version string) error {
 }
 
 // Upgrade re-resolves an engine type's module from the registry, ignoring the
-// existing pin (but honoring a modules{} exact-version knob), downloads and
+// existing pin, downloads and
 // verifies the selected release, and rewrites the pin. It returns the old and
 // new versions; changed is false when the pin was already at the head.
 func (m *Manager) Upgrade(ctx context.Context, engineType string) (from, to string, changed bool, err error) {
@@ -568,10 +451,7 @@ func (m *Manager) Upgrade(ctx context.Context, engineType string) (from, to stri
 	if err != nil {
 		return "", "", false, err
 	}
-	m.mu.Lock()
-	want := m.versions[engineType]
-	m.mu.Unlock()
-	version, rel, err := m.selectRelease(idx, engineType, want, m.requiredMajors(engineType))
+	version, rel, err := m.selectRelease(idx, m.requiredMajors(engineType))
 	if err != nil {
 		return old.Version, "", false, err
 	}
@@ -610,10 +490,7 @@ func (m *Manager) UpgradeHint(engineType string) string {
 	if err != nil {
 		return ""
 	}
-	m.mu.Lock()
-	want := m.versions[engineType]
-	m.mu.Unlock()
-	version, _, err := m.selectRelease(idx, engineType, want, m.requiredMajors(engineType))
+	version, _, err := m.selectRelease(idx, m.requiredMajors(engineType))
 	if err != nil || version == pin.Version || modindex.CompareVersions(version, pin.Version) <= 0 {
 		return ""
 	}
@@ -722,8 +599,7 @@ type PlatformStatus struct {
 	Signed bool // sig present AND verifies against the namespace publisher key
 }
 
-// Inspect fetches a source's publisher key (pinning it trust-on-first-use) and
-// its module index, then reports the release's compatibility metadata and each
+// Inspect fetches a module's index, then reports the release's compatibility metadata and each
 // platform artifact's signature status — the same checks Resolve enforces before
 // running a module, surfaced for `doze modules info`. version "" inspects the
 // stable head. It downloads no archives.
@@ -737,9 +613,7 @@ func (m *Manager) Inspect(source, version string) (*Inspection, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.mu.Lock()
-	key := m.keys[ns]
-	m.mu.Unlock()
+	key := m.key
 
 	// Fetch + parse WITHOUT the hard signature gate: info exists to report a
 	// broken index, so verification is a field here, not a precondition.
@@ -795,12 +669,8 @@ func verifyArtifactSig(key ed25519.PublicKey, sha256hex, sigB64 string) bool {
 
 // Enabled reports whether module fetching is on. It is default-on: core compiles
 // in only the process primitive, so every other engine is a module fetched from
-// the registry. Opt out with DOZE_MODULES=off (offline / process-only); override
-// the source with DOZE_MODULES_MIRROR or a modules{} block.
+// the registry. Opt out with DOZE_MODULES=off (offline / apps only).
 func Enabled() bool { return os.Getenv("DOZE_MODULES") != "off" }
-
-// Mirror returns the configured registry base.
-func (m *Manager) Mirror() string { m.mu.Lock(); defer m.mu.Unlock(); return m.base }
 
 // Catalog is the registry's machine-readable index (served at <base>/index.json):
 // every published namespace and the modules it offers. It's the discovery source

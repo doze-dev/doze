@@ -123,9 +123,6 @@ func Init(opts Options) (*Host, error) {
 		modMgr.UseLock(opts.LockPath)
 		modMgr.PersistWhen(opts.PersistLock)
 		hooks = &config.Hooks{
-			ConfigureModules: func(mc config.ModulesConfig) {
-				modMgr.Configure(mc.Mirror, mc.Enabled, mc.Sources, mc.Versions)
-			},
 			RequireEngine: modMgr.Require,
 			CheckSupport:  modMgr.CheckSupport,
 			LookupError:   modMgr.LastError,

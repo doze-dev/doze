@@ -160,7 +160,6 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "defaults"},
 			{Type: "tls"},
-			{Type: "modules"},
 			{Type: "variable", LabelNames: []string{"name"}},
 			{Type: "locals"},
 			{Type: "output", LabelNames: []string{"name"}},
@@ -186,8 +185,8 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 	// Classify the top-level blocks. variable/locals/output are resolved before
 	// the resources so that var.*/local.* are available everywhere.
 	var varBlocks, localsBlocks, outputBlocks, instanceBlocks, runnableBlocks []*hcl.Block
-	seenDefaults, seenTLS, seenModules := false, false, false
-	var defaultsBlock, tlsBlock, modulesBlock *hcl.Block
+	seenDefaults, seenTLS := false, false
+	var defaultsBlock, tlsBlock *hcl.Block
 	for _, block := range content.Blocks {
 		switch block.Type {
 		case "defaults":
@@ -200,11 +199,6 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 				return nil, posErr(parser, block.DefRange, "duplicate tls block", "only one tls block is allowed across all config files")
 			}
 			seenTLS, tlsBlock = true, block
-		case "modules":
-			if seenModules {
-				return nil, posErr(parser, block.DefRange, "duplicate modules block", "only one modules block is allowed across all config files")
-			}
-			seenModules, modulesBlock = true, block
 		case "variable":
 			varBlocks = append(varBlocks, block)
 		case "locals":
@@ -259,16 +253,6 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 			return nil, err
 		}
 	}
-	// Decode + apply modules{} BEFORE instance expansion below — expanding an
-	// instance block resolves its driver (engine.Lookup), which for a plugin engine
-	// fetches the module, so the mirror/enable/version pins must already be set.
-	if modulesBlock != nil {
-		if err := cfg.decodeModules(parser, modulesBlock, ctx); err != nil {
-			return nil, err
-		}
-	}
-	l.hooks.configureModules(cfg.Modules)
-
 	// Declare everything by name first, so a reference can be checked against
 	// the whole stack whatever order the blocks are written in. Then the
 	// reference graph and the module and app bodies in dependency order, then
@@ -323,7 +307,7 @@ func emptyIfNil(m map[string]cty.Value) map[string]cty.Value {
 // reservedBlocks are the top-level block types that are neither a module, an
 // app, a service nor a task.
 var reservedBlocks = map[string]bool{
-	"defaults": true, "tls": true, "modules": true,
+	"defaults": true, "tls": true,
 	"variable": true, "locals": true, "output": true,
 }
 

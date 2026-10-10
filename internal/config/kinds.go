@@ -107,6 +107,9 @@ func checkOldForms(parser *hclparse.Parser, files []*hcl.File) error {
 				label = blk.Labels[len(blk.Labels)-1]
 			}
 			switch {
+			case blk.Type == "modules" && len(blk.Labels) == 0:
+				return posErr(parser, rng, "the `modules` block is gone",
+					"doze has one registry and picks each module's release itself; doze.lock pins it, and `doze modules upgrade` moves the pin")
 			case blk.Type == "use" && len(blk.Labels) == 2:
 				return posErr(parser, rng, "`use` is now `module`",
 					fmt.Sprintf("write: module %s %q { … }", blk.Labels[0], label))

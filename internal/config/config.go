@@ -38,8 +38,6 @@ type Config struct {
 	Defaults Defaults
 	// TLS configures client-facing TLS termination.
 	TLS TLSSettings
-	// Modules configures the out-of-process engine plugin fetcher (source + pins).
-	Modules ModulesConfig
 	// Instances are the declared modules and apps, in declaration order.
 	Instances []*InstanceDecl
 	// Services and Tasks are the declared `service` and `task` blocks. They
@@ -107,18 +105,6 @@ type InstanceDecl struct {
 	// of any kind — Deps holds only the ones that are instances.
 	After []Ref
 	Refs  []Ref
-}
-
-// ModulesConfig is the decoded `modules {}` block: where to fetch out-of-process
-// engine plugins from, per-engine source overrides, and (rarely) per-engine
-// exact module-version pins. Module selection is otherwise automatic — the
-// newest release compatible with this doze and the declared engine versions —
-// and doze.lock freezes it, so reproducibility costs no cognitive load.
-type ModulesConfig struct {
-	Mirror   string            // registry base (overrides DOZE_MODULES_MIRROR)
-	Enabled  bool              // fetch plugin modules (true also when a mirror is set)
-	Sources  map[string]string // engine type -> source address override ("" = doze/<type>)
-	Versions map[string]string // engine type -> exact module version pin ("" = auto)
 }
 
 // Lookup returns the declared instance by name, or nil.

@@ -2,7 +2,6 @@ package config
 
 import (
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
@@ -19,16 +18,14 @@ type ShallowDecl struct {
 
 // ShallowConfig is the driver-free slice of a project config.
 type ShallowConfig struct {
-	Modules ModulesConfig
-	Decls   []ShallowDecl
-	path    string
+	Decls []ShallowDecl
+	path  string
 }
 
 // Path returns the primary config path the shallow load anchored on.
 func (c *ShallowConfig) Path() string { return c.path }
 
-// LoadShallow reads just the modules{} block and the module and app block
-// headers (type, name, declared version) from the config at path — no driver
+// LoadShallow reads just the module and app block headers (type, name, declared version) from the config at path — no driver
 // lookup, no plugin launch, no body decode, no hooks. It exists for commands that
 // must run when the full load can't: `doze modules upgrade` fixes the exact
 // protocol/engine-support gates that fail a full load, so it cannot depend on
@@ -55,28 +52,11 @@ func LoadShallow(path string) (*ShallowConfig, error) {
 
 	out := &ShallowConfig{path: primary}
 	schema := &hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{
-		{Type: "modules"},
 		{Type: KindModule, LabelNames: []string{"type", "name"}},
 		{Type: KindApp, LabelNames: []string{"name"}},
 	}}
 	content, _, _ := merged.PartialContent(schema)
 	for _, block := range content.Blocks {
-		if block.Type == "modules" {
-			var m hclModules
-			// Best-effort: a modules{} block using variables decodes what it can.
-			if diags := gohcl.DecodeBody(block.Body, nil, &m); !diags.HasErrors() {
-				mc := ModulesConfig{
-					Mirror: m.Mirror, Enabled: m.Enabled || m.Mirror != "",
-					Sources: map[string]string{}, Versions: map[string]string{},
-				}
-				for _, md := range m.Modules {
-					mc.Sources[md.Name] = md.Source
-					mc.Versions[md.Name] = md.Version
-				}
-				out.Modules = mc
-			}
-			continue
-		}
 		decl := ShallowDecl{Kind: KindApp, Type: AppEngine, Name: block.Labels[0]}
 		if block.Type == KindModule {
 			decl = ShallowDecl{Kind: KindModule, Type: block.Labels[0], Name: block.Labels[1]}

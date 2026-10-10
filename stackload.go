@@ -13,8 +13,7 @@ import (
 // round-trip: read the current topology, mutate it (AddApp/AddModule/
 // Remove), then re-render (HCL) or serve it. Existing service blocks are
 // retained verbatim (their config is the opaque plugin-decoded spec, so only the
-// original source renders back exactly); the top-level (stack + defaults/tls/
-// modules) is preserved as-is. It does not validate — call Validate or Load for
+// original source renders back exactly); the top-level (stack + defaults/tls) is preserved as-is. It does not validate — call Validate or Load for
 // that. Daemon-less; reads no plugins.
 func LoadStack(path string) (*Stack, error) {
 	src, err := os.ReadFile(path)
@@ -36,7 +35,7 @@ func LoadStack(path string) (*Stack, error) {
 	}
 	for _, blk := range body.Blocks() {
 		switch blk.Type() {
-		case "defaults", "tls", "modules":
+		case "defaults", "tls":
 			// Top-level meta blocks: retain verbatim.
 			pre.Write(blk.BuildTokens(nil).Bytes())
 			if !strings.HasSuffix(pre.String(), "\n") {

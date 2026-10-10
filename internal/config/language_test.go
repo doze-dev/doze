@@ -195,6 +195,7 @@ func TestOldFormsNameTheNewOne(t *testing.T) {
 		"use":               {`use postgres "db" { version = 16 }`, []string{"`use` is now `module`", `module postgres "db"`}},
 		"process":           {`process "api" { command = "x" }`, []string{"`process` is now `app`", `app "api"`, "`run`"}},
 		"root name":         {`name = "shop"`, []string{"`name` is now `stack`", `stack = "shop"`}},
+		"modules block":     {"modules {\n  mirror = \"https://example.com\"\n}", []string{"the `modules` block is gone", "one registry"}},
 		"module process":    {`module process "api" { run = "x" }`, []string{"`process` is not a module", `app "api"`}},
 		"keyword as type":   {`module task "x" {}`, []string{"is a keyword, not a module type"}},
 		"a slip":            {`apps "api" { run = "x" }`, []string{`unknown block "apps"`, `did you mean "app"?`}},

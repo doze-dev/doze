@@ -22,7 +22,7 @@ type Stack struct {
 	idleTimeout time.Duration
 	blocks      []blockRenderer
 	// rawPreamble is set by LoadStack: the verbatim top-level of a loaded config
-	// (stack attribute + defaults/tls/modules blocks). When present, HCL() emits it
+	// (stack attribute + defaults/tls blocks). When present, HCL() emits it
 	// instead of synthesizing the header — so a round-trip preserves the original.
 	rawPreamble string
 }
