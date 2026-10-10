@@ -10,10 +10,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/runspec"
@@ -49,6 +51,19 @@ func (Driver) Versionless() {}
 // Supervised implements engine.Lifecycle: a process is long-lived and exempt from
 // the idle reaper.
 func (Driver) Supervised(engine.Instance) bool { return true }
+
+// Proxied reports whether doze fronts this app: it declares a `port` and has
+// not set `direct`. doze then holds the declared port itself, awake or asleep,
+// and the app listens on a private one it is given as $PORT.
+func (Driver) Proxied(inst engine.Instance) bool {
+	cfg, ok := inst.Spec.(*Config)
+	return ok && cfg.Proxied()
+}
+
+// BootBudget implements engine.SlowBooter. A connection to a sleeping app
+// wakes it, and waking a `go run` or a bundler means compiling first: that is
+// minutes, not the seconds a database takes.
+func (Driver) BootBudget() time.Duration { return 5 * time.Minute }
 
 // AdvertisedAddr implements engine.PortBinder: the app binds its own port, so its
 // endpoint address is that port (no doze proxy listener). ok is false for a worker
@@ -108,19 +123,19 @@ func (Driver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) 
 		Dir:   cfg.Dir,
 		Bin:   "sh",
 		Args:  []string{"-c", cfg.Run},
-		Env:   cfg.mergedEnv(),
+		Env:   cfg.envFor(inst),
 		Tree:  true, // reap `go run`/`bun` and all children as a group
-		Ready: cfg.readySpec(),
+		Ready: cfg.readySpec(cfg.listenPort(inst)),
 	}}}, nil
 }
 
 // readySpec translates `ready` into a core readiness probe. With no `ready`, an
 // app that declares a port is ready when the port accepts a connection, and a
 // portless one (a worker) gets nil: a brief liveness check.
-func (c *Config) readySpec() *engine.Ready {
+func (c *Config) readySpec(port int) *engine.Ready {
 	probe := c.Ready
 	if probe == nil {
-		if c.declaredPort == 0 {
+		if port == 0 {
 			return nil
 		}
 		probe = &runspec.Probe{Kind: "tcp"}
@@ -129,7 +144,7 @@ func (c *Config) readySpec() *engine.Ready {
 	if timeout <= 0 {
 		timeout = runspec.DefaultReadyTimeout
 	}
-	kind, target := probe.Target(c.declaredPort)
+	kind, target := probe.Target(port)
 	return &engine.Ready{
 		Kind:     kind,
 		Target:   target,
@@ -139,19 +154,48 @@ func (c *Config) readySpec() *engine.Ready {
 	}
 }
 
-// BackendSocket implements engine.Driver: a process is not proxied, so there is no
-// doze backend socket.
-func (Driver) BackendSocket(string, int) string { return "" }
+// BackendSocket implements engine.Driver. An app has no unix socket: what doze
+// forwards to is the private TCP port the app was started on.
+func (Driver) BackendSocket(_ string, port int) string {
+	return net.JoinHostPort(PrivateHost, strconv.Itoa(port))
+}
+
+// PrivateHost is where a proxied app listens, and what it is given as $HOST.
+const PrivateHost = "127.0.0.1"
 
 // ConnString implements engine.Driver: nothing connects *to* a process through a
 // conventional doze env var, so it contributes none. Other instances reference its
 // address via the process.<name>.url attribute (see Attributes).
 func (Driver) ConnString(engine.Instance, engine.Endpoint) (string, string) { return "", "" }
 
-// mergedEnv builds the child environment, lowest precedence first: the daemon's
-// own environment (PATH, HOME, …), then the env_file, then the explicit env{}
-// block. doze does not inject anything — a process gets exactly the env it
-// declares (the env block can reference peers, e.g. DATABASE_URL = module.app.url).
+// listenPort is the port this app listens on: the private one doze picked for
+// this start when the app is proxied, the declared one when it binds for itself.
+func (c *Config) listenPort(inst engine.Instance) int {
+	if c.Proxied() {
+		return inst.Port
+	}
+	return c.declaredPort
+}
+
+// envFor is the environment an app starts with: what it declares, plus the
+// three things doze tells every command. DATA is a folder of the app's own that
+// survives restarts. PORT and HOST are where to listen, and are set only when
+// doze fronts the app — an app that binds for itself already knows its port.
+func (c *Config) envFor(inst engine.Instance) []string {
+	env := c.mergedEnv()
+	if inst.DataDir != "" {
+		env = append(env, "DATA="+inst.DataDir)
+	}
+	if c.Proxied() {
+		env = append(env, "PORT="+strconv.Itoa(inst.Port), "HOST="+PrivateHost)
+	}
+	return env
+}
+
+// mergedEnv builds the declared part of the child environment, lowest
+// precedence first: the daemon's own environment (PATH, HOME, …), then the
+// env_file, then the explicit env{} block (which can reference peers, e.g.
+// DATABASE_URL = module.app.url).
 func (c *Config) mergedEnv() []string {
 	merged := map[string]string{}
 	for _, kv := range os.Environ() {

@@ -16,7 +16,7 @@ func (Driver) CheckHealth(ctx context.Context, inst engine.Instance) error {
 	if !ok {
 		return nil
 	}
-	spec := cfg.readySpec()
+	spec := cfg.readySpec(cfg.listenPort(inst))
 	if spec == nil || spec.Kind == "log_line" {
 		return nil
 	}

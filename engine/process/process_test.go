@@ -39,7 +39,7 @@ func TestDecodeMinimal(t *testing.T) {
 	if c.Restart.MaxRetries <= 0 {
 		t.Fatalf("default restart should have a positive retry budget, got %d", c.Restart.MaxRetries)
 	}
-	if c.Ready != nil || c.readySpec() != nil {
+	if c.Ready != nil || c.readySpec(0) != nil {
 		t.Fatalf("a portless app with no `ready` should fall back to the liveness check")
 	}
 }
@@ -76,7 +76,7 @@ func TestReady(t *testing.T) {
 			if err := c.BindPort(tc.port); err != nil {
 				t.Fatalf("BindPort: %v", err)
 			}
-			r := c.readySpec()
+			r := c.readySpec(tc.port)
 			if r == nil || r.Kind != tc.kind || r.Target != tc.target || r.Retries != tc.retries {
 				t.Fatalf("ready = %+v, want %s %s ×%d", r, tc.kind, tc.target, tc.retries)
 			}
@@ -251,5 +251,87 @@ func TestMergedEnvPrecedence(t *testing.T) {
 		if got[k] != want {
 			t.Errorf("%s = %q, want %q", k, got[k], want)
 		}
+	}
+}
+
+func envMap(env []string) map[string]string {
+	out := map[string]string{}
+	for _, kv := range env {
+		k, v, _ := strings.Cut(kv, "=")
+		out[k] = v
+	}
+	return out
+}
+
+// An app with a port is started on a private one, which is what it is told to
+// listen on and what its readiness is probed at. The declared port is doze's.
+func TestAProxiedAppListensOnItsPrivatePort(t *testing.T) {
+	c, err := decode(t, `run = "x"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.BindPort(8080); err != nil {
+		t.Fatal(err)
+	}
+	inst := engine.Instance{Name: "api", Port: 51234, DataDir: "/data/api", Spec: c}
+	if !(Driver{}).Proxied(inst) {
+		t.Fatal("an app with a port is proxied")
+	}
+	plan, err := Driver{}.Plan(nil, engine.Instance{Name: "api", Port: 51234, DataDir: t.TempDir(), Spec: c}, engine.Toolchain{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := envMap(plan.Specs[0].Env)
+	if env["PORT"] != "51234" || env["HOST"] != "127.0.0.1" || env["DATA"] == "" {
+		t.Fatalf("PORT=%q HOST=%q DATA=%q; want the private port, loopback and a data folder", env["PORT"], env["HOST"], env["DATA"])
+	}
+	if r := plan.Specs[0].Ready; r == nil || r.Target != "127.0.0.1:51234" {
+		t.Fatalf("readiness is probed at %+v, want the private port", r)
+	}
+	if got := (Driver{}).BackendSocket("", 51234); got != "127.0.0.1:51234" {
+		t.Fatalf("doze forwards to %q, want the private port", got)
+	}
+}
+
+// direct = true is today's behaviour: the app binds the declared port itself,
+// is told nothing about where to listen, and is probed where it said it would be.
+func TestADirectAppBindsItsOwnPort(t *testing.T) {
+	c, err := decode(t, "run = \"x\"\ndirect = true\nenv = { PORT = \"8080\" }")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.BindPort(8080); err != nil {
+		t.Fatalf("a direct app may set PORT itself: %v", err)
+	}
+	inst := engine.Instance{Name: "api", Port: 5432, DataDir: t.TempDir(), Spec: c}
+	if (Driver{}).Proxied(inst) {
+		t.Fatal("direct = true opts out of the proxy")
+	}
+	plan, err := Driver{}.Plan(nil, inst, engine.Toolchain{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if env := envMap(plan.Specs[0].Env); env["PORT"] != "8080" || env["HOST"] != "" {
+		t.Fatalf("a direct app's env is its own: PORT=%q HOST=%q", env["PORT"], env["HOST"])
+	}
+	if r := plan.Specs[0].Ready; r == nil || r.Target != "127.0.0.1:8080" {
+		t.Fatalf("readiness is probed at %+v, want the declared port", r)
+	}
+}
+
+// An env that sets PORT on a proxied app would send it to the port doze holds.
+func TestAProxiedAppMayNotSetItsOwnPort(t *testing.T) {
+	c, err := decode(t, "run = \"x\"\nenv = { PORT = \"8080\" }")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = c.BindPort(8080)
+	if err == nil || !strings.Contains(err.Error(), "env sets PORT") || !strings.Contains(err.Error(), "direct = true") {
+		t.Fatalf("BindPort = %v, want an error naming PORT and the way out", err)
+	}
+	// With no port there is nothing for doze to hold, and PORT is the app's business.
+	worker, _ := decode(t, "run = \"x\"\nenv = { PORT = \"9\" }")
+	if err := worker.BindPort(0); err != nil {
+		t.Fatalf("a portless app may set PORT: %v", err)
 	}
 }

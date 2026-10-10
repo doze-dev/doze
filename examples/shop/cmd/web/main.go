@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -49,7 +50,8 @@ func main() {
 		log.Info("GET /", "products", len(products), "took", time.Since(start).Round(time.Millisecond))
 	})
 
-	addr := ":" + os.Getenv("PORT")
+	// doze starts the app with where to listen: a private port it forwards to.
+	addr := net.JoinHostPort(os.Getenv("HOST"), os.Getenv("PORT"))
 	log.Info("listening", "addr", addr, "api", api)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Error("serve", "err", err)

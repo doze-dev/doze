@@ -50,11 +50,30 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 
 	instCtx, cancel := context.WithCancel(d.rootCtx)
 	d.running[name] = &instHandle{cancel: cancel, ln: ln, ip: ip}
-	d.instWG.Add(1)
-	go func() {
-		defer d.instWG.Done()
-		_ = d.px.ServeInstance(instCtx, ln, name, drv)
-	}()
+	serve := func(l net.Listener) {
+		d.instWG.Add(1)
+		go func() {
+			defer d.instWG.Done()
+			_ = d.px.ServeInstance(instCtx, l, name, drv)
+		}()
+	}
+	serve(ln)
+
+	// People type localhost:8080 from habit. An app that has an address of its
+	// own is also given 127.0.0.1 at the same port, when nothing else has it.
+	// Only apps: every postgres on the machine would want 127.0.0.1:5432.
+	if _, isApp := drv.(interface{ Proxied(engine.Instance) bool }); isApp {
+		if host, port, err := net.SplitHostPort(bindAddr); err == nil && host != "127.0.0.1" {
+			local := net.JoinHostPort("127.0.0.1", port)
+			if l, err := proxy.Listen(local); err != nil {
+				d.nameOnly[name] = true
+				d.logf("%s/%s: %s is taken, so it is reachable by name only", engineType, name, local)
+			} else {
+				delete(d.nameOnly, name)
+				serve(l) // closed with instCtx, like the first
+			}
+		}
+	}
 	return nil
 }
 
@@ -91,10 +110,12 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 		return "", fmt.Errorf("live add of AWS built-in engine %q is not yet supported — declare it in the config and restart", decl.Type)
 	}
 
+	inst := engine.Instance{Name: decl.Name, Type: decl.Type, Spec: decl.Spec}
 	supervised := false
 	if lc, isLC := drv.(engine.Lifecycle); isLC {
-		supervised = lc.Supervised(engine.Instance{Name: decl.Name, Type: decl.Type, Spec: decl.Spec})
+		supervised = lc.Supervised(inst)
 	}
+	front := fronted(drv, inst) // doze holds its port: a module, or an app with one
 
 	// Wire the instance under the lock (config + listener + DNS), but boot a
 	// supervised process AFTER releasing it — Boot can be slow (a command that
@@ -111,7 +132,7 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 	// process legitimately has none — that's fine; only proxied engines need one.
 	ep, hasEndpoint := d.endpointFor(decl.Name)
 
-	if !supervised {
+	if front {
 		if !hasEndpoint {
 			d.cfg.Remove(decl.Name)
 			d.mu.Unlock()
@@ -131,8 +152,8 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 		d.binds[decl.Name] = bindAddr
 	}
 	if hasEndpoint && ep.Domain != "" {
-		regIP := net.IPv4(127, 0, 0, 1) // a supervised process resolves to loopback
-		if !supervised {
+		regIP := net.IPv4(127, 0, 0, 1) // an app that binds for itself resolves to loopback
+		if front {
 			if h := d.running[decl.Name]; h != nil && h.ip != nil {
 				regIP = h.ip
 			}
@@ -173,8 +194,7 @@ func (d *Daemon) RemoveInstance(ctx context.Context, name string, wipe bool) err
 		h.cancel()
 		_ = h.ln.Close()
 		delete(d.running, name)
-		// The loopback IP is not returned to the allocator pool in v1 (released in
-		// bulk at shutdown) — a bounded, per-session leak.
+		// Its address goes back to the pool with its name, released below.
 	}
 	// Deregister the DNS name.
 	if ep, ok := d.endpointFor(name); ok && ep.Domain != "" {
@@ -182,6 +202,7 @@ func (d *Daemon) RemoveInstance(ctx context.Context, name string, wipe bool) err
 		d.republishDomains()
 	}
 	delete(d.binds, name)
+	delete(d.nameOnly, name)
 	delete(d.resources, name)
 	d.cfg.Remove(name)
 	d.writeManifest()

@@ -133,7 +133,10 @@ type InstanceView struct {
 	// address for processes.
 	Bind   string `json:"bind,omitempty"`
 	Domain string `json:"domain,omitempty"` // local DNS name, e.g. "orders-pg.<stack>.doze"
-	URL    string `json:"url,omitempty"`    // full connection string
+	// NameOnly marks an app that is reachable at its name but not also at
+	// 127.0.0.1:<port>, because something else on the machine has that port.
+	NameOnly bool   `json:"name_only,omitempty"`
+	URL      string `json:"url,omitempty"` // full connection string
 	// Resource is the full, directly-addressable path when the client-facing
 	// endpoint is a shared front door: an AWS built-in's resource URL/ARN
 	// (http://s3.<stack>.doze/<bucket>, a queue URL, a topic ARN) or an

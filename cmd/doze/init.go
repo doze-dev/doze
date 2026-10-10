@@ -206,11 +206,13 @@ func scaffoldFor(picks []string, app string, offers []initEngine) string {
 		}
 	}
 	if app != "" {
-		b.WriteString("\napp \"api\" {\n  run  = " + hclString(app) + "\n  port = 8080\n\n  env = {\n")
+		// No PORT in env: doze holds 8080 itself and starts the app with $PORT,
+		// the private port it forwards to.
+		b.WriteString("\napp \"api\" {\n  run  = " + hclString(app) + "\n  port = 8080 # doze listens here; your app listens on $PORT\n")
 		if hasPostgres {
-			b.WriteString("    DATABASE_URL = module.app.url\n")
+			b.WriteString("\n  env = {\n    DATABASE_URL = module.app.url\n  }\n")
 		}
-		b.WriteString("    PORT         = \"8080\"\n  }\n}\n")
+		b.WriteString("}\n")
 	}
 	return b.String()
 }

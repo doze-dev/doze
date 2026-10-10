@@ -43,7 +43,7 @@ func (d Driver) runSteps(ctx context.Context, inst engine.Instance, attr string)
 	case "stop":
 		cmds = cfg.Stop
 	}
-	env := cfg.mergedEnv()
+	env := cfg.envFor(inst)
 	for _, line := range cmds {
 		if strings.TrimSpace(line) == "" {
 			continue

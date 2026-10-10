@@ -207,6 +207,16 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 // http() probe.
 func (c *Config) BindPort(port int) error {
 	c.declaredPort = port
+	if c.Proxied() {
+		// doze holds the declared port and tells the app where to listen. An
+		// env that sets these itself would send the app somewhere doze is not
+		// forwarding to — usually straight onto the port doze already holds.
+		for _, name := range []string{"PORT", "HOST"} {
+			if _, set := c.Env[name]; set {
+				return fmt.Errorf("env sets %s, but doze chooses it for an app with a `port`: remove it from env (the app is started with $%s), or set `direct = true` to have the app bind %d itself", name, name, port)
+			}
+		}
+	}
 	if port == 0 && c.Ready != nil && c.Ready.NeedsPort() {
 		return fmt.Errorf("ready = %s(…) needs a `port` to probe", c.Ready.Kind)
 	}
@@ -356,6 +366,10 @@ func versionMatches(want, got string) bool {
 	}
 	return true
 }
+
+// Proxied reports whether doze fronts this app: it declares a port and has not
+// opted out with `direct`.
+func (c *Config) Proxied() bool { return c.declaredPort > 0 && !c.Direct }
 
 // ForwardPort is the public port this app is served on through the shared
 // ingress (http://<name>.<stack>.doze), or 0 if it isn't. An app that declares a

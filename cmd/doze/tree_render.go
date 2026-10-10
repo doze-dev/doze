@@ -227,6 +227,9 @@ func noteCell(v control.InstanceView, idle time.Duration) string {
 	if v.KeepAwake {
 		parts = append(parts, "pinned")
 	}
+	if v.NameOnly {
+		parts = append(parts, "by name only: 127.0.0.1 has this port taken")
+	}
 	if len(parts) == 0 && clients == 0 && v.State == "idle" && idle > 0 && !v.IdleSince.IsZero() {
 		if left := idle - now().Sub(v.IdleSince); left > 0 {
 			parts = append(parts, "sleeps in "+left.Round(time.Second).String())

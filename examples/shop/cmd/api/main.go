@@ -88,7 +88,8 @@ func main() {
 	mux.HandleFunc("GET /orders", s.orders)
 	mux.HandleFunc("POST /orders", s.createOrder)
 
-	addr := ":" + os.Getenv("PORT")
+	// doze starts the app with where to listen: a private port it forwards to.
+	addr := net.JoinHostPort(os.Getenv("HOST"), os.Getenv("PORT"))
 	log.Info("listening", "addr", addr)
 	if err := http.ListenAndServe(addr, s.logged(mux)); err != nil {
 		log.Error("serve", "err", err)

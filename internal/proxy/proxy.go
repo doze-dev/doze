@@ -177,7 +177,7 @@ func (p *Proxy) handle(ctx context.Context, raw net.Conn, name string, drv engin
 		return
 	}
 
-	upstream, err := net.Dial("unix", ep.Backend)
+	upstream, err := dialBackend(ep.Backend)
 	if err != nil {
 		p.logf("dial backend %q (%s) failed: %v", name, ep.Backend, err)
 		writeError(drv, client, "08006", "doze: backend unreachable: "+err.Error())
@@ -218,6 +218,15 @@ func (p *Proxy) bootBackend(ctx context.Context, name string, drv engine.Driver)
 	bootCtx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	return p.router.Boot(journal.WithCause(bootCtx, journal.ByConnection, ""), name)
+}
+
+// dialBackend connects to what the proxy forwards to. A module's backend is a
+// unix socket; a plain command's is the private TCP port it was started on.
+func dialBackend(addr string) (net.Conn, error) {
+	if _, _, err := net.SplitHostPort(addr); err == nil && !strings.HasPrefix(addr, "/") {
+		return net.Dial("tcp", addr)
+	}
+	return net.Dial("unix", addr)
 }
 
 func writeError(drv engine.Driver, w io.Writer, code, message string) {

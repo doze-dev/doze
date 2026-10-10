@@ -75,9 +75,12 @@ type Daemon struct {
 
 	// Dynamic instance management (live Add/Remove). Populated during Run and
 	// guarded by mu. See dynamic.go.
-	mu         sync.Mutex
-	px         *proxy.Proxy
-	plan       *bindPlan
+	mu   sync.Mutex
+	px   *proxy.Proxy
+	plan *bindPlan
+	// nameOnly marks an app that could not also be given 127.0.0.1:<port>,
+	// because something else has it: it is reachable by its name only.
+	nameOnly   map[string]bool
 	rootCtx    context.Context
 	instWG     *sync.WaitGroup
 	running    map[string]*instHandle // proxied instances with a live listener
@@ -221,6 +224,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.rootCtx = ctx
 	d.instWG = &wg
 	d.running = map[string]*instHandle{}
+	d.nameOnly = map[string]bool{}
 	d.resolveMap = plan.resolve
 	for _, ep := range eps {
 		drv, ok := engine.Lookup(ep.Engine)
@@ -232,10 +236,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 			d.logf("%s/%s is disabled; no proxy listener", ep.Engine, ep.Name)
 			continue
 		}
-		// Supervised processes bind their own port — doze does not front them with a
-		// proxy. They boot eagerly via `doze up`/`doze wake`, not on a connection.
-		if lc, ok := drv.(engine.Lifecycle); ok && lc.Supervised(engine.Instance{Name: ep.Name, Type: ep.Engine}) {
-			d.logf("%s/%s is a supervised process; no proxy listener", ep.Engine, ep.Name)
+		// An app that binds its own port (`direct = true`) gets no listener of
+		// doze's. Every other app with a port is fronted like a module.
+		var spec engine.EngineConfig
+		if decl := d.cfg.Lookup(ep.Name); decl != nil {
+			spec = decl.Spec
+		}
+		if !fronted(drv, engine.Instance{Name: ep.Name, Type: ep.Engine, Spec: spec}) {
+			d.logf("%s/%s binds its own port; no proxy listener", ep.Engine, ep.Name)
 			continue
 		}
 		bindAddr := plan.bind[ep.Name]

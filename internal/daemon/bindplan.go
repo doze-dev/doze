@@ -42,17 +42,13 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (
 			continue
 		}
 
-		// Supervised processes bind their own port on 127.0.0.1; doze never
-		// proxies them, so there's no per-IP listener to place — their name just
-		// resolves to loopback (the :80 ingress fronts the HTTP ones).
-		if drv, ok := engine.Lookup(ep.Engine); ok {
-			if lc, isLC := drv.(engine.Lifecycle); isLC &&
-				lc.Supervised(engine.Instance{Name: ep.Name, Type: ep.Engine, Spec: decl.Spec}) {
-				if ep.Domain != "" {
-					p.resolve[ep.Domain] = loopbackIP
-				}
-				continue
+		// An app that binds its own port (`direct = true`) does so on 127.0.0.1,
+		// and doze places no listener for it: its name just resolves to loopback.
+		if drv, ok := engine.Lookup(ep.Engine); ok && !fronted(drv, engine.Instance{Name: ep.Name, Type: ep.Engine, Spec: decl.Spec}) {
+			if ep.Domain != "" {
+				p.resolve[ep.Domain] = loopbackIP
 			}
+			continue
 		}
 
 		var ip net.IP
@@ -96,4 +92,16 @@ func claimAddress(zone *names.Registry, host string) (net.IP, error) {
 		return nil, fmt.Errorf("no address for %s: %w", host, err)
 	}
 	return lease.IP, nil
+}
+
+// fronted reports whether doze holds an instance's declared port with a proxy
+// listener of its own. That is every module, and every app that declares a
+// port and has not set `direct`. What is left — a portless worker, a direct
+// app — binds for itself or not at all.
+func fronted(drv engine.Driver, inst engine.Instance) bool {
+	if lc, ok := drv.(engine.Lifecycle); ok && lc.Supervised(inst) {
+		px, ok := drv.(interface{ Proxied(engine.Instance) bool })
+		return ok && px.Proxied(inst)
+	}
+	return true
 }

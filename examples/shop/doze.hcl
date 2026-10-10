@@ -56,7 +56,6 @@ app "api" {
   port = 8080
 
   env = {
-    PORT          = "8080"
     DATABASE_URL  = module.db.url
     CACHE_ADDR    = module.cache.address
     KAFKA_BROKERS = module.events.address
@@ -82,7 +81,6 @@ app "web" {
   port = 8090
 
   env = {
-    PORT    = "8090"
     API_URL = "http://${app.api.address}"
   }
 

@@ -30,6 +30,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/logstore"
+	"github.com/doze-dev/doze/internal/netutil"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/state"
 	"github.com/doze-dev/doze/internal/supervisor"
@@ -70,6 +71,11 @@ type Runtime struct {
 
 	// logs keeps what every instance prints, on disk.
 	logs *logstore.Store
+
+	// private is the port each proxied command was last started on: doze holds
+	// the declared port and picks this one, fresh, at every start.
+	privMu  sync.Mutex
+	private map[string]int
 }
 
 // New constructs a Runtime for cfg.
@@ -130,6 +136,9 @@ func (r *Runtime) instanceFor(decl *config.InstanceDecl, drv engine.Driver) engi
 	if np, ok := drv.(interface{ NominalPort() int }); ok {
 		port = np.NominalPort()
 	}
+	if p := r.privatePort(decl.Name); p != 0 {
+		port = p
+	}
 	socketDir := r.cfg.SocketDir(decl.Name)
 	// TCPAddr carries the client-facing address for engines that advertise a
 	// listener clients must dial (e.g. Kafka's Metadata response). In domains
@@ -154,6 +163,23 @@ func (r *Runtime) instanceFor(decl *config.InstanceDecl, drv engine.Driver) engi
 		Endpoint:  engine.Endpoint{Backend: drv.BackendSocket(socketDir, port), TCPAddr: tcpAddr},
 		Spec:      decl.Spec,
 	}
+}
+
+// privatePort returns the port name was last started on, or 0 if doze does not
+// front it.
+func (r *Runtime) privatePort(name string) int {
+	r.privMu.Lock()
+	defer r.privMu.Unlock()
+	return r.private[name]
+}
+
+func (r *Runtime) setPrivatePort(name string, port int) {
+	r.privMu.Lock()
+	defer r.privMu.Unlock()
+	if r.private == nil {
+		r.private = map[string]int{}
+	}
+	r.private[name] = port
 }
 
 // Boot ensures the named instance is provisioned and running (to the Healthy
@@ -233,6 +259,16 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
 		return engine.Endpoint{}, fmt.Errorf("no driver registered for engine %q", decl.Type)
+	}
+	// A command doze fronts listens on a private port, chosen now. The declared
+	// port is doze's own listener, which is why it can accept a connection
+	// while the command is still asleep.
+	if px, ok := drv.(interface{ Proxied(engine.Instance) bool }); ok && px.Proxied(engine.Instance{Name: name, Type: decl.Type, Spec: decl.Spec}) {
+		port, err := netutil.FreePort()
+		if err != nil {
+			return engine.Endpoint{}, fmt.Errorf("no free port to start %q on: %w", name, err)
+		}
+		r.setPrivatePort(name, port)
 	}
 	inst := r.instanceFor(decl, drv)
 
