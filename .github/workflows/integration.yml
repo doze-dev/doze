@@ -83,10 +83,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Reverse lookup of 127.0.0.1, before setup
+        if: runner.os == 'macOS'
+        run: |
+          python3 -c "import socket,time; t=time.time(); socket.getfqdn('127.0.0.1'); print('getfqdn before setup: %.2fs' % (time.time()-t))"
       - name: Set the machine up for .doze names
         run: |
           go build -o "$RUNNER_TEMP/doze" ./cmd/doze
           "$RUNNER_TEMP/doze" doctor --fix
+      - name: Reverse lookup of 127.0.0.1, after setup
+        if: runner.os == 'macOS'
+        run: |
+          python3 -c "import socket,time; t=time.time(); socket.getfqdn('127.0.0.1'); print('getfqdn after setup: %.2fs' % (time.time()-t))"
       - name: Names
         env:
           DOZE_TEST_DUMP: "1"
