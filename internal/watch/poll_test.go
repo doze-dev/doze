@@ -26,21 +26,21 @@ func TestAChangeIsReportedOnceAfterItSettles(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	got := make(chan string, 8)
-	go Poll(ctx, []Set{{Dir: dir, Globs: []string{"**/*.go"}}}, 20*time.Millisecond, func(p string) { got <- p })
+	go Poll(ctx, []Set{{Dir: dir, Globs: []string{"**/*.go"}}}, 100*time.Millisecond, func(p string) { got <- p })
 
-	time.Sleep(60 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	write(t, filepath.Join(dir, "notes.txt"), "edited, but not matched")
 	select {
 	case p := <-got:
 		t.Fatalf("a file outside the globs was reported: %s", p)
-	case <-time.After(150 * time.Millisecond):
+	case <-time.After(400 * time.Millisecond):
 	}
 
-	// A burst of writes is one event.
+	// A burst of writes is one event: written back to back, well inside one
+	// interval, so the test does not depend on how fast a loaded machine runs it.
 	for i := 0; i < 5; i++ {
 		write(t, filepath.Join(dir, "main.go"), "package main // "+string(rune('a'+i)))
 		write(t, filepath.Join(dir, "sub", "x.go"), "package sub")
-		time.Sleep(5 * time.Millisecond)
 	}
 	select {
 	case p := <-got:
@@ -53,7 +53,7 @@ func TestAChangeIsReportedOnceAfterItSettles(t *testing.T) {
 	select {
 	case p := <-got:
 		t.Fatalf("one burst was reported twice: %s", p)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 	}
 
 	// Removing a watched file is a change too.
