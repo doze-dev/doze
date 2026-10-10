@@ -68,6 +68,12 @@ func (r *Registry) Subscribe(buf int) (<-chan Instance, func()) {
 // observable signature has changed since the last emit. Caller must hold r.mu;
 // the non-blocking sends never block, so holding the lock is safe.
 func (r *Registry) emit(inst *Instance) {
+	for ch := range r.notes {
+		select {
+		case ch <- struct{}{}:
+		default: // one is already waiting
+		}
+	}
 	if len(r.subs) == 0 {
 		// Still track the signature so the first real subscriber doesn't get a
 		// spurious "changed" for a pre-existing state.
@@ -91,5 +97,25 @@ func (r *Registry) emit(inst *Instance) {
 		case *chp <- snap:
 		default: // lossy: drop rather than block the caller
 		}
+	}
+}
+
+// Notify returns a channel that is signalled whenever anything about any
+// instance changes — connection counts included — and a function that ends the
+// notification. Signals coalesce: a reader that is busy finds one waiting, not
+// one per change. It carries no data, so nothing is ever lost: the reader takes
+// a Snapshot when woken.
+func (r *Registry) Notify() (<-chan struct{}, func()) {
+	ch := make(chan struct{}, 1)
+	r.mu.Lock()
+	if r.notes == nil {
+		r.notes = map[chan struct{}]struct{}{}
+	}
+	r.notes[ch] = struct{}{}
+	r.mu.Unlock()
+	return ch, func() {
+		r.mu.Lock()
+		delete(r.notes, ch)
+		r.mu.Unlock()
 	}
 }

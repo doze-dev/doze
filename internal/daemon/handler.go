@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
 	"github.com/doze-dev/doze/internal/logstore"
@@ -19,60 +20,78 @@ import (
 // handler adapts the runtime to the control.Handler interface.
 type handler struct{ d *Daemon }
 
+// Status is the snapshot plus each running instance's meters. It runs ps, so
+// it is for a one-off look; a client that watches subscribes instead.
 func (h *handler) Status() control.Response {
 	resp := control.Response{Listen: h.d.cfg.Listen, IdleTimeout: h.d.cfg.Defaults.IdleTimeout}
-	eps := h.endpointsByName()
-	snapshot := h.d.rt.Registry().Snapshot()
-	pids := make([]int, 0, len(snapshot))
-	for _, inst := range snapshot {
-		if inst.PID != 0 {
-			pids = append(pids, inst.PID)
+	resp.Instances = h.snapshot()
+	var pids []int
+	for _, v := range resp.Instances {
+		if v.PID != 0 {
+			pids = append(pids, v.PID)
 		}
 	}
 	stats := ui.ProcStats(pids) // one ps for every running backend (+ its subtree)
 	tree := ui.ProcTree(pids)   // …and each backend's own child processes
-	seen := map[string]bool{}
-	for _, inst := range snapshot {
-		engineType, version, declared := "", "", false
-		if decl := h.d.cfg.Lookup(inst.Name); decl != nil {
-			engineType, version, declared = decl.Type, decl.Version.String(), true
-		}
-		v := control.ViewFromRegistry(inst, engineType, version, declared)
-		if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
-			v.Disabled = true
-		}
-		v.Holders = h.holders(inst.Name)
-		h.hydrateEndpoint(&v, eps[inst.Name])
-		v.DataDir = h.dataDir(inst.Name)
-		if st, ok := stats[inst.PID]; ok {
+	for i := range resp.Instances {
+		v := &resp.Instances[i]
+		if st, ok := stats[v.PID]; ok {
 			v.RAM, v.CPU = st.RSS, st.CPU
 		}
-		if engineType == "process" {
-			for _, n := range tree[inst.PID] {
+		if v.Engine == config.AppEngine {
+			for _, n := range tree[v.PID] {
 				v.Children = append(v.Children, control.ProcView{
 					PID: n.PID, RSS: n.RSS, CPU: n.CPU, Cmd: n.Cmd, Depth: n.Depth,
 				})
 			}
 		}
-		resp.Instances = append(resp.Instances, v)
+	}
+	return resp
+}
+
+// snapshot is every instance the daemon knows — tracked or only declared — as
+// the wire sees it, without meters: nothing here costs more than a map lookup.
+func (h *handler) snapshot() []control.InstanceView {
+	eps := h.endpointsByName()
+	var out []control.InstanceView
+	seen := map[string]bool{}
+	for _, inst := range h.d.rt.Registry().Snapshot() {
+		out = append(out, h.view(inst, eps))
 		seen[inst.Name] = true
 	}
 	for _, decl := range h.d.cfg.Instances {
-		if !seen[decl.Name] {
-			state := "reaped"
-			if !decl.Enabled {
-				state = "disabled"
-			}
-			v := control.InstanceView{
-				Name: decl.Name, Engine: decl.Type, State: state,
-				Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
-			}
-			h.hydrateEndpoint(&v, eps[decl.Name])
-			v.DataDir = h.dataDir(decl.Name)
-			resp.Instances = append(resp.Instances, v)
+		if seen[decl.Name] {
+			continue
 		}
+		state := "reaped"
+		if !decl.Enabled {
+			state = "disabled"
+		}
+		v := control.InstanceView{
+			Name: decl.Name, Engine: decl.Type, State: state,
+			Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
+		}
+		h.hydrateEndpoint(&v, eps[decl.Name])
+		v.DataDir = h.dataDir(decl.Name)
+		out = append(out, v)
 	}
-	return resp
+	return out
+}
+
+// view enriches one registry entry with what the config and the endpoint
+// table know about it.
+func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint) control.InstanceView {
+	engineType, version, declared := "", "", false
+	decl := h.d.cfg.Lookup(inst.Name)
+	if decl != nil {
+		engineType, version, declared = decl.Type, decl.Version.String(), true
+	}
+	v := control.ViewFromRegistry(inst, engineType, version, declared)
+	v.Disabled = decl != nil && !decl.Enabled
+	v.Holders = h.holders(inst.Name)
+	h.hydrateEndpoint(&v, eps[inst.Name])
+	v.DataDir = h.dataDir(inst.Name)
+	return v
 }
 
 // holders renders why an instance is awake for the wire.
@@ -305,18 +324,7 @@ func (h *handler) RemoveInstance(ctx context.Context, name string, wipe bool) er
 // eventView enriches a registry snapshot into a full InstanceView for the events
 // stream, mirroring Status's per-instance enrichment without the ps call.
 func (h *handler) eventView(inst registry.Instance) control.InstanceView {
-	engineType, version, declared := "", "", false
-	if decl := h.d.cfg.Lookup(inst.Name); decl != nil {
-		engineType, version, declared = decl.Type, decl.Version.String(), true
-	}
-	v := control.ViewFromRegistry(inst, engineType, version, declared)
-	if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
-		v.Disabled = true
-	}
-	v.Holders = h.holders(inst.Name)
-	h.hydrateEndpoint(&v, h.endpointsByName()[inst.Name])
-	v.DataDir = h.dataDir(inst.Name)
-	return v
+	return h.view(inst, h.endpointsByName())
 }
 
 // Resources lists a builtin instance's sub-resources (queues/buckets/topics) with

@@ -121,7 +121,7 @@ func (j *Journal) Append(e Event) Event {
 	j.seq++
 	e.Seq = j.seq
 	if e.Time.IsZero() {
-		e.Time = j.now()
+		e.Time = j.now().UTC()
 	}
 	if j.f != nil {
 		line, err := json.Marshal(e)

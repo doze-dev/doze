@@ -91,6 +91,8 @@ type Registry struct {
 	// subs and lastSig back the lossy state-transition feed (see subscribe.go).
 	subs    map[*chan Instance]struct{}
 	lastSig map[string]instSig
+	// notes back Notify: one coalescing wake-up channel per watcher.
+	notes map[chan struct{}]struct{}
 }
 
 // New returns an empty registry.

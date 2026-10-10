@@ -10,12 +10,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/registry"
 )
 
 // Request is a command sent from the CLI to the daemon.
 type Request struct {
-	Op string `json:"op"`           // "status", "up", "down"
+	// Hello opens a connection; it is the whole of the first frame.
+	Hello *Hello `json:"hello,omitempty"`
+	// ID is chosen by the client and echoed on every frame that answers this
+	// request, so one connection can carry several at once.
+	ID uint64 `json:"id,omitempty"`
+
+	Op string `json:"op,omitempty"` // "status", "up", "down", "subscribe", "cancel", …
 	DB string `json:"db,omitempty"` // target database (empty = all, where meaningful)
 
 	// Admin (builtin data ops): "resources" lists a builtin's sub-resources;
@@ -35,6 +42,12 @@ type Request struct {
 	Block string `json:"block,omitempty"`
 	// Wipe, on the "remove" op, also deletes the instance's data directory.
 	Wipe bool `json:"wipe,omitempty"`
+
+	// The subscribe op: which topics, and how (see Subscription).
+	Topics   []string `json:"topics,omitempty"`
+	Since    uint64   `json:"since,omitempty"`
+	Interval string   `json:"interval,omitempty"` // a duration, e.g. "1s"
+	Backlog  int      `json:"backlog,omitempty"`
 }
 
 // LogFrame is one streamed, instance-tagged log line (logs follow op).
@@ -174,6 +187,10 @@ type Handler interface {
 	// StreamEvents follows instance-state transitions, calling emit for each until
 	// ctx is cancelled or emit returns an error (the client disconnected).
 	StreamEvents(ctx context.Context, emit func(EventFrame) error) error
+	// Subscribe streams the topics sub names, calling emit for each frame until
+	// ctx is cancelled or emit returns an error. The daemon does the work a
+	// topic needs — sampling, following — only while a subscription is open.
+	Subscribe(ctx context.Context, sub Subscription, emit func(Frame) error) error
 	KeepAwake(db string) error // toggle the idle-reaper exemption for db
 	Apply(ctx context.Context, db string) error
 	Destroy(ctx context.Context, db string) error
@@ -213,4 +230,77 @@ func ViewFromRegistry(inst registry.Instance, engineType, version string, declar
 		NextRestart:  inst.NextRestart,
 		Healthy:      inst.Healthy,
 	}
+}
+
+// ProtoVersion is the control protocol this build speaks. A connection opens
+// with a hello carrying it; a daemon and a client that disagree say so in
+// words instead of failing to decode each other.
+const ProtoVersion = 2
+
+// Hello is the first frame in each direction.
+type Hello struct {
+	Proto int `json:"proto"`
+	// Client names who is connecting ("cli", "dash", "lib"), for the daemon's log.
+	Client string `json:"client,omitempty"`
+}
+
+// The topics a client can subscribe to.
+const (
+	TopicInstances = "instances" // a full snapshot, then each instance as it changes
+	TopicStats     = "stats"     // CPU and memory per running instance, on an interval
+	TopicJournal   = "journal"   // journal events, from a sequence number on
+	TopicLogs      = "logs"      // log lines for chosen instances
+)
+
+// StatView is one running instance's meters, sampled for the stats topic.
+type StatView struct {
+	Name  string  `json:"name"`
+	PID   int     `json:"pid"`
+	RAM   int64   `json:"ram"`
+	CPU   float64 `json:"cpu"`
+	Conns int     `json:"conns"`
+}
+
+// Subscription is what a subscribe request asks for.
+type Subscription struct {
+	Topics []string
+	// Names scopes the logs topic (empty = every declared instance).
+	Names []string
+	// Since is the journal sequence number to resume after. Zero sends only
+	// events from now on; JournalFromStart sends everything kept.
+	Since uint64
+	// Interval is the stats sampling period (zero = one second).
+	Interval time.Duration
+	// Backlog is how many recent log lines of each instance to send before
+	// following (zero = the default; negative = none).
+	Backlog int
+}
+
+// JournalFromStart, as Subscription.Since, asks for every journal event kept.
+const JournalFromStart = ^uint64(0)
+
+// Frame is one message from the daemon. ID ties it to the request it answers.
+// A unary request gets one frame with Response. A stream gets a Response as
+// its acknowledgement, then topic frames, then End.
+type Frame struct {
+	ID       uint64    `json:"id,omitempty"`
+	Hello    *Hello    `json:"hello,omitempty"`
+	Response *Response `json:"response,omitempty"`
+	// Error is set on the frame that refuses a connection (a protocol mismatch).
+	Error string `json:"error,omitempty"`
+
+	Topic string `json:"topic,omitempty"`
+	// Snapshot marks an instances frame that carries every instance: the first
+	// one, and any sent because a subscriber fell behind. Other instances
+	// frames carry only what changed.
+	Snapshot  bool           `json:"snapshot,omitempty"`
+	Instances []InstanceView `json:"instances,omitempty"`
+	// Removed names instances that are gone since the last instances frame.
+	Removed []string       `json:"removed,omitempty"`
+	Stats   []StatView     `json:"stats,omitempty"`
+	Event   *journal.Event `json:"event,omitempty"`
+	Log     *LogFrame      `json:"log,omitempty"`
+
+	// End closes a stream.
+	End bool `json:"end,omitempty"`
 }
