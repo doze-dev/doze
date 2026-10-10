@@ -119,7 +119,7 @@ module aws "cloud" {
 ## Shared canonical ports (optional)
 
 Want two Postgres instances both on `:5432`, addressed by name? Enable
-`defaults { domains = true }` and run `doze dns-setup` once (it needs `sudo` to
+`defaults { domains = true }` and run `doze doctor --fix` once (it needs `sudo` to
 add a loopback range + resolver rule). Then each instance gets a stable
 `<name>.<stack>.doze` hostname on its own loopback IP. This is optional — a
 single service on a unique port needs none of it.

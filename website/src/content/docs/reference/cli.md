@@ -165,16 +165,24 @@ config otherwise.
 Validate the config without touching the daemon or any data: schema, references,
 ports, engine-version gates. Exit 1 on problems (CI-friendly).
 
-### `doze doctor`
+### `doze doctor [--fix]`
 
-Diagnose the environment: config, daemon, DNS setup, loopback aliases, module
-signatures, toolchains. Says what's wrong and the command that fixes it.
+Diagnose the environment: config, daemon, module pins, and each part of the
+machine setup for `.doze` names — including which doze program is currently
+answering for the zone. Says what's wrong and the command that fixes it.
+
+`doze doctor --fix` runs the one-time setup that makes
+`<service>.<stack>.doze` names work: it routes the `.doze` zone to doze's
+resolver and, on macOS, gives services loopback addresses of their own so
+several can share a port (three Postgres instances, each at
+`<name>.<stack>.doze:5432`). It needs sudo once. `--print-fix` prints the
+script instead of running it. The setup is shared with doze-aws and
+doze-kafka: whichever of them you run first installs it for all three.
 
 ### `doze dns-setup`
 
-The one-time (sudo) setup that gives every service its own loopback IP so they
-all share canonical ports by DNS name — three Postgres instances, each at
-`<name>.<stack>.doze:5432`. `--check` verifies, `--uninstall` removes.
+Another name for `doze doctor --fix`. `--check` verifies without sudo,
+`--print` shows the script, `--uninstall` removes the setup.
 
 ## Lockfile maintenance
 
@@ -204,5 +212,6 @@ Print the doze version.
 | `DOZE_<ENGINE>_BINDIR` | Use an explicit engine bin dir instead of downloading (e.g. `DOZE_POSTGRES_BINDIR`). |
 | `DOZE_<ENGINE>_MIRROR` / `DOZE_MIRROR` | Override the engine-binaries mirror — see [BINARIES](/reference/binaries/). |
 | `DOZE_MODULES` | `off` disables module fetching entirely (offline / apps only). |
+| `DOZE_ZONE` | `off` switches `.doze` names off for every doze program, whatever a config asks for (CI, containers). |
 | `DOZE_<TYPE>_PLUGIN` | Run a local plugin binary for an engine type, skipping the registry (module development). |
 | `NO_COLOR` | Disable colored output. |

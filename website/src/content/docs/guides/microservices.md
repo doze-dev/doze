@@ -162,6 +162,9 @@ Each `app` block gives you the orchestration a Procfile doesn't:
 
 - **`run` + `dir`** — what to run and where (run via `sh -c`, so pipes and
   `&&` work).
+- **`port`** — where everyone finds the app. doze listens on it and starts the
+  app with `$PORT`, a private port to listen on, so a sleeping app wakes on its
+  first request and two stacks can share 8080 ([details](/reference/configuration/#ports-for-an-app)).
 - **`env` + `env_file`** — environment, with references to other blocks
   (`module.db.url`, `app.auth.url`) that double as dependency edges.
 - **`ready`** — a `tcp()`, `http("/path")`, `log("text")` or `exec("cmd")` readiness probe, so

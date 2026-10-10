@@ -77,6 +77,7 @@ Decided, by the project owner, during design:
 | D11 | No registry override of any kind. The mirror setting, `DOZE_MODULES_MIRROR` and the self-hosting docs are removed. `DOZE_<TYPE>_PLUGIN` (a locally built module, which the integration tests use) and `DOZE_MODULES=off` stay. The registry's signing key is compiled into doze instead of trusted on first use. Decided 2026-10-10. |
 | D12 | An app that declares a `port` goes behind the proxy, like a service. doze also listens on `localhost:<port>` when that port is free. `direct = true` opts an app out. Decided 2026-10-10. |
 | D13 | One loopback address per service. The pool grows from 55 to about 245 by using the rest of `127.0.0.x`. Decided 2026-10-10. |
+| D13a | **Open.** D13 is built for Linux only. On macOS the pool stays at 56 addresses, because of an earlier finding that hundreds of loopback aliases peg mDNSResponder. Widen macOS only after measuring that. Found 2026-10-10 during phase 3. |
 | D14 | Nothing is live: not doze, doze-aws, doze-kafka or doze-names. No change in this plan has to keep an older binary or an older file format working. Decided 2026-10-10. |
 | D15 | "N MB of ~M if nothing slept" stays, using each service's memory from the last time it ran. Services that have never run are left out. Tier: should. Decided 2026-10-10. |
 | D16 | Cold versus warm request timing is cut. The wake timeline stays. Decided 2026-10-10. |

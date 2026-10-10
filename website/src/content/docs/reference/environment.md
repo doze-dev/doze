@@ -10,6 +10,8 @@ description: Every variable doze reads, and the ones it writes for your processe
 | `DOZE_HOME` | The shared home (default `~/.doze`): engine cache, module cache, per-project state. |
 | `DOZE_VAR_<name>` | Sets config `variable "<name>"` (lower precedence than `--var`). |
 | `DOZE_MODULES` | `off` disables module fetching entirely (offline / apps only). |
+| `DOZE_ZONE` | `off` switches `.doze` names off for every doze program, whatever a config asks for (CI, containers). |
+| `DOZE_ZONE_RESOLVER` / `DOZE_ZONE_INGRESS` | Move the zone's DNS server and HTTP front door (`host:port`). With `DOZE_HOME` they make a private zone for testing; every program in it needs the same values. |
 | `DOZE_<TYPE>_PLUGIN` | Path to a local plugin binary for an engine type; skips registry fetch *and* its metadata gates (module development). |
 | `DOZE_<ENGINE>_BINDIR` | Explicit engine bin directory (e.g. `DOZE_POSTGRES_BINDIR`); bypasses mirror + lock. |
 | `DOZE_<ENGINE>_MIRROR` | Per-engine binaries-mirror base. |

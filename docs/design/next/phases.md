@@ -202,6 +202,51 @@ Exit measures:
 
 Contract: [networking.md](networking.md).
 
+Status, 2026-10-10: units 3.0 to 3.9 are done. **3.10 is not**, and two exit
+measures are not verified. In order:
+
+- *The resolver test passes on both runners, with the standalone tools running
+  beside doze in each start order.* **Not verified.** What exists and passes
+  here, on macOS: three processes with the three tools' identities sharing a
+  zone in all six start orders, with a crash of whichever is serving
+  (`doze-names`, `TestThreeToolsShareOneZoneInAnyOrder`); and a real doze
+  daemon beside a program using the standalone tools' library, in both orders
+  (`test/integration/names_test.go`). What does not: the real doze-aws and
+  doze-kafka binaries were not run, because this machine's live ones hold
+  their ports; nothing ran on Linux; and the test that goes through the
+  operating system's resolver is written and wired into a CI job but has
+  never run.
+- *Two postgres instances on 5432 in one stack.* Met with two on one port
+  (15432, to stay clear of this machine's live stacks) in a private zone: each
+  at its own address, each name resolving to it.
+- *An app started with `$PORT` is reachable at `api.shop.doze` with and
+  without setup.* Met in a private zone: by its own address with names on,
+  and on `127.0.0.1` with names off. Not checked through the operating
+  system's resolver.
+- *Proxy overhead on a dev server is measured.* 0.52 ms through doze against
+  0.32 ms straight to the app, per new connection, on the fixture.
+
+What changed from the plan:
+
+- **Decision D13 is half-built, on purpose, and needs a decision.** It widened
+  the address pool to about 245 on the reasoning that 56 is few. doze's own
+  allocator carried a note that the macOS range was kept small deliberately:
+  mDNSResponder registers every interface address, and a few hundred aliases
+  have been seen to peg it. So the pool is 245 on Linux, where it is free,
+  and stays at 56 on macOS. Widening macOS needs that measured first.
+- **Unit 3.10 is not done.** doze-aws and doze-kafka both build against the new
+  doze-names unchanged, but their `go.mod` pins are not moved: both repos had
+  work in progress, and a pin has to point at a pushed commit. doze's own pin
+  is a doze-names commit that is local until doze-names is pushed, so doze
+  does not build from a clean clone until then.
+- **N4 (`Lease.Listen`) was not needed.** A console listener binds the
+  service's own address, which the name already resolves to.
+- A zone can be made private (`DOZE_ZONE_RESOLVER`, `DOZE_ZONE_INGRESS`, with
+  `DOZE_HOME`). It was added to test beside a live zone and is how everything
+  above was checked.
+- The setup itself (`doze doctor --fix`) was not run: this machine is already
+  set up, and it was not touched.
+
 | Unit | Work | Files |
 |---|---|---|
 | 3.0 | Add a format version to `names.json`. | `doze-names/registry.go`, `doze-names/README.md` |

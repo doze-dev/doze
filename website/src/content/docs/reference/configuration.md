@@ -556,11 +556,10 @@ restarts per a policy when it exits.
 app "api" {
   dir  = "../approvals-engine"            # working dir, relative to this file
   run  = "go run main.go -program api"    # run via `sh -c` (pipes, &&, expansion OK)
-  port = 8080                             # the port the app listens on
+  port = 8080                             # doze listens here; the app listens on $PORT
 
   env = {
-    DATABASE_URL  = module.app.url        # reference → dependency edge + value
-    HTTP_API_PORT = "8080"
+    DATABASE_URL = module.app.url         # reference → dependency edge + value
   }
   env_file = ".env.local"                 # optional; lower precedence than env
 
@@ -570,7 +569,7 @@ app "api" {
   on_ready = "./scripts/notify-ready.sh"                     # once it is ready
   stop     = "./scripts/drain.sh"                            # before it is signalled
 
-  ready         = http("/health/ready")   # probed on the app's own port
+  ready         = http("/health/ready")   # probed on the port the app listens on
   ready_timeout = "90s"
 
   restart {
@@ -585,8 +584,10 @@ app "api" {
 |---|---|---|---|
 | `run` | string | — | Command line, run via `sh -c`. **Required.** |
 | `dir` | string | the file's dir | Working directory, resolved relative to the declaring file. |
-| `port` | number | none | The port the app listens on. Exposed as `app.<name>.{url,address,host,port}`. Omit for a worker with no endpoint. With `defaults { domains = true }` an app that declares a port is also served at `http://<name>.<stack>.doze`. |
-| `direct` | bool | `false` | Keep an app that declares a port off the shared `:80` route. |
+| `port` | number | none | The app's public port. **doze listens on it, not the app**: the app is started with `$PORT`, a private port doze picks at each start, and doze forwards between the two (see [Ports](#ports-for-an-app)). Exposed as `app.<name>.{url,address,host,port}`. Omit for a worker with no endpoint. |
+| `direct` | bool | `false` | The app binds `port` itself, and doze only starts it: no `$PORT`, no waking on a connection, no connection count. For anything a TCP proxy cannot carry, such as UDP. |
+| `sleep` | duration or `"never"` | `"never"` | Put the app to sleep after this long with nothing holding it; its next connection wakes it. Needs a `port` and not `direct`, since only a connection through doze can wake it. |
+| `console` | URL | none | A web console the app serves on a second port, such as `http://127.0.0.1:8025`. doze fronts that port too, on the app's own address, and opening it wakes the app. |
 | `env` | map | none | Environment for the app and its steps. Highest precedence; values may reference other blocks. |
 | `env_file` | string | none | Path to a `KEY=VALUE` file (lower precedence than `env`). |
 | `after` | list of references | none | Blocks to wait for, written as references to the whole block: `[task.migrate, module.db]`. |
@@ -598,7 +599,50 @@ app "api" {
 | `restart` | block | `policy = "on_failure"` | `policy` (`no` / `on_failure` / `always`), `backoff` (base, grown exponentially and capped), `max_retries` (default 5). |
 
 An app's environment is layered as: the daemon's own environment → `env_file`
-→ `env`. doze adds nothing of its own, so an app gets exactly what it declares.
+→ `env`, plus three variables doze sets for every command:
+
+| Variable | Value |
+|---|---|
+| `PORT` | The port to listen on. Set only when the app declares a `port` and is not `direct`. |
+| `HOST` | The address to listen on, `127.0.0.1`. Set with `PORT`. |
+| `DATA` | A folder of the app's own that survives restarts. |
+
+Nothing else is added: connection strings reach an app by reference
+(`DATABASE_URL = module.app.url`), not by injection. An `env` that sets `PORT`
+or `HOST` on an app with a `port` is a lint error, because the app would
+listen somewhere doze is not forwarding to.
+
+### Ports for an app
+
+```hcl
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+}
+```
+
+`port = 8080` is where everyone else finds the app: `localhost:8080`, or
+`api.<stack>.doze:8080` with names on. doze holds that port from the moment
+the stack is up, whether the app is awake or asleep. The app itself is started
+with `PORT` set to a private port and must listen there:
+
+```go
+addr := net.JoinHostPort(os.Getenv("HOST"), os.Getenv("PORT"))
+```
+
+What that buys:
+
+- **A sleeping app wakes on its first request**, the way a database does.
+- **`doze status` knows who is connected**: connections to an app are counted,
+  and `held by` works for apps as it does for modules.
+- **Two stacks can both use 8080.** With names on, each app has an address of
+  its own. doze also gives the app `127.0.0.1:8080` when nothing else has it,
+  because people type `localhost` from habit; when something does, status says
+  the app is reachable by name only.
+
+It costs one hop on the same machine: about 0.2 ms per new connection. An app
+that hard-codes its port, or sets `PORT` itself, will fail to start because
+doze already holds the port; either read `$PORT` or set `direct = true`.
 doze runs `go`/`bun`/`node` from `PATH`; a `.go-version`/`.prototools` in `dir`
 only triggers a warning on mismatch. The command and all its children are
 reaped as a process group on stop.
