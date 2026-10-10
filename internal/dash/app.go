@@ -28,6 +28,9 @@ type Options struct {
 	Dark bool
 	// Plain turns colour off.
 	Plain bool
+	// Home is the doze home, where the chosen theme is remembered. Empty
+	// remembers nothing, which is what tests want.
+	Home string
 	// Now is the clock; nil is time.Now.
 	Now func() time.Time
 	// Loc is the zone to show times in; nil is the local zone.
@@ -40,6 +43,8 @@ type Model struct {
 	page    core.Page
 	stack   []core.Page // the pages Navigate came from
 	send    func(tea.Msg)
+	choice  theme.Choice
+	home    string // where the theme is remembered; "" does not
 	follows map[string]context.CancelFunc
 	w, h    int
 	now     func() time.Time
@@ -49,9 +54,17 @@ type Model struct {
 
 // New builds the dash around a daemon. It does not start listening: Init does.
 func New(d control.Daemon, o Options) *Model {
-	th, ok := theme.ByName(o.Theme)
+	choice := theme.Choice{Name: o.Theme, Dark: o.Dark, Plain: o.Plain}
+	if o.Home != "" {
+		if saved, ok := theme.Load(o.Home); ok && o.Theme == "" {
+			choice = saved
+			choice.Plain = choice.Plain || o.Plain
+		}
+	}
+	th, ok := theme.ByName(choice.Name)
 	if !ok {
 		th = theme.Default()
+		choice.Name = th.Name
 	}
 	now := o.Now
 	if now == nil {
@@ -62,7 +75,9 @@ func New(d control.Daemon, o Options) *Model {
 	if loc == nil {
 		loc = time.Local
 	}
-	m.ctx = core.Context{Daemon: d, Now: now(), Styles: th.Styles(o.Dark, o.Plain), Loc: loc}
+	m.ctx = core.Context{Daemon: d, Now: now(), Styles: th.Styles(choice.Dark, choice.Plain), Loc: loc}
+	m.ctx.Dark = choice.Dark
+	m.choice, m.home = choice, o.Home
 	return m
 }
 
@@ -137,6 +152,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case core.Unfollow:
 		m.unfollow(msg.ID)
 		return m, nil
+	case core.SetTheme:
+		m.setTheme(theme.Choice{Name: msg.Name, Dark: msg.Dark, Plain: msg.Plain}, msg.Save)
+		return m, nil
 	case logMsg:
 		return m.toPage(core.LogLine(msg))
 	case eventMsg:
@@ -150,6 +168,20 @@ func (m *Model) toPage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	page, cmd := m.page.Update(msg, &m.ctx)
 	m.page = page
 	return m, cmd
+}
+
+// setTheme rebuilds the styles; the choice is kept when save is set.
+func (m *Model) setTheme(c theme.Choice, save bool) {
+	th, ok := theme.ByName(c.Name)
+	if !ok {
+		return
+	}
+	m.choice = c
+	m.ctx.Dark = c.Dark
+	m.ctx.Styles = th.Styles(c.Dark, c.Plain)
+	if save && m.home != "" {
+		theme.Save(m.home, c)
+	}
 }
 
 // apply folds an instances frame into the snapshot.

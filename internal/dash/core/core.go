@@ -31,6 +31,8 @@ type Context struct {
 	Styles theme.Styles
 	// Loc is the zone times are shown in; tests fix it.
 	Loc *time.Location
+	// Dark is which variant of the theme is in use.
+	Dark bool
 }
 
 // Key is one entry of the key bar: what to press and what it does.
@@ -197,4 +199,14 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// SetTheme changes the theme: the host rebuilds the styles, and remembers the
+// choice when Save is set. The picker sends it as the cursor moves, without
+// Save, which is what a live preview is.
+type SetTheme struct {
+	Name  string
+	Dark  bool
+	Plain bool
+	Save  bool
 }

@@ -68,6 +68,7 @@ func dashNextCmd() *cobra.Command {
 			return dashnext.Run(cmd.Context(), daemonFor(cfg), dashnext.Options{
 				Dark:  dashnext.Dark(),
 				Plain: os.Getenv("NO_COLOR") != "",
+				Home:  cfg.Home,
 			})
 		},
 	}

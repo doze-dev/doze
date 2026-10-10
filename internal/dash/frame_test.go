@@ -13,6 +13,7 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
+	"github.com/doze-dev/doze/internal/dash/theme"
 	"github.com/doze-dev/doze/internal/journal"
 )
 
@@ -401,5 +402,60 @@ func TestPaletteListsVerbsWithTheirCommandLines(t *testing.T) {
 	s.key("enter")
 	if got := d.Done(); len(got) != 1 || got[0] != (control.Verb{Name: "restart", Target: "db"}) {
 		t.Fatalf("verbs = %v", got)
+	}
+}
+
+func TestThemePickerPreviewsKeepsAndCancels(t *testing.T) {
+	home := t.TempDir()
+	d := shop()
+	m := New(d, Options{Dark: true, Now: func() time.Time { return epoch }, Loc: time.UTC, Home: home})
+	s := &session{t: t, m: m, w: 120, h: 36}
+	s.send(tea.WindowSizeMsg{Width: 120, Height: 36})
+	snap, _ := d.Snapshot(nil) //nolint:staticcheck
+	s.send(snapshotMsg{snap: snap})
+
+	if m.ctx.Styles.Name != "violet" {
+		t.Fatalf("the default theme is %s", m.ctx.Styles.Name)
+	}
+	s.key("T")
+	s.key("down") // emerald, previewed on the whole dash
+	if s.m.ctx.Styles.Name != "emerald" {
+		t.Fatalf("moving the cursor should preview: %s", s.m.ctx.Styles.Name)
+	}
+	if _, ok := theme.Load(home); ok {
+		t.Fatal("a preview was saved")
+	}
+	s.key("esc")
+	if s.m.ctx.Styles.Name != "violet" {
+		t.Fatalf("esc should put the old theme back: %s", s.m.ctx.Styles.Name)
+	}
+
+	s.key("T", "down", "down", "d", "enter") // amber, light variant
+	if got := s.m.ctx.Styles.Name; got != "amber" || s.m.ctx.Dark {
+		t.Fatalf("enter keeps the theme: %s dark=%v", got, s.m.ctx.Dark)
+	}
+	c, ok := theme.Load(home)
+	if !ok || c.Name != "amber" || c.Dark {
+		t.Fatalf("saved choice = %+v, %v", c, ok)
+	}
+
+	// A new dash starts on what was kept.
+	again := New(d, Options{Dark: true, Now: func() time.Time { return epoch }, Home: home})
+	if again.ctx.Styles.Name != "amber" || again.ctx.Dark {
+		t.Fatalf("a new dash should start on %+v, got %s dark=%v", c, again.ctx.Styles.Name, again.ctx.Dark)
+	}
+}
+
+func TestEveryThemeHasADarkAndALightVariant(t *testing.T) {
+	for _, th := range theme.All() {
+		for _, dark := range []bool{true, false} {
+			st := th.Styles(dark, false)
+			if st.Accent.Render("x") == st.Dim.Render("x") {
+				t.Errorf("%s dark=%v: accent and dim render alike", th.Name, dark)
+			}
+		}
+		if th.Light.Text == th.Dark.Text || th.Light.Accent == th.Dark.Accent {
+			t.Errorf("%s: the light variant is the dark one", th.Name)
+		}
 	}
 }

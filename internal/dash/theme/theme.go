@@ -10,6 +10,9 @@ package theme
 
 import (
 	"image/color"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 
@@ -151,4 +154,51 @@ func (s Styles) Pick(name string) lipgloss.Style {
 		h = -h
 	}
 	return s.sources[h%len(s.sources)]
+}
+
+// Choice is a remembered theme: which, in which variant, with or without colour.
+type Choice struct {
+	Name  string
+	Dark  bool
+	Plain bool
+}
+
+func choicePath(home string) string { return filepath.Join(home, "dash.theme") }
+
+// Load reads the remembered choice. ok is false when there is none.
+func Load(home string) (Choice, bool) {
+	raw, err := os.ReadFile(choicePath(home))
+	if err != nil {
+		return Choice{}, false
+	}
+	f := strings.Fields(string(raw))
+	if len(f) == 0 {
+		return Choice{}, false
+	}
+	c := Choice{Name: f[0], Dark: true}
+	for _, w := range f[1:] {
+		switch w {
+		case "light":
+			c.Dark = false
+		case "plain":
+			c.Plain = true
+		}
+	}
+	if _, ok := ByName(c.Name); !ok {
+		return Choice{}, false
+	}
+	return c, true
+}
+
+// Save remembers a choice, best effort: a theme is not worth an error.
+func Save(home string, c Choice) {
+	words := []string{c.Name, "dark"}
+	if !c.Dark {
+		words[1] = "light"
+	}
+	if c.Plain {
+		words = append(words, "plain")
+	}
+	_ = os.MkdirAll(home, 0o755)
+	_ = os.WriteFile(choicePath(home), []byte(strings.Join(words, " ")+"\n"), 0o644)
 }
