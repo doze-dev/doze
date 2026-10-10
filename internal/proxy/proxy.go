@@ -312,3 +312,47 @@ func (r *cancelRegistry) Lookup(key []byte) (engine.CancelTarget, bool) {
 	t, ok := r.m[string(key)]
 	return t, ok
 }
+
+// ServeForward accepts connections on ln and forwards each to a fixed TCP
+// address that belongs to the named instance — a second port of it, such as a
+// web console. A connection wakes the instance and holds it awake exactly as
+// one to its main port does, so opening the console of a sleeping service
+// starts the service.
+func (p *Proxy) ServeForward(ctx context.Context, ln net.Listener, name string, drv engine.Driver, target string) error {
+	go func() {
+		<-ctx.Done()
+		_ = ln.Close()
+	}()
+	var wg sync.WaitGroup
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			if ctx.Err() != nil {
+				wg.Wait()
+				return nil
+			}
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				continue
+			}
+			return err
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer conn.Close()
+			if _, err := p.bootBackend(ctx, name, drv); err != nil {
+				p.logf("wake %q for its second port failed: %v", name, err)
+				return
+			}
+			upstream, err := net.Dial("tcp", target)
+			if err != nil {
+				p.logf("dial %s (a second port of %q) failed: %v", target, name, err)
+				return
+			}
+			defer upstream.Close()
+			p.router.Acquire(name)
+			defer p.router.Release(name)
+			splice(conn, upstream, upstream)
+		}()
+	}
+}

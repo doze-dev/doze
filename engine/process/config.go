@@ -2,6 +2,8 @@ package process
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -369,6 +371,22 @@ func versionMatches(want, got string) bool {
 		}
 	}
 	return true
+}
+
+// ConsoleTarget is the address of the app's web console when `console` names
+// a second port on the app itself — a loopback URL such as
+// http://127.0.0.1:8025. doze then fronts that port too, on the app's own
+// address. A console hosted anywhere else is only a link, and ok is false.
+func (c *Config) ConsoleTarget() (hostport, path string, ok bool) {
+	u, err := url.Parse(c.Console)
+	if err != nil || c.Console == "" || u.Port() == "" {
+		return "", "", false
+	}
+	switch u.Hostname() {
+	case "127.0.0.1", "localhost":
+		return net.JoinHostPort("127.0.0.1", u.Port()), u.RequestURI(), true
+	}
+	return "", "", false
 }
 
 // IdleAfter is how long the app may sit with nothing holding it before doze

@@ -126,6 +126,7 @@ func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint
 	v.Domain = ep.Domain
 	v.NameOnly = h.d.nameOnly[v.Name]
 	v.NameHeld = h.d.heldNames[v.Name]
+	v.Console = h.d.consoles[v.Name]
 	v.URL = ep.URL
 	v.EnvVar = ep.EnvVar
 	// The aws engine is reached at the stack's AWS host; its backend port in

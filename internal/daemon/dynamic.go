@@ -74,6 +74,40 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 			}
 		}
 	}
+
+	// A console on a second port of the service is fronted too, on the service's
+	// own address at the console's port. That needs the service to have an
+	// address of its own: on 127.0.0.1 the port is the one the console itself is
+	// listening on, and there is nothing to add.
+	delete(d.consoles, name)
+	if decl := d.cfg.Lookup(name); decl != nil {
+		if c, ok := decl.Spec.(interface {
+			ConsoleTarget() (hostport, path string, ok bool)
+		}); ok {
+			if target, path, has := c.ConsoleTarget(); has {
+				host, _, _ := net.SplitHostPort(bindAddr)
+				_, port, _ := net.SplitHostPort(target)
+				shownHost := host
+				if domain != "" {
+					shownHost = domain
+				}
+				if host == "127.0.0.1" {
+					d.consoles[name] = "http://" + target + path
+				} else if l, err := proxy.Listen(net.JoinHostPort(host, port)); err != nil {
+					d.consoles[name] = "http://" + target + path
+					d.logf("%s/%s: cannot front its console on %s:%s (%v); it is at %s only while the service is awake", engineType, name, host, port, err, target)
+				} else {
+					d.consoles[name] = "http://" + net.JoinHostPort(shownHost, port) + path
+					d.instWG.Add(1)
+					go func() {
+						defer d.instWG.Done()
+						_ = d.px.ServeForward(instCtx, l, name, drv, target)
+					}()
+					d.logf("%s/%s console at %s", engineType, name, d.consoles[name])
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -203,6 +237,7 @@ func (d *Daemon) RemoveInstance(ctx context.Context, name string, wipe bool) err
 	}
 	delete(d.binds, name)
 	delete(d.nameOnly, name)
+	delete(d.consoles, name)
 	delete(d.resources, name)
 	d.cfg.Remove(name)
 	d.writeManifest()

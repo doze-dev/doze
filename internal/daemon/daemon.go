@@ -83,7 +83,10 @@ type Daemon struct {
 	nameOnly map[string]bool
 	// heldNames says, per instance, which of its names another program on the
 	// machine has: a standalone doze-aws holding aws.<stack>.doze, say.
-	heldNames  map[string]string
+	heldNames map[string]string
+	// consoles is the URL of each instance's web console, where it has one: by
+	// name when doze fronts the console's port, else the address it listens on.
+	consoles   map[string]string
 	rootCtx    context.Context
 	instWG     *sync.WaitGroup
 	running    map[string]*instHandle // proxied instances with a live listener
@@ -228,6 +231,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.instWG = &wg
 	d.running = map[string]*instHandle{}
 	d.nameOnly = map[string]bool{}
+	d.consoles = map[string]string{}
 	d.resolveMap = plan.resolve
 	for _, ep := range eps {
 		drv, ok := engine.Lookup(ep.Engine)
