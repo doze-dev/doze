@@ -67,9 +67,6 @@ func runDaemonForeground(cfg *config.Config) error {
 // spawn logic lives in internal/daemonctl (shared with the embeddable facade);
 // this wrapper supplies the CLI's executable + resolved config path.
 func startDaemon(cfg *config.Config) error {
-	if err := cfg.Unbuilt(); err != nil {
-		return err
-	}
 	self, err := os.Executable()
 	if err != nil {
 		return err

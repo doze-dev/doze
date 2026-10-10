@@ -48,3 +48,15 @@ type WatchSet struct {
 type Watcher interface {
 	Watches(engine.Instance) []WatchSet
 }
+
+// Downloader is implemented by an engine whose commands may be fetched from a
+// URL before they first run.
+type Downloader interface {
+	// Download returns the URL to fetch for this machine, if the instance has
+	// one. An error means it declares downloads but none for this platform.
+	Download(engine.Instance) (url string, ok bool, err error)
+
+	// SetDownloadRoot says where the fetched archive was unpacked: the
+	// directory the command runs in unless its block set `dir`.
+	SetDownloadRoot(engine.Instance, string)
+}

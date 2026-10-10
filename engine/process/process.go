@@ -114,12 +114,12 @@ func (Driver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) 
 	if !ok {
 		return engine.SpawnPlan{}, fmt.Errorf("app %q: missing config", inst.Name)
 	}
-	if fi, err := os.Stat(cfg.Dir); err != nil || !fi.IsDir() {
-		return engine.SpawnPlan{}, fmt.Errorf("app %q: dir %q does not exist", inst.Name, cfg.Dir)
+	if fi, err := os.Stat(cfg.workDir()); err != nil || !fi.IsDir() {
+		return engine.SpawnPlan{}, fmt.Errorf("app %q: dir %q does not exist", inst.Name, cfg.workDir())
 	}
 	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
 		Name:  inst.Name,
-		Dir:   cfg.Dir,
+		Dir:   cfg.workDir(),
 		Bin:   "sh",
 		Args:  []string{"-c", cfg.Run},
 		Env:   cfg.envFor(inst),

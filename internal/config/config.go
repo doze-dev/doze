@@ -38,10 +38,11 @@ type Config struct {
 	Defaults Defaults
 	// TLS configures client-facing TLS termination.
 	TLS TLSSettings
-	// Instances are the declared modules and apps, in declaration order.
+	// Instances are the declared modules, apps, services and tasks, in
+	// declaration order: everything the runtime boots, holds and sleeps.
 	Instances []*InstanceDecl
-	// Services and Tasks are the declared `service` and `task` blocks. They
-	// are checked but not yet runnable: see Unbuilt.
+	// Services and Tasks are the `service` and `task` blocks as written, for
+	// what an instance cannot say (a task's inputs, a service's downloads).
 	Services []*ServiceDecl
 	Tasks    []*TaskDecl
 	// Outputs are the declared output values, keyed by name (declaration order in

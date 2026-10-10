@@ -32,6 +32,7 @@ import (
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/netutil"
 	"github.com/doze-dev/doze/internal/registry"
+	"github.com/doze-dev/doze/internal/runspec"
 	"github.com/doze-dev/doze/internal/state"
 	"github.com/doze-dev/doze/internal/supervisor"
 )
@@ -332,6 +333,28 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	}
 	if err := drv.Provision(ctx, inst, tc); err != nil {
 		return fail(err)
+	}
+
+	// A command may be something fetched: unpacked once, pinned in doze.lock by
+	// the checksum of what the URL served, and checked against that pin at every
+	// wake. It runs from the archive's root, unless its block set `dir`.
+	if dl, ok := drv.(runspec.Downloader); ok {
+		url, has, err := dl.Download(inst)
+		if err != nil {
+			return fail(fmt.Errorf("%s: %w", name, err))
+		}
+		if has {
+			pinned, _ := r.lock.GetDownload(url)
+			root, digest, err := r.mgr.EnsureDownload(ctx, url, pinned)
+			if err != nil {
+				return fail(fmt.Errorf("%s: %w", name, err))
+			}
+			if pinned == "" {
+				r.lock.RecordDownload(url, digest)
+				_ = r.lock.Save()
+			}
+			dl.SetDownloadRoot(inst, root)
+		}
 	}
 
 	// A command has steps around its run (lifecycle.md): `setup` once per data

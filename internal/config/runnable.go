@@ -1,5 +1,5 @@
-// `service` and `task` blocks: declared, checked and published for references.
-// Nothing runs them yet — see Config.Unbuilt.
+// `service` and `task` blocks: declared, checked and published for references,
+// and added to Config.Instances as instances of the command engine.
 package config
 
 import (
@@ -35,6 +35,7 @@ type ServiceDecl struct {
 	Run     string
 	Dir     string // absolute
 	Port    int    // 0: the service has no port
+	DirSet  bool   // the block set `dir`; if not, a download is its directory
 	Env     map[string]string
 	EnvFile string // absolute, "" if none
 	// Download is what to fetch before the first run, keyed by platform (mac,
@@ -135,23 +136,6 @@ func (c *Config) Task(name string) *TaskDecl {
 		}
 	}
 	return nil
-}
-
-// Unbuilt reports the blocks this build of doze reads but cannot run. A
-// `service` or a `task` is checked by `doze lint`; running one arrives with the
-// lifecycle work (docs/design/next/phases.md, phase 4). nil means the stack is
-// runnable.
-func (c *Config) Unbuilt() error {
-	var names []string
-	for _, s := range c.Services {
-		if len(s.Download) > 0 {
-			names = append(names, title(KindService, "", s.Name)+" (download)")
-		}
-	}
-	if len(names) == 0 {
-		return nil
-	}
-	return fmt.Errorf("this build of doze cannot run a `service` with a `download` yet: %s", strings.Join(names, ", "))
 }
 
 // declareRunnable registers a service or task by name and, for a service,
@@ -273,6 +257,7 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 	}
 	baseDir := blockBaseDir(cfg, s.block)
 	s.Run, s.Env, s.Dir = raw.Run, raw.Env, resolveAgainst(baseDir, raw.Dir)
+	s.DirSet = raw.Dir != ""
 	s.After, s.Refs = after, refs
 	s.Front, s.Console = raw.Front, raw.Console
 	if raw.EnvFile != "" {
@@ -332,7 +317,8 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 		Ready: s.Ready, ReadyTimeout: s.ReadyTimeout,
 		RestartPolicy: s.Restart.Policy, RestartBackoff: s.Restart.Backoff, RestartMaxRetries: s.Restart.MaxRetries,
 		Sleep: s.Sleep, Front: s.Front, Console: s.Console, QuietLogs: s.QuietLogs,
-		Service: true,
+		Service:  true,
+		Download: s.Download, DirSet: s.DirSet,
 	})
 	if err != nil {
 		return fail(err)

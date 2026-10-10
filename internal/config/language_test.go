@@ -108,9 +108,6 @@ func TestTheWholeLanguage(t *testing.T) {
 		t.Fatalf("task migrate = %+v", migrate)
 	}
 
-	if err := cfg.Unbuilt(); err == nil || !strings.Contains(err.Error(), `service "mongo"`) {
-		t.Errorf("a service with a download is not runnable yet, got %v", err)
-	}
 }
 
 func TestServiceAttributesReachAnApp(t *testing.T) {

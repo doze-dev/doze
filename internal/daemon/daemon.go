@@ -103,9 +103,6 @@ type instHandle struct {
 // New builds a Daemon for cfg. hooks is the module integration passed to
 // config.Parse when a live-added instance block is decoded; nil means pure parse.
 func New(cfg *config.Config, logf func(string, ...any), hooks *config.Hooks) (*Daemon, error) {
-	if err := cfg.Unbuilt(); err != nil {
-		return nil, err
-	}
 	rt, err := runtime.New(cfg)
 	if err != nil {
 		return nil, err

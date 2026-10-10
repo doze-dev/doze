@@ -32,6 +32,13 @@ type Command struct {
 	Console   string
 	QuietLogs bool
 
+	// Download is the URL to fetch before the first run, by platform: the keys
+	// mac, mac_intel, linux, linux_arm, or the single key "" for all. DirSet is
+	// whether the block set `dir` itself; if not, the command runs in the
+	// archive.
+	Download map[string]string
+	DirSet   bool
+
 	// Service selects the service preset: woken by a connection or a
 	// dependant, and put to sleep when idle.
 	Service bool

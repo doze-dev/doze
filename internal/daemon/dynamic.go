@@ -139,9 +139,6 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 		}
 		return "", fmt.Errorf("decoding block: %w", err)
 	}
-	if err := mini.Unbuilt(); err != nil {
-		return "", err
-	}
 	if len(mini.Instances) != 1 {
 		return "", fmt.Errorf("expected exactly one module or app block, got %d", len(mini.Instances))
 	}

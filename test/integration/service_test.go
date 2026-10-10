@@ -3,10 +3,14 @@
 package integration
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -522,4 +526,84 @@ app "api" {
 	if !found {
 		t.Error("no journal event carries the watch cause")
 	}
+}
+
+// A service can be fetched: unpacked once, pinned in doze.lock, and refused
+// when what the URL serves changes. This is the lifecycle.md measure "a
+// changed download is refused", against a real daemon.
+func TestADownloadedServiceIsPinnedAndAChangeIsRefused(t *testing.T) {
+	var archive []byte
+	hits := 0
+	srv := newDownloadServer(t, &archive, &hits)
+	port := freeTCPPort(t)
+
+	archive = tarGz(t, map[string]string{
+		"tool-1.0/bin/serve": "#!/bin/sh\necho started >> \"$DATA/starts\"\nexec " + pyServeArgs() + "\n",
+	})
+	config := fmt.Sprintf(`
+stack = "dl"
+
+defaults {
+  domains = false
+}
+
+service "tool" {
+  download = "%s/tool.tgz"
+  run      = "bin/serve"
+  port     = %d
+}
+`, srv, port)
+	p := newProject(t, config)
+
+	p.must("up")
+	if code, err := get(fmt.Sprintf("http://127.0.0.1:%d/", port)); err != nil || code != 200 {
+		t.Fatalf("the downloaded service: %d, %v", code, err)
+	}
+	lock, err := os.ReadFile(filepath.Join(p.dir, "doze.lock"))
+	if err != nil || !strings.Contains(string(lock), "downloads:") || !strings.Contains(string(lock), "sha256:") {
+		t.Fatalf("doze.lock should pin the download:\n%s\n%v", lock, err)
+	}
+	p.must("down")
+
+	// A new machine: same lock, empty cache, and the archive replaced upstream.
+	archive = tarGz(t, map[string]string{"tool-1.0/bin/serve": "#!/bin/sh\necho tampered\n"})
+	other := newProject(t, config)
+	if err := os.WriteFile(filepath.Join(other.dir, "doze.lock"), lock, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := other.run("up")
+	if err == nil || !strings.Contains(out, "checksum mismatch") {
+		t.Fatalf("a changed download should be refused with a mismatch (err %v):\n%s", err, out)
+	}
+}
+
+func pyServeArgs() string {
+	return `python3 -c "import socketserver as s, http.server as h, os; s.TCPServer((os.environ['HOST'], int(os.environ['PORT'])), h.SimpleHTTPRequestHandler).serve_forever()"`
+}
+
+func tarGz(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for name, body := range files {
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = tw.Write([]byte(body))
+	}
+	_ = tw.Close()
+	_ = gz.Close()
+	return buf.Bytes()
+}
+
+// newDownloadServer serves *archive at /tool.tgz and returns its base URL.
+func newDownloadServer(t *testing.T, archive *[]byte, hits *int) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*hits++
+		_, _ = w.Write(*archive)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
 }

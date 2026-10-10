@@ -50,6 +50,12 @@ type Config struct {
 	Watch     []string
 	Direct    bool
 
+	// Download is by platform, as in runspec.Command; root is where the fetched
+	// archive was unpacked, and the command runs there unless dirSet.
+	Download map[string]string
+	dirSet   bool
+	root     string
+
 	// Service is the service preset: the command sleeps when idle without being
 	// asked to, and is woken by a connection or a dependant. An app stays up
 	// unless it sets `sleep`.
