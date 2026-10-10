@@ -49,10 +49,12 @@ type Runtime struct {
 	reg   *registry.Registry
 	group singleflight.Group
 
-	mu       sync.Mutex
-	procs    map[string]engine.Process
-	deps     map[string][]string      // instance -> dependency names it holds running
-	restarts map[string]*restartEntry // pending supervised restarts, cancellable by Stop/shutdown
+	mu           sync.Mutex
+	procs        map[string]engine.Process
+	deps         map[string][]string      // instance -> dependency names it holds running
+	runs         map[string]*logstore.Run // instance -> the log run of its running command
+	readyPending map[string]bool          // running, but left not ready by a failed on_ready
+	restarts     map[string]*restartEntry // pending supervised restarts, cancellable by Stop/shutdown
 
 	// shuttingDown gates boots and crash restarts once the daemon has begun its
 	// final reap (BeginShutdown). Without it, a restart-policy process that
@@ -89,15 +91,17 @@ func New(cfg *config.Config) (*Runtime, error) {
 		return nil, err
 	}
 	r := &Runtime{
-		cfg:       cfg,
-		mgr:       binaries.NewManager(cfg.Home),
-		lock:      lock,
-		plat:      plat,
-		reg:       registry.New(),
-		procs:     map[string]engine.Process{},
-		deps:      map[string][]string{},
-		restarts:  map[string]*restartEntry{},
-		statePath: state.Path(cfg.Path()),
+		cfg:          cfg,
+		mgr:          binaries.NewManager(cfg.Home),
+		lock:         lock,
+		plat:         plat,
+		reg:          registry.New(),
+		procs:        map[string]engine.Process{},
+		runs:         map[string]*logstore.Run{},
+		readyPending: map[string]bool{},
+		deps:         map[string][]string{},
+		restarts:     map[string]*restartEntry{},
+		statePath:    state.Path(cfg.Path()),
 		logs: logstore.Open(filepath.Join(cfg.ProjectDir(), "logs"), logstore.Options{
 			MaxRuns: cfg.Defaults.LogRuns, MaxBytes: cfg.Defaults.LogBytes,
 		}),
@@ -243,6 +247,14 @@ func (r *Runtime) endpointFor(name string) (engine.Endpoint, error) {
 }
 
 func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condition) (engine.Endpoint, error) {
+	// Running, but left not ready by a failed on_ready: run that step again and
+	// nothing else. The command is not started a second time.
+	r.mu.Lock()
+	pending, pp := r.readyPending[name], r.procs[name]
+	r.mu.Unlock()
+	if pending && pp != nil && pp.Alive() {
+		return r.rerunOnReady(ctx, name)
+	}
 	if inst, ok := r.reg.Get(name); ok && (inst.State == registry.Active || inst.State == registry.Idle) {
 		r.mu.Lock()
 		p := r.procs[name]
@@ -315,12 +327,25 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		return fail(err)
 	}
 
-	// Lifecycle hooks run around the start: `setup` (e.g. migrations) after deps
-	// are up but before the process spawns. A failure aborts and taints the boot.
-	if h, ok := drv.(engine.Hooked); ok {
-		if err := h.PreStart(ctx, inst); err != nil {
-			r.reg.SetTainted(name)
-			return fail(fmt.Errorf("setup for %q: %w", name, err))
+	// A command has steps around its run (lifecycle.md): `setup` once per data
+	// folder, after dependencies are up and before the command starts. A
+	// failure is a failed start, and the command does not run.
+	steps, stepper, stepped := stepsFor(drv, inst)
+	var run *logstore.Run
+	if stepped {
+		var err error
+		if run, err = r.logs.Begin(name); err != nil {
+			return fail(fmt.Errorf("opening the log for %q: %w", name, err))
+		}
+		if setupNeeded(inst.DataDir, steps.Setup) {
+			if err := r.runSteps(ctx, name, "setup", steps.Setup, steps, run); err != nil {
+				run.Close()
+				r.reg.SetTainted(name)
+				return fail(fmt.Errorf("setup for %q: %w", name, err))
+			}
+			if err := markSetupDone(inst.DataDir, steps.Setup); err != nil {
+				r.logf("could not record setup for %q: %v", name, err)
+			}
 		}
 	}
 
@@ -333,9 +358,12 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	case engine.Spawner:
 		var plan engine.SpawnPlan
 		if plan, err = s.Plan(ctx, inst, tc); err != nil {
+			if run != nil {
+				run.Close()
+			}
 			return fail(err)
 		}
-		if proc, err = r.executePlan(ctx, name, plan); err != nil {
+		if proc, err = r.executePlan(ctx, name, plan, run, stepped && stepper.TermFirst()); err != nil {
 			return fail(err)
 		}
 	case engine.LegacySpawner:
@@ -398,19 +426,22 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		}
 	}
 
-	// `on_ready` runs once the instance is up and (for Healthy) ready. A failure
-	// taints and tears it down so a half-started service never looks healthy.
-	if cond != engine.Started {
-		if h, ok := drv.(engine.Hooked); ok {
-			if err := h.PostStart(ctx, inst); err != nil {
-				r.reg.SetTainted(name)
+	// `on_ready` runs once the command is up and ready. When it fails the
+	// command is left running — it is the step that is broken, not the
+	// service — but it is not ready: this start fails, so what depends on it
+	// does not start, and the next wake runs on_ready again and only that.
+	if stepped {
+		r.mu.Lock()
+		r.runs[name] = run
+		r.mu.Unlock()
+		if cond != engine.Started && len(steps.OnReady) > 0 {
+			if err := r.runSteps(ctx, name, "on_ready", steps.OnReady, steps, run); err != nil {
 				r.mu.Lock()
-				delete(r.procs, name)
-				delete(r.deps, name)
+				r.readyPending[name] = true
 				r.mu.Unlock()
-				_ = proc.Stop(context.Background())
-				r.removePidfile(name)
-				return fail(fmt.Errorf("on_ready for %q: %w", name, err))
+				r.journal.Append(journal.Event{Kind: journal.Failed, Instance: name, Took: time.Since(started), Detail: err.Error()})
+				r.reg.MarkFailed(name, err.Error())
+				return engine.Endpoint{}, fmt.Errorf("on_ready for %q: %w", name, err)
 			}
 		}
 	}
@@ -530,6 +561,9 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 	delete(r.procs, name)
 	held := r.deps[name]
 	delete(r.deps, name)
+	run := r.runs[name]
+	delete(r.runs, name)
+	delete(r.readyPending, name)
 	if e := r.restarts[name]; e != nil { // cancel any pending restart
 		e.cancel()
 		delete(r.restarts, name)
@@ -545,17 +579,7 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 	var err error
 	if p != nil {
 		r.logf("reaping %q…", name)
-		// pre_stop hooks (e.g. drain) run before the process is signalled.
-		if decl := r.cfg.Lookup(name); decl != nil {
-			if drv, ok := engine.Lookup(decl.Type); ok {
-				if h, ok := drv.(engine.Hooked); ok {
-					inst := r.instanceFor(decl, drv)
-					if e := h.PreStop(ctx, inst); e != nil {
-						r.logf("pre_stop for %q failed: %v", name, e)
-					}
-				}
-			}
-		}
+		r.runStopSteps(ctx, name, p, run)
 		err = p.Stop(ctx)
 	}
 	for _, dn := range held {
@@ -588,6 +612,8 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 		return
 	}
 	delete(r.procs, name)
+	delete(r.runs, name)
+	delete(r.readyPending, name)
 	held := r.deps[name]
 	delete(r.deps, name)
 	r.mu.Unlock()

@@ -37,3 +37,21 @@ func (Driver) CommandConfig(c runspec.Command) (engine.EngineConfig, error) {
 	}
 	return cfg, nil
 }
+
+var _ runspec.Stepper = Driver{}
+
+// Steps implements runspec.Stepper.
+func (Driver) Steps(inst engine.Instance) (runspec.StepSet, bool) {
+	cfg, ok := inst.Spec.(*Config)
+	if !ok {
+		return runspec.StepSet{}, false
+	}
+	return runspec.StepSet{
+		Setup: cfg.Setup, OnReady: cfg.OnReady, Stop: cfg.Stop,
+		Dir: cfg.Dir, Env: cfg.envFor(inst),
+	}, true
+}
+
+// TermFirst implements runspec.Stepper: a command is asked to stop with
+// SIGTERM, not the SIGINT a database engine is written against.
+func (Driver) TermFirst() bool { return true }

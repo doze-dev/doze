@@ -29,6 +29,7 @@ type Process struct {
 	done      chan struct{}
 	exit      error
 	groupKill bool // signal the whole process group on Stop (see StartTree)
+	term      bool // stop with SIGTERM first, not SIGINT (see Sink.Term)
 }
 
 // Sink is where a process's output goes. The supervisor keeps none of it: the
@@ -40,6 +41,10 @@ type Sink struct {
 	// Tail returns the most recent lines, for a readiness probe that watches
 	// the log and for the message when a start fails.
 	Tail func() []string
+	// Term makes Stop ask with SIGTERM, then SIGKILL, which is what most
+	// software expects. Without it Stop sends SIGINT, SIGQUIT, SIGKILL, which
+	// is what the database engines were written against.
+	Term bool
 }
 
 // Start spawns cmd in its own process group with stdout/stderr connected to
@@ -47,7 +52,7 @@ type Sink struct {
 // probe that themselves via WaitReady. cmd must not have been started yet; its
 // Stdout/Stderr/SysProcAttr are set here.
 func Start(cmd *exec.Cmd, sink Sink) (*Process, error) {
-	p := &Process{tail: sink.Tail}
+	p := &Process{tail: sink.Tail, term: sink.Term}
 	cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
 	if sink.Stdout != nil {
 		cmd.Stdout = sink.Stdout
@@ -163,13 +168,20 @@ func (p *Process) Stop(ctx context.Context) error {
 		}
 		_ = cmd.Process.Signal(sig)
 	}
-	signals := []struct {
+	type stage struct {
 		sig   syscall.Signal
 		grace time.Duration
-	}{
+	}
+	signals := []stage{
 		{syscall.SIGINT, 5 * time.Second},
 		{syscall.SIGQUIT, 3 * time.Second},
 		{syscall.SIGKILL, 2 * time.Second},
+	}
+	if p.term {
+		signals = []stage{
+			{syscall.SIGTERM, 8 * time.Second},
+			{syscall.SIGKILL, 2 * time.Second},
+		}
 	}
 	for _, step := range signals {
 		signal(step.sig)

@@ -19,16 +19,21 @@ import (
 // owned and supervised by the caller exactly like a legacy Spawn result, so the
 // hardened restart/reap path is unchanged.
 //
-// Everything the plan's processes print goes to a new run of name's log, which
+// Everything the plan's processes print goes to a run of name's log — run,
+// or a new one when run is nil — which
 // is closed when the unit exits.
-func (r *Runtime) executePlan(ctx context.Context, name string, plan engine.SpawnPlan) (engine.Process, error) {
+func (r *Runtime) executePlan(ctx context.Context, name string, plan engine.SpawnPlan, run *logstore.Run, term bool) (engine.Process, error) {
 	order, err := orderSpecs(plan.Specs)
 	if err != nil {
+		if run != nil {
+			run.Close()
+		}
 		return nil, err
 	}
-	run, err := r.logs.Begin(name)
-	if err != nil {
-		return nil, fmt.Errorf("opening the log for %q: %w", name, err)
+	if run == nil {
+		if run, err = r.logs.Begin(name); err != nil {
+			return nil, fmt.Errorf("opening the log for %q: %w", name, err)
+		}
 	}
 	tail := func() []string { return r.recentLogs(name) }
 	started := make([]*supervisor.Process, 0, len(order))
@@ -56,6 +61,7 @@ func (r *Runtime) executePlan(ctx context.Context, name string, plan engine.Spaw
 			Stdout: run.Writer(logstore.Stdout + part),
 			Stderr: run.Writer(logstore.Stderr + part),
 			Tail:   tail,
+			Term:   term,
 		})
 		if err != nil {
 			stopAll()

@@ -32,7 +32,6 @@ var (
 	_ engine.Lifecycle     = Driver{}
 	_ engine.PortBinder    = Driver{}
 	_ engine.Restartable   = Driver{}
-	_ engine.Hooked        = Driver{}
 	_ engine.HealthChecker = Driver{}
 	_ engine.Attributer    = Driver{}
 	_ engine.ConfigDecoder = Driver{}

@@ -79,15 +79,14 @@ Not done here, and needed before this reaches anyone:
 
 Behaviour that is deliberately interim until a later phase replaces it:
 
-- `setup` runs on every start of an app and `stop` runs ahead of the
-  signals, as `hooks.pre_start` and `hooks.pre_stop` did. Once-per-data-folder
-  and stop-instead-of-signals arrive in phase 4.
 - An app with a `port` gets the `:80` route `forward = 80` used to ask for
   (`direct = true` opts out). Phase 3 replaces the route with the front door.
 - `sleep`, `front`, `console`, `logs`, `watch` and `direct` are parsed and
   checked on an app, and otherwise ignored.
-- `service` and `task` blocks are parsed, checked and visible to references.
-  `doze up` refuses a stack that declares one.
+- `task` blocks, and a `service` with a `download`, are parsed, checked and
+  visible to references. `doze up` refuses a stack that declares one (phase 4:
+  units 4.3 and 4.4).
+- `watch` is parsed and ignored (unit 4.6).
 - `$PORT`, `$DATA` and `$HOST` are not set yet (unit 3.5).
 
 | Unit | Work | Files |

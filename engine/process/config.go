@@ -29,10 +29,9 @@ type Config struct {
 	Env     map[string]string // explicit env, highest precedence (may hold typed refs)
 	EnvFile string            // absolute path to an env file, "" if none
 
-	// Setup runs before the app starts, OnReady once it is ready, Stop before it
-	// is signalled. Until the lifecycle work lands (docs/design/next/lifecycle.md)
-	// Setup runs on every start, not once per data folder, and Stop runs ahead
-	// of the signals instead of replacing them.
+	// Setup runs once per data folder, before the command starts; OnReady every
+	// wake, once it is ready; Stop every sleep, instead of the signals. The core
+	// runs them (internal/runtime/steps.go), through runspec.Stepper.
 	Setup   []string
 	OnReady []string
 	Stop    []string
