@@ -77,6 +77,14 @@ func Start(cmd *exec.Cmd, sink Sink) (*Process, error) {
 	go func() {
 		err := cmd.Wait()
 		p.mu.Lock()
+		if p.groupKill {
+			// The command is over, however it ended. Anything it left behind in
+			// its process group is an orphan — and one that is easy to make: a
+			// child started with `&` in a shell ignores SIGINT and SIGQUIT, so it
+			// survives a stop that its parent obeyed. It has had until now (the
+			// parent's exit, plus the wait for its output) to finish by itself.
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
 		p.exit = err
 		close(p.done)
 		p.mu.Unlock()
