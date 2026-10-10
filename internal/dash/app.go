@@ -30,16 +30,21 @@ type Options struct {
 	Plain bool
 	// Now is the clock; nil is time.Now.
 	Now func() time.Time
+	// Loc is the zone to show times in; nil is the local zone.
+	Loc *time.Location
 }
 
 // Model is the root model.
 type Model struct {
-	ctx  core.Context
-	page core.Page
-	w, h int
-	now  func() time.Time
-	src  *source
-	quit bool
+	ctx     core.Context
+	page    core.Page
+	stack   []core.Page // the pages Navigate came from
+	send    func(tea.Msg)
+	follows map[string]context.CancelFunc
+	w, h    int
+	now     func() time.Time
+	src     *source
+	quit    bool
 }
 
 // New builds the dash around a daemon. It does not start listening: Init does.
@@ -53,7 +58,11 @@ func New(d control.Daemon, o Options) *Model {
 		now = time.Now
 	}
 	m := &Model{now: now, page: home.New()}
-	m.ctx = core.Context{Daemon: d, Now: now(), Styles: th.Styles(o.Dark, o.Plain)}
+	loc := o.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	m.ctx = core.Context{Daemon: d, Now: now(), Styles: th.Styles(o.Dark, o.Plain), Loc: loc}
 	return m
 }
 
@@ -113,6 +122,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case core.Done:
 		cmds = append(cmds, m.snapshot())
+	case core.Navigate:
+		m.stack = append(m.stack, m.page)
+		m.page = msg.To
+		return m.toPage(core.Resized{W: m.w, H: m.h})
+	case core.Back:
+		if n := len(m.stack); n > 0 {
+			m.page, m.stack = m.stack[n-1], m.stack[:n-1]
+		}
+		return m.toPage(core.Resized{W: m.w, H: m.h})
+	case core.Follow:
+		m.startFollow(msg)
+		return m, nil
+	case core.Unfollow:
+		m.unfollow(msg.ID)
+		return m, nil
+	case logMsg:
+		return m.toPage(core.LogLine(msg))
 	}
 	next, cmd := m.toPage(msg)
 	return next, tea.Batch(append(cmds, cmd)...)
@@ -189,6 +215,7 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 	m := New(d, o)
 	p := tea.NewProgram(m, tea.WithContext(ctx))
 	m.src = newSource(ctx, d, p)
+	m.send = p.Send
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("the dash: %w", err)
 	}

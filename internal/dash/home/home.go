@@ -10,13 +10,12 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/dash/core"
+	"github.com/doze-dev/doze/internal/dash/frame"
 	"github.com/doze-dev/doze/internal/dash/layout"
-	"github.com/doze-dev/doze/internal/dash/theme"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -92,7 +91,7 @@ func (m *Model) selected(c *core.Context) (control.InstanceView, bool) {
 // Keys implements core.Page.
 func (m *Model) Keys() []core.Key {
 	return []core.Key{
-		{Keys: "↑↓", Label: "select"}, {Keys: "w", Label: "wake"}, {Keys: "s", Label: "sleep"},
+		{Keys: "↑↓", Label: "select"}, {Keys: "enter", Label: "open"}, {Keys: "w", Label: "wake"}, {Keys: "s", Label: "sleep"},
 		{Keys: "r", Label: "restart"}, {Keys: "p", Label: "pin"}, {Keys: "q", Label: "quit"},
 	}
 }
@@ -130,6 +129,10 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 		case "end", "G":
 			if len(rs) > 0 {
 				m.sel = rs[len(rs)-1].v.Name
+			}
+		case "enter", "l", "right":
+			if v, ok := m.selected(c); ok {
+				return m, func() tea.Msg { return core.Navigate{To: frame.New(v.Name, v)} }
 			}
 		case "w":
 			return m, m.verb(c, control.VerbWake)
@@ -291,7 +294,7 @@ func (m *Model) list(c *core.Context, rs []row, r layout.Rect) []string {
 // row draws one instance: glyph, name, what it is, its state, memory, a note.
 func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
 	st := c.Styles
-	word, style := stateOf(v, st)
+	word, gl, style := core.State(v, st)
 	kind := v.Engine
 	switch v.Kind {
 	case "app", "service", "task":
@@ -318,7 +321,7 @@ func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
 	if bad {
 		noteStyle = st.Bad
 	}
-	line := "  " + style.Render(glyph(word)) + " " +
+	line := "  " + style.Render(gl) + " " +
 		st.Text.Render(padR(v.Name, 14)) + " " +
 		st.Dim.Render(padR(kind, 10)) + " " +
 		style.Render(padR(word, 9)) + " " +
@@ -327,68 +330,20 @@ func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
 	return ansi.Truncate(line, w, "…")
 }
 
-// stateOf is the word and colour for an instance's state.
-func stateOf(v control.InstanceView, st theme.Styles) (string, lipgloss.Style) {
-	switch {
-	case v.Disabled:
-		return "disabled", st.Dim
-	case v.Task != nil && v.State != "booting":
-		if v.Task.Result == "failed" {
-			return "failed", st.Bad
-		}
-		return "done", st.Good
-	}
-	switch v.State {
-	case "active":
-		return "awake", st.Good
-	case "idle":
-		return "dozing", st.Warn
-	case "booting":
-		return "waking", st.Cool
-	case "crashing":
-		return "crashing", st.Bad
-	case "failed", "error":
-		return "failed", st.Bad
-	case "done":
-		return "done", st.Good
-	}
-	return "asleep", st.Dim
-}
-
-func glyph(word string) string {
-	switch word {
-	case "awake":
-		return "●"
-	case "dozing":
-		return "○"
-	case "waking":
-		return "◌"
-	case "crashing":
-		return "↻"
-	case "failed":
-		return "✕"
-	case "done":
-		return "✓"
-	case "disabled":
-		return "⊘"
-	}
-	return "·"
-}
-
 func (m *Model) preview(c *core.Context, r layout.Rect) []string {
 	st := c.Styles
 	v, ok := m.selected(c)
 	if !ok {
 		return []string{" " + st.Dim.Render("nothing selected")}
 	}
-	word, style := stateOf(v, st)
+	word, gl, style := core.State(v, st)
 	var out []string
 	add := func(s string) { out = append(out, " "+s) }
 	kind := v.Engine
 	if v.Kind != "" && v.Kind != "module" {
 		kind = v.Kind
 	}
-	add(st.Title.Render(v.Name) + st.Dim.Render("  "+kind) + "  " + style.Render(glyph(word)+" "+word))
+	add(st.Title.Render(v.Name) + st.Dim.Render("  "+kind) + "  " + style.Render(gl+" "+word))
 	add("")
 	if v.Domain != "" {
 		add(st.Dim.Render("name     ") + st.Text.Render(v.Domain))

@@ -61,7 +61,7 @@ func shop() *fakedaemon.Fake {
 // the colour stripped, one trailing space trimmed per line.
 func screen(t *testing.T, d control.Daemon, w, h int, keys ...string) string {
 	t.Helper()
-	m := New(d, Options{Dark: true, Plain: true, Now: func() time.Time { return epoch }})
+	m := New(d, Options{Dark: true, Plain: true, Now: func() time.Time { return epoch }, Loc: time.UTC})
 	step := func(msg tea.Msg) {
 		next, cmd := m.Update(msg)
 		m = next.(*Model)
@@ -140,7 +140,7 @@ func TestKeysRunVerbsOnTheSelectedInstance(t *testing.T) {
 
 func TestAClickSelectsARow(t *testing.T) {
 	d := shop()
-	m := New(d, Options{Dark: true, Plain: true, Now: func() time.Time { return epoch }})
+	m := New(d, Options{Dark: true, Plain: true, Now: func() time.Time { return epoch }, Loc: time.UTC})
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 36})
 	snap, _ := d.Snapshot(nil) //nolint:staticcheck
 	m.Update(snapshotMsg{snap: snap})

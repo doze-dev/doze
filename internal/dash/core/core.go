@@ -26,6 +26,8 @@ type Context struct {
 	Now time.Time
 	// Styles is the active theme in the active variant.
 	Styles theme.Styles
+	// Loc is the zone times are shown in; tests fix it.
+	Loc *time.Location
 }
 
 // Key is one entry of the key bar: what to press and what it does.
@@ -59,3 +61,43 @@ type (
 		Err          error
 	}
 )
+
+// Messages a page returns, as the message of a command, to ask the host for
+// something. The host handles them and does not pass them on.
+type (
+	// Navigate shows another page, keeping this one to come back to.
+	Navigate struct{ To Page }
+	// Back returns to the page before.
+	Back struct{}
+	// Follow starts streaming the log lines of Names, tagged with ID, after a
+	// backlog of recent lines. A second Follow with the same ID replaces the
+	// first.
+	Follow struct {
+		ID      string
+		Names   []string
+		Backlog int
+	}
+	// Unfollow stops a Follow.
+	Unfollow struct{ ID string }
+)
+
+// LogLine is one followed line, sent to the page on top.
+type LogLine struct {
+	ID    string
+	Frame control.LogFrame
+}
+
+// Tab is one view inside a frame: the logs of an instance, its overview, its
+// last run. A frame shows one tab at a time and routes the keys.
+type Tab interface {
+	// Title is the name on the tab bar.
+	Title() string
+	// Show is called when the tab becomes the visible one, and Hide when it
+	// stops being. They return the commands that start and stop what the tab
+	// follows.
+	Show(c *Context, inst control.InstanceView) tea.Cmd
+	Hide() tea.Cmd
+	Update(msg tea.Msg, c *Context, inst control.InstanceView) (Tab, tea.Cmd)
+	View(c *Context, inst control.InstanceView, w, h int) string
+	Keys() []Key
+}

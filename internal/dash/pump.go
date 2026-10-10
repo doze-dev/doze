@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/dash/core"
 )
 
 // source follows the daemon's frames and hands them to the program one at a
@@ -48,3 +49,37 @@ func (s *source) wait() tea.Cmd {
 
 // follow starts the loop: the first wait.
 func (m *Model) follow() tea.Cmd { return m.src.wait() }
+
+// logMsg is a followed log line on its way to the page.
+type logMsg core.LogLine
+
+// follow starts (or restarts) one log stream for a page. The lines arrive as
+// messages, so the page that asked sees them on its own goroutine's terms.
+func (m *Model) startFollow(f core.Follow) {
+	m.unfollow(f.ID)
+	if m.send == nil {
+		return // no program to deliver to: a test feeds lines itself
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if m.follows == nil {
+		m.follows = map[string]context.CancelFunc{}
+	}
+	m.follows[f.ID] = cancel
+	d, send := m.ctx.Daemon, m.send
+	go func() {
+		_ = d.Subscribe(ctx, control.Subscription{Topics: []string{"logs"}, Names: f.Names, Backlog: f.Backlog},
+			func(fr control.Frame) error {
+				if fr.Log != nil {
+					send(logMsg{ID: f.ID, Frame: *fr.Log})
+				}
+				return nil
+			})
+	}()
+}
+
+func (m *Model) unfollow(id string) {
+	if cancel := m.follows[id]; cancel != nil {
+		cancel()
+		delete(m.follows, id)
+	}
+}
