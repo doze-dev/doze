@@ -14,6 +14,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/dash/core"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // keep is how many lines the tab holds. A chatty service would otherwise grow
@@ -122,33 +123,10 @@ func (t *Tab) fetch(c *core.Context) tea.Cmd {
 	}
 }
 
-// level reads a line's severity from what the program wrote: a level word near
-// the front, or level=… as logfmt has it.
-func level(line string) string {
-	head := strings.ToLower(line)
-	if len(head) > 60 {
-		head = head[:60]
-	}
-	for _, w := range []struct{ word, level string }{
-		{"fatal", "error"}, {"panic", "error"}, {"error", "error"}, {"err", "error"},
-		{"warning", "warn"}, {"warn", "warn"}, {"info", "info"}, {"debug", "debug"}, {"trace", "debug"},
-	} {
-		for _, pat := range []string{"[" + w.word + "]", "level=" + w.word, " " + w.word + " ", "|" + w.word + "|"} {
-			if strings.Contains(head, pat) {
-				return w.level
-			}
-		}
-		if strings.HasPrefix(head, w.word+" ") || strings.HasPrefix(head, w.word+":") {
-			return w.level
-		}
-	}
-	return ""
-}
-
 // Counts returns how many lines are errors and warnings.
 func (t *Tab) Counts() (errors, warnings int) {
 	for _, l := range t.lines {
-		switch level(l.Line) {
+		switch display.Level(l.Line) {
 		case "error":
 			errors++
 		case "warn":
@@ -233,7 +211,7 @@ func (t *Tab) line(c *core.Context, l control.LogFrame, w int) string {
 		mark = "!"
 	}
 	var style lipgloss.Style = st.Text
-	switch level(l.Line) {
+	switch display.Level(l.Line) {
 	case "error":
 		style = st.Bad
 	case "warn":

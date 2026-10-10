@@ -14,6 +14,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/dash/theme"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // Context is what every page shares and none owns.
@@ -73,7 +74,9 @@ type (
 	// backlog of recent lines. A second Follow with the same ID replaces the
 	// first.
 	Follow struct {
-		ID      string
+		ID string
+		// Topic is "logs" (the default) or "journal".
+		Topic   string
 		Names   []string
 		Backlog int
 	}
@@ -85,6 +88,12 @@ type (
 type LogLine struct {
 	ID    string
 	Frame control.LogFrame
+}
+
+// EventLine is one followed journal event, sent to the page on top.
+type EventLine struct {
+	ID    string
+	Event journal.Event
 }
 
 // Tab is one view inside a frame: the logs of an instance, its overview, its

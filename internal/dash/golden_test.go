@@ -34,7 +34,7 @@ func shop() *fakedaemon.Fake {
 				{Name: "web", Kind: "app", Engine: "process", State: "idle", RAM: 18 * mb,
 					Endpoint: "127.0.0.12:8090", Domain: "web.shop.doze",
 					IdleSince: epoch.Add(-1*time.Minute - 48*time.Second)},
-				{Name: "db", Kind: "module", Engine: "postgres", Version: "16.4", State: "active", RAM: 96 * mb, CPU: 2,
+				{Name: "db", Kind: "module", Engine: "postgres", Version: "16.4", State: "active", RAM: 96 * mb, CPU: 2, Conns: 5,
 					Endpoint: "127.0.0.13:5432", Domain: "db.shop.doze",
 					Holders: []control.HolderView{{Kind: "dependant", Name: "api"}, {Kind: "dependant", Name: "worker"}, {Kind: "connection", Count: 3}}},
 				{Name: "cache", Kind: "module", Engine: "valkey", Version: "9.0", State: "reaped", Endpoint: "127.0.0.14:6379", Domain: "cache.shop.doze"},

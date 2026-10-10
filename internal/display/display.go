@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // Awake reports whether a daemon state word means the process is up.
@@ -87,4 +88,82 @@ func Note(v control.InstanceView, idle time.Duration, now time.Time) (text strin
 func FirstLine(s string) string {
 	line, _, _ := strings.Cut(s, "\n")
 	return line
+}
+
+// Event is one journal event as a sentence: what happened to an instance,
+// and why.
+func Event(e journal.Event) string {
+	because := ""
+	switch e.Cause.Kind {
+	case journal.ByConnection:
+		because = " (a connection)"
+	case journal.ByDependency:
+		because = " (" + e.Cause.By + " needed it)"
+	case journal.ByCommand:
+		because = " (asked for)"
+	case journal.ByRestart:
+		because = " (restart policy)"
+	case journal.ByIdle:
+		because = " (idle)"
+	case journal.ByShutdown:
+		because = " (shutting down)"
+	case journal.ByWatch:
+		because = " (" + e.Cause.By + " changed)"
+	}
+	took := ""
+	if e.Took > 0 {
+		took = " in " + e.Took.Round(time.Millisecond).String()
+	}
+	switch e.Kind {
+	case journal.Wake:
+		s := "woke" + because
+		if e.Detail != "" {
+			s += " — " + e.Detail
+		}
+		return s
+	case journal.Ready:
+		return "ready" + took
+	case journal.Sleep:
+		return "went to sleep" + because
+	case journal.Crash:
+		return "crashed: " + e.Detail
+	case journal.Restart:
+		return "restarting" + because
+	case journal.GiveUp:
+		return "gave up restarting: " + e.Detail
+	case journal.Failed:
+		return "failed" + took + ": " + FirstLine(e.Detail)
+	case journal.Step:
+		return "step " + e.Detail + took
+	case journal.Pin:
+		if e.Detail == "on" {
+			return "pinned awake"
+		}
+		return "unpinned"
+	}
+	return e.Kind
+}
+
+// Level reads a log line's severity from what the program wrote: a level word
+// near the front, or level=… as logfmt has it. It returns "error", "warn",
+// "info", "debug", or "" when the line says nothing.
+func Level(line string) string {
+	head := strings.ToLower(line)
+	if len(head) > 60 {
+		head = head[:60]
+	}
+	for _, w := range []struct{ word, level string }{
+		{"fatal", "error"}, {"panic", "error"}, {"error", "error"}, {"err", "error"},
+		{"warning", "warn"}, {"warn", "warn"}, {"info", "info"}, {"debug", "debug"}, {"trace", "debug"},
+	} {
+		for _, pat := range []string{"[" + w.word + "]", "level=" + w.word, " " + w.word + " ", "|" + w.word + "|"} {
+			if strings.Contains(head, pat) {
+				return w.level
+			}
+		}
+		if strings.HasPrefix(head, w.word+" ") || strings.HasPrefix(head, w.word+":") {
+			return w.level
+		}
+	}
+	return ""
 }

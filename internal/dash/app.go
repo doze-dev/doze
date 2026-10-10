@@ -139,6 +139,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case logMsg:
 		return m.toPage(core.LogLine(msg))
+	case eventMsg:
+		return m.toPage(core.EventLine(msg))
 	}
 	next, cmd := m.toPage(msg)
 	return next, tea.Batch(append(cmds, cmd)...)

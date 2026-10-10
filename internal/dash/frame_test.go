@@ -10,6 +10,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/dash/core"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // session drives a dash the way the terminal would: keys in, commands
@@ -150,3 +151,56 @@ func TestLogLevelsAreCounted(t *testing.T) {
 }
 
 var _ = core.Resized{}
+
+func (s *session) events(id string, es ...journal.Event) {
+	for _, e := range es {
+		s.send(eventMsg{ID: id, Event: e})
+	}
+}
+
+func TestOverviewOfAModule(t *testing.T) {
+	d := shop()
+	s := newSession(t, d, 120, 36)
+	// Home orders apps, then modules: cache, cloud, db, events.
+	s.key("j", "j", "j", "j", "j", "enter")
+	s.events("overview:db",
+		journal.Event{Kind: journal.Wake, Instance: "db", Time: epoch.Add(-20 * time.Minute), Cause: journal.Cause{Kind: journal.ByDependency, By: "api"}},
+		journal.Event{Kind: journal.Ready, Instance: "db", Time: epoch.Add(-20*time.Minute + 66*time.Millisecond), Took: 66 * time.Millisecond},
+		journal.Event{Kind: journal.Sleep, Instance: "db", Time: epoch.Add(-9 * time.Minute), Cause: journal.Cause{Kind: journal.ByIdle}},
+		journal.Event{Kind: journal.Wake, Instance: "db", Time: epoch.Add(-3 * time.Minute), Cause: journal.Cause{Kind: journal.ByConnection}},
+		journal.Event{Kind: journal.Ready, Instance: "db", Time: epoch.Add(-3*time.Minute + 71*time.Millisecond), Took: 71 * time.Millisecond},
+	)
+	golden(t, "frame_overview_120x36", s.screen())
+}
+
+func TestLastRunOfATask(t *testing.T) {
+	d := shop()
+	d.Lines["migrate"] = []control.LogFrame{
+		{Instance: "migrate", Run: 4, Line: "applying 001_init.sql", Stream: "o", Time: epoch.Add(-12 * time.Minute)},
+		{Instance: "migrate", Run: 4, Line: "applied 1 migration", Stream: "o", Time: epoch.Add(-12 * time.Minute)},
+	}
+	s := newSession(t, d, 120, 36)
+	// …events, then services (mailpit), then tasks: migrate is the last but one.
+	for i := 0; i < 11; i++ {
+		s.key("j")
+	}
+	// The tasks group: migrate then seed.
+	s.key("k")
+	s.key("enter")
+	s.events("lastrun:migrate",
+		journal.Event{Kind: journal.Wake, Instance: "migrate", Time: epoch.Add(-3 * time.Hour), Detail: "first run"},
+		journal.Event{Kind: journal.Ready, Instance: "migrate", Time: epoch.Add(-3 * time.Hour), Took: 380 * time.Millisecond},
+		journal.Event{Kind: journal.Wake, Instance: "migrate", Time: epoch.Add(-12 * time.Minute), Detail: "inputs changed"},
+		journal.Event{Kind: journal.Ready, Instance: "migrate", Time: epoch.Add(-12 * time.Minute), Took: 412 * time.Millisecond},
+	)
+	golden(t, "frame_lastrun_120x36", s.screen())
+}
+
+func TestTabKeySwitchesTabs(t *testing.T) {
+	s := newSession(t, shop(), 120, 36)
+	s.key("enter") // an app opens on its logs
+	s.key("tab")
+	if out := s.screen(); !strings.Contains(out, "awake because") {
+		t.Fatalf("tab should show the overview:\n%s", out)
+	}
+}

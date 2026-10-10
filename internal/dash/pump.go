@@ -53,6 +53,9 @@ func (m *Model) follow() tea.Cmd { return m.src.wait() }
 // logMsg is a followed log line on its way to the page.
 type logMsg core.LogLine
 
+// eventMsg is a followed journal event on its way to the page.
+type eventMsg core.EventLine
+
 // follow starts (or restarts) one log stream for a page. The lines arrive as
 // messages, so the page that asked sees them on its own goroutine's terms.
 func (m *Model) startFollow(f core.Follow) {
@@ -67,13 +70,23 @@ func (m *Model) startFollow(f core.Follow) {
 	m.follows[f.ID] = cancel
 	d, send := m.ctx.Daemon, m.send
 	go func() {
-		_ = d.Subscribe(ctx, control.Subscription{Topics: []string{"logs"}, Names: f.Names, Backlog: f.Backlog},
-			func(fr control.Frame) error {
-				if fr.Log != nil {
-					send(logMsg{ID: f.ID, Frame: *fr.Log})
-				}
-				return nil
-			})
+		topic := f.Topic
+		if topic == "" {
+			topic = "logs"
+		}
+		sub := control.Subscription{Topics: []string{topic}, Names: f.Names, Backlog: f.Backlog}
+		if topic == "journal" {
+			sub.Since = control.JournalFromStart
+		}
+		_ = d.Subscribe(ctx, sub, func(fr control.Frame) error {
+			switch {
+			case fr.Log != nil:
+				send(logMsg{ID: f.ID, Frame: *fr.Log})
+			case fr.Event != nil:
+				send(eventMsg{ID: f.ID, Event: *fr.Event})
+			}
+			return nil
+		})
 	}()
 }
 

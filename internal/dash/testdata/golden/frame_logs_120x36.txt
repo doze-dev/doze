@@ -1,5 +1,5 @@
 ‹ api  app  ● awake  127.0.0.11:8080 · api.shop.doze
- Logs
+ Logs   Overview
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 live · 1 error · 1 warning
 11:51:00   starting api 1.4.2
@@ -33,4 +33,4 @@ live · 1 error · 1 warning
 
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-esc back  ·  ↑↓ scroll  ·  f follow  ·  [ ] runs  ·  w wake  ·  s sleep  ·  r restart
+esc back  ·  tab next tab  ·  ↑↓ scroll  ·  f follow  ·  [ ] runs  ·  w wake  ·  s sleep  ·  r restart

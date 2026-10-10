@@ -13,7 +13,9 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/layout"
+	"github.com/doze-dev/doze/internal/dash/tab/lastrun"
 	"github.com/doze-dev/doze/internal/dash/tab/logs"
+	"github.com/doze-dev/doze/internal/dash/tab/overview"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -28,8 +30,20 @@ type Model struct {
 }
 
 // New returns the frame for an instance. The tabs are the ones its kind has.
-func New(name string, _ control.InstanceView) *Model {
-	return &Model{name: name, tabs: []core.Tab{logs.New(name)}}
+// The tab a kind opens on is the one that answers what it is for: an app
+// is for its output, a module for its address and why it is awake, a task
+// for its last run.
+func New(name string, inst control.InstanceView) *Model {
+	var tabs []core.Tab
+	switch inst.Kind {
+	case "app", "service":
+		tabs = []core.Tab{logs.New(name), overview.New(name)}
+	case "task":
+		tabs = []core.Tab{lastrun.New(name), logs.New(name)}
+	default:
+		tabs = []core.Tab{overview.New(name), logs.New(name)}
+	}
+	return &Model{name: name, tabs: tabs}
 }
 
 // inst is the instance as the stack last reported it.
