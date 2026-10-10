@@ -77,19 +77,31 @@ type ActionView struct {
 	InputHint   string `json:"input_hint,omitempty"`
 }
 
+// HolderView is one reason an instance is awake: a running instance that
+// depends on it ("dependant", with Name), a pin ("pin"), or open client
+// connections ("connection", with Count).
+type HolderView struct {
+	Kind  string `json:"kind"`
+	Name  string `json:"name,omitempty"`
+	Count int    `json:"count,omitempty"`
+}
+
 // InstanceView is a serializable snapshot of one backend's state.
 type InstanceView struct {
-	Name      string    `json:"name"`
-	Engine    string    `json:"engine"`
-	State     string    `json:"state"`
-	Version   string    `json:"version"`
-	PID       int       `json:"pid"`
-	Conns     int       `json:"conns"`
-	StartedAt time.Time `json:"started_at"`
-	IdleSince time.Time `json:"idle_since,omitempty"` // when Conns hit 0; drives the reap countdown
-	RAM       int64     `json:"ram,omitempty"`        // resident bytes of the backend, 0 when reaped
-	CPU       float64   `json:"cpu,omitempty"`        // CPU usage percent (one core = 100), 0 when reaped
-	Endpoint  string    `json:"endpoint,omitempty"`   // client-facing address
+	Name    string `json:"name"`
+	Engine  string `json:"engine"`
+	State   string `json:"state"`
+	Version string `json:"version"`
+	PID     int    `json:"pid"`
+	Conns   int    `json:"conns"`
+	// Holders is why the instance is awake. Conns counts every hold, including
+	// the ones dependants take; the "connection" holder counts clients only.
+	Holders   []HolderView `json:"holders,omitempty"`
+	StartedAt time.Time    `json:"started_at"`
+	IdleSince time.Time    `json:"idle_since,omitempty"` // when Conns hit 0; drives the reap countdown
+	RAM       int64        `json:"ram,omitempty"`        // resident bytes of the backend, 0 when reaped
+	CPU       float64      `json:"cpu,omitempty"`        // CPU usage percent (one core = 100), 0 when reaped
+	Endpoint  string       `json:"endpoint,omitempty"`   // client-facing address
 	// Bind is the address the backend/listener actually occupies (host:port or
 	// unix:/path) — the dialable truth behind the client-facing Endpoint: the
 	// per-instance loopback bind (127.0.0.11:5432) for proxied services, the

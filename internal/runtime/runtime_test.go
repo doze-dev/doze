@@ -251,3 +251,67 @@ type steadyDriver struct{ leafDriver }
 
 func (steadyDriver) Type() string                    { return "tsteady" }
 func (steadyDriver) Supervised(engine.Instance) bool { return true }
+
+// Why something is awake: its dependants by name, a pin, and client
+// connections — with the dependants' own holds not counted as clients.
+func TestHolders(t *testing.T) {
+	t.Setenv("DOZE_HOME", t.TempDir())
+	engine.Register(leafDriver{})
+	engine.Register(depDriver{})
+	cfg, err := config.Parse([]byte(`
+module tleaf "db" { version = 1 }
+module tdep "api" {
+  version = 1
+  base    = module.db.name
+}
+`), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.EnsureDataRoot(); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if got := rt.Holders("db"); got != nil {
+		t.Fatalf("an instance that is not running has no holders, got %+v", got)
+	}
+	if _, err := rt.Boot(ctx, "api"); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+	want := func(when string, holders ...runtime.Holder) {
+		t.Helper()
+		got := rt.Holders("db")
+		if len(got) != len(holders) {
+			t.Fatalf("%s: holders = %+v, want %+v", when, got, holders)
+		}
+		for i := range got {
+			if got[i] != holders[i] {
+				t.Fatalf("%s: holders = %+v, want %+v", when, got, holders)
+			}
+		}
+	}
+	want("held by a dependant", runtime.Holder{Kind: runtime.HolderDependant, Name: "api"})
+
+	rt.Acquire("db")
+	rt.Acquire("db")
+	rt.ToggleKeepAwake("db")
+	want("plus two clients and a pin",
+		runtime.Holder{Kind: runtime.HolderDependant, Name: "api"},
+		runtime.Holder{Kind: runtime.HolderPin},
+		runtime.Holder{Kind: runtime.HolderConnection, Count: 2})
+
+	if err := rt.Stop(ctx, "api"); err != nil {
+		t.Fatal(err)
+	}
+	want("the dependant gone",
+		runtime.Holder{Kind: runtime.HolderPin},
+		runtime.Holder{Kind: runtime.HolderConnection, Count: 2})
+	if got := rt.Holders("api"); got != nil {
+		t.Fatalf("a stopped instance has no holders, got %+v", got)
+	}
+	_ = rt.Stop(ctx, "db")
+}

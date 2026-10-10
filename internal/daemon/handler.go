@@ -41,6 +41,7 @@ func (h *handler) Status() control.Response {
 		if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
 			v.Disabled = true
 		}
+		v.Holders = h.holders(inst.Name)
 		h.hydrateEndpoint(&v, eps[inst.Name])
 		v.DataDir = h.dataDir(inst.Name)
 		if st, ok := stats[inst.PID]; ok {
@@ -72,6 +73,15 @@ func (h *handler) Status() control.Response {
 		}
 	}
 	return resp
+}
+
+// holders renders why an instance is awake for the wire.
+func (h *handler) holders(name string) []control.HolderView {
+	var out []control.HolderView
+	for _, hd := range h.d.rt.Holders(name) {
+		out = append(out, control.HolderView{Kind: hd.Kind, Name: hd.Name, Count: hd.Count})
+	}
+	return out
 }
 
 // dataDir is where an instance's backend writes its data.
@@ -294,6 +304,7 @@ func (h *handler) eventView(inst registry.Instance) control.InstanceView {
 	if decl := h.d.cfg.Lookup(inst.Name); decl != nil && !decl.Enabled {
 		v.Disabled = true
 	}
+	v.Holders = h.holders(inst.Name)
 	h.hydrateEndpoint(&v, h.endpointsByName()[inst.Name])
 	v.DataDir = h.dataDir(inst.Name)
 	return v
