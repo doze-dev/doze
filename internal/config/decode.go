@@ -3,6 +3,8 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/hcl/v2"
@@ -28,6 +30,8 @@ type hclTLS struct {
 type hclDefaults struct {
 	IdleTimeout string `hcl:"idle_timeout,optional"`
 	Domains     bool   `hcl:"domains,optional"`
+	LogRuns     int    `hcl:"log_runs,optional"`
+	LogSize     string `hcl:"log_size,optional"`
 }
 
 func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
@@ -46,6 +50,17 @@ func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx
 		cfg.Defaults.IdleTimeout = td
 	}
 	cfg.Defaults.Domains = d.Domains
+	if d.LogRuns < 0 {
+		return posErr(parser, block.DefRange, "invalid log_runs", "must not be negative")
+	}
+	cfg.Defaults.LogRuns = d.LogRuns
+	if d.LogSize != "" {
+		n, err := parseSize(d.LogSize)
+		if err != nil {
+			return posErr(parser, block.DefRange, "invalid log_size", err.Error())
+		}
+		cfg.Defaults.LogBytes = n
+	}
 	return nil
 }
 
@@ -59,4 +74,23 @@ func (cfg *Config) decodeTLS(parser *hclparse.Parser, block *hcl.Block, ctx *hcl
 		return posErr(parser, block.DefRange, "incomplete tls block", "set both cert and key, or neither (to auto-generate a self-signed cert)")
 	}
 	return nil
+}
+
+// parseSize reads a size such as "10MB" or "512KB" into bytes. Units are
+// powers of 1024.
+func parseSize(s string) (int64, error) {
+	units := []struct {
+		suffix string
+		bytes  int64
+	}{{"GB", 1 << 30}, {"MB", 1 << 20}, {"KB", 1 << 10}, {"B", 1}}
+	for _, u := range units {
+		if num, ok := strings.CutSuffix(strings.ToUpper(strings.TrimSpace(s)), u.suffix); ok {
+			n, err := strconv.ParseInt(strings.TrimSpace(num), 10, 64)
+			if err != nil || n <= 0 {
+				break
+			}
+			return n * u.bytes, nil
+		}
+	}
+	return 0, fmt.Errorf("%q is not a size (try \"10MB\", \"512KB\")", s)
 }

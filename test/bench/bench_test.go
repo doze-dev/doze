@@ -33,6 +33,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/journal"
+	"github.com/doze-dev/doze/internal/logstore"
 )
 
 // fixturePorts are the ports examples/shop declares.
@@ -290,5 +291,96 @@ func report(t *testing.T, res Result) {
 		if err := os.WriteFile(path, append(raw, '\n'), 0o644); err != nil {
 			t.Fatalf("writing %s: %v", path, err)
 		}
+	}
+}
+
+// logGrowthBudgetKB is how much the daemon may grow while a service writes
+// 100,000 lines. Logs go to disk, so the honest answer is "not at all"; the
+// allowance is for the Go heap's own noise.
+const logGrowthBudgetKB = 3 * 1024
+
+// TestLogStoreMemory checks that what a service prints does not accumulate in
+// the daemon. It needs no ports and no modules: two apps, one silent, one that
+// prints 100,000 lines and then idles.
+func TestLogStoreMemory(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, err := os.MkdirTemp("/tmp", "dzl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doze := filepath.Join(home, "doze")
+	build := exec.Command("go", "build", "-o", doze, "./cmd/doze")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building doze: %v\n%s", err, out)
+	}
+	stack := filepath.Join(home, "noisy")
+	if err := os.MkdirAll(stack, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const cfg = `stack = "noisy"
+
+app "quiet" {
+  run = "sleep 600"
+}
+
+app "noisy" {
+  run = "seq 1 100000 | sed 's/$/ a line of ordinary length, the kind a web server prints for each request/'; sleep 600"
+}
+`
+	if err := os.WriteFile(filepath.Join(stack, "doze.hcl"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := append(os.Environ(), "DOZE_HOME="+filepath.Join(home, "h"), "DOZE_MODULES=off", "NO_COLOR=1")
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(doze, args...)
+		cmd.Dir, cmd.Env = stack, env
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("doze %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	t.Cleanup(func() {
+		cmd := exec.Command(doze, "down")
+		cmd.Dir, cmd.Env = stack, env
+		_ = cmd.Run()
+		_ = os.RemoveAll(home)
+	})
+
+	run("up", "quiet")
+	pidFiles, _ := filepath.Glob(filepath.Join(home, "h", "projects", "*", "run", "doze.pid"))
+	if len(pidFiles) != 1 {
+		t.Fatalf("expected one daemon under the bench home, found %v", pidFiles)
+	}
+	raw, _ := os.ReadFile(pidFiles[0])
+	pid, err := strconv.Atoi(strings.TrimSpace(strings.SplitN(string(raw), "\n", 2)[0]))
+	if err != nil {
+		t.Fatalf("daemon pid: %v", err)
+	}
+	time.Sleep(3 * time.Second)
+	before := measure(t, pid).DaemonKB
+
+	run("up", "noisy")
+	logs := logstore.Open(filepath.Join(filepath.Dir(filepath.Dir(pidFiles[0])), "logs"), logstore.Options{})
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		if tail, _, _ := logs.Tail("noisy", 0, 1); len(tail) == 1 && strings.HasPrefix(tail[0].Text, "100000 ") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the noisy app never finished printing")
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	time.Sleep(3 * time.Second)
+	after := measure(t, pid).DaemonKB
+
+	t.Logf("\ndaemon before the lines: %.1f MB   after 100,000 lines: %.1f MB   growth: %+.1f MB",
+		float64(before)/1024, float64(after)/1024, float64(after-before)/1024)
+	if after-before > logGrowthBudgetKB {
+		t.Errorf("the daemon grew %d kB while a service wrote 100,000 lines; the budget is %d kB", after-before, logGrowthBudgetKB)
 	}
 }

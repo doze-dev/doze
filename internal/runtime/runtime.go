@@ -29,6 +29,7 @@ import (
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/journal"
+	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/state"
 	"github.com/doze-dev/doze/internal/supervisor"
@@ -66,6 +67,9 @@ type Runtime struct {
 
 	// journal records wakes, sleeps and crashes; nil records nothing.
 	journal *journal.Journal
+
+	// logs keeps what every instance prints, on disk.
+	logs *logstore.Store
 }
 
 // New constructs a Runtime for cfg.
@@ -88,7 +92,10 @@ func New(cfg *config.Config) (*Runtime, error) {
 		deps:      map[string][]string{},
 		restarts:  map[string]*restartEntry{},
 		statePath: state.Path(cfg.Path()),
-		logf:      func(string, ...any) {},
+		logs: logstore.Open(filepath.Join(cfg.ProjectDir(), "logs"), logstore.Options{
+			MaxRuns: cfg.Defaults.LogRuns, MaxBytes: cfg.Defaults.LogBytes,
+		}),
+		logf: func(string, ...any) {},
 	}
 	return r, nil
 }
@@ -101,6 +108,10 @@ func (r *Runtime) SetLogger(f func(format string, args ...any)) {
 
 // Config returns the configuration this runtime serves.
 func (r *Runtime) Config() *config.Config { return r.cfg }
+
+// Logs is the store of what every instance has printed. It is readable for
+// instances that are not running.
+func (r *Runtime) Logs() *logstore.Store { return r.logs }
 
 // Registry exposes the underlying state for status/TUI consumers.
 func (r *Runtime) Registry() *registry.Registry { return r.reg }
@@ -288,7 +299,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		if plan, err = s.Plan(ctx, inst, tc); err != nil {
 			return fail(err)
 		}
-		if proc, err = r.executePlan(ctx, plan); err != nil {
+		if proc, err = r.executePlan(ctx, name, plan); err != nil {
 			return fail(err)
 		}
 	case engine.LegacySpawner:

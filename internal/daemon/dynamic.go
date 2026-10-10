@@ -188,6 +188,7 @@ func (d *Daemon) RemoveInstance(ctx context.Context, name string, wipe bool) err
 
 	if wipe {
 		_ = os.RemoveAll(d.cfg.ClusterDir(name))
+		_ = d.rt.Logs().Remove(name)
 		_ = os.RemoveAll(d.cfg.SocketDir(name))
 	}
 	return nil

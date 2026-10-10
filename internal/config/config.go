@@ -72,6 +72,10 @@ type Defaults struct {
 	// connection strings read as postgres://…@orders-pg.demo.doze:5432
 	// instead of a bare loopback address.
 	Domains bool
+	// LogRuns is how many runs of each instance's log are kept, and LogBytes the
+	// size cap per instance. Zero takes the log store's defaults (5 runs, 10 MB).
+	LogRuns  int
+	LogBytes int64
 }
 
 // TLSSettings configures TLS termination between clients and the proxy.

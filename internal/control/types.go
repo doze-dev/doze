@@ -41,6 +41,12 @@ type Request struct {
 type LogFrame struct {
 	Instance string `json:"instance"`
 	Line     string `json:"line"`
+	// Stream is "o" (stdout) or "e" (stderr), followed by ":<part>" for one
+	// process of an instance that runs several, or "s:<name>" for a step.
+	Stream string `json:"stream,omitempty"`
+	// Run numbers the start of the instance this line belongs to.
+	Run  int       `json:"run,omitempty"`
+	Time time.Time `json:"time,omitempty"`
 }
 
 // EventFrame is one streamed instance-state transition (events op) — emitted

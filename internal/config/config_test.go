@@ -701,3 +701,18 @@ module fake "b" { version = "17.2" }
 		}
 	}
 }
+
+func TestLogRetentionDefaults(t *testing.T) {
+	cfg, err := Parse([]byte("defaults {\n  log_runs = 3\n  log_size = \"512KB\"\n}\n"), "doze.hcl", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Defaults.LogRuns != 3 || cfg.Defaults.LogBytes != 512<<10 {
+		t.Fatalf("defaults = %+v", cfg.Defaults)
+	}
+	for _, bad := range []string{`log_size = "big"`, `log_size = "0MB"`, `log_runs = -1`} {
+		if _, err := Parse([]byte("defaults {\n  "+bad+"\n}\n"), "doze.hcl", nil); err == nil {
+			t.Errorf("%s should be rejected", bad)
+		}
+	}
+}

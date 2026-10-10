@@ -3,6 +3,7 @@ package runtime_test
 import (
 	"context"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -391,4 +392,63 @@ module tdep "api" {
 		t.Fatalf("journal:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	_ = rt.Stop(context.Background(), "db")
+}
+
+// shDriver runs a real shell command through a SpawnPlan, the way every module
+// and app is run.
+type shDriver struct{ leafDriver }
+
+func (shDriver) Type() string { return "tsh" }
+func (shDriver) Plan(context.Context, engine.Instance, engine.Toolchain) (engine.SpawnPlan, error) {
+	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
+		Name: "main", Bin: "sh",
+		Args: []string{"-c", "echo listening; echo careful >&2; sleep 0.9; printf 'no newline'"},
+	}}}, nil
+}
+
+// What a process prints is on disk, tagged by stream, and still readable once
+// the process is gone.
+func TestOutputIsKeptAfterTheProcessExits(t *testing.T) {
+	t.Setenv("DOZE_HOME", t.TempDir())
+	engine.Register(shDriver{})
+	cfg, err := config.Parse([]byte("module tsh \"job\" { version = 1 }\n"), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.EnsureDataRoot(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt.Boot(context.Background(), "job"); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+	read := func() string {
+		lines, _, err := rt.Logs().Tail("job", 0, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, l := range lines {
+			out = append(out, l.Stream+" "+l.Text)
+		}
+		sort.Strings(out) // stdout and stderr are separate pipes; their order is not fixed
+		return strings.Join(out, " | ")
+	}
+	const whole = "e careful | o listening | o no newline"
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && read() != whole {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if got := read(); got != whole {
+		t.Fatalf("log = %q, want %q", got, whole)
+	}
+	if rt.Backend("job") != nil {
+		t.Fatal("the process should have exited by now")
+	}
+	if runs, _ := rt.Logs().Runs("job"); len(runs) != 1 || runs[0].Live {
+		t.Fatalf("runs = %+v, want one finished run", runs)
+	}
 }

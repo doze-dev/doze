@@ -1,6 +1,6 @@
 // Package supervisor runs and supervises a single backend process generically:
-// it spawns a prepared command in its own process group, captures recent log
-// output, and reaps it cleanly with escalating signals. Engine-specific
+// it spawns a prepared command in its own process group, hands its output to
+// a log sink, and reaps it cleanly with escalating signals. Engine-specific
 // concerns — which binary to run, the readiness probe, and stale-lock files —
 // live in the engine drivers. A *Process satisfies engine.Process.
 package supervisor
@@ -8,6 +8,7 @@ package supervisor
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -24,20 +25,36 @@ const waitDelay = 3 * time.Second
 type Process struct {
 	mu        sync.Mutex
 	cmd       *exec.Cmd
-	logs      *ring
+	tail      func() []string
 	done      chan struct{}
 	exit      error
 	groupKill bool // signal the whole process group on Stop (see StartTree)
 }
 
-// Start spawns cmd in its own process group with stdout/stderr captured into a
-// bounded log ring, and returns a running handle. It does NOT block on
-// readiness — drivers probe that themselves via WaitReady. cmd must not have
-// been started yet; its Stdout/Stderr/SysProcAttr are set here.
-func Start(cmd *exec.Cmd) (*Process, error) {
-	p := &Process{logs: newRing(200)}
-	cmd.Stdout = p.logs
-	cmd.Stderr = p.logs
+// Sink is where a process's output goes. The supervisor keeps none of it: the
+// writers are the log store's, and Tail reads recent lines back from there.
+// A zero Sink discards the output.
+type Sink struct {
+	Stdout io.Writer
+	Stderr io.Writer
+	// Tail returns the most recent lines, for a readiness probe that watches
+	// the log and for the message when a start fails.
+	Tail func() []string
+}
+
+// Start spawns cmd in its own process group with stdout/stderr connected to
+// sink, and returns a running handle. It does NOT block on readiness — drivers
+// probe that themselves via WaitReady. cmd must not have been started yet; its
+// Stdout/Stderr/SysProcAttr are set here.
+func Start(cmd *exec.Cmd, sink Sink) (*Process, error) {
+	p := &Process{tail: sink.Tail}
+	cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
+	if sink.Stdout != nil {
+		cmd.Stdout = sink.Stdout
+	}
+	if sink.Stderr != nil {
+		cmd.Stderr = sink.Stderr
+	}
 	// Own process group so a terminal Ctrl+C on the daemon doesn't hit the
 	// backend directly; on Linux also ask the kernel to signal it if the daemon
 	// dies, so a crash never orphans a backend.
@@ -73,8 +90,8 @@ func Start(cmd *exec.Cmd) (*Process, error) {
 // that hold the log pipe open and wedge shutdown. Use it for supervised app
 // processes; backends that choreograph their own children (e.g. Postgres) use
 // Start so their shutdown signalling is not disturbed.
-func StartTree(cmd *exec.Cmd) (*Process, error) {
-	p, err := Start(cmd)
+func StartTree(cmd *exec.Cmd, sink Sink) (*Process, error) {
+	p, err := Start(cmd, sink)
 	if err != nil {
 		return nil, err
 	}
@@ -94,13 +111,13 @@ func (p *Process) PID() int {
 	return 0
 }
 
-// Logs returns the most recent backend log lines.
-func (p *Process) Logs() []string { return p.logs.lines() }
-
-// LogsSince returns the log lines pushed after absolute index n, plus the new
-// cursor to pass on the next call. It powers incremental log streaming (`doze up`,
-// `doze logs -f`); pass 0 to start from the oldest buffered line.
-func (p *Process) LogsSince(n int) (lines []string, cursor int) { return p.logs.since(n) }
+// Logs returns the most recent log lines, from the sink.
+func (p *Process) Logs() []string {
+	if p.tail == nil {
+		return nil
+	}
+	return p.tail()
+}
 
 // Alive reports whether the process is currently running.
 func (p *Process) Alive() bool {

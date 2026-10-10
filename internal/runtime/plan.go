@@ -8,6 +8,7 @@ import (
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/health"
+	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/supervisor"
 )
 
@@ -17,16 +18,25 @@ import (
 // On any failure it tears down whatever it already started. The returned Process is
 // owned and supervised by the caller exactly like a legacy Spawn result, so the
 // hardened restart/reap path is unchanged.
-func (r *Runtime) executePlan(ctx context.Context, plan engine.SpawnPlan) (engine.Process, error) {
+//
+// Everything the plan's processes print goes to a new run of name's log, which
+// is closed when the unit exits.
+func (r *Runtime) executePlan(ctx context.Context, name string, plan engine.SpawnPlan) (engine.Process, error) {
 	order, err := orderSpecs(plan.Specs)
 	if err != nil {
 		return nil, err
 	}
+	run, err := r.logs.Begin(name)
+	if err != nil {
+		return nil, fmt.Errorf("opening the log for %q: %w", name, err)
+	}
+	tail := func() []string { return r.recentLogs(name) }
 	started := make([]*supervisor.Process, 0, len(order))
 	stopAll := func() {
 		for i := len(started) - 1; i >= 0; i-- {
 			_ = started[i].Stop(context.Background())
 		}
+		run.Close()
 	}
 
 	for _, spec := range order {
@@ -37,7 +47,16 @@ func (r *Runtime) executePlan(ctx context.Context, plan engine.SpawnPlan) (engin
 		if spec.Tree {
 			start = supervisor.StartTree
 		}
-		p, err := start(cmd)
+		// In a plan of several processes, each line says which one printed it.
+		part := ""
+		if len(order) > 1 {
+			part = ":" + spec.Name
+		}
+		p, err := start(cmd, supervisor.Sink{
+			Stdout: run.Writer(logstore.Stdout + part),
+			Stderr: run.Writer(logstore.Stderr + part),
+			Tail:   tail,
+		})
 		if err != nil {
 			stopAll()
 			return nil, fmt.Errorf("starting %q: %w", spec.Name, err)
@@ -51,21 +70,34 @@ func (r *Runtime) executePlan(ctx context.Context, plan engine.SpawnPlan) (engin
 		for _, hook := range spec.Hooks {
 			hc := exec.CommandContext(ctx, "sh", "-c", hook)
 			hc.Dir, hc.Env = spec.Dir, spec.Env
-			if out, hErr := hc.CombinedOutput(); hErr != nil {
+			out, hErr := hc.CombinedOutput()
+			for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+				if line != "" {
+					run.Line(logstore.StepPrefix+"hook", line)
+				}
+			}
+			if hErr != nil {
 				stopAll()
 				return nil, fmt.Errorf("%s hook %q: %w: %s", spec.Name, hook, hErr, strings.TrimSpace(string(out)))
 			}
 		}
 	}
 
+	var unit engine.Process
 	switch len(started) {
 	case 0:
+		run.Close()
 		return nil, fmt.Errorf("spawn plan has no specs")
 	case 1:
-		return started[0], nil // single spec keeps full Process features (incl. LogsSince)
+		unit = started[0]
 	default:
-		return supervisor.NewComposite(started), nil
+		unit = supervisor.NewComposite(started)
 	}
+	go func() {
+		_ = unit.Wait()
+		run.Close() // records a last line that never got its newline
+	}()
+	return unit, nil
 }
 
 // orderSpecs returns the specs in dependency order (each after the specs it lists
@@ -105,4 +137,18 @@ func orderSpecs(specs []engine.SpawnSpec) ([]engine.SpawnSpec, error) {
 		}
 	}
 	return order, nil
+}
+
+// recentLogs returns the last lines of name's newest run: what a readiness
+// probe that watches the log reads, and what a failed start quotes.
+func (r *Runtime) recentLogs(name string) []string {
+	lines, _, err := r.logs.Tail(name, 0, 200)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = l.Text
+	}
+	return out
 }

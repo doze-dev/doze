@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
+	"sync"
 
-	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
+	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -188,67 +188,76 @@ func (h *handler) KeepAwake(name string) error {
 	return nil
 }
 
+// logBacklog is how many lines of the newest run a reader gets before it
+// starts following.
+const logBacklog = 200
+
+// Logs returns the last lines of an instance's newest run. The instance need
+// not be running: the log of a sleeping or crashed instance is still there.
 func (h *handler) Logs(name string) ([]string, error) {
-	p := h.d.rt.Backend(name)
-	if p == nil {
-		return nil, fmt.Errorf("instance %q is not running", name)
+	if h.d.cfg.Lookup(name) == nil {
+		return nil, fmt.Errorf("instance %q is not declared", name)
 	}
-	return p.Logs(), nil
+	lines, _, err := h.d.rt.Logs().Tail(name, 0, logBacklog)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = l.Text
+	}
+	return out, nil
 }
 
-// StreamLogs polls the named backends' log rings (every 250ms) and emits each new
-// line, tagged with its instance, until ctx is cancelled or emit fails. Empty names
-// follows every declared instance. A process restart resets its ring; the cursor
-// regression is detected and the new process's output is streamed from the start.
+// StreamLogs emits the recent lines of each named instance's newest run and
+// then every line written from there on, tagged with its instance, until ctx
+// is cancelled or emit fails. Empty names follows every declared instance. The
+// log store wakes each follower when a line is written; nothing polls.
 func (h *handler) StreamLogs(ctx context.Context, names []string, emit func(control.LogFrame) error) error {
 	if len(names) == 0 {
 		for _, d := range h.d.cfg.Instances {
 			names = append(names, d.Name)
 		}
 	}
-	sent := map[string]int{}
-	last := map[string]engine.Process{} // last backend seen per name, to detect a restart by identity
-	flush := func() error {
-		for _, n := range names {
-			p := h.d.rt.Backend(n)
-			if p == nil {
-				continue
-			}
-			if last[n] != p { // first sighting, or a restart replaced the ring — stream from its start
-				sent[n] = 0
-				last[n] = p
-			}
-			ls, ok := p.(interface {
-				LogsSince(int) ([]string, int)
-			})
-			if !ok {
-				continue
-			}
-			lines, cursor := ls.LogsSince(sent[n])
-			for _, line := range lines {
-				if err := emit(control.LogFrame{Instance: n, Line: line}); err != nil {
-					return err
-				}
-			}
-			sent[n] = cursor
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	store := h.d.rt.Logs()
+	var (
+		mu       sync.Mutex // one frame on the wire at a time
+		wg       sync.WaitGroup
+		firstErr error
+	)
+	send := func(l logstore.Line) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if firstErr != nil {
+			return firstErr
 		}
-		return nil
-	}
-	ticker := time.NewTicker(250 * time.Millisecond)
-	defer ticker.Stop()
-	if err := flush(); err != nil {
+		err := emit(control.LogFrame{Instance: l.Instance, Line: l.Text, Stream: l.Stream, Run: l.Run, Time: l.Time})
+		if err != nil {
+			firstErr = err
+			cancel()
+		}
 		return err
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			if err := flush(); err != nil {
-				return err
+	for _, name := range names {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			backlog, from, err := store.Tail(name, 0, logBacklog)
+			if err != nil {
+				return
 			}
-		}
+			for _, l := range backlog {
+				if send(l) != nil {
+					return
+				}
+			}
+			_ = store.Follow(ctx, name, from, send)
+		}()
 	}
+	wg.Wait()
+	return firstErr
 }
 
 // StreamEvents forwards instance-state transitions to emit until ctx ends or the

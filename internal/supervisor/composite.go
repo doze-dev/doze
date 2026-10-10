@@ -6,7 +6,7 @@ import (
 )
 
 // Composite supervises several Processes as one unit: it reports the primary's
-// PID, merges their logs, stops them in reverse start order, and — if any one
+// PID and logs, stops them in reverse start order, and — if any one
 // exits unexpectedly — tears the rest down and reports the unit as exited. This is
 // the generic form of a multi-process SpawnPlan (e.g. documentdb's Postgres +
 // FerretDB) so the runtime's restart/reap logic treats it like any single backend.
@@ -58,22 +58,13 @@ func (c *Composite) Alive() bool {
 	return len(c.procs) > 0
 }
 
-// Logs merges every member's recent log lines (backends first, primary last).
+// Logs returns the unit's recent log lines. Every member writes to the same
+// run of the log store, so the primary's tail is the unit's.
 func (c *Composite) Logs() []string {
-	var out []string
-	for i := len(c.procs) - 1; i >= 0; i-- {
-		out = append(out, c.procs[i].Logs()...)
-	}
-	return out
-}
-
-// LogsSince streams the primary's ring (per-member streaming for a composite is
-// out of scope; the primary is the user-facing process).
-func (c *Composite) LogsSince(n int) ([]string, int) {
 	if len(c.procs) == 0 {
-		return nil, n
+		return nil
 	}
-	return c.procs[0].LogsSince(n)
+	return c.procs[0].Logs()
 }
 
 // Stop tears the unit down in reverse start order.
