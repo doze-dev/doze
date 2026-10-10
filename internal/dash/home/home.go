@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/dash/confirm"
 	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/frame"
@@ -96,7 +97,7 @@ func (m *Model) selected(c *core.Context) (control.InstanceView, bool) {
 func (m *Model) Keys() []core.Key {
 	return []core.Key{
 		{Keys: "↑↓", Label: "select"}, {Keys: "enter", Label: "open"}, {Keys: "L", Label: "all logs"}, {Keys: "w", Label: "wake"}, {Keys: "s", Label: "sleep"},
-		{Keys: "r", Label: "restart"}, {Keys: "p", Label: "pin"}, {Keys: "c", Label: "copy"}, {Keys: "q", Label: "quit"},
+		{Keys: "r", Label: "restart"}, {Keys: "p", Label: "pin"}, {Keys: "c", Label: "copy"}, {Keys: "R", Label: "reset"}, {Keys: "q", Label: "quit"},
 	}
 }
 
@@ -152,7 +153,9 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 		case "w":
 			return m, m.verb(c, control.VerbWake)
 		case "s":
-			return m, m.verb(c, control.VerbSleep)
+			return m, m.confirmed(c, control.VerbSleep)
+		case "R":
+			return m, m.confirmed(c, control.VerbReset)
 		case "r":
 			return m, m.verb(c, control.VerbRestart)
 		case "p":
@@ -176,6 +179,18 @@ func (m *Model) move(rs []row, by int) {
 			return
 		}
 	}
+}
+
+// confirmed runs a verb, after the confirmation it needs, if it needs one.
+func (m *Model) confirmed(c *core.Context, name string) tea.Cmd {
+	v, ok := m.selected(c)
+	if !ok {
+		return nil
+	}
+	if spec := core.Confirmation(v, name); spec != nil {
+		return func() tea.Msg { return core.Navigate{To: confirm.New(confirm.Options(*spec))} }
+	}
+	return m.verb(c, name)
 }
 
 // verb runs a verb on the selected instance.

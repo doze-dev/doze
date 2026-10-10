@@ -33,4 +33,4 @@ recent
 
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-esc back  ·  tab next tab  ·  w wake  ·  s sleep  ·  r restart
+esc back  ·  tab next tab  ·  w wake  ·  s sleep  ·  r restart  ·  R reset

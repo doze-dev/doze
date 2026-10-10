@@ -72,6 +72,8 @@ func (s *session) key(keys ...string) {
 			key = tea.Key{Code: tea.KeyDown}
 		case "tab":
 			key = tea.Key{Code: tea.KeyTab}
+		case "backspace":
+			key = tea.Key{Code: tea.KeyBackspace}
 		default:
 			key = tea.Key{Text: k, Code: []rune(k)[0]}
 		}
@@ -316,5 +318,64 @@ func TestCopyMenuOnARow(t *testing.T) {
 	s.key("esc")
 	if out := s.screen(); strings.Contains(out, "esc closes") {
 		t.Fatalf("esc should close the menu:\n%s", out)
+	}
+}
+
+func TestSleepingSomethingInUseAsksFirst(t *testing.T) {
+	d := shop()
+	s := newSession(t, d, 120, 36)
+	s.key("j", "j", "j", "j", "j", "s") // db: held by api and worker, three connections
+	out := s.screen()
+	for _, want := range []string{"Sleep db?", "held by api and worker", "will be dropped"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("the confirmation lacks %q:\n%s", want, out)
+		}
+	}
+	golden(t, "confirm_in_use_120x36", out)
+	if len(d.Done()) != 0 {
+		t.Fatalf("the verb ran before it was confirmed: %v", d.Done())
+	}
+	s.key("n")
+	if len(d.Done()) != 0 || !strings.Contains(s.screen(), "Apps  3") {
+		t.Fatalf("n should cancel and go back:\n%s", s.screen())
+	}
+	s.key("s", "y")
+	got := d.Done()
+	if len(got) != 1 || got[0] != (control.Verb{Name: control.VerbSleep, Target: "db"}) {
+		t.Fatalf("verbs = %v", got)
+	}
+}
+
+func TestSleepingSomethingFreeDoesNotAsk(t *testing.T) {
+	d := shop()
+	s := newSession(t, d, 120, 36)
+	s.key("j", "s") // web: dozing, nothing holds it
+	if got := d.Done(); len(got) != 1 || got[0].Name != control.VerbSleep {
+		t.Fatalf("verbs = %v", got)
+	}
+}
+
+func TestResetMakesYouTypeTheName(t *testing.T) {
+	d := shop()
+	d.Snap.Instances[3].DataDir = "/home/dev/.doze/projects/shop/clusters/db"
+	s := newSession(t, d, 120, 36)
+	s.key("j", "j", "j", "j", "j", "R")
+	out := s.screen()
+	if !strings.Contains(out, "Delete the data of db?") || !strings.Contains(out, "clusters/db") || !strings.Contains(out, "cannot be undone") {
+		t.Fatalf("reset should say what is lost:\n%s", out)
+	}
+	golden(t, "confirm_reset_120x36", out)
+
+	// Enter before the name is typed does nothing; the wrong name does nothing.
+	s.key("enter")
+	s.key("d", "x", "enter")
+	if len(d.Done()) != 0 {
+		t.Fatalf("reset ran without its name: %v", d.Done())
+	}
+	s.key("backspace")
+	s.key("b", "enter")
+	got := d.Done()
+	if len(got) != 1 || got[0] != (control.Verb{Name: control.VerbReset, Target: "db"}) {
+		t.Fatalf("verbs = %v", got)
 	}
 }

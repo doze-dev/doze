@@ -1,0 +1,36 @@
+  Delete the data of db?
+
+  This deletes everything db has stored.
+  /home/dev/.doze/projects/shop/clusters/db
+
+  It is provisioned fresh the next time it wakes. This cannot be undone.
+  It is awake now and will be stopped first.
+
+  type db to confirm: ▏
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

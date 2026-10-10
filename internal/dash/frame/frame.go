@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/dash/confirm"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/layout"
 	"github.com/doze-dev/doze/internal/dash/tab/lastrun"
@@ -65,7 +66,7 @@ func (m *Model) Keys() []core.Key {
 	}
 	keys = append(keys, m.tabs[m.active].Keys()...)
 	keys = append(keys,
-		core.Key{Keys: "w", Label: "wake"}, core.Key{Keys: "s", Label: "sleep"}, core.Key{Keys: "r", Label: "restart"})
+		core.Key{Keys: "w", Label: "wake"}, core.Key{Keys: "s", Label: "sleep"}, core.Key{Keys: "r", Label: "restart"}, core.Key{Keys: "R", Label: "reset"})
 	return keys
 }
 
@@ -111,7 +112,9 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 		case "w":
 			cmds = append(cmds, m.verb(c, control.VerbWake))
 		case "s":
-			cmds = append(cmds, m.verb(c, control.VerbSleep))
+			cmds = append(cmds, m.confirmed(c, inst, control.VerbSleep))
+		case "R":
+			cmds = append(cmds, m.confirmed(c, inst, control.VerbReset))
 		case "r":
 			cmds = append(cmds, m.verb(c, control.VerbRestart))
 		default:
@@ -138,6 +141,13 @@ func (m *Model) switchTo(c *core.Context, inst control.InstanceView, i int) tea.
 	hide := m.tabs[m.active].Hide()
 	m.active = i
 	return tea.Batch(hide, m.tabs[i].Show(c, inst))
+}
+
+func (m *Model) confirmed(c *core.Context, inst control.InstanceView, name string) tea.Cmd {
+	if spec := core.Confirmation(inst, name); spec != nil {
+		return func() tea.Msg { return core.Navigate{To: confirm.New(confirm.Options(*spec))} }
+	}
+	return m.verb(c, name)
 }
 
 func (m *Model) verb(c *core.Context, name string) tea.Cmd {

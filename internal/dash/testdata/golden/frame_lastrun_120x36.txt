@@ -33,4 +33,4 @@ history
 
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-esc back  ·  tab next tab  ·  t run now  ·  w wake  ·  s sleep  ·  r restart
+esc back  ·  tab next tab  ·  t run now  ·  w wake  ·  s sleep  ·  r restart  ·  R reset

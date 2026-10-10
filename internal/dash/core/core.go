@@ -8,6 +8,8 @@
 package core
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -121,3 +123,78 @@ type Notice struct {
 // while a selection is open, "w" saves it rather than waking the instance, and
 // esc closes it rather than going back.
 type Capturer interface{ Capturing() bool }
+
+// Asker builds the confirmation, if any, a verb on an instance needs. It is
+// the one place the rule lives, so home and the frame ask the same question.
+// It returns nil when the verb needs no confirmation.
+func Confirmation(inst control.InstanceView, verb string) *ConfirmSpec {
+	switch verb {
+	case control.VerbSleep:
+		var by []string
+		clients := 0
+		for _, h := range inst.Holders {
+			switch h.Kind {
+			case "dependant":
+				by = append(by, h.Name)
+			case "connection":
+				clients = h.Count
+			}
+		}
+		if len(by) == 0 && clients == 0 {
+			return nil
+		}
+		var body []string
+		if len(by) > 0 {
+			body = append(body, inst.Name+" is held by "+joinNames(by)+".")
+		}
+		if clients > 0 {
+			body = append(body, fmt.Sprintf("%d client connection%s will be dropped.", clients, plural(clients)))
+		}
+		body = append(body, "", "Whatever uses it next will wake it again.")
+		return &ConfirmSpec{
+			Title: "Sleep " + inst.Name + "?", Body: body,
+			Verb: control.Verb{Name: control.VerbSleep, Target: inst.Name}, Accept: "sleep " + inst.Name,
+		}
+	case control.VerbReset:
+		body := []string{"This deletes everything " + inst.Name + " has stored."}
+		if inst.DataDir != "" {
+			body = append(body, inst.DataDir)
+		}
+		body = append(body, "", "It is provisioned fresh the next time it wakes. This cannot be undone.")
+		if inst.State == "active" || inst.State == "idle" {
+			body = append(body, "It is awake now and will be stopped first.")
+		}
+		return &ConfirmSpec{
+			Title: "Delete the data of " + inst.Name + "?", Body: body, Danger: true,
+			Verb: control.Verb{Name: control.VerbReset, Target: inst.Name}, Accept: "reset " + inst.Name, TypeName: inst.Name,
+		}
+	}
+	return nil
+}
+
+// ConfirmSpec is what Confirmation returns; the confirm package turns it into a page.
+type ConfirmSpec struct {
+	Title    string
+	Body     []string
+	Verb     control.Verb
+	Accept   string
+	TypeName string
+	Danger   bool
+}
+
+func joinNames(n []string) string {
+	switch len(n) {
+	case 1:
+		return n[0]
+	case 2:
+		return n[0] + " and " + n[1]
+	}
+	return strings.Join(n[:len(n)-1], ", ") + " and " + n[len(n)-1]
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
