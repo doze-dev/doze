@@ -259,3 +259,31 @@ func shortHome(t *testing.T) string {
 	t.Cleanup(func() { _ = os.RemoveAll(home) })
 	return home
 }
+
+// clientTool resolves a client binary (psql, …) for this project: the engine
+// BINDIR if set, then the toolchain doze itself downloaded into the project's
+// home — the exact build it is testing, and present on a machine that has no
+// client installed, which a CI runner for macOS does not — then PATH.
+func (p *Project) clientTool(binDirEnv, name string) string {
+	if d := os.Getenv(binDirEnv); d != "" {
+		if q := filepath.Join(d, "bin", name); fileExists(q) {
+			return q
+		}
+	}
+	var found string
+	_ = filepath.WalkDir(p.home, func(path string, d os.DirEntry, err error) error {
+		if err != nil || found != "" {
+			return nil
+		}
+		if !d.IsDir() && d.Name() == name && filepath.Base(filepath.Dir(path)) == "bin" {
+			if fi, e := d.Info(); e == nil && fi.Mode()&0o111 != 0 {
+				found = path
+			}
+		}
+		return nil
+	})
+	if found != "" {
+		return found
+	}
+	return tool(binDirEnv, name)
+}

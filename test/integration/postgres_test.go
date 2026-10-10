@@ -11,9 +11,9 @@ import (
 // psql runs a query against the doze proxy as the postgres superuser (the proxy
 // forwards to the backend over its local-trust unix socket, so no password is
 // needed). Returns the trimmed scalar output.
-func psql(t *testing.T, addr, db, sql string) (string, error) {
-	dsn := fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", addr, db)
-	return run(t, tool("DOZE_POSTGRES_BINDIR", "psql"), dsn, "-tAc", sql)
+func psql(t *testing.T, p *Project, db, sql string) (string, error) {
+	dsn := fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", p.ProxyAddr(), db)
+	return run(t, p.clientTool("DOZE_POSTGRES_BINDIR", "psql"), dsn, "-tAc", sql)
 }
 
 func pgConfig(name string, port int, roles ...string) string {
@@ -34,7 +34,7 @@ func TestPostgresConverge(t *testing.T) {
 	p := NewProject(t, "postgres", "shop", port, pgConfig("shop", port, "app"))
 	p.Up()
 
-	got, err := psql(t, p.ProxyAddr(), "shop", "SELECT rolname FROM pg_roles WHERE rolname='app'")
+	got, err := psql(t, p, "shop", "SELECT rolname FROM pg_roles WHERE rolname='app'")
 	if err != nil {
 		t.Fatalf("querying pg_roles: %v (%s)", err, got)
 	}
@@ -55,7 +55,7 @@ func TestPostgresReconvergeAddsRole(t *testing.T) {
 	p.Up()
 
 	// Sanity: only "app" exists so far.
-	if got, _ := psql(t, p.ProxyAddr(), "shop", "SELECT count(*) FROM pg_roles WHERE rolname IN ('app','api')"); got != "1" {
+	if got, _ := psql(t, p, "shop", "SELECT count(*) FROM pg_roles WHERE rolname IN ('app','api')"); got != "1" {
 		t.Fatalf("expected exactly 1 of app/api before edit, got %q", got)
 	}
 
@@ -64,7 +64,7 @@ func TestPostgresReconvergeAddsRole(t *testing.T) {
 	p.WriteConfig(pgConfig("shop", port, "app", "api"))
 	p.Up()
 
-	got, err := psql(t, p.ProxyAddr(), "shop", "SELECT count(*) FROM pg_roles WHERE rolname IN ('app','api')")
+	got, err := psql(t, p, "shop", "SELECT count(*) FROM pg_roles WHERE rolname IN ('app','api')")
 	if err != nil {
 		t.Fatalf("querying pg_roles: %v (%s)", err, got)
 	}
