@@ -14,7 +14,7 @@ starts by re-reading its own files and replacing its range with a number.
 | 1 | The config language | 5 to 7 | none |
 | 2 | Daemon events, logs, and the CLI on top | 9 to 13 | none |
 | 3 | Names and ports | 9 to 13 | none |
-| 4 | Services, apps and tasks | 9 to 13 | 1, 2, 3 |
+| 4 | Services, apps and tasks | 9 to 13 (built) | 1, 2, 3 |
 | 5 | The dash | 14 to 20 | 2 |
 | 6 | Module consoles | 8 to 12 | 5 |
 | 7 | add, init, doctor, sync | 7 to 10 | 1, 4, 5 |
@@ -283,10 +283,60 @@ Contract: [lifecycle.md](lifecycle.md).
 | 4.4 | Tasks: run to completion, `inputs` hashing, `after`, `manual`, state and history. | `engine/command/task.go` (new), `internal/runtime/tasks.go` (new), `internal/state/` |
 | 4.5 | `doze task <name>`. | `cmd/doze/task.go` (new) |
 | 4.6 | `watch`, and input re-checks while running. | `internal/watch/` (new) |
-| 4.7 | The fixture stack gains mongo (download), mailpit (installed), a container service, and two tasks. | `examples/shop` |
+| 4.7 | The fixture stack gains mailpit (downloaded) and two tasks. | `examples/shop` |
 
 Exit measures: the four in [lifecycle.md](lifecycle.md#measures), run in CI
 against `examples/shop`.
+
+### Status
+
+Units 4.1 to 4.7 are built, and the four measures pass against a real daemon
+(`test/integration/service_test.go`). They have not run in CI: doze-sdk has to
+be pushed first (below).
+
+| Measure | Test |
+|---|---|
+| A two-line service wakes on connect | `TestAServiceWakesOnConnectAndSleepsWhenIdle`: asleep, woken in 77 ms, asleep again, woken again |
+| Setup runs exactly once | `TestSetupRunsOncePerDataFolder`: three wakes, two step events (its two commands, once); a reset runs it again |
+| A changed download is refused | `TestADownloadedServiceIsPinnedAndAChangeIsRefused`, and `TestAChangedDownloadIsRefused` in doze-sdk |
+| A task re-runs only on change | `TestATaskRerunsOnlyWhenItsInputsChange`, and `internal/inputs` |
+
+What changed from the plan:
+
+- **`engine/process` was not renamed to `engine/command`.** The type string
+  `process` is in the lock, the journal and every status line; the rename
+  would touch about forty files for a name no one sees. The package is the
+  command engine, and says so.
+- **A task is an instance, not a new kind of runtime object.** It goes
+  through the same boot path as everything else, so what it references is
+  held while it runs and its output and events need no new machinery. The
+  result is in `.doze/state.json` under `tasks`.
+- **`watch` polls** (`internal/watch`), once a second, only while the app is
+  awake. The plan said "adds one dependency"; the kernel watcher on macOS
+  holds a file descriptor per watched file, which a large repository runs out
+  of, and a poll of a few hundred stats costs less than the idle budget cares
+  about. A change is reported after a quiet interval, so a burst is one
+  restart. The inputs of the tasks an app waits for are watched with it.
+- **`on_ready` failing leaves the command running.** The start fails, so
+  dependants do not start; the next wake runs that step and nothing else.
+  Today's behaviour (tear it down) is gone.
+- **The fixture has no container service.** `docker run` would make `doze up`
+  fail on a machine without Docker, and the fixture runs in CI and on every
+  developer's machine. It has mailpit (downloaded, per platform) and two
+  tasks instead of mongo: mongo is a few hundred MB for no extra coverage.
+- `up` wakes every declared instance, services and tasks included, as it
+  always did for modules. A service goes back to sleep after the idle time.
+
+### Not done
+
+- **doze-sdk is not pushed.** `binaries.EnsureDownload` and the lock's
+  `downloads:` live in doze-sdk commit `562d6d5`, and doze's `go.mod` pins
+  that commit. doze does not build from a clean clone until doze-sdk is
+  pushed. (doze-sdk was already two commits ahead of origin.)
+- `doze lint` does not yet warn on `docker run -d` in a `run` line.
+- A task's last result is in `doze task` and the journal, not yet in
+  `doze status`; the dash (phase 5) shows it.
+- Snapshots (tier: dream) are not planned before phase 7, as before.
 
 ## Phase 5: the dash
 

@@ -49,6 +49,36 @@ module aws "cloud" {
   queue "orders" {}
 }
 
+# ── services and tasks ────────────────────────────────────────────────────
+
+# Something that is not in the registry: fetched once, pinned in doze.lock,
+# run from the archive. It sleeps when nothing is connected.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz"
+    mac_intel = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run  = "./mailpit --smtp $HOST:$PORT --listen $HOST:$((PORT + 1)) --database $DATA/mail.db"
+  port = 1025
+}
+
+# Runs before the app that lists it, when it has never succeeded or its inputs
+# changed.
+task "migrate" {
+  run    = "ls migrations/*.sql | wc -l"
+  inputs = ["migrations/*.sql"]
+  env    = { DATABASE_URL = module.db.url }
+}
+
+# Only when asked: `doze task seed`.
+task "seed" {
+  run    = "echo seeding the demo data"
+  manual = true
+  after  = [task.migrate]
+}
+
 # ── apps ──────────────────────────────────────────────────────────────────
 
 app "api" {
@@ -59,10 +89,13 @@ app "api" {
     DATABASE_URL  = module.db.url
     CACHE_ADDR    = module.cache.address
     KAFKA_BROKERS = module.events.address
+    SMTP_ADDR     = service.mailpit.address
   }
 
   ready         = http("/healthz")
   ready_timeout = "90s" # the first `go run` compiles the program
+
+  after = [task.migrate]
 }
 
 app "worker" {
