@@ -67,7 +67,10 @@ func newZone(t *testing.T, config string) *zone {
 	if err != nil {
 		t.Fatal(err)
 	}
-	z := &zone{t: t, home: filepath.Join(root, "h"), dns: freeUDP(t), front: freeTCP(t), dir: filepath.Join(root, "p"), doze: buildDoze(t)}
+	built := time.Now()
+	doze := buildDoze(t)
+	t.Logf("building doze took %s", time.Since(built).Round(time.Millisecond))
+	z := &zone{t: t, home: filepath.Join(root, "h"), dns: freeUDP(t), front: freeTCP(t), dir: filepath.Join(root, "p"), doze: doze}
 	if err := os.MkdirAll(z.dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +94,9 @@ func newZone(t *testing.T, config string) *zone {
 func (z *zone) run(args ...string) (string, error) {
 	cmd := exec.Command(z.doze, args...)
 	cmd.Dir, cmd.Env = z.dir, z.env
+	start := time.Now()
 	out, err := cmd.CombinedOutput()
+	z.t.Logf("doze %s took %s", strings.Join(args, " "), time.Since(start).Round(time.Millisecond))
 	return string(out), err
 }
 
@@ -136,6 +141,8 @@ func (z *zone) viaFrontDoor(host string) (string, error) {
 
 func waitFor(t *testing.T, what string, check func() error) {
 	t.Helper()
+	start := time.Now()
+	defer func() { t.Logf("%s: %s", what, time.Since(start).Round(time.Millisecond)) }()
 	deadline := time.Now().Add(10 * time.Second)
 	var err error
 	for {
