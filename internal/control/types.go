@@ -154,6 +154,9 @@ type InstanceView struct {
 	// ConsoleFront is the tab it asks to open on ("console", "web" or "").
 	HasConsole   bool   `json:"has_console,omitempty"`
 	ConsoleFront string `json:"console_front,omitempty"`
+	// WebURL is where the module serves a web console, with its address filled
+	// in; Console, when set, is what the config said and wins.
+	WebURL string `json:"web_url,omitempty"`
 	// NameHeld says that a name this instance wanted belongs to another program
 	// on the machine, and which: "aws.shop.doze is held by doze-aws (pid 412)".
 	NameHeld string `json:"name_held,omitempty"`
@@ -383,6 +386,10 @@ type ConsoleColumn struct {
 	Align string `json:"align,omitempty"`
 	Role  string `json:"role,omitempty"`
 }
+
+// CellRuntime is the cell a table row carries when the resource it shows was
+// made while the stack ran and is not in the config.
+const CellRuntime = "_runtime"
 
 // ConsoleRow is one row: its cells by column key, and a tone.
 type ConsoleRow struct {

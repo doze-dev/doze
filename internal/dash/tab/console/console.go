@@ -471,6 +471,9 @@ func (t *Tab) viewTable(c *core.Context, p control.ConsolePanel, focused bool, w
 		cells[ri] = make([]string, len(p.Columns))
 		for ci, col := range p.Columns {
 			s := t.cell(p, col, r)
+			if col.Key == "name" && r.Cells[control.CellRuntime] != "" {
+				s += "  · runtime"
+			}
 			cells[ri][ci] = s
 			if n := ansi.StringWidth(s); n > widths[ci] {
 				widths[ci] = n

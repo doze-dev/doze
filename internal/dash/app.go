@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -153,6 +155,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case core.Unfollow:
 		m.unfollow(msg.ID)
 		return m, nil
+	case core.Open:
+		return m, openURL(msg.URL)
 	case core.SetTheme:
 		m.setTheme(theme.Choice{Name: msg.Name, Dark: msg.Dark, Plain: msg.Plain}, msg.Save)
 		return m, nil
@@ -262,3 +266,23 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 // Dark guesses whether the terminal has a dark background. It is only a
 // default: the theme picker can say otherwise.
 func Dark() bool { return os.Getenv("COLORFGBG") == "" || os.Getenv("COLORFGBG") != "0;15" }
+
+// openURL opens an address with the system's opener, off the UI goroutine.
+func openURL(url string) tea.Cmd {
+	return func() tea.Msg {
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			cmd = exec.Command("open", url)
+		case "windows":
+			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		default:
+			cmd = exec.Command("xdg-open", url)
+		}
+		if err := cmd.Start(); err != nil {
+			return core.Notice{Text: "could not open " + url + ": " + err.Error(), Bad: true}
+		}
+		go func() { _ = cmd.Wait() }()
+		return core.Notice{Text: "opened " + url}
+	}
+}

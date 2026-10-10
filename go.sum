@@ -46,6 +46,8 @@ github.com/doze-dev/doze-sdk v0.7.1-0.20261010131056-562d6d51c1a2 h1:jpCbq31Uw6c
 github.com/doze-dev/doze-sdk v0.7.1-0.20261010131056-562d6d51c1a2/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
 github.com/doze-dev/doze-sdk v0.7.1-0.20261010144504-684a134e6575 h1:RGq6S9f8WBbRMdBMT/9ly0dvK7EpCHAIFkDCVCaROfE=
 github.com/doze-dev/doze-sdk v0.7.1-0.20261010144504-684a134e6575/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
+github.com/doze-dev/doze-sdk v0.7.1-0.20261010144935-0d68bd5db525 h1:owVgQw+NDVVNem21hTvBIjpEIluTxTxeK8WVA1ghycg=
+github.com/doze-dev/doze-sdk v0.7.1-0.20261010144935-0d68bd5db525/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
 github.com/fatih/color v1.13.0 h1:8LOYc1KYPPmyKMuN8QV2DNRWNbLo6LZ0iLs8+mlH53w=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=

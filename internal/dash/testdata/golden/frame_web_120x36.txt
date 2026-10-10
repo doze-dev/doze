@@ -1,0 +1,36 @@
+‹ mailpit  service  · asleep  127.0.0.17:1025
+ Web   Logs   Overview
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+address
+  http://mailpit.shop.doze:8025
+
+asleep — opening it wakes it.
+press o to open it in your browser
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+esc back  ·  tab next tab  ·  o open in browser  ·  c copy address  ·  w wake  ·  s sleep  ·  r restart  ·  R reset

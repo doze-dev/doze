@@ -124,6 +124,9 @@ type Tab interface {
 	Keys() []Key
 }
 
+// Open asks the host to open an address in the browser.
+type Open struct{ URL string }
+
 // Notice is a short message for the footer: "copied 12 lines".
 type Notice struct {
 	Text string

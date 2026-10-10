@@ -18,6 +18,7 @@ import (
 	"github.com/doze-dev/doze/internal/dash/tab/lastrun"
 	"github.com/doze-dev/doze/internal/dash/tab/logs"
 	"github.com/doze-dev/doze/internal/dash/tab/overview"
+	"github.com/doze-dev/doze/internal/dash/tab/web"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -38,18 +39,31 @@ type Model struct {
 // for its last run.
 func New(name string, inst control.InstanceView) *Model {
 	var tabs []core.Tab
-	switch inst.Kind {
-	case "app", "service":
+	switch {
+	case inst.Kind == "service" && inst.Console != "":
+		// A service with a web console opens on it: that is what it is for.
+		tabs = []core.Tab{web.New(name), logs.New(name), overview.New(name)}
+	case inst.Kind == "app" || inst.Kind == "service":
 		tabs = []core.Tab{logs.New(name), overview.New(name)}
-	case "task":
+	case inst.Kind == "task":
 		tabs = []core.Tab{lastrun.New(name), logs.New(name)}
 	default:
 		// A module that describes a console opens on it; one that does not
 		// opens on the overview the host draws for everything.
+		tabs = []core.Tab{overview.New(name), logs.New(name)}
 		if inst.HasConsole {
-			tabs = []core.Tab{console.New(name), overview.New(name), logs.New(name)}
-		} else {
-			tabs = []core.Tab{overview.New(name), logs.New(name)}
+			tabs = append([]core.Tab{console.New(name)}, tabs...)
+		}
+		if inst.WebURL != "" {
+			tabs = append(tabs, web.New(name))
+		}
+		if inst.ConsoleFront == "web" {
+			for i, t := range tabs {
+				if t.Title() == "Web" {
+					tabs = append([]core.Tab{t}, append(tabs[:i], tabs[i+1:]...)...)
+					break
+				}
+			}
 		}
 	}
 	return &Model{name: name, tabs: tabs}

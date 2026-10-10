@@ -14,6 +14,7 @@ import (
 	"github.com/doze-dev/doze/internal/control/fakedaemon"
 	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
+	"github.com/doze-dev/doze/internal/dash/tab/web"
 	"github.com/doze-dev/doze/internal/dash/theme"
 	"github.com/doze-dev/doze/internal/journal"
 )
@@ -655,5 +656,46 @@ func TestAnAsleepModuleHasADescriptionAndNoRows(t *testing.T) {
 	s.console("console:events", control.ConsoleFrame{Instance: "events", State: "reaped", Spec: kafkaSpec()})
 	if out := s.screen(); !strings.Contains(out, "asleep — the console shows live data once something wakes it") || !strings.Contains(out, "Topics") {
 		t.Fatalf("an asleep console says so and still lays out its panels:\n%s", out)
+	}
+}
+
+func TestAServiceWithAWebConsoleOpensOnIt(t *testing.T) {
+	d := shop()
+	for i := range d.Snap.Instances {
+		if d.Snap.Instances[i].Name == "mailpit" {
+			d.Snap.Instances[i].Console = "http://mailpit.shop.doze:8025"
+		}
+	}
+	s := newSession(t, d, 120, 36)
+	// apps 3, modules 4, then services: mailpit.
+	for i := 0; i < 7; i++ {
+		s.key("j")
+	}
+	s.key("enter")
+	out := s.screen()
+	for _, want := range []string{"Web", "http://mailpit.shop.doze:8025", "press o to open it in your browser", "asleep — opening it wakes it"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("the web tab lacks %q:\n%s", want, out)
+		}
+	}
+	golden(t, "frame_web_120x36", out)
+}
+
+func TestTheWebTabOpensTheAddress(t *testing.T) {
+	tab := web.New("mailpit")
+	_, cmd := tab.Update(tea.KeyPressMsg(tea.Key{Text: "o", Code: 'o'}), &core.Context{},
+		control.InstanceView{Console: "http://mailpit.shop.doze:8025"})
+	if cmd == nil {
+		t.Fatal("o should ask the host to open the address")
+	}
+	if msg, ok := cmd().(core.Open); !ok || msg.URL != "http://mailpit.shop.doze:8025" {
+		t.Fatalf("o asked for %#v", cmd())
+	}
+	// What the config said wins over what the module asked for.
+	if got := web.Address(control.InstanceView{Console: "http://a", WebURL: "http://b"}); got != "http://a" {
+		t.Errorf("address = %s", got)
+	}
+	if got := web.Address(control.InstanceView{WebURL: "http://b"}); got != "http://b" {
+		t.Errorf("address = %s", got)
 	}
 }

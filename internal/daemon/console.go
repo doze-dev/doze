@@ -39,7 +39,7 @@ func (h *handler) subConsole(ctx context.Context, names []string, panel, selecto
 	console, _ := adm.(engine.Console)
 	var spec engine.ConsoleSpec
 	if console != nil {
-		spec = console.Describe()
+		spec = console.DescribeConsole()
 	}
 	first := control.ConsoleFrame{Spec: specView(spec)}
 	if adm != nil {
@@ -87,11 +87,12 @@ func (h *handler) subConsole(ctx context.Context, names []string, panel, selecto
 					return
 				}
 			} else {
+				declared := declaredObjects(adm, inst)
 				for _, p := range spec.Panels {
 					if p.Kind != "table" && p.Kind != "counters" {
 						continue
 					}
-					if !emit(control.ConsoleFrame{State: state, Panel: p.ID, Rows: tableRows(p, res)}) {
+					if !emit(control.ConsoleFrame{State: state, Panel: p.ID, Rows: tableRows(p, res, declared)}) {
 						return
 					}
 				}
@@ -108,7 +109,7 @@ func (h *handler) subConsole(ctx context.Context, names []string, panel, selecto
 }
 
 // tableRows turns the resources of a panel's kind into rows keyed by column.
-func tableRows(p engine.Panel, res []engine.Resource) []control.ConsoleRow {
+func tableRows(p engine.Panel, res []engine.Resource, declared map[string]map[string]bool) []control.ConsoleRow {
 	var out []control.ConsoleRow
 	for _, r := range res {
 		if r.Kind != p.Source {
@@ -117,6 +118,12 @@ func tableRows(p engine.Panel, res []engine.Resource) []control.ConsoleRow {
 		cells := map[string]string{"name": r.Name, "status": r.Status}
 		for k, v := range r.Info {
 			cells[k] = v
+		}
+		// A resource that exists but the config does not declare was made while
+		// the stack ran. Only said of a kind the config does declare some of:
+		// without that, there is nothing to tell the two apart by.
+		if names, ok := declared[r.Kind]; ok && !names[r.Name] {
+			cells[control.CellRuntime] = "1"
 		}
 		out = append(out, control.ConsoleRow{Cells: cells})
 	}
@@ -141,4 +148,21 @@ func (h *handler) stateOf(name string) string {
 		return strings.TrimSpace(string(inst.State))
 	}
 	return ""
+}
+
+// declaredObjects is what the config declares for an instance, by kind and
+// name, or nil when the module cannot say.
+func declaredObjects(adm engine.Admin, inst engine.Instance) map[string]map[string]bool {
+	inv, ok := adm.(engine.Inventory)
+	if !ok {
+		return nil
+	}
+	out := map[string]map[string]bool{}
+	for _, o := range inv.Objects(inst) {
+		if out[o.Kind] == nil {
+			out[o.Kind] = map[string]bool{}
+		}
+		out[o.Kind][o.Name] = true
+	}
+	return out
 }

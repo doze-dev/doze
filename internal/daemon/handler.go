@@ -444,8 +444,15 @@ func (h *handler) hydrateConsole(v *control.InstanceView, decl *config.InstanceD
 		return
 	}
 	if c, ok := drv.(engine.Console); ok {
-		spec := c.Describe()
+		spec := c.DescribeConsole()
 		v.HasConsole = len(spec.Panels) > 0
 		v.ConsoleFront = spec.Front
+		if spec.WebURL != "" {
+			addr := v.Domain
+			if addr == "" {
+				addr = v.Endpoint
+			}
+			v.WebURL = strings.ReplaceAll(spec.WebURL, "{address}", addr)
+		}
 	}
 }
