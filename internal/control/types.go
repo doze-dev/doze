@@ -112,12 +112,17 @@ type HolderView struct {
 
 // InstanceView is a serializable snapshot of one backend's state.
 type InstanceView struct {
-	Name    string `json:"name"`
-	Engine  string `json:"engine"`
-	State   string `json:"state"`
-	Version string `json:"version"`
-	PID     int    `json:"pid"`
-	Conns   int    `json:"conns"`
+	Name string `json:"name"`
+	// Kind is the block that declared it: "module", "app", "service" or "task".
+	Kind string `json:"kind,omitempty"`
+	// Task is how a task last ran; nil for anything else, and for a task that
+	// has not run.
+	Task    *TaskView `json:"task,omitempty"`
+	Engine  string    `json:"engine"`
+	State   string    `json:"state"`
+	Version string    `json:"version"`
+	PID     int       `json:"pid"`
+	Conns   int       `json:"conns"`
 	// Holders is why the instance is awake. Conns counts every hold, including
 	// the ones dependants take; the "connection" holder counts clients only.
 	Holders   []HolderView `json:"holders,omitempty"`
@@ -328,4 +333,13 @@ type Frame struct {
 
 	// End closes a stream.
 	End bool `json:"end,omitempty"`
+}
+
+// TaskView is how a task last ran.
+type TaskView struct {
+	Result   string    `json:"result"` // "done" | "failed"
+	ExitCode int       `json:"exit_code,omitempty"`
+	TookMS   int64     `json:"took_ms"`
+	RanAt    time.Time `json:"ran_at"`
+	Why      string    `json:"why,omitempty"`
 }

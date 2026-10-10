@@ -102,7 +102,7 @@ func (r *Runtime) whyRun(ctx context.Context, name string, ts runspec.TaskSpec, 
 	rec, ok := r.TaskRecord(name)
 	switch {
 	case !ok:
-		return "never ran" + by, true
+		return "first run" + by, true
 	case rec.Result != "done":
 		return "failed last time" + by, true
 	case len(ts.Inputs) > 0 && rec.Inputs != hash:

@@ -15,7 +15,7 @@ starts by re-reading its own files and replacing its range with a number.
 | 2 | Daemon events, logs, and the CLI on top | 9 to 13 | none |
 | 3 | Names and ports | 9 to 13 | none |
 | 4 | Services, apps and tasks | 9 to 13 (built) | 1, 2, 3 |
-| 5 | The dash | 14 to 20 | 2 |
+| 5 | The dash | 14 to 20 (5.1, 5.2 built) | 2 |
 | 6 | Module consoles | 8 to 12 | 5 |
 | 7 | add, init, doctor, sync | 7 to 10 | 1, 4, 5 |
 | | Total | 63 to 91 | |
@@ -386,6 +386,44 @@ Exit measures:
 - No file in `internal/dash` imports the socket client; only the `Daemon`
   interface.
 - Keystroke-to-frame time on home with 30 instances, measured and recorded.
+
+### Status
+
+Units 5.1 and 5.2 are built; 5.3 to 5.11 are not. The new dash is reachable as
+the hidden `doze dash-next` and `doze dash` is still the old one until 5.11.
+
+What exists, in `internal/dash`:
+
+| Piece | State |
+|---|---|
+| `core` | `Page`, `Context`, `Key` and the host's messages. Pages reach the stack only through `control.Daemon`. |
+| `theme` | The five themes with dark and light variants, as a value that builds `Styles`. Nothing reads a global. |
+| `layout` | `Rect`, `Region`, `Map`: pages compute their regions once and both draw from them and answer clicks from them. |
+| `home` | Rows grouped by kind, state glyph and word, memory, the note ("held by …", "sleeps in 3m12s", a task's last run), the preview pane, `w s r p` verbs, `j k` and mouse selection. |
+| `dash` | The root model, the frame pump with reconnect, and a golden harness on `fakedaemon`. |
+
+Also done for the dash: `InstanceView` carries `Kind` and a task's last result
+(`Task`), and the state words and notes the CLI uses moved to `internal/display`
+so the two surfaces cannot disagree.
+
+Exit measures so far:
+
+| Measure | Result |
+|---|---|
+| No file in `internal/dash` imports the socket client | `TestNoFileOpensASocket` |
+| Keystroke-to-frame on home with 30 instances | 0.42 ms and 2,240 allocations (`BenchmarkHomeKeystrokeToFrame30`, Apple M5 Max) |
+| A golden file per screen at 120 × 36 and 80 × 24 | Home at 120 × 36 only; 80 × 24 is unit 5.10 |
+
+Not available yet, because the daemon does not supply it: "of ~2.9 GB if
+nothing slept" (needs each service's last-run memory) and "woken by worker"
+as a past event (the journal has it; home does not read the journal yet).
+
+Surveyed estimate for what is left, in focused days: 5.3 frame and logs tab
+2.5, 5.4 overview and last-run 1.5, 5.5 stack logs with search 2.5, 5.6 copy
+mode 1.5, 5.7 confirmations 1, 5.8 palette 1.5, 5.9 themes 1, 5.10 home at
+80 × 24 and the crash state 1, 5.11 the switch and deleting `internal/tui` 1:
+about 13.5. With 5.1 and 5.2 that is 15 to 16 for the phase, inside the 14 to
+20 range.
 
 ## Phase 6: module consoles
 

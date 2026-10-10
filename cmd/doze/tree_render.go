@@ -13,6 +13,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -210,56 +211,14 @@ func renderTable(out io.Writer, cfg *config.Config, views map[string]control.Ins
 // noteCell is the one thing worth knowing about a row beyond its state: what
 // went wrong, what is holding it awake, or when it will sleep.
 func noteCell(v control.InstanceView, idle time.Duration) string {
-	switch {
-	case v.State == "crashing" || v.State == "failed":
-		return ui.Fail(firstLine(v.LastError))
-	case v.Tainted:
-		note := "its last sync did not finish"
-		if v.LastError != "" {
-			note += ": " + firstLine(v.LastError)
-		}
-		return ui.Fail(note)
-	case v.LastError != "" && !awakeState(v.State):
-		return ui.Muted(firstLine(v.LastError))
+	text, bad := display.Note(v, idle, now())
+	if bad {
+		return ui.Fail(text)
 	}
-	var parts []string
-	if v.NameHeld != "" {
-		parts = append(parts, v.NameHeld)
-	}
-	var by []string
-	clients := 0
-	for _, h := range v.Holders {
-		switch h.Kind {
-		case "dependant":
-			by = append(by, h.Name)
-		case "connection":
-			clients = h.Count
-		}
-	}
-	if len(by) > 0 {
-		parts = append(parts, "held by "+strings.Join(by, ", "))
-	}
-	if v.KeepAwake {
-		parts = append(parts, "pinned")
-	}
-	if v.NameOnly {
-		parts = append(parts, "by name only: 127.0.0.1 has this port taken")
-	}
-	if v.IdleAfter > 0 {
-		idle = v.IdleAfter // its own idle time, not the stack's
-	}
-	if len(parts) == 0 && clients == 0 && v.State == "idle" && idle > 0 && !v.IdleSince.IsZero() {
-		if left := idle - now().Sub(v.IdleSince); left > 0 {
-			parts = append(parts, "sleeps in "+left.Round(time.Second).String())
-		}
-	}
-	return ui.Muted(strings.Join(parts, " · "))
+	return ui.Muted(text)
 }
 
-func firstLine(s string) string {
-	line, _, _ := strings.Cut(s, "\n")
-	return line
-}
+func firstLine(s string) string { return display.FirstLine(s) }
 
 // --- cell renderers ---
 
@@ -304,19 +263,7 @@ func stateText(v control.InstanceView, running bool, decl *config.InstanceDecl) 
 // displayWord maps the daemon's state words to the ones a person reads: awake,
 // dozing (awake with nobody holding it, counting down to sleep), waking and
 // asleep. JSON keeps the daemon's words.
-func displayWord(s string) string {
-	switch s {
-	case "active":
-		return "awake"
-	case "idle":
-		return "dozing"
-	case "booting":
-		return "waking"
-	case "reaped":
-		return "asleep"
-	}
-	return stateWord(s)
-}
+func displayWord(s string) string { return display.Word(s) }
 
 // engineCell is the engine type plus its version, hiding the "builtin" pseudo-version.
 func engineCell(decl *config.InstanceDecl, v control.InstanceView, running bool) string {
@@ -543,9 +490,7 @@ func versionOf(decl *config.InstanceDecl, v control.InstanceView, running bool) 
 
 // awakeState reports whether a backend is alive (booting, serving, or idling
 // before the reaper takes it) — as opposed to reaped/absent.
-func awakeState(s string) bool {
-	return s == "active" || s == "idle" || s == "booting"
-}
+func awakeState(s string) bool { return display.Awake(s) }
 
 func stateWord(s string) string {
 	if s == "" {

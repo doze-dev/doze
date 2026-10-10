@@ -69,9 +69,10 @@ func (h *handler) snapshot() []control.InstanceView {
 			state = "disabled"
 		}
 		v := control.InstanceView{
-			Name: decl.Name, Engine: decl.Type, State: state,
+			Name: decl.Name, Kind: decl.Kind, Engine: decl.Type, State: state,
 			Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
 		}
+		v.Task = h.taskView(decl)
 		h.hydrateEndpoint(&v, eps[decl.Name])
 		v.DataDir = h.dataDir(decl.Name)
 		out = append(out, v)
@@ -88,6 +89,10 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 		engineType, version, declared = decl.Type, decl.Version.String(), true
 	}
 	v := control.ViewFromRegistry(inst, engineType, version, declared)
+	if decl != nil {
+		v.Kind = decl.Kind
+		v.Task = h.taskView(decl)
+	}
 	v.Disabled = decl != nil && !decl.Enabled
 	v.Holders = h.holders(inst.Name)
 	h.hydrateEndpoint(&v, eps[inst.Name])
@@ -410,4 +415,16 @@ func (h *handler) RunTask(ctx context.Context, name string) error {
 		return fmt.Errorf("task needs a task name")
 	}
 	return h.d.rt.RunTask(journal.WithCause(ctx, journal.ByCommand, ""), name)
+}
+
+// taskView is how a task last ran, for the wire.
+func (h *handler) taskView(decl *config.InstanceDecl) *control.TaskView {
+	if decl.Kind != config.KindTask {
+		return nil
+	}
+	rec, ok := h.d.rt.TaskRecord(decl.Name)
+	if !ok {
+		return nil
+	}
+	return &control.TaskView{Result: rec.Result, ExitCode: rec.ExitCode, TookMS: rec.TookMS, RanAt: rec.RanAt, Why: rec.Why}
 }
