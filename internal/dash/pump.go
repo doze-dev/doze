@@ -56,6 +56,9 @@ type logMsg core.LogLine
 // eventMsg is a followed journal event on its way to the page.
 type eventMsg core.EventLine
 
+// consoleMsg is a followed console frame on its way to the page.
+type consoleMsg core.ConsoleLine
+
 // follow starts (or restarts) one log stream for a page. The lines arrive as
 // messages, so the page that asked sees them on its own goroutine's terms.
 func (m *Model) startFollow(f core.Follow) {
@@ -74,7 +77,7 @@ func (m *Model) startFollow(f core.Follow) {
 		if topic == "" {
 			topic = "logs"
 		}
-		sub := control.Subscription{Topics: []string{topic}, Names: f.Names, Backlog: f.Backlog}
+		sub := control.Subscription{Topics: []string{topic}, Names: f.Names, Backlog: f.Backlog, Panel: f.Panel, Selector: f.Selector}
 		if topic == "journal" {
 			sub.Since = control.JournalFromStart
 		}
@@ -84,6 +87,8 @@ func (m *Model) startFollow(f core.Follow) {
 				send(logMsg{ID: f.ID, Frame: *fr.Log})
 			case fr.Event != nil:
 				send(eventMsg{ID: f.ID, Event: *fr.Event})
+			case fr.Console != nil:
+				send(consoleMsg{ID: f.ID, Frame: *fr.Console})
 			}
 			return nil
 		})

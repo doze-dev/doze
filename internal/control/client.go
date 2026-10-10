@@ -239,7 +239,7 @@ func (cn *Conn) Stream(ctx context.Context, req Request, on func(Frame) error) e
 
 // Subscribe opens a subscription and calls on for each frame; see Stream.
 func (cn *Conn) Subscribe(ctx context.Context, sub Subscription, on func(Frame) error) error {
-	req := Request{Op: "subscribe", Topics: sub.Topics, Names: sub.Names, Since: sub.Since, Backlog: sub.Backlog}
+	req := Request{Op: "subscribe", Topics: sub.Topics, Names: sub.Names, Since: sub.Since, Backlog: sub.Backlog, Panel: sub.Panel, Selector: sub.Selector}
 	if sub.Interval > 0 {
 		req.Interval = sub.Interval.String()
 	}

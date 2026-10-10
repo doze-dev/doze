@@ -22,9 +22,10 @@ import (
 // settled, a frame out. A stream is not played: a test feeds the lines
 // itself, which is what makes its output the same every run.
 type session struct {
-	t    *testing.T
-	m    *Model
-	w, h int
+	t       *testing.T
+	m       *Model
+	w, h    int
+	follows []core.Follow // every Follow the dash asked the host for
 }
 
 func newSession(t *testing.T, d control.Daemon, w, h int) *session {
@@ -55,6 +56,9 @@ func (s *session) settle(cmd tea.Cmd) {
 		for _, c := range out {
 			s.settle(c)
 		}
+	case core.Follow:
+		s.follows = append(s.follows, out)
+		s.send(out)
 	default:
 		s.send(out)
 	}
@@ -519,4 +523,137 @@ func TestCoreScreensAt80x24(t *testing.T) {
 	s = newSession(t, d, 80, 24)
 	s.key("T")
 	golden(t, "themes_80x24", s.screen())
+}
+
+// A kafka-shaped console, described as data. The dash has no idea it is kafka.
+func kafkaSpec() *control.ConsoleSpec {
+	return &control.ConsoleSpec{
+		Front: "console",
+		Panels: []control.ConsolePanel{
+			{ID: "topics", Title: "Topics", Kind: "table", Source: "topic", Columns: []control.ConsoleColumn{
+				{Key: "name", Title: "Topic"},
+				{Key: "partitions", Title: "Partitions", Align: "right", Role: "count"},
+				{Key: "high", Title: "Messages", Align: "right", Role: "count"},
+				{Key: "high", Title: "Rate", Align: "right", Role: "rate"},
+			}},
+			{ID: "groups", Title: "Consumer groups", Kind: "table", Source: "group", Columns: []control.ConsoleColumn{
+				{Key: "name", Title: "Group"},
+				{Key: "state", Title: "State", Role: "state"},
+				{Key: "lag", Title: "Lag", Align: "right", Role: "lag"},
+			}},
+			{ID: "tail", Title: "Tail", Kind: "stream", Select: "topics", Columns: []control.ConsoleColumn{
+				{Key: "partition", Title: "P"}, {Key: "offset", Title: "Offset"}, {Key: "value", Title: "Value"},
+			}},
+		},
+	}
+}
+
+func topicRows(orders, payments string) []control.ConsoleRow {
+	return []control.ConsoleRow{
+		{Cells: map[string]string{"name": "orders", "partitions": "3", "high": orders}},
+		{Cells: map[string]string{"name": "payments", "partitions": "1", "high": payments}},
+	}
+}
+
+func consoleDash(t *testing.T) (*session, *time.Time) {
+	t.Helper()
+	d := shop()
+	for i := range d.Snap.Instances {
+		if d.Snap.Instances[i].Name == "events" {
+			d.Snap.Instances[i].State = "active"
+			d.Snap.Instances[i].HasConsole = true
+			d.Snap.Instances[i].ConsoleFront = "console"
+		}
+	}
+	clock := epoch
+	m := New(d, Options{Dark: true, Plain: true, Now: func() time.Time { return clock }, Loc: time.UTC})
+	s := &session{t: t, m: m, w: 120, h: 36}
+	s.send(tea.WindowSizeMsg{Width: 120, Height: 36})
+	snap, _ := d.Snapshot(nil) //nolint:staticcheck
+	s.send(snapshotMsg{snap: snap})
+	return s, &clock
+}
+
+func (s *session) console(id string, f control.ConsoleFrame) {
+	s.send(consoleMsg{ID: id, Frame: f})
+}
+
+func TestAModuleConsoleIsDrawnFromItsDescription(t *testing.T) {
+	s, clock := consoleDash(t)
+	// events is the 4th module: cache, cloud, db, events — after 3 apps.
+	s.key("j", "j", "j", "j", "j", "j", "enter")
+	if len(s.follows) == 0 || s.follows[0].Topic != "console" || s.follows[0].Names[0] != "events" {
+		t.Fatalf("opening a console module should follow its console: %+v", s.follows)
+	}
+
+	id := "console:events"
+	s.console(id, control.ConsoleFrame{Instance: "events", State: "active", Spec: kafkaSpec(),
+		Actions: []control.ActionView{{ID: "produce", Label: "Produce", Kind: "topic", InputHint: "message value"}}})
+	// Now the stream and its selection are known: it follows the first topic.
+	last := s.follows[len(s.follows)-1]
+	if last.Panel != "tail" || last.Selector != "" {
+		t.Fatalf("before any rows the stream has no selection: %+v", last)
+	}
+	s.console(id, control.ConsoleFrame{Panel: "topics", Rows: topicRows("1000", "40")})
+	if last = s.follows[len(s.follows)-1]; last.Panel != "tail" || last.Selector != "orders" {
+		t.Fatalf("with rows the stream follows the selected topic: %+v", last)
+	}
+	s.console(id, control.ConsoleFrame{Panel: "groups", Rows: []control.ConsoleRow{
+		{Cells: map[string]string{"name": "billing", "state": "Stable", "lag": "12"}},
+		{Cells: map[string]string{"name": "audit", "state": "Empty", "lag": "0"}},
+	}})
+	*clock = clock.Add(2 * time.Second)
+	s.console(id, control.ConsoleFrame{Panel: "topics", Rows: topicRows("1100", "40")})
+	s.console(id, control.ConsoleFrame{Panel: "tail", Row: &control.ConsoleRow{
+		Cells: map[string]string{"partition": "1", "offset": "412", "value": `{"order":7713}`}, Tone: "ok"}})
+	golden(t, "console_kafka_120x36", s.screen())
+
+	out := s.screen()
+	for _, want := range []string{"Topics", "1,100", "50.0/s", "billing", "Stable", "Tail", "orders", `{"order":7713}`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the console lacks %q:\n%s", want, out)
+		}
+	}
+
+	// Moving the cursor moves what the stream follows.
+	s.key("down")
+	if last = s.follows[len(s.follows)-1]; last.Selector != "payments" {
+		t.Fatalf("down should retarget the stream: %+v", last)
+	}
+}
+
+func TestConsoleActionsAskForInputAndRun(t *testing.T) {
+	s, _ := consoleDash(t)
+	s.key("j", "j", "j", "j", "j", "j", "enter")
+	id := "console:events"
+	s.console(id, control.ConsoleFrame{Instance: "events", State: "active", Spec: kafkaSpec(),
+		Actions: []control.ActionView{{ID: "produce", Label: "Produce", Kind: "topic", InputHint: "message value"}}})
+	s.console(id, control.ConsoleFrame{Panel: "topics", Rows: topicRows("1000", "40")})
+
+	s.key("a")
+	if out := s.screen(); !strings.Contains(out, "Produce") {
+		t.Fatalf("a should list the actions for a topic:\n%s", out)
+	}
+	s.key("enter")
+	if out := s.screen(); !strings.Contains(out, "message value") {
+		t.Fatalf("an action with an input hint should ask:\n%s", out)
+	}
+	for _, r := range "hello" {
+		s.key(string(r))
+	}
+	s.key("enter")
+	d := s.m.ctx.Daemon.(interface{ Actions() []fakedaemon.Action })
+	got := d.Actions()
+	if len(got) != 1 || got[0] != (fakedaemon.Action{Instance: "events", Action: "produce", Resource: "orders", Input: "hello"}) {
+		t.Fatalf("actions run = %+v", got)
+	}
+}
+
+func TestAnAsleepModuleHasADescriptionAndNoRows(t *testing.T) {
+	s, _ := consoleDash(t)
+	s.key("j", "j", "j", "j", "j", "j", "enter")
+	s.console("console:events", control.ConsoleFrame{Instance: "events", State: "reaped", Spec: kafkaSpec()})
+	if out := s.screen(); !strings.Contains(out, "asleep — the console shows live data once something wakes it") || !strings.Contains(out, "Topics") {
+		t.Fatalf("an asleep console says so and still lays out its panels:\n%s", out)
+	}
 }

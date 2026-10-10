@@ -109,6 +109,7 @@ func (m *Model) snapshot() tea.Cmd {
 
 // Update implements tea.Model.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m.ctx.Now = m.now()
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -159,6 +160,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.toPage(core.LogLine(msg))
 	case eventMsg:
 		return m.toPage(core.EventLine(msg))
+	case consoleMsg:
+		return m.toPage(core.ConsoleLine(msg))
 	}
 	next, cmd := m.toPage(msg)
 	return next, tea.Batch(append(cmds, cmd)...)

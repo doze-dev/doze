@@ -32,3 +32,28 @@ func TestNoFileOpensASocket(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// consoles.md measure: the dash has no module names in it. A module describes
+// itself; if the dash needs to know which one it is drawing, the description is
+// missing something.
+func TestTheDashKnowsNoModuleByName(t *testing.T) {
+	names := []string{`"aws"`, `"kafka"`, `"postgres"`, `"valkey"`, `"mariadb"`, `"ferret"`, `"s3"`, `"sqs"`, `"sns"`}
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return err
+		}
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, n := range names {
+			if strings.Contains(string(src), n) {
+				t.Errorf("%s names a module (%s): describe it in the console spec instead", path, n)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,0 +1,36 @@
+‹ events  kafka  ● awake  127.0.0.15:9092 · events.shop.doze
+ Console   Overview   Logs
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+▸ Topics  2
+  Topic     Partitions  Messages    Rate
+  orders             3     1,100  50.0/s
+  payments           1        40   0.0/s
+
+Consumer groups  2
+  Group    State   Lag
+  billing  Stable   12
+  audit    Empty     0
+
+Tail  orders
+  1  412  {"order":7713}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+esc back  ·  tab next tab  ·  ↑↓ row  ·  [ ] table  ·  a actions  ·  f pause stream  ·  w wake  ·  s sleep  ·  r restar…

@@ -83,6 +83,9 @@ type (
 		Topic   string
 		Names   []string
 		Backlog int
+		// Panel and Selector scope a "console" follow: the stream to run and the
+		// row of its table it tails.
+		Panel, Selector string
 	}
 	// Unfollow stops a Follow.
 	Unfollow struct{ ID string }
@@ -92,6 +95,12 @@ type (
 type LogLine struct {
 	ID    string
 	Frame control.LogFrame
+}
+
+// ConsoleLine is one frame of a followed console, sent to the page on top.
+type ConsoleLine struct {
+	ID    string
+	Frame control.ConsoleFrame
 }
 
 // EventLine is one followed journal event, sent to the page on top.

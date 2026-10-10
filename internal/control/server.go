@@ -149,7 +149,7 @@ func (s *Server) dispatch(daemonCtx, ctx context.Context, req Request, w *frameW
 	}
 	switch {
 	case req.Op == "subscribe":
-		sub := Subscription{Topics: req.Topics, Names: req.Names, Since: req.Since, Backlog: req.Backlog}
+		sub := Subscription{Topics: req.Topics, Names: req.Names, Since: req.Since, Backlog: req.Backlog, Panel: req.Panel, Selector: req.Selector}
 		if req.Interval != "" {
 			d, err := time.ParseDuration(req.Interval)
 			if err != nil || d <= 0 {

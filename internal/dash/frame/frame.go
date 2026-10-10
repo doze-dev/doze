@@ -14,6 +14,7 @@ import (
 	"github.com/doze-dev/doze/internal/dash/confirm"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/layout"
+	"github.com/doze-dev/doze/internal/dash/tab/console"
 	"github.com/doze-dev/doze/internal/dash/tab/lastrun"
 	"github.com/doze-dev/doze/internal/dash/tab/logs"
 	"github.com/doze-dev/doze/internal/dash/tab/overview"
@@ -43,7 +44,13 @@ func New(name string, inst control.InstanceView) *Model {
 	case "task":
 		tabs = []core.Tab{lastrun.New(name), logs.New(name)}
 	default:
-		tabs = []core.Tab{overview.New(name), logs.New(name)}
+		// A module that describes a console opens on it; one that does not
+		// opens on the overview the host draws for everything.
+		if inst.HasConsole {
+			tabs = []core.Tab{console.New(name), overview.New(name), logs.New(name)}
+		} else {
+			tabs = []core.Tab{overview.New(name), logs.New(name)}
+		}
 	}
 	return &Model{name: name, tabs: tabs}
 }

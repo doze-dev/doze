@@ -32,8 +32,12 @@ type Fake struct {
 	// Snap the way the verb would.
 	OnDo func(control.Verb)
 
-	mu   sync.Mutex
-	done []control.Verb
+	// AdminResult is what Admin answers with.
+	AdminResult string
+
+	mu      sync.Mutex
+	done    []control.Verb
+	actions []Action
 }
 
 var _ control.Daemon = (*Fake)(nil)
@@ -105,6 +109,27 @@ func (f *Fake) Logs(_ context.Context, q control.LogQuery) ([]control.LogFrame, 
 		out = out[len(out)-q.Tail:]
 	}
 	return out, nil
+}
+
+// Admin records a data action and answers with what was scripted.
+func (f *Fake) Admin(_ context.Context, instance, action, resource, input string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.actions = append(f.actions, Action{Instance: instance, Action: action, Resource: resource, Input: input})
+	if err := f.Fail["admin "+action]; err != nil {
+		return "", err
+	}
+	return f.AdminResult, nil
+}
+
+// Action is one data action a test ran.
+type Action struct{ Instance, Action, Resource, Input string }
+
+// Actions returns the data actions run so far, in order.
+func (f *Fake) Actions() []Action {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]Action{}, f.actions...)
 }
 
 // Done returns the verbs run so far, in order.

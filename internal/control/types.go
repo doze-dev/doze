@@ -48,6 +48,10 @@ type Request struct {
 	Since    uint64   `json:"since,omitempty"`
 	Interval string   `json:"interval,omitempty"` // a duration, e.g. "1s"
 	Backlog  int      `json:"backlog,omitempty"`
+	// Panel and Selector scope the "console" topic: which stream panel to run
+	// and which row of its table it follows.
+	Panel    string `json:"panel,omitempty"`
+	Selector string `json:"selector,omitempty"`
 
 	// The logs op (see LogQuery): which run, how many lines, and from when.
 	Run       int       `json:"run,omitempty"`
@@ -146,6 +150,10 @@ type InstanceView struct {
 	NameOnly bool `json:"name_only,omitempty"`
 	// Console is the URL of the instance's web console, when it has one.
 	Console string `json:"console,omitempty"`
+	// HasConsole says the module describes a console of tables and streams, and
+	// ConsoleFront is the tab it asks to open on ("console", "web" or "").
+	HasConsole   bool   `json:"has_console,omitempty"`
+	ConsoleFront string `json:"console_front,omitempty"`
 	// NameHeld says that a name this instance wanted belongs to another program
 	// on the machine, and which: "aws.shop.doze is held by doze-aws (pid 412)".
 	NameHeld string `json:"name_held,omitempty"`
@@ -278,6 +286,7 @@ const (
 	TopicStats     = "stats"     // CPU and memory per running instance, on an interval
 	TopicJournal   = "journal"   // journal events, from a sequence number on
 	TopicLogs      = "logs"      // log lines for chosen instances
+	TopicConsole   = "console"   // a module's console: its spec, its tables, a stream
 )
 
 // StatView is one running instance's meters, sampled for the stats topic.
@@ -304,6 +313,10 @@ type Subscription struct {
 	// Backlog is how many recent log lines of each instance to send before
 	// following (zero = the default; negative = none).
 	Backlog int
+	// Panel and Selector scope the console topic: the stream panel to run and
+	// the row of its table it follows. Without a Panel only tables are sent.
+	Panel    string
+	Selector string
 }
 
 // JournalFromStart, as Subscription.Since, asks for every journal event kept.
@@ -330,6 +343,7 @@ type Frame struct {
 	Stats   []StatView     `json:"stats,omitempty"`
 	Event   *journal.Event `json:"event,omitempty"`
 	Log     *LogFrame      `json:"log,omitempty"`
+	Console *ConsoleFrame  `json:"console,omitempty"`
 
 	// End closes a stream.
 	End bool `json:"end,omitempty"`
@@ -342,4 +356,52 @@ type TaskView struct {
 	TookMS   int64     `json:"took_ms"`
 	RanAt    time.Time `json:"ran_at"`
 	Why      string    `json:"why,omitempty"`
+}
+
+// ConsoleSpec is a module's description of its console, as the dash draws it.
+// It mirrors engine.ConsoleSpec, so a surface needs nothing from the SDK.
+type ConsoleSpec struct {
+	Front  string         `json:"front,omitempty"`
+	WebURL string         `json:"web_url,omitempty"`
+	Panels []ConsolePanel `json:"panels,omitempty"`
+}
+
+// ConsolePanel is one block of a console: a table, a row of counters, or a stream.
+type ConsolePanel struct {
+	ID      string          `json:"id"`
+	Title   string          `json:"title"`
+	Kind    string          `json:"kind"` // table | counters | stream
+	Source  string          `json:"source,omitempty"`
+	Columns []ConsoleColumn `json:"columns,omitempty"`
+	Select  string          `json:"select,omitempty"`
+}
+
+// ConsoleColumn is one column of a table, one field of a stream row.
+type ConsoleColumn struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+	Align string `json:"align,omitempty"`
+	Role  string `json:"role,omitempty"`
+}
+
+// ConsoleRow is one row: its cells by column key, and a tone.
+type ConsoleRow struct {
+	Cells map[string]string `json:"cells"`
+	Tone  string            `json:"tone,omitempty"`
+}
+
+// ConsoleFrame is one message of the console topic. The first carries the
+// spec and the actions; after that a table or counters panel is sent whole
+// each time it is read (Rows replaces what the panel showed), and a stream
+// panel sends its rows one at a time (Row). State says whether the instance
+// is awake: a console never wakes what it is looking at.
+type ConsoleFrame struct {
+	Instance string       `json:"instance"`
+	State    string       `json:"state,omitempty"`
+	Spec     *ConsoleSpec `json:"spec,omitempty"`
+	Actions  []ActionView `json:"actions,omitempty"`
+	Panel    string       `json:"panel,omitempty"`
+	Rows     []ConsoleRow `json:"rows,omitempty"`
+	Row      *ConsoleRow  `json:"row,omitempty"`
+	Error    string       `json:"error,omitempty"`
 }

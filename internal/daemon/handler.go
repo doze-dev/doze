@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
@@ -73,6 +74,7 @@ func (h *handler) snapshot() []control.InstanceView {
 			Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
 		}
 		v.Task = h.taskView(decl)
+		h.hydrateConsole(&v, decl)
 		h.hydrateEndpoint(&v, eps[decl.Name])
 		v.DataDir = h.dataDir(decl.Name)
 		out = append(out, v)
@@ -95,6 +97,7 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 	}
 	v.Disabled = decl != nil && !decl.Enabled
 	v.Holders = h.holders(inst.Name)
+	h.hydrateConsole(&v, decl)
 	h.hydrateEndpoint(&v, eps[inst.Name])
 	v.DataDir = h.dataDir(inst.Name)
 	return v
@@ -427,4 +430,22 @@ func (h *handler) taskView(decl *config.InstanceDecl) *control.TaskView {
 		return nil
 	}
 	return &control.TaskView{Result: rec.Result, ExitCode: rec.ExitCode, TookMS: rec.TookMS, RanAt: rec.RanAt, Why: rec.Why}
+}
+
+// hydrateConsole says whether the module behind an instance describes a
+// console. The module answers once and the host caches it, so this costs a map
+// lookup on every snapshot after the first.
+func (h *handler) hydrateConsole(v *control.InstanceView, decl *config.InstanceDecl) {
+	if decl == nil {
+		return
+	}
+	drv, ok := engine.Lookup(decl.Type)
+	if !ok {
+		return
+	}
+	if c, ok := drv.(engine.Console); ok {
+		spec := c.Describe()
+		v.HasConsole = len(spec.Panels) > 0
+		v.ConsoleFront = spec.Front
+	}
 }

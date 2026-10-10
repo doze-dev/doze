@@ -49,11 +49,12 @@ func (h *handler) Subscribe(ctx context.Context, sub control.Subscription, emit 
 		control.TopicStats:     func() { h.subStats(ctx, sub.Interval, send) },
 		control.TopicJournal:   func() { h.subJournal(ctx, sub.Since, send) },
 		control.TopicLogs:      func() { h.subLogs(ctx, sub.Names, sub.Backlog, send) },
+		control.TopicConsole:   func() { h.subConsole(ctx, sub.Names, sub.Panel, sub.Selector, send) },
 	}
 	for _, t := range sub.Topics {
 		run, ok := topics[t]
 		if !ok {
-			return fmt.Errorf("subscribe: no topic called %q (want instances, stats, journal or logs)", t)
+			return fmt.Errorf("subscribe: no topic called %q (want instances, stats, journal, logs or console)", t)
 		}
 		wg.Add(1)
 		go func() { defer wg.Done(); run() }()

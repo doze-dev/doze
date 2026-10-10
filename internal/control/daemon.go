@@ -19,6 +19,9 @@ type Daemon interface {
 	Do(ctx context.Context, verb Verb) error
 	// Logs reads lines an instance printed. The instance need not be running.
 	Logs(ctx context.Context, q LogQuery) ([]LogFrame, error)
+	// Admin runs one of a module's data actions on a resource of it — purge a
+	// queue, produce a message — and returns what it said.
+	Admin(ctx context.Context, instance, action, resource, input string) (string, error)
 }
 
 // Snapshot is the answer to "what is the stack doing".
@@ -84,6 +87,14 @@ func (d socketDaemon) Subscribe(ctx context.Context, sub Subscription, on func(F
 func (d socketDaemon) Do(ctx context.Context, verb Verb) error {
 	_, err := d.c.DoContext(ctx, Request{Op: verb.Name, DB: verb.Target})
 	return err
+}
+
+func (d socketDaemon) Admin(ctx context.Context, instance, action, resource, input string) (string, error) {
+	resp, err := d.c.DoContext(ctx, Request{Op: "admin", DB: instance, Action: action, Resource: resource, Input: input})
+	if err != nil {
+		return "", err
+	}
+	return resp.Result, nil
 }
 
 func (d socketDaemon) Logs(ctx context.Context, q LogQuery) ([]LogFrame, error) {
