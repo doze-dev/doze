@@ -15,7 +15,7 @@ starts by re-reading its own files and replacing its range with a number.
 | 2 | Daemon events, logs, and the CLI on top | 9 to 13 | none |
 | 3 | Names and ports | 9 to 13 | none |
 | 4 | Services, apps and tasks | 9 to 13 (built) | 1, 2, 3 |
-| 5 | The dash | 14 to 20 (5.1, 5.2 built) | 2 |
+| 5 | The dash | 14 to 20 (built) | 2 |
 | 6 | Module consoles | 8 to 12 | 5 |
 | 7 | add, init, doctor, sync | 7 to 10 | 1, 4, 5 |
 | | Total | 63 to 91 | |
