@@ -204,3 +204,53 @@ func TestTabKeySwitchesTabs(t *testing.T) {
 		t.Fatalf("tab should show the overview:\n%s", out)
 	}
 }
+
+func stackLines() []control.LogFrame {
+	return []control.LogFrame{
+		{Instance: "api", Line: "INFO listening on :8080", Time: epoch.Add(-9 * time.Minute)},
+		{Instance: "db", Line: "database system is ready to accept connections", Time: epoch.Add(-9*time.Minute + time.Second)},
+		{Instance: "worker", Line: "INFO consuming orders", Time: epoch.Add(-8 * time.Minute)},
+		{Instance: "api", Line: "GET /orders 200 14ms", Time: epoch.Add(-5 * time.Minute)},
+		{Instance: "worker", Line: "WARN order 7713 retried", Time: epoch.Add(-4 * time.Minute)},
+		{Instance: "db", Line: "ERROR out of shared memory", Time: epoch.Add(-3 * time.Minute)},
+		{Instance: "api", Line: "GET /orders 500 31ms", Time: epoch.Add(-3*time.Minute + time.Second)},
+	}
+}
+
+func TestStackLogsMergeInTimeOrder(t *testing.T) {
+	s := newSession(t, shop(), 120, 36)
+	s.key("L")
+	// Lines arrive out of order across sources, as a merged stream does.
+	ls := stackLines()
+	s.logs("stacklogs", ls[3], ls[0], ls[5], ls[1], ls[6], ls[2], ls[4])
+	golden(t, "stacklogs_120x36", s.screen())
+}
+
+func TestStackLogsSearchTogglesAndLevel(t *testing.T) {
+	s := newSession(t, shop(), 120, 36)
+	s.key("L")
+	for _, l := range stackLines() {
+		s.logs("stacklogs", l)
+	}
+
+	// Search: the matches are counted and the query is shown.
+	s.key("/", "o", "r", "d", "e", "r", "enter")
+	out := s.screen()
+	if !strings.Contains(out, "4 matches for order") {
+		t.Fatalf("search should count matches:\n%s", out)
+	}
+
+	// Toggle the first source off (api): its lines go.
+	s.key("1")
+	if out := s.screen(); strings.Contains(out, "GET /orders") {
+		t.Fatalf("toggling api off should hide its lines:\n%s", out)
+	}
+	s.key("a")
+
+	// Level: warn shows warnings and errors only.
+	s.key("e")
+	out = s.screen()
+	if strings.Contains(out, "listening on") || !strings.Contains(out, "WARN order 7713") || !strings.Contains(out, "ERROR out of shared") {
+		t.Fatalf("level warn should keep only warn and error:\n%s", out)
+	}
+}

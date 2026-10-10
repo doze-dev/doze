@@ -95,6 +95,8 @@ type Styles struct {
 
 	// Plain turns colour off: NO_COLOR, or a terminal that has none.
 	Plain bool
+
+	sources []lipgloss.Style
 }
 
 // Styles builds the styles for a variant. plain removes colour and keeps
@@ -121,6 +123,9 @@ func (t Theme) Styles(darkVariant, plain bool) Styles {
 		KeyLabel: fg(p.Dim),
 		Plain:    plain,
 	}
+	for _, c := range []color.Color{p.Accent, p.Cool, p.Text, p.Good, p.Dim} {
+		s.sources = append(s.sources, lipgloss.NewStyle().Foreground(c))
+	}
 	if plain {
 		bare := lipgloss.NewStyle()
 		s.Title, s.Text, s.Dim, s.Faint, s.Accent = bare.Bold(true), bare, bare, bare, bare
@@ -129,4 +134,21 @@ func (t Theme) Styles(darkVariant, plain bool) Styles {
 		s.Key, s.KeyLabel = bare.Bold(true), bare
 	}
 	return s
+}
+
+// Pick returns a stable colour for a name — a log source, say — out of the
+// theme's own: the same name is the same colour on every screen, and none of
+// them is a state colour, so a source never reads as "failed".
+func (s Styles) Pick(name string) lipgloss.Style {
+	if s.Plain || len(s.sources) == 0 {
+		return lipgloss.NewStyle()
+	}
+	h := 0
+	for _, r := range name {
+		h = h*31 + int(r)
+	}
+	if h < 0 {
+		h = -h
+	}
+	return s.sources[h%len(s.sources)]
 }

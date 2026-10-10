@@ -16,6 +16,7 @@ import (
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/frame"
 	"github.com/doze-dev/doze/internal/dash/layout"
+	"github.com/doze-dev/doze/internal/dash/stacklogs"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -91,7 +92,7 @@ func (m *Model) selected(c *core.Context) (control.InstanceView, bool) {
 // Keys implements core.Page.
 func (m *Model) Keys() []core.Key {
 	return []core.Key{
-		{Keys: "↑↓", Label: "select"}, {Keys: "enter", Label: "open"}, {Keys: "w", Label: "wake"}, {Keys: "s", Label: "sleep"},
+		{Keys: "↑↓", Label: "select"}, {Keys: "enter", Label: "open"}, {Keys: "L", Label: "all logs"}, {Keys: "w", Label: "wake"}, {Keys: "s", Label: "sleep"},
 		{Keys: "r", Label: "restart"}, {Keys: "p", Label: "pin"}, {Keys: "q", Label: "quit"},
 	}
 }
@@ -130,6 +131,8 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 			if len(rs) > 0 {
 				m.sel = rs[len(rs)-1].v.Name
 			}
+		case "L":
+			return m, func() tea.Msg { return core.Navigate{To: stacklogs.New()} }
 		case "enter", "l", "right":
 			if v, ok := m.selected(c); ok {
 				return m, func() tea.Msg { return core.Navigate{To: frame.New(v.Name, v)} }
