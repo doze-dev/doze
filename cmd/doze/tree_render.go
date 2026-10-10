@@ -50,8 +50,11 @@ func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView,
 	for _, d := range cfg.Instances {
 		v, running := views[d.Name]
 		group := config.KindModule
-		if categoryOf(d.Type) == "process" {
+		switch categoryOf(d) {
+		case "process":
 			group = config.KindApp
+		case "service":
+			group = config.KindService
 		}
 		var deps []string
 		for _, dep := range d.Deps {
@@ -118,17 +121,21 @@ func plainState(v control.InstanceView, running bool, decl *config.InstanceDecl)
 
 // category groups: the two kinds of block that run today — modules, and your
 // own apps.
-var categoryOrder = []string{"module", "process"}
+var categoryOrder = []string{"module", "service", "process"}
 
 var categoryLabel = map[string]string{
 	"module":  "Modules",
+	"service": "Services",
 	"process": "Apps",
 }
 
-// categoryOf maps an engine type to its display group: your `process` apps are
-// "process", every engine module is "module".
-func categoryOf(engineType string) string {
-	if engineType == "process" {
+// categoryOf maps an instance to its display group: a `service` is "service",
+// your `app` is "process", every module is "module".
+func categoryOf(d *config.InstanceDecl) string {
+	switch {
+	case d.Kind == config.KindService:
+		return "service"
+	case d.Type == "process":
 		return "process"
 	}
 	return "module"
@@ -160,7 +167,7 @@ func renderTable(out io.Writer, cfg *config.Config, views map[string]control.Ins
 			metricCPU(v, running),
 			noteCell(v, idle),
 		}
-		cat := categoryOf(d.Type)
+		cat := categoryOf(d)
 		rowsByCat[cat] = append(rowsByCat[cat], rowData{name: d.Name, cells: cells})
 	}
 
@@ -310,6 +317,9 @@ func displayWord(s string) string {
 func engineCell(decl *config.InstanceDecl, v control.InstanceView, running bool) string {
 	if decl == nil {
 		return ""
+	}
+	if decl.Kind == config.KindService {
+		return ui.Muted("service")
 	}
 	if decl.Type == config.AppEngine {
 		return ui.Muted("app")

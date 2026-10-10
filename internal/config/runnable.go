@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
 
+	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/runspec"
 )
 
@@ -143,7 +144,9 @@ func (c *Config) Task(name string) *TaskDecl {
 func (c *Config) Unbuilt() error {
 	var names []string
 	for _, s := range c.Services {
-		names = append(names, title(KindService, "", s.Name))
+		if len(s.Download) > 0 {
+			names = append(names, title(KindService, "", s.Name)+" (download)")
+		}
 	}
 	for _, t := range c.Tasks {
 		names = append(names, title(KindTask, "", t.Name))
@@ -311,6 +314,46 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 	if s.Restart, err = parseRestart(raw.Restart); err != nil {
 		return fail(err)
 	}
+	return cfg.addService(s, fail)
+}
+
+// addService makes a decoded service a declared instance of the command
+// engine, so it is booted, held, slept and shown like any other. The block's
+// references and `after` become boot edges.
+func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
+	drv, ok := engine.Lookup(AppEngine)
+	if !ok {
+		return fail(fmt.Errorf("the command engine is not registered"))
+	}
+	b, ok := drv.(runspec.CommandBuilder)
+	if !ok {
+		return fail(fmt.Errorf("the command engine cannot build a service"))
+	}
+	spec, err := b.CommandConfig(runspec.Command{
+		Name: s.Name, Run: s.Run, Dir: s.Dir, Port: s.Port, Env: s.Env, EnvFile: s.EnvFile,
+		Setup: s.Setup, OnReady: s.OnReady, Stop: s.Stop,
+		Ready: s.Ready, ReadyTimeout: s.ReadyTimeout,
+		RestartPolicy: s.Restart.Policy, RestartBackoff: s.Restart.Backoff, RestartMaxRetries: s.Restart.MaxRetries,
+		Sleep: s.Sleep, Front: s.Front, Console: s.Console, QuietLogs: s.QuietLogs,
+		Service: true,
+	})
+	if err != nil {
+		return fail(err)
+	}
+	var deps []engine.Dependency
+	seen := map[string]bool{s.Name: true}
+	for _, ref := range append(append([]Ref{}, s.Refs...), s.After...) {
+		if seen[ref.Name] || (ref.Kind != KindModule && ref.Kind != KindApp && ref.Kind != KindService) {
+			continue
+		}
+		seen[ref.Name] = true
+		deps = append(deps, engine.Dependency{Name: ref.Name, Condition: engine.Healthy})
+	}
+	cfg.Add(&InstanceDecl{
+		Kind: KindService, Type: AppEngine, Name: s.Name, Version: "builtin",
+		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: deps, Enabled: true,
+		After: s.After, Refs: s.Refs,
+	})
 	return nil
 }
 

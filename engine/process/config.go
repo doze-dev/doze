@@ -51,6 +51,11 @@ type Config struct {
 	Watch     []string
 	Direct    bool
 
+	// Service is the service preset: the command sleeps when idle without being
+	// asked to, and is woken by a connection or a dependant. An app stays up
+	// unless it sets `sleep`.
+	Service bool
+
 	declaredPort int // the block's `port`, handed over by config (see BindPort)
 }
 
@@ -209,7 +214,7 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 // http() probe.
 func (c *Config) BindPort(port int) error {
 	c.declaredPort = port
-	if _, sleeps := c.IdleAfter(); sleeps && !c.Proxied() {
+	if c.Sleep.Set && !c.Sleep.Never && !c.Proxied() {
 		// Only a connection through doze's listener can wake an app again.
 		return fmt.Errorf("sleep = %q needs doze to hold the app's port, so that a connection can wake it: declare a `port`, and do not set `direct`", c.Sleep.After)
 	}
@@ -395,6 +400,9 @@ func (c *Config) ConsoleTarget() (hostport, path string, ok bool) {
 func (c *Config) IdleAfter() (time.Duration, bool) {
 	if c.Sleep.Set && !c.Sleep.Never {
 		return c.Sleep.After, true
+	}
+	if c.Service && !c.Sleep.Never {
+		return 0, true // asleep when idle, after the stack's default time
 	}
 	return 0, false
 }

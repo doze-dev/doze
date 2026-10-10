@@ -295,13 +295,13 @@ func standInAttributes(decl *InstanceDecl, used map[string]bool) cty.Value {
 // instanceDeps records what p must boot first: every module or app it
 // references (a Healthy dependency), any `after` entry, and any explicit
 // depends_on (which may set a stronger or weaker condition). References to
-// services and tasks are checked and kept on the declaration, but add no boot
-// edge until something runs them. Self references drop.
+// tasks are checked and kept on the declaration, but add no boot edge until
+// something runs them. Self references drop.
 func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, known *declared) error {
 	cond := map[string]engine.Condition{}
 	var order []string
 	edge := func(ref Ref) {
-		if ref.Name == p.decl.Name || (ref.Kind != KindModule && ref.Kind != KindApp) {
+		if ref.Name == p.decl.Name || (ref.Kind != KindModule && ref.Kind != KindApp && ref.Kind != KindService) {
 			return
 		}
 		if _, ok := cond[ref.Name]; !ok {

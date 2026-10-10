@@ -83,9 +83,10 @@ func TestTheWholeLanguage(t *testing.T) {
 	if api == nil || api.Kind != config.KindApp || api.Type != config.AppEngine || api.Port != 8080 {
 		t.Fatalf("app api = %+v", api)
 	}
-	// The module reference is a boot dependency. The service reference and the
-	// task in `after` are recorded, but nothing boots them yet.
-	if len(api.Deps) != 1 || api.Deps[0].Name != "db" || api.Deps[0].Condition != engine.Healthy {
+	// The module and the service it references are boot dependencies. The task
+	// in `after` is recorded, but nothing boots a task yet.
+	if len(api.Deps) != 2 || api.Deps[0].Name != "db" || api.Deps[1].Name != "mongo" ||
+		api.Deps[0].Condition != engine.Healthy || api.Deps[1].Condition != engine.Healthy {
 		t.Errorf("api deps = %+v", api.Deps)
 	}
 	if len(api.After) != 1 || api.After[0] != (config.Ref{Kind: config.KindTask, Name: "migrate"}) {
@@ -343,4 +344,20 @@ func lines(block string) string {
 	block = strings.Replace(block, "{ ", "{\n", 1)
 	block = strings.ReplaceAll(block, "  ", "\n")
 	return strings.TrimSuffix(block, " }") + "\n}"
+}
+
+// A service is an instance of the command engine like an app, with its own
+// kind, so the runtime boots, holds and sleeps it by the same rules.
+func TestAServiceIsAnInstanceOfTheCommandEngine(t *testing.T) {
+	cfg := shape(t, whole)
+	mongo := cfg.Lookup("mongo")
+	if mongo == nil || mongo.Kind != config.KindService || mongo.Type != config.AppEngine || !mongo.Enabled {
+		t.Fatalf("service mongo = %+v", mongo)
+	}
+	if mongo.Title() != `service "mongo"` {
+		t.Errorf("title = %s", mongo.Title())
+	}
+	if mongo.Port == 0 {
+		t.Errorf("a service with a port has Port set: %+v", mongo)
+	}
 }
