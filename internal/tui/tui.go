@@ -8,6 +8,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -22,8 +23,8 @@ import (
 )
 
 const (
-	histLen   = 300 // ~2.5 min of memory history at refreshMS (was 32s — too short/flat)
-	refreshMS = 500 * time.Millisecond
+	histLen   = 300                    // ~2.5 min of memory history at refreshMS (was 32s — too short/flat)
+	refreshMS = 500 * time.Millisecond // the stats interval the dash subscribes with
 	logsMS    = 400 * time.Millisecond
 	spinMS    = 110 * time.Millisecond
 )
@@ -32,12 +33,14 @@ var spinner = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '�
 
 // ── messages ──────────────────────────────────────────────────────────────
 type (
-	tickMsg     time.Time
 	logsTickMsg time.Time
 	spinMsg     time.Time
 	statusMsg   struct {
 		resp control.Response
 		err  error
+		// sample marks a message that carries fresh meters, which is when the
+		// charts take a point: about once a second, not on every state change.
+		sample bool
 	}
 	logsMsg struct {
 		name  string
@@ -62,18 +65,9 @@ func builtinAdmin(eng string) bool {
 	return eng == "aws" || eng == "kafka"
 }
 
-func tick() tea.Cmd { return tea.Tick(refreshMS, func(t time.Time) tea.Msg { return tickMsg(t) }) }
-
 func logsTick() tea.Cmd { return tea.Tick(logsMS, func(t time.Time) tea.Msg { return logsTickMsg(t) }) }
 
 func spin() tea.Cmd { return tea.Tick(spinMS, func(t time.Time) tea.Msg { return spinMsg(t) }) }
-
-func refresh(c *control.Client) tea.Cmd {
-	return func() tea.Msg {
-		resp, err := c.Do(control.Request{Op: "status"})
-		return statusMsg{resp: resp, err: err}
-	}
-}
 
 func fetchLogs(c *control.Client, name string) tea.Cmd {
 	return func() tea.Msg {
@@ -214,12 +208,18 @@ func Run(socketPath string) error {
 		hist:   map[string]*history{},
 		logVP:  viewport.New(0, 0),
 	}
-	_, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	// The stack's state arrives from a subscription, not a poll: the daemon
+	// sends each change as it happens and samples meters only while this is open.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go pump(ctx, c, func(msg tea.Msg) { p.Send(msg) })
+	_, err := p.Run()
 	return err
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(refresh(m.client), tick(), logsTick(), spin())
+	return tea.Batch(logsTick(), spin())
 }
 
 func (m model) selected() (control.InstanceView, bool) {
@@ -236,9 +236,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.layout()
 		return m, nil
-
-	case tickMsg:
-		return m, tea.Batch(refresh(m.client), tick())
 
 	case spinMsg:
 		m.frame++
@@ -292,13 +289,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil {
 			m.lastOK = time.Now()
 			m.resp = msg.resp
-			for _, in := range m.resp.Instances {
-				h := m.hist[in.Name]
-				if h == nil {
-					h = &history{}
-					m.hist[in.Name] = h
+			if msg.sample {
+				for _, in := range m.resp.Instances {
+					h := m.hist[in.Name]
+					if h == nil {
+						h = &history{}
+						m.hist[in.Name] = h
+					}
+					h.push(float64(in.RAM), in.CPU, float64(in.Conns))
 				}
-				h.push(float64(in.RAM), in.CPU, float64(in.Conns))
 			}
 		}
 		if vis := m.visible(); m.cursor >= len(vis) {
@@ -338,7 +337,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if msg.verb != "pin" { // pin already flashed its direction
 			m.setFlash(stGreen, "✓ "+dashVerbLabel(msg.verb)+" "+msg.name)
 		}
-		return m, refresh(m.client)
+		return m, nil // the subscription delivers what the action changed
 
 	case resourcesMsg:
 		// Only adopt resources for the instance we're currently focused on.

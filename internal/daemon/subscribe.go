@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/ui"
@@ -128,14 +129,19 @@ func (h *handler) subStats(ctx context.Context, gap time.Duration, send func(con
 		frame := control.Frame{Topic: control.TopicStats}
 		if len(pids) > 0 {
 			stats := ui.ProcStats(pids)
+			tree := ui.ProcTree(pids)
 			for _, inst := range running {
 				if inst.PID == 0 {
 					continue
 				}
 				st := stats[inst.PID]
-				frame.Stats = append(frame.Stats, control.StatView{
-					Name: inst.Name, PID: inst.PID, RAM: st.RSS, CPU: st.CPU, Conns: inst.Conns,
-				})
+				sv := control.StatView{Name: inst.Name, PID: inst.PID, RAM: st.RSS, CPU: st.CPU, Conns: inst.Conns}
+				if decl := h.d.cfg.Lookup(inst.Name); decl != nil && decl.Type == config.AppEngine {
+					for _, n := range tree[inst.PID] {
+						sv.Children = append(sv.Children, control.ProcView{PID: n.PID, RSS: n.RSS, CPU: n.CPU, Cmd: n.Cmd, Depth: n.Depth})
+					}
+				}
+				frame.Stats = append(frame.Stats, sv)
 			}
 		}
 		if send(frame) != nil {

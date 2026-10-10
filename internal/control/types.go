@@ -267,6 +267,8 @@ type StatView struct {
 	RAM   int64   `json:"ram"`
 	CPU   float64 `json:"cpu"`
 	Conns int     `json:"conns"`
+	// Children are an app's own subprocesses, each with its meters.
+	Children []ProcView `json:"children,omitempty"`
 }
 
 // Subscription is what a subscribe request asks for.

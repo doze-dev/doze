@@ -444,7 +444,7 @@ func (s *Store) Tail(instance string, run, n int) ([]Line, Cursor, error) {
 		if sg.run != run {
 			continue
 		}
-		lines, off, err := readSegment(instance, sg, 0, int(^uint(0)>>1))
+		lines, off, err := tailSegment(instance, sg, n-len(out))
 		if err != nil {
 			return nil, Cursor{}, err
 		}
@@ -504,6 +504,67 @@ func (s *Store) Remove(instance string) error {
 		live.Close()
 	}
 	return os.RemoveAll(filepath.Join(s.dir, instance))
+}
+
+// tailSegment reads the last n complete lines of one segment, and returns the
+// offset just past the last one. It reads backwards from the end in blocks, so
+// the cost is the size of what is returned, not of the file: a dash asking for
+// the tail of a busy log twice a second must not read megabytes each time.
+func tailSegment(instance string, sg segment, n int) ([]Line, int64, error) {
+	f, err := os.Open(sg.path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, 0, nil // pruned between the listing and the read
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+	const block = 64 * 1024
+	size := st.Size()
+	start := size
+	var buf []byte
+	// Walk back until the buffer holds n+1 newlines — the one that ends the
+	// line before the first wanted line, and one per wanted line — or the
+	// start of the file.
+	for start > 0 && bytes.Count(buf, []byte{'\n'}) <= n {
+		step := int64(block)
+		if step > start {
+			step = start
+		}
+		start -= step
+		chunk := make([]byte, step)
+		if _, err := f.ReadAt(chunk, start); err != nil && err != io.EOF {
+			return nil, 0, err
+		}
+		buf = append(chunk, buf...)
+	}
+	if start > 0 { // the buffer begins mid-line: drop up to the first newline
+		i := bytes.IndexByte(buf, '\n')
+		buf = buf[i+1:]
+	}
+	// Only complete lines: stop before one still being written.
+	end := size
+	if i := bytes.LastIndexByte(buf, '\n'); i < 0 {
+		return nil, size - int64(len(buf)), nil
+	} else if i != len(buf)-1 {
+		end = size - int64(len(buf)-1-i)
+		buf = buf[:i+1]
+	}
+	var out []Line
+	for _, raw := range bytes.Split(buf[:len(buf)-1], []byte{'\n'}) {
+		if l, ok := parseLine(raw); ok {
+			l.Instance, l.Run = instance, sg.run
+			out = append(out, l)
+		}
+	}
+	if len(out) > n {
+		out = out[len(out)-n:]
+	}
+	return out, end, nil
 }
 
 // readSegment reads up to max complete lines of one segment from offset, and

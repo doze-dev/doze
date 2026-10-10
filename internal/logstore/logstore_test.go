@@ -266,3 +266,46 @@ func TestConcurrentWriters(t *testing.T) {
 		}
 	}
 }
+
+// Tail must return the same lines whether the run is a few bytes or many
+// blocks long, and whatever n is.
+func TestTailReadsFromTheEnd(t *testing.T) {
+	s := Open(t.TempDir(), Options{MaxBytes: 64 << 20})
+	r := begin(t, s, "api")
+	const total = 4000 // about 480 kB: several 64 kB blocks
+	for i := 0; i < total; i++ {
+		r.Line(Stdout, fmt.Sprintf("%05d %s", i, strings.Repeat("y", 100)))
+	}
+	for _, n := range []int{0, 1, 2, 199, 200, 1000, total, total + 50} {
+		lines, end, err := s.Tail("api", 0, n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := n
+		if want > total {
+			want = total
+		}
+		if len(lines) != want {
+			t.Fatalf("Tail(%d) returned %d lines, want %d", n, len(lines), want)
+		}
+		for i, l := range lines {
+			if got, wantNo := l.Text[:5], fmt.Sprintf("%05d", total-want+i); got != wantNo {
+				t.Fatalf("Tail(%d) line %d is %s, want %s", n, i, got, wantNo)
+			}
+		}
+		// The cursor is the end of the run: nothing new to read from it.
+		if more, _, _ := s.Read("api", end, 10); len(more) != 0 {
+			t.Fatalf("Tail(%d) cursor is not at the end: read %d more", n, len(more))
+		}
+	}
+	// A line still being written is not returned, and the cursor stops before it.
+	fmt.Fprint(r.Writer(Stdout), "half a li")
+	lines, end, _ := s.Tail("api", 0, 1)
+	if len(lines) != 1 || lines[0].Text[:5] != fmt.Sprintf("%05d", total-1) {
+		t.Fatalf("tail with a partial line pending = %q", texts(lines))
+	}
+	r.Close()
+	if more, _, _ := s.Read("api", end, 10); len(more) != 1 || more[0].Text != "half a li" {
+		t.Fatalf("after close the pending line follows the cursor, got %q", texts(more))
+	}
+}

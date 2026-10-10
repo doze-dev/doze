@@ -199,7 +199,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.paletteMode, m.palInput, m.palSel = true, "", 0
 		return m, nil
 	case "r":
-		return m, refresh(m.client)
+		return m, nil
 	case "A": // the APPS view: htop for the process fleet
 		m.appsMode, m.appsSel, m.appsPending = true, 0, ""
 		return m, nil
