@@ -52,6 +52,19 @@ Porting the old forms).
 Root attributes: `stack` replaces `name`. `listen`, `home`, `data_dir` are
 unchanged.
 
+## Files
+
+Unchanged from today (`gatherConfigFiles` in `internal/config/load.go`):
+
+- `doze.hcl` is the anchor. Root attributes are read from it.
+- Every `*.doze.hcl` beside it is merged in, sorted by name. There is no
+  include directive.
+- Pointing doze at a folder merges every `*.hcl` in it.
+
+The merged files are one config: a reference reaches a block in any file, and
+names are unique across all of them. Lint reports a clash with both files and
+lines.
+
 ## Attributes
 
 Shared by `service`, `app` and `task`:
