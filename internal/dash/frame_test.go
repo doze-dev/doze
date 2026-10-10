@@ -16,8 +16,8 @@ import (
 // settled, a frame out. A stream is not played: a test feeds the lines
 // itself, which is what makes its output the same every run.
 type session struct {
-	t *testing.T
-	m *Model
+	t    *testing.T
+	m    *Model
 	w, h int
 }
 
