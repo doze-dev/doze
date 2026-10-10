@@ -389,41 +389,60 @@ Exit measures:
 
 ### Status
 
-Units 5.1 and 5.2 are built; 5.3 to 5.11 are not. The new dash is reachable as
-the hidden `doze dash-next` and `doze dash` is still the old one until 5.11.
+Units 5.1 to 5.11 are built. `doze` and `doze dash` open `internal/dash`;
+`internal/tui` is deleted, with Bubble Tea v1 and Bubbles v1.
 
-What exists, in `internal/dash`:
-
-| Piece | State |
+| Unit | Built |
 |---|---|
-| `core` | `Page`, `Context`, `Key` and the host's messages. Pages reach the stack only through `control.Daemon`. |
-| `theme` | The five themes with dark and light variants, as a value that builds `Styles`. Nothing reads a global. |
-| `layout` | `Rect`, `Region`, `Map`: pages compute their regions once and both draw from them and answer clicks from them. |
-| `home` | Rows grouped by kind, state glyph and word, memory, the note ("held by …", "sleeps in 3m12s", a task's last run), the preview pane, `w s r p` verbs, `j k` and mouse selection. |
-| `dash` | The root model, the frame pump with reconnect, and a golden harness on `fakedaemon`. |
+| 5.1 | `core`, `theme`, `layout`, the root model, the golden harness on `fakedaemon` |
+| 5.2 | Home: rows by kind, state, memory, notes, the preview pane, verbs, mouse |
+| 5.3 | The frame and the logs tab: live follow, levels, counts, pause, earlier runs |
+| 5.4 | Overview (modules) and last run (tasks), from the daemon and the journal |
+| 5.5 | Stack-wide logs: merged in time order, search, source toggles, level filter |
+| 5.6 | Copy mode (OSC 52, with and without timestamps, save to file) and the row copy menu |
+| 5.7 | Confirmations: "in use" with who is affected, "deletes data" with type-the-name |
+| 5.8 | The palette, with the CLI line beside each row |
+| 5.9 | Themes: picker with live preview, dark and light for all five, no colour, remembered |
+| 5.10 | Home at 80 × 24, and the crash state |
+| 5.11 | The switch, and deleting `internal/tui` |
 
-Also done for the dash: `InstanceView` carries `Kind` and a task's last result
-(`Task`), and the state words and notes the CLI uses moved to `internal/display`
-so the two surfaces cannot disagree.
-
-Exit measures so far:
+Exit measures:
 
 | Measure | Result |
 |---|---|
 | No file in `internal/dash` imports the socket client | `TestNoFileOpensASocket` |
-| Keystroke-to-frame on home with 30 instances | 0.42 ms and 2,240 allocations (`BenchmarkHomeKeystrokeToFrame30`, Apple M5 Max) |
-| A golden file per screen at 120 × 36 and 80 × 24 | Home at 120 × 36 only; 80 × 24 is unit 5.10 |
+| Keystroke-to-frame on home with 30 instances | 0.42 ms, 2,240 allocations (`BenchmarkHomeKeystrokeToFrame30`, Apple M5 Max) |
+| A golden for each core and should screen on pages 1 to 3, at 120 × 36 and 80 × 24 | Mostly: see below |
 
-Not available yet, because the daemon does not supply it: "of ~2.9 GB if
-nothing slept" (needs each service's last-run memory) and "woken by worker"
-as a past event (the journal has it; home does not read the journal yet).
+Goldens (`internal/dash/testdata/golden`): home at both sizes, home with a
+crash at 120 × 36, the frame's logs at both sizes, overview at both sizes,
+last run at 120 × 36, stack logs at both sizes, the in-use confirmation at
+both sizes, the reset confirmation at 120 × 36, the palette at both sizes, the
+theme picker at 80 × 24.
 
-Surveyed estimate for what is left, in focused days: 5.3 frame and logs tab
-2.5, 5.4 overview and last-run 1.5, 5.5 stack logs with search 2.5, 5.6 copy
-mode 1.5, 5.7 confirmations 1, 5.8 palette 1.5, 5.9 themes 1, 5.10 home at
-80 × 24 and the crash state 1, 5.11 the switch and deleting `internal/tui` 1:
-about 13.5. With 5.1 and 5.2 that is 15 to 16 for the phase, inside the 14 to
-20 range.
+What is not done, and why:
+
+- **Wake trace** (page 1: who needs whom as a tree, one wake as a timeline,
+  earlier wakes). It is a "should" screen that no unit above names; the data is
+  all in the journal. Not built.
+- **Goldens missing** for last run and the reset confirmation at 80 × 24, the
+  theme picker at 120 × 36, and copy mode at either size (it is covered by
+  behaviour tests, not a golden).
+- **"of ~2.9 GB if nothing slept"** needs each service's last-run memory, which
+  the daemon does not keep. **"woken by worker"** on a row needs the journal on
+  home, which home does not read; the overview tab shows it.
+- **Quiet sources** (`logs = "quiet"` in config) are not in `InstanceView`, so
+  stack logs has toggles but not the config default.
+- **Disk size** on the database overview and in the reset confirmation: the
+  daemon does not report it. The confirmation shows the data path instead.
+- **Follow terminal** is a heuristic (`COLORFGBG`), not a background query.
+- **The AWS and Kafka boards** of the old dash went with it. Phase 6 rebuilds
+  them as module consoles; until then `doze dash` shows those modules like any
+  other.
+- **Not run in CI or by a person at a terminal beyond a scripted pty session**:
+  the new dash has been driven through a pty (open a row, back, quit) and by
+  its golden and behaviour tests, but only on this Mac.
+
 
 ## Phase 6: module consoles
 
