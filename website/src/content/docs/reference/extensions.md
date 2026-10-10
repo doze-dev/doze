@@ -19,7 +19,7 @@ The standard "contrib" set ships with every Postgres build: `uuid-ossp`,
 `postgres_fdw`, and many more. Just declare them:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version    = 16
   extensions = ["uuid-ossp", "pg_stat_statements", "pg_trgm"]
 }
@@ -41,7 +41,7 @@ what you want: one pinned artifact gives every developer the same engine *and*
 the same extensions.
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version    = 16
   extensions = ["pgvector"]   # available because the binary bundles it
 }
@@ -54,7 +54,7 @@ For extensions you don't want to bake into every binary, doze can install a
 `CREATE EXTENSION`:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 16
   extension "pgvector" {
     version = "0.7.0"

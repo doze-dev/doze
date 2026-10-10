@@ -32,6 +32,14 @@ const whereLine = (platforms) => {
 
 const esc = (s) => String(s ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ');
 
+// A module describes its block the way it decodes it: `postgres "db" { … }`.
+// In a doze.hcl the same block is written `module postgres "db" { … }` — the
+// keyword is doze's, not the module's — so the example gains it here.
+const asModuleBlock = (name, example) =>
+	String(example ?? '')
+		.trim()
+		.replace(new RegExp(`^(#\\s*)?${name}(\\s+")`, 'gm'), `$1module ${name}$2`);
+
 function argTable(args) {
 	const rows = args.filter((a) => !a.arguments);
 	if (!rows.length) return '';
@@ -130,7 +138,7 @@ ${meta.description || meta.tagline || ''}
 ## Usage
 
 \`\`\`hcl
-${(meta.example || '').trim()}
+${asModuleBlock(name, meta.example)}
 \`\`\`
 
 ${series ? `## Versions you can declare

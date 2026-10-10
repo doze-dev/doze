@@ -19,16 +19,25 @@ converged on boot.
 ## The block
 
 ```hcl
-aws "local" {
+module aws "local" {
   port = 4566
 
   bucket "uploads" { versioning = true }
 
-  queue "emails"      { dlq = "auto"  max_receives = 5 }
-  queue "orders.fifo" { fifo = true  content_dedup = true }   # FIFO names end in .fifo
+  queue "emails" {
+    dlq = "auto"
+    max_receives = 5
+  }
+  queue "orders.fifo" { # FIFO names end in .fifo
+    fifo = true
+    content_dedup = true
+  }
 
   topic "signups" {
-    subscribe { queue = "emails"  raw = true }
+    subscribe {
+      queue = "emails"
+      raw = true
+    }
   }
 
   table "sessions" {
@@ -44,14 +53,14 @@ the services track current AWS APIs.
 
 ## Point your SDK at it
 
-Reference `aws.local.url` from a `process` block and every AWS SDK picks it up
+Reference `module.local.url` from an `app` block and every AWS SDK picks it up
 through the standard endpoint variables:
 
 ```hcl
-process "api" {
-  command = "go run ."
+app "api" {
+  run = "go run ."
   env = {
-    AWS_ENDPOINT_URL_S3  = aws.local.url    # boots + holds the aws instance
+    AWS_ENDPOINT_URL_S3  = module.local.url    # boots + holds the aws instance
     BUCKET               = "uploads"        # resources are plain names
   }
 }
@@ -78,7 +87,10 @@ queue "emails" {
 }
 
 topic "signups" {
-  subscribe { queue = "emails"  raw = true }   # SNS→SQS fanout
+  subscribe { # SNS→SQS fanout
+    queue = "emails"
+    raw = true
+  }
 }
 ```
 

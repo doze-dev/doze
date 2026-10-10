@@ -32,7 +32,7 @@ build time, so they can't drift.
 | [**AWS**](/engines/aws/) | the AWS APIs (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager) | the whole local cloud, one block | — | macOS · Linux |
 | **process** | anything you can run | *your own* services (API, worker, frontend…) | — | macOS · Linux |
 
-That last row is easy to overlook and shouldn't be: the `process` engine runs
+That last row is easy to overlook and shouldn't be: an `app` block runs
 **your** services — supervised, ordered, health-gated — so a `doze.hcl` can
 orchestrate a whole microservice stack, with or without any database in it. This
 page covers the backing engines; the [microservices guide](/guides/microservices/)
@@ -47,7 +47,7 @@ the database and converges your declared roles, schemas, grants, and extensions,
 then gets out of the way.
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 18
   database "app" {}
 }
@@ -69,7 +69,7 @@ work unchanged — it's just the version that stayed open source. Use it as a fa
 in-memory cache.
 
 ```hcl
-valkey "cache" {
+module valkey "cache" {
   version   = 9
   maxmemory = "256mb"
 }
@@ -88,7 +88,7 @@ Valkey optimizes for in-memory speed and volatility; Kvrocks for durability and 
 small memory footprint.
 
 ```hcl
-kvrocks "store" {
+module kvrocks "store" {
   version = 2
 }
 ```
@@ -113,7 +113,7 @@ exposing only Mongo — no backend to wire up. A faithful local stand-in for
 development, not a reimplementation of every MongoDB feature.
 
 ```hcl
-ferret "docs" {
+module ferret "docs" {
   version = 2
   port    = 27017
 }
@@ -134,7 +134,7 @@ approach) — you get the same engine on Apple Silicon Macs and arm64 Linux
 without upstream shipping a binary for them.
 
 ```hcl
-mariadb "db" {
+module mariadb "db" {
   version = 11.4
 }
 ```
@@ -148,7 +148,7 @@ it, so it stays awake while in use), converges your declared namespaces, and
 exposes both the gRPC frontend and the Web UI.
 
 ```hcl
-temporal "dev" {
+module temporal "dev" {
   version = 1.1
   port    = 7233
   ui_port = 8233
@@ -172,7 +172,7 @@ panel, consumer groups with lag — served one port above the broker
 (`:9093` for a `:9092` broker).
 
 ```hcl
-kafka "events" {
+module kafka "events" {
   version = 4
 
   topic "orders"   { partitions = 3 }
@@ -200,11 +200,16 @@ block** and converged on boot. A **web console** at `/_console` covers all of it
 — browse a bucket, peek a queue, invoke a function, watch live API traffic.
 
 ```hcl
-aws "local" {
+module aws "local" {
   bucket "uploads" {}
   queue  "emails"  { dlq = "auto" }
-  topic  "signups" { subscribe { queue = "emails" } }
-  table  "sessions" { key = "session_id:S"  ttl = "expires_at" }
+  topic "signups" {
+    subscribe { queue = "emails" }
+  }
+  table "sessions" {
+    key = "session_id:S"
+    ttl = "expires_at"
+  }
 }
 ```
 

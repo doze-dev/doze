@@ -12,7 +12,7 @@ A local, disk-backed broker that speaks enough of the Kafka wire protocol that u
 ## Usage
 
 ```hcl
-kafka "events" {
+module kafka "events" {
   version = 4
   port    = 9092
 

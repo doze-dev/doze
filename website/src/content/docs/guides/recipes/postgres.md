@@ -23,7 +23,7 @@ the way. Everything below is a config plus the commands to use it.
 The 90% case — one database, one user that owns it:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 16
   owner   = "app"
   role "app" { password = "app" }
@@ -41,8 +41,8 @@ doze shell app              # or open a SQL shell directly (boots `app` if cold)
 ```
 
 Point your app at the stable URL — `postgresql://app:app@127.0.0.1:5432/app`
-(connecting cold-boots the instance), or declare your app as a `process` block so
-doze injects each dependency's `env_var` → URL automatically.
+(connecting cold-boots the instance), or declare your app as an `app` block and pass
+the URL by reference: `DATABASE_URL = module.app.url`.
 
 ## Connect a client or GUI
 
@@ -80,7 +80,7 @@ and are granted to members via `member_of`. A complete pattern — an app user, 
 read-only group, an analyst that inherits it, and an admin:
 
 ```hcl
-postgres "shop" {
+module postgres "shop" {
   version = 16
   owner   = "shop"
 
@@ -111,7 +111,7 @@ Role attributes: `password`, `login`, `superuser`, `createdb`, `createrole`,
 ## Schemas
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 16
   owner   = "app"
   role "app" { password = "app" }
@@ -127,7 +127,7 @@ Scope a grant with `database`, or with `schema` (+ optional `objects` to cover
 current *and future* objects):
 
 ```hcl
-postgres "shop" {
+module postgres "shop" {
   version = 16
   owner   = "shop"
   role "shop"     { password = "shop" }
@@ -152,7 +152,7 @@ postgres "shop" {
 ## Extensions
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version    = 16
   owner      = "app"
   role "app" { password = "app" }
@@ -173,11 +173,11 @@ Each `postgres` block is its own instance — own data, own endpoint, own lifecy
 Run different majors side by side without conflict:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 17
   role "app" { password = "app" }
 }
-postgres "legacy" {
+module postgres "legacy" {
   version = 14
   role "app" { password = "app" }
 }
@@ -191,8 +191,8 @@ Each has its own stable URL — they differ only by the explicit `port` you decl
 # old=postgresql://app:app@127.0.0.1:5433/legacy
 ```
 
-A `process` block that depends on both gets each one injected under its own
-`env_var`.
+An `app` block references each one by name — `module.<name>.url` — so two
+instances of the same engine never collide.
 
 ## Migrations & seeding
 
@@ -227,7 +227,7 @@ doze reset app && doze run -- pytest        # real Postgres, clean slate, backen
 
 - **Dev tuning** — fast, not crash-safe (perfect for tests):
   ```hcl
-  postgres "app" {
+  module postgres "app" {
     version         = 16
     shared_buffers  = "16MB"
     max_connections = 50

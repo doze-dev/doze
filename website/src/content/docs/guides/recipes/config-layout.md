@@ -23,15 +23,15 @@ my-app/
 # doze.hcl
 defaults { idle_timeout = "5m" }
 
-postgres "app" {
+module postgres "app" {
   version = 16
   role "app" { password = "app" }
 }
 ```
 
 ```hcl
-# aws.doze.hcl
-aws "cloud" {
+# module.doze.hcl
+module aws "cloud" {
   port = 4566
   bucket "uploads" {}
   queue  "emails" {}
@@ -61,7 +61,7 @@ personal ones in a **gitignored** `local.doze.hcl`:
 
 ```hcl
 # local.doze.hcl  (gitignored — yours alone)
-postgres "scratch" {
+module postgres "scratch" {
   version = 17
   role "me" { password = "me" }
 }

@@ -41,7 +41,7 @@ doze init
 Open `doze.hcl` and trim it down to one database to start:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 16
   role "app" { password = "app" }
   grant {
@@ -136,7 +136,7 @@ Real apps need more than a database. Add a Valkey (Redis-compatible) cache —
 just declare it:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 16
   role "app" { password = "app" }
   grant {
@@ -146,7 +146,7 @@ postgres "app" {
   }
 }
 
-valkey "cache" {
+module valkey "cache" {
   version   = 9
   maxmemory = "256mb"
 }
@@ -179,8 +179,8 @@ in its config (cold-booting each instance on first connect):
 
 Drop those straight into your `.env`, no magic required.
 
-> Prefer doze to inject them for you? Declare your app as a `process` block and
-> doze sets each dependency's `env_var` to its URL automatically. The daemon also
+> Prefer doze to run the app too? Declare it as an `app` block and pass each URL
+> by reference (`DATABASE_URL = module.app.url`). The daemon also
 > writes the current set to `.doze/endpoints.yaml` for other tooling to read.
 
 ## 7. A throwaway database for your tests

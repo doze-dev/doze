@@ -12,7 +12,7 @@ A local Apache Kvrocks server: the Redis protocol backed by RocksDB on disk. Dur
 ## Usage
 
 ```hcl
-kvrocks "store" {
+module kvrocks "store" {
   version  = 2
   port     = 6380
   workers  = 4

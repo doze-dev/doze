@@ -65,8 +65,8 @@ your command's done and nothing's talking to them. It's the honest answer to
 "I just want my tests to have a real database without thinking about it." (One
 deliberate choice: `run` doesn't inject env vars. Your ports are stable because
 you declared them, so put the connection strings in your app config where they
-belong — or use a [`process` block](/guides/workflows/) and let doze wire the
-URLs for you.)
+belong — or use an [`app` block](/guides/workflows/) and pass the URLs by
+reference.)
 
 When you want to actually *look* at a service:
 

@@ -16,7 +16,7 @@ profile** (1–4) your clients expect.
 ## Topics
 
 ```hcl
-kafka "events" {
+module kafka "events" {
   version = 4
   port    = 9092
 
@@ -41,10 +41,10 @@ Declared topics are converged on boot; `auto_create_topics` covers the rest.
 The reference for a broker is `.address` (host:port bootstrap, not a URL):
 
 ```hcl
-process "worker" {
-  command = "go run ./worker"
+app "worker" {
+  run = "go run ./worker"
   env = {
-    KAFKA_BROKERS = kafka.events.address   # boots + holds the broker
+    KAFKA_BROKERS = module.events.address   # boots + holds the broker
   }
 }
 ```

@@ -32,14 +32,14 @@ each block is one instance, and the `port` is the stable address your app
 connects to:
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   port     = 5432
   database = "app"
   user     = "app"
   password = "app"
 }
 
-valkey "cache" {
+module valkey "cache" {
   port = 6379
 }
 ```
@@ -103,12 +103,17 @@ Declare AWS services the same way — they're real, pure-Go emulators (no Docker
 no LocalStack):
 
 ```hcl
-s3       "uploads" { port = 9000 }
-dynamodb "orders"  { port = 8000  hash_key = "id"  attribute "id" { type = "S" } }
+module aws "cloud" {
+  port = 4566
+
+  bucket "uploads" {}
+  table "orders" {
+    key = "id:S"
+  }
+}
 ```
 
-`eval "$(doze env)"` then exports `AWS_ENDPOINT_URL_S3`,
-`AWS_ENDPOINT_URL_DYNAMODB`, and dummy credentials, so a stock AWS SDK or the
+`eval "$(doze env)"` then exports `AWS_ENDPOINT_URL` and dummy credentials, so a stock AWS SDK or the
 `aws` CLI works against your local stack.
 
 ## Shared canonical ports (optional)

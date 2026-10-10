@@ -140,13 +140,11 @@ export default defineConfig({
           // Not under /registry/* — that path is the registry portal itself
           // (proxied by the domain router), so the operator guide lives at
           // /operate/* to avoid the collision.
-          label: "Running a registry",
+          label: "How the registry works",
           items: [
             { slug: "operate/trust-architecture" },
-            { slug: "operate/self-host" },
             { slug: "operate/mirror-binaries" },
             { slug: "operate/operations" },
-            { slug: "operate/roadmap-hosts" },
           ],
         },
         {

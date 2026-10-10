@@ -15,7 +15,7 @@ moments later.
 | `services:` entries | Engine blocks: `postgres "app" { … }` | The block *type* picks real software (a signed module), not an image name from a registry of mutable tags. |
 | `image: postgres:16` | `version = 16` | Resolves to a pinned exact version in `doze.lock` — `:16` moves, your lock doesn't. |
 | `ports: ["5432:5432"]` | `port = 5432` | There's no NAT — the engine listens on localhost natively. What you declare is what `lsof` shows. |
-| `depends_on:` | References: `sqs = sqs.jobs.name` | The dependency is derived from the config *value*, validated at lint, and boots in order automatically. |
+| `depends_on:` | References: `DATABASE_URL = module.db.url` | The dependency is derived from the config *value*, validated at lint, and boots in order automatically. |
 | `healthcheck:` | Built-in readiness per engine | Modules know their engine's real readiness (a socket accept, a protocol ping); you don't write retry loops. |
 | `volumes:` | Nothing to write | Each instance gets its own data dir under the project's doze home. `doze reset` when you want a clean slate. |
 | `.env` / `environment:` | `variable` blocks + `--var` / `DOZE_VAR_*` | Typed, referenced expressions instead of string interpolation. |
@@ -69,7 +69,7 @@ volumes:
 
 ```hcl
 # doze.hcl (after)
-postgres "db" {
+module postgres "db" {
   version = 16
   port    = 5432
   owner   = "app"
@@ -80,12 +80,12 @@ postgres "db" {
   }
 }
 
-valkey "cache" {
+module valkey "cache" {
   version = 9        # the open-source Redis lineage
   port    = 6379
 }
 
-aws "cloud" {
+module aws "cloud" {
   port = 4566        # all of AWS, no MinIO or LocalStack container
   bucket "uploads" {}
 }

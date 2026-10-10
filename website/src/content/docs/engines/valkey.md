@@ -12,7 +12,7 @@ A local Valkey server — the open-source Redis fork. Speaks the Redis protocol,
 ## Usage
 
 ```hcl
-valkey "cache" {
+module valkey "cache" {
   version          = 9
   port             = 6379
   maxmemory        = "256mb"

@@ -9,7 +9,7 @@ declared block — that it boots on demand and reaps when idle.
 
 Its shape is two layers: a **generic, engine-blind core** (this repo) and a
 **driver per engine** behind a small interface. The core compiles in exactly one
-driver — `process`, the supervision primitive for host applications. Every other
+driver — `process`, the engine behind every `app` block. Every other
 engine (postgres, valkey, kvrocks, ferret, mariadb, temporal, s3, sqs, sns) is
 an **out-of-process plugin module**: a separate binary implementing the
 [doze-sdk](https://github.com/doze-dev/doze-sdk) driver contract over gRPC

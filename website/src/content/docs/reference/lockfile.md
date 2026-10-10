@@ -1,13 +1,13 @@
 ---
 title: "doze.lock"
-description: The lockfile format — three pin layers, their semantics, and how each changes.
+description: The lockfile format — two pin layers, their semantics, and how each changes.
 ---
 
 `doze.lock` lives next to `doze.hcl`, is written by doze, and is **meant to be
 committed** — it's the project's reproducibility contract. YAML (an older JSON
 lockfile still parses; JSON is a YAML subset).
 
-## The three layers
+## The two layers
 
 ```yaml
 engines:
@@ -28,9 +28,6 @@ modules:
       aarch64-apple-darwin: sha256:64607…    # index — teammates on other platforms
       aarch64-unknown-linux-gnu: sha256:044e…  # verify against the same pin
       x86_64-unknown-linux-gnu: sha256:9bd7…
-
-keys:
-  doze: Nu5y8mbjYv7XEtNFBXwPVl+C8SBteVApIROefBwGWjw=   # namespace -> ed25519 pubkey (TOFU)
 ```
 
 ## Semantics worth knowing
@@ -42,15 +39,12 @@ keys:
   and `engines` so compatibility gating works **offline**. Replaced wholesale
   by `doze modules upgrade` (the diff in review shows release, support list,
   and checksums moving together).
-- **Keys layer** — trust-on-first-use. A registry later serving a *different*
-  key for a pinned namespace is a hard error naming this exact entry; delete
-  the line only when a key rotation is legitimate and announced.
 
 ## What changes it, and what never does
 
 | Action | Effect on the lock |
 |---|---|
-| First resolve of an engine/module/namespace | Adds the pin |
+| First resolve of an engine or module | Adds the pin |
 | `doze modules upgrade [type]` | Moves module pins (and prints a commit reminder) |
 | Changing `version = 16` → `"16.15"` in config | New engines entry under the new spec |
 | `doze up` / `run` / time passing / registry changes | **Nothing — ever** |

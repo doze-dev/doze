@@ -21,9 +21,9 @@ backend is one ~15 MB daemon.
 
 ```hcl
 # doze.hcl — your whole local backend, declared
-postgres "app"   { version = 16 }
-valkey   "cache" { version = 9 }
-aws "cloud" {
+module postgres "app"   { version = 16 }
+module valkey   "cache" { version = 9 }
+module aws "cloud" {
   port = 4566
   bucket "uploads" {}
 }
@@ -98,8 +98,8 @@ is instant; stop touching it and, a few minutes later, it reaps back to zero.
 
 Each instance listens on the explicit `port` you declared, so your connection
 strings are stable — put `postgresql://app:app@127.0.0.1:5432/app` in your app
-config, or declare the app as a [`process`](https://doze.nerdmenot.in/guides/workflows/) block and
-doze injects its dependencies' URLs for you.
+config, or declare the app as an [`app`](https://doze.nerdmenot.in/guides/workflows/) block and
+pass each URL by reference (`DATABASE_URL = module.app.url`).
 
 ```sh
 $ doze status

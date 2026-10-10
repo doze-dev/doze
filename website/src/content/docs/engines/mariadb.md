@@ -12,7 +12,7 @@ A socket-only MariaDB backend behind the doze proxy, with declarative databases,
 ## Usage
 
 ```hcl
-mariadb "app" {
+module mariadb "app" {
   version       = "11.4"
   character_set = "utf8mb4"
 

@@ -1,80 +1,59 @@
 ---
 title: "Publishing modules"
-description: Namespaces, keys, signing — getting your module where users can trust it.
+description: One registry, one key — how a module gets to where users can run it.
 ---
 
-A built release becomes *usable* when a **signed registry** points at it. The
-registry is the trust layer: your archives can live on any host (GitHub
-releases, S3, a file server) because nothing is believed until it verifies
-against your namespace key.
+doze has **one registry**. A `module httpd "site"` block resolves to the module
+`doze/httpd` there and nowhere else: there is no setting that points a project
+at another registry or another publisher. So a module is published by getting
+it into the doze registry, where it is built in public CI and signed with the
+registry key that every doze binary carries.
 
-## 1. Your namespace is a keypair
+## 1. Build and run it locally first
 
-```sh
-# in a checkout of doze-registry (or your own registry repo)
-npm run keygen acme
-```
-
-This writes `registry/acme/keys.json` (the public key — committed, served,
-and **pinned by every user's doze on first use**) and `acme.secret.key` (the
-private key — a vault or CI secret; it *is* your identity, and rotating it is
-a breaking event for every user who pinned it).
-
-## 2. Sign your release into a registry
+You do not need the registry to use your own module. Point doze at the plugin
+binary you built:
 
 ```sh
-export DOZE_SIGNING_KEY="$(cat acme.secret.key)"
-npm run publish acme/httpd -- \
-  --release-base https://github.com/acme/httpd-module/releases/download/module
+DOZE_HTTPD_PLUGIN=$PWD/bin/httpd-plugin doze up
 ```
 
-`publish` fetches your release's `index.yaml`, rewrites artifact URLs to
-absolute, signs **each archive's checksum** and then **the index itself**
-(protocol, engine-support, and channel metadata are attestable — a compromised
-CDN can't lie about compatibility), copies your generated `meta.yaml`, and
-writes the signed index into the registry tree. `npm run validate` replays
-exactly the checks user doze binaries enforce; `validate:remote` additionally
-re-downloads every archive and confirms the signed checksums match reality.
+`DOZE_<TYPE>_PLUGIN` skips the registry and the lock entirely, for that engine
+type. It is the whole module-author loop, and it is also how a team runs a
+private module that will never be published. See
+[testing](/modules/testing/) for the conformance suite to run before going
+further.
 
-## 3. Where does your namespace live?
+## 2. Contribute it to the registry
 
-Today, two options:
+Open a pull request against
+[doze-modules](https://github.com/doze-dev/doze-modules) adding your module.
+Once it is merged:
 
-- **The official registry** (`doze.nerdmenot.in/registry`): a PR to
-  [doze-registry](https://github.com/doze-dev/doze-registry) adding your
-  `keys.json` and signed index. Your users then need only
-  `modules { mytype { source = "acme/httpd" } }`.
-- **Your own registry**: it's static files — host the same layout anywhere and
-  users point at it with `modules { mirror = … }` or `DOZE_MODULES_MIRROR`.
-  The full walkthrough is in the
-  [operator guide](/operate/self-host/).
+- CI builds the plugin for every supported platform from that source.
+- The release is signed into
+  [doze-registry](https://github.com/doze-dev/doze-registry): **each archive's
+  checksum** and then **the index itself** (protocol, engine support, and
+  channel metadata are attestable — a compromised CDN can't lie about
+  compatibility).
+- `validate` replays exactly the checks user doze binaries enforce;
+  `validate:remote` additionally re-downloads every archive and confirms the
+  signed checksums match reality.
 
-(A future source form carries the host in the address —
-`registry.acme.dev/acme/httpd` — so third-party registries coexist with the
-official one per-module. The design is
-[accepted and documented](/operate/roadmap-hosts/).)
+Your module's registry page is generated from the module itself: tagline,
+engine versions, the config reference rendered from your `Describe()`,
+releases and signature status.
 
-## 4. What users see
-
-```sh
-# your registry page now shows the module: tagline, engine versions, the
-# config reference rendered from your Describe(), releases + signature status
-```
-
-…and in `doze.hcl`:
+## 3. What users see
 
 ```hcl
-modules {
-  httpd { source = "acme/httpd" }
-}
-
-httpd "site" {
+module httpd "site" {
   port = 8080
   root = "./public"
 }
 ```
 
-First use pins your key and release in their `doze.lock`; from then on your
-module updates reach them only through `doze modules upgrade` — reviewable,
-explicit, reversible. Exactly the deal users get from the official modules,
-because the machinery is identical.
+First use pins the release in their `doze.lock`; from then on your module's
+updates reach them only through `doze modules upgrade` — reviewable,
+explicit, reversible. That is the same deal users get from every other
+module, because the machinery is identical.

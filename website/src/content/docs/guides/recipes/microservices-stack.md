@@ -20,7 +20,7 @@ cache, and an **SQS** queue the worker drains.
 defaults { idle_timeout = "10m" }
 
 # ── backing stores ───────────────────────────────────────────────
-postgres "db" {
+module postgres "db" {
   version = 18
   port    = 5432
   owner   = "app"
@@ -32,12 +32,12 @@ postgres "db" {
   extensions = ["uuid-ossp", "pg_trgm"]
 }
 
-valkey "cache" {
+module valkey "cache" {
   version = 9
   port    = 6379
 }
 
-aws "cloud" {
+module aws "cloud" {
   port = 4566
   queue "emails" {
     visibility    = 30
@@ -47,58 +47,57 @@ aws "cloud" {
 }
 
 # ── your services ────────────────────────────────────────────────
-process "auth" {
-  cwd     = "../auth"
-  command = "go run ./cmd/auth"
+app "auth" {
+  dir     = "../auth"
+  run = "go run ./cmd/auth"
   port    = 4000
 
-  env = { DATABASE_URL = postgres.db.url }
+  env = { DATABASE_URL = module.db.url }
 
-  hooks { pre_start = ["go run ./cmd/migrate up"] }   # auth owns its schema
-  health {
-    http     = "http://localhost:4000/healthz"
-    interval = "1s"
-    retries  = 30
-  }
+  setup = "go run ./cmd/migrate up"   # auth owns its schema
+  ready = http("/healthz")
 }
 
-process "api" {
-  cwd     = "../api"
-  command = "go run ./cmd/api"
+app "api" {
+  dir     = "../api"
+  run = "go run ./cmd/api"
   port    = 8080
 
   env = {
-    DATABASE_URL      = postgres.db.url        # → depends on db
-    REDIS_URL         = valkey.cache.url       # → depends on cache
-    AUTH_URL          = process.auth.url       # → depends on auth (waits for /healthz)
-    AWS_ENDPOINT_URL_SQS = sqs.jobs.url        # → depends on the queue
-    EMAILS_QUEUE_URL  = sqs.jobs.emails.url
+    DATABASE_URL      = module.db.url        # → depends on db
+    REDIS_URL         = module.cache.url       # → depends on cache
+    AUTH_URL          = app.auth.url       # → depends on auth (waits for /healthz)
+    AWS_ENDPOINT_URL  = module.cloud.url     # → depends on the local AWS
+    EMAILS_QUEUE      = "emails"
   }
 
-  hooks { pre_start = ["go run ./cmd/migrate up"] }
-  health { http = "http://localhost:8080/health/ready"; retries = 30 }
+  setup = "go run ./cmd/migrate up"
+  ready = http("/health/ready")
 }
 
-process "worker" {
-  cwd     = "../api"
-  command = "go run ./cmd/worker"             # no port — a background consumer
+app "worker" {
+  dir     = "../api"
+  run = "go run ./cmd/worker"             # no port — a background consumer
   env = {
-    DATABASE_URL         = postgres.db.url
-    AWS_ENDPOINT_URL_SQS = sqs.jobs.url
-    EMAILS_QUEUE_URL     = sqs.jobs.emails.url
+    DATABASE_URL         = module.db.url
+    AWS_ENDPOINT_URL = module.cloud.url
+    EMAILS_QUEUE     = "emails"
   }
-  restart { policy = "on_failure"; max_retries = 5 }
+  restart {
+    policy = "on_failure"
+    max_retries = 5
+  }
 }
 
-process "web" {
-  cwd     = "../frontend"
-  command = "npm run dev"                      # Vite/Next/whatever — hot reload intact
+app "web" {
+  dir     = "../frontend"
+  run = "npm run dev"                      # Vite/Next/whatever — hot reload intact
   port    = 3000
   env = {
-    VITE_API_URL  = process.api.url
-    VITE_AUTH_URL = process.auth.url
+    VITE_API_URL  = app.api.url
+    VITE_AUTH_URL = app.auth.url
   }
-  health { http = "http://localhost:3000"; retries = 60 }
+  ready = http("/")
 }
 ```
 
@@ -150,24 +149,24 @@ point them at the remote data. Same file, no backing-store blocks:
 
 ```hcl
 # doze.hcl — only your services; data lives elsewhere
-process "api" {
-  cwd     = "../api"
-  command = "go run ./cmd/api"
+app "api" {
+  dir     = "../api"
+  run = "go run ./cmd/api"
   port    = 8080
   env = {
     DATABASE_URL = "postgres://app@db.dev.internal:5432/app"
     REDIS_URL    = "redis://cache.dev.internal:6379"
-    AUTH_URL     = process.auth.url            # this one's still local
+    AUTH_URL     = app.auth.url            # this one's still local
   }
-  health { http = "http://localhost:8080/health/ready"; retries = 30 }
+  ready = http("/health/ready")
 }
 
-process "auth" {
-  cwd     = "../auth"
-  command = "go run ./cmd/auth"
+app "auth" {
+  dir     = "../auth"
+  run = "go run ./cmd/auth"
   port    = 4000
   env     = { DATABASE_URL = "postgres://app@db.dev.internal:5432/app" }
-  health  { http = "http://localhost:4000/healthz"; retries = 30 }
+  ready = http("/healthz")
 }
 ```
 
@@ -188,7 +187,7 @@ doze down                      # everything sleeps; your machine goes quiet
 
 A couple of touches worth knowing:
 
-- **Migrations belong in `pre_start` hooks** — they run after the database is up
+- **Migrations belong in `setup`** — they run after the database is up
   and before the service starts, every boot, idempotently.
 - **A crashy worker?** `restart { policy = "on_failure" }` brings it back with
   capped backoff instead of you re-running a terminal.

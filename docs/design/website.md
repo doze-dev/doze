@@ -180,12 +180,11 @@ linkable:
 1. **The architecture of trust** — index signature vs artifact signatures,
    TOFU, what the CDN can and cannot lie about.
 2. **Host your own registry** — it's static files: layout, keygen, publish,
-   validate, serve from anywhere; point projects via `modules { mirror }`.
+   validate, serve it. (Withdrawn: doze has one registry — see docs/design/next, decisions D1 and D11.)
 3. **Mirror engine binaries** — doze-binaries format, `DOZE_<ENGINE>_MIRROR`,
    air-gapped end-to-end (registry + binaries + module cache).
 4. **Operations** — key rotation (and what it breaks), CI wiring
    (dispatch/sign/deploy), the provisional-index lifecycle.
-5. **Roadmap: registry hosts in sources** — surface `design/registry-hosts.md`.
 
 ### Reference `[PORT]`
 

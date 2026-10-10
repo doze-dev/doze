@@ -12,7 +12,7 @@ A real PostgreSQL server per instance — no Docker. Declare roles, schemas, ext
 ## Usage
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version          = 18
   port             = 5432
   owner            = "app"

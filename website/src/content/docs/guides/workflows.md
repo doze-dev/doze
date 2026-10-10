@@ -40,14 +40,18 @@ AWS_ENDPOINT_URL_S3=http://127.0.0.1:9000
 Connecting cold-boots the instance, so `psql postgresql://app:app@127.0.0.1:5432/app`
 just works whether or not it was already awake.
 
-**2. Declare the app as a `process` block (zero-config injection for your apps).**
-When doze supervises your app, it injects each dependency's connection string (its
-`env_var` → URL) into the process environment automatically:
+**2. Declare the app as an `app` block and pass each URL by reference.**
+When doze supervises your app, the app gets exactly the environment it
+declares. A reference fills in the connection string and makes the app wait
+for that module:
 
 ```hcl
-process "api" {
-  command    = "go run ./cmd/api"
-  depends_on = { postgres.app = "healthy", valkey.cache = "healthy" }
+app "api" {
+  run = "go run ./cmd/api"
+  env = {
+    DATABASE_URL = module.app.url
+    REDIS_URL    = module.cache.url
+  }
 }
 ```
 

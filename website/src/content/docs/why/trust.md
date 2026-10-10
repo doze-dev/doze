@@ -15,10 +15,10 @@ Two supply chains meet on your machine, and every link is verified:
 **Modules** (the plugins that provide each engine) come from a **signed
 registry**:
 
-1. Each publisher namespace (`doze/`, or a third party's) has an ed25519
-   keypair. The public key is served at `<registry>/<ns>/keys.json` and
-   **pinned on first use** into your `doze.lock`. After that, a changed key is
-   a hard error — a compromised registry cannot silently rotate identity.
+1. The registry has one ed25519 keypair, and its public key is **compiled
+   into doze**. doze does not fetch the key and does not learn it on first
+   use, so a compromised registry host cannot hand a fresh install a key of
+   its own. Rotating the key takes a doze release.
 2. Each module's **index is signed as a whole** — not just its artifacts. The
    index carries the metadata that *selects* what you run: which releases
    exist, which engine versions each supports, which plugin protocol it
@@ -42,7 +42,6 @@ rebuilt), and checksum-pinned in your lock.
 engines:            # engine binaries: version = 16 -> 16.14.0 + per-platform SHA-256
 modules:            # per engine: module release, plugin protocol, supported
                     # engine versions, per-platform hashes
-keys:               # each namespace's publisher key (trust-on-first-use)
 ```
 
 The consequences are the guarantees:
@@ -73,14 +72,11 @@ project runs, and your project adopts it in one reviewed commit.
 ## What this does *not* claim
 
 Honesty section: signatures prove *who published*, not that the code is
-benign — a malicious publisher signs malware happily. The official `doze/`
-namespace is built in public CI from public source; for third-party modules,
-the trust decision is yours, and the tooling's job is to make identity
-unforgeable and changes visible (each module's registry page shows its
-provenance, signature status, and exactly what config it accepts —
-generated from the module itself). Verification also
-starts at first fetch — the initial key pin is trust-on-first-use, the same
-model as SSH.
+benign — a malicious publisher signs malware happily. Every module in the registry
+is built in public CI from public source, and each module's registry page
+shows its provenance, signature status, and exactly what config it accepts —
+generated from the module itself. The key is only as trustworthy as the doze
+binary that carries it: get doze from a source you trust.
 
-For operating your own end of this — hosting a registry, mirroring binaries,
-air-gapping — see the [operator guide](/operate/trust-architecture/).
+For how the registry is built and operated, and for mirroring engine
+binaries, see [how the registry works](/operate/trust-architecture/).

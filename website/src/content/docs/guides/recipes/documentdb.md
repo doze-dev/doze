@@ -17,15 +17,15 @@ implementation detail.
 ## A Mongo-compatible store
 
 ```hcl
-ferret "docs" {
+module ferret "docs" {
   version = "2.7"
   port    = 27017
 }
 ```
 
 That's the whole declaration. The `docs` instance listens on its stable URI —
-`mongodb://127.0.0.1:27017/` (connecting cold-boots it), or declare your app as a
-`process` block so doze injects `MONGODB_URI` for you.
+`mongodb://127.0.0.1:27017/` (connecting cold-boots it), or declare your app as an
+`app` block and pass it by reference: `MONGODB_URI = module.docs.url`.
 
 ```sh
 doze run -- mongosh mongodb://127.0.0.1:27017/ --eval "db.runCommand({ping:1})"

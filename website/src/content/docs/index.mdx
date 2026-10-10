@@ -75,7 +75,7 @@ latency where your inner loop should be. doze reverses that bargain.
 ## Not just databases — your whole stack
 
 Modern apps aren't one process; they're a mesh of them. doze runs **your
-services** too — declare an API, a worker, an auth service as `process` blocks
+services** too — declare an API, a worker, an auth service as `app` blocks
 and doze starts them in dependency order, waits until each is actually *ready*,
 and wires them to each other and to their data. It's a local microservices
 orchestrator that happens to also run your databases.
@@ -85,12 +85,12 @@ shared Postgres and doze becomes a **pure process runner** — your code local a
 debuggable, your data wherever it already lives.
 
 ```hcl
-process "api" {
-  cwd     = "../api"
-  command = "npm run dev"
+app "api" {
+  dir     = "../api"
+  run = "npm run dev"
   port    = 8080
-  env     = { DATABASE_URL = postgres.db.url }   # or a remote URL — doze doesn't mind
-  health  { http = "http://localhost:8080/health"; retries = 30 }
+  env     = { DATABASE_URL = module.db.url }   # or a remote URL — doze doesn't mind
+  ready = http("/health")
 }
 ```
 

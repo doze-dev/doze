@@ -5,19 +5,27 @@ title: "Configuration reference"
 
 doze reads HCL from `doze.hcl` (and any sibling `*.doze.hcl`, merged
 automatically — see [splitting config](#splitting-config-across-files)). The file
-has a fixed **root** plus one **block per instance**, keyed by engine:
+has a fixed **root** plus one **block per thing it runs**. There are four
+kinds of block:
 
 ```hcl
-defaults { idle_timeout = "5m" }          # root settings
+stack = "shop"                            # root settings
+defaults { idle_timeout = "5m" }
 
-postgres "app"   { version = 16 }         # instances
-valkey   "cache" { version = 9 }
+module postgres "app"   { version = 16 }  # an engine from the doze registry
+module valkey   "cache" { version = 9 }
+
+app "api" { run = "go run ./cmd/api" }    # your code
 ```
+
+`module <type> "<name>"` is an engine from the registry, `app "<name>"` is your
+own code, and [`service` and `task`](#service-and-task) are commands from
+outside the registry and commands that run to completion.
 
 Jump to an engine: [postgres](#postgres) · [valkey](#valkey) ·
 [kvrocks](#kvrocks) · [ferret](#ferret) · [mariadb](#mariadb) ·
 [temporal](#temporal) · [kafka](#kafka) · [aws](#aws).
-Project-level blocks: [modules](#modules) · [TLS](#tls).
+Your own code: [app](#app). Project-level: [modules](#modules) · [TLS](#tls).
 
 This is the field-by-field reference. For what each engine *is* and when to use
 it, see **[The engines](/guides/engines/)**. Each engine's page on the
@@ -28,6 +36,7 @@ generated from the module itself, so it can't be stale.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
+| `stack` | string | the config folder's name | Names the stack. It scopes local domains (`<name>.<stack>.doze`) and must be unique among the stacks running on the machine. |
 | `listen` | string | `127.0.0.1:6432` | Base client address. Each instance gets the next port; override per instance with `listen`, or use a `unix:/path`. |
 | `home` | string | `$DOZE_HOME` or `~/.doze` | Shared toolchain store + cache (deduplicated across projects). |
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |
@@ -50,11 +59,11 @@ TLS is terminated at the proxy; the backend speaks plaintext over a local socket
 
 ## Common instance fields
 
-Every `<engine> "<name>" { … }` block accepts:
+Every `module <type> "<name>" { … }` block accepts:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for every engine except `aws` and `process`, which take none. |
+| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for every module except `aws`, which takes none. |
 | `listen` | string | next port from root `listen` | Per-instance client address (`"127.0.0.1:5544"` or `"unix:/path.sock"`). |
 
 `version` is the only version you declare. The *module* (the plugin that
@@ -70,24 +79,36 @@ rare overrides.
 ## References & expressions
 
 Values are HCL expressions, not just literals. You can call functions and—most
-usefully—**reference other instances** by `<engine>.<name>.<attribute>`:
+usefully—**reference other blocks** by `<kind>.<name>.<attribute>`:
 
 ```hcl
-process "api" {
-  command = "go run ./cmd/api"
-  port    = 8080
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
   env = {
-    DATABASE_URL = postgres.app.url   # reference → builds the dependency edge
+    DATABASE_URL = module.app.url   # reference → builds the dependency edge
   }
 }
 ```
 
-A reference does two things: it resolves to the attribute's value, and it makes
-the referencing instance **depend on** the referenced one (doze boots and holds
-the dependency first — no hand-declared ordering). Referencing an instance that
-isn't declared is a parse-time error, and reference cycles are rejected.
+The kind is the block's keyword, never the engine: a `module postgres "app"`
+block is `module.app`, not `postgres.app`.
 
-Every instance exposes these baseline attributes:
+| Reference | Attributes |
+|---|---|
+| `module.<name>` | `url`, `address`, `host`, `port`, `socket`, `env_var`, `name`, `engine`, plus whatever the module adds |
+| `app.<name>` | `address`, `host`, `port`, `url` (all need the app to declare a `port`), `name` |
+| `service.<name>` | `address`, `host`, `port`, `data`, `name` |
+| `task.<name>` | none — a task is only named in `after` |
+
+A reference does two things: it resolves to the attribute's value, and it makes
+the referencing block **depend on** the referenced one (doze boots and holds
+the dependency first — no hand-declared ordering). Referencing a block that
+isn't declared is a lint error, and reference cycles are rejected. Names are
+unique across a stack whatever the kind, so `module.db` and `app.db` cannot
+both exist.
+
+Every module exposes these baseline attributes:
 
 | Attribute | Description |
 |---|---|
@@ -95,7 +116,7 @@ Every instance exposes these baseline attributes:
 | `address` | Client-facing `host:port` (or `unix:/path`). |
 | `host` / `port` | Split address (empty/`0` for a unix socket). |
 | `socket` | Unix socket path (empty for TCP). |
-| `url` | The connection string doze injects (e.g. `postgres://…`). |
+| `url` | The connection string (e.g. `postgres://…`). |
 | `env_var` | The conventional variable name (`DATABASE_URL`, …). |
 
 Functions include the common string/collection/number/encoding helpers (`upper`,
@@ -114,7 +135,7 @@ locals {
   app_db = "app_${var.pg_version}"
 }
 
-postgres "app" {
+module postgres "app" {
   version = var.pg_version
   owner   = local.app_db
 }
@@ -140,15 +161,15 @@ variables, functions, and earlier locals.
 
 Stamp several similar instances from one block. Each stamp becomes its own
 instance with a flat name — `<label>_<key>` (for_each) or `<label>_<index>`
-(count) — addressable like any other (`valkey.shard_0.url`, `postgres.tenant_eu.url`).
+(count) — addressable like any other (`module.shard_0.url`, `module.tenant_eu.url`).
 
 ```hcl
-postgres "tenant" {
+module postgres "tenant" {
   for_each = toset(["eu", "us", "apac"])   # → tenant_eu, tenant_us, tenant_apac
   version  = 16
 }
 
-valkey "shard" {
+module valkey "shard" {
   count     = 3                       # → shard_0, shard_1, shard_2
   version   = 9
   maxmemory = "${(count.index + 1) * 64}mb"
@@ -163,24 +184,31 @@ valkey "shard" {
 `count = 0` (or an empty `for_each`) produces no instances. A block can't set both.
 Keys are sanitized for use in names/paths (`orders.fifo` → `orders_fifo`).
 
-### Explicit ordering: `depends_on`
+### Explicit ordering: `after`
 
 References already create dependencies, so you rarely need this. For an ordering
-that isn't expressed through a reference, `depends_on` adds it:
+that isn't expressed through a reference, `after` adds it:
 
 ```hcl
-process "worker" {
-  command    = "go run ./cmd/worker"
-  depends_on = { "aws.cloud" = "healthy" }
+app "worker" {
+  run   = "go run ./cmd/worker"
+  after = [module.cloud]
 }
 ```
 
-The key is an instance address (or bare name); the value is the readiness
-condition — `healthy` (wait until it accepts connections / its health probe
-passes, the default for every reference) or `started` (wait only until the
-dependency's process has spawned). `started` lets a service start before a peer
-process becomes healthy; for a database/queue, which is ready as soon as it
-accepts connections, the two are equivalent.
+Each entry is a reference to a whole block. The app waits until a module or
+another app is ready, and until a task has succeeded.
+
+`depends_on` is the longer form, for when the condition matters: a map of block
+name to `healthy` (the default for every reference and every `after` entry) or
+`started` (wait only until the dependency's process has spawned).
+
+```hcl
+app "worker" {
+  run        = "go run ./cmd/worker"
+  depends_on = { "cloud" = "started" }
+}
+```
 
 ---
 
@@ -190,7 +218,7 @@ Real PostgreSQL (14–17). On boot, doze creates the database (named after the
 instance) and converges the declared roles, schemas, grants, and extensions.
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 16
   owner   = "app"
   role "app" { password = "app" }
@@ -277,7 +305,7 @@ postgres "app" {
 In-memory, Redis-protocol cache.
 
 ```hcl
-valkey "cache" {
+module valkey "cache" {
   version   = 9
   maxmemory = "256mb"
 }
@@ -300,7 +328,7 @@ valkey "cache" {
 RocksDB-backed, Redis-protocol durable KV store.
 
 ```hcl
-kvrocks "store" {
+module kvrocks "store" {
   version  = 2
   password = "default-token"
   namespace "tenant_a" { token = "tok-a" }
@@ -330,7 +358,7 @@ Mongo wire (`MONGODB_URI`). One declared instance is one composite backend — n
 separate postgres to wire up. See the [DocumentDB recipe](/guides/recipes/documentdb/).
 
 ```hcl
-ferret "shop" {
+module ferret "shop" {
   version = "2.7"
   port    = 27017
 
@@ -358,11 +386,15 @@ macOS and Linux — doze repackages upstream's x86_64-Linux binary and builds
 the other platforms from source.
 
 ```hcl
-mariadb "db" {
+module mariadb "db" {
   version = 11.4
 
   user "app" { password = "app" }
-  grant { user = "app"  privileges = "ALL"  database = "db" }
+  grant {
+    user = "app"
+    privileges = "ALL"
+    database = "db"
+  }
 }
 ```
 
@@ -384,7 +416,7 @@ A durable workflow engine: the Temporal dev server (single pure-Go binary —
 services, SQLite store, Web UI). Workers long-poll it, which holds it awake.
 
 ```hcl
-temporal "dev" {
+module temporal "dev" {
   version = 1.1
   port    = 7233
   ui_port = 8233
@@ -412,7 +444,7 @@ protocol profile** (1–4), not a broker build. Its web console serves one port
 above the broker.
 
 ```hcl
-kafka "events" {
+module kafka "events" {
   version = 4
 
   auto_create_topics = true
@@ -438,7 +470,7 @@ kafka "events" {
 | `partitions` | number | `1` | Partition count. |
 | `config` | map(string) | — | Per-topic config (e.g. `"cleanup.policy" = "compact"`). |
 
-References: `kafka.<name>.address` is the bootstrap `host:port`.
+References: `module.<name>.address` is the bootstrap `host:port`.
 
 ---
 
@@ -451,7 +483,7 @@ nested blocks, converged on boot; their labels are the resource names your SDK
 uses.
 
 ```hcl
-aws "local" {
+module aws "local" {
   port = 4566
 
   bucket "uploads" { versioning = true }
@@ -505,50 +537,43 @@ aws "local" {
 | `rule` | An EventBridge rule — `pattern` (a **literal JSON string** — HCL functions aren't available here), `targets` as `"kind:name"` shorthand. |
 | `key` / `parameter` / `secret` | KMS key (real local crypto) / SSM parameter (label = full `/path`) / Secrets Manager secret (never stomped without force). |
 
-References: `aws.<name>.url` is the endpoint for every `AWS_ENDPOINT_URL_*`
+References: `module.<name>.url` is the endpoint for every `AWS_ENDPOINT_URL_*`
 variable. Resource names inside the block are plain strings to your app.
 
 ---
 
-## process
+## app
 
-An application **process** run directly on the host — no Docker, no
-virtualization. Unlike the database/AWS engines (which doze proxies and
-idle-reaps), a process is a long-lived, supervised *client* of those backends: it
-binds its own port, is exempt from the idle reaper, gates readiness on a health
-probe, and restarts per a policy when it exits. Bring processes up with
-[`doze up`](/reference/cli/#doze-up-process); they boot eagerly (not on connection).
+An **app** is a long-running command that is your code, run directly on the
+host — no Docker, no virtualization. Unlike a module (which doze proxies and
+idle-reaps), an app is a supervised *client* of those backends: it starts with
+`doze up`, is not put to sleep when idle, gates readiness on a probe, and
+restarts per a policy when it exits.
 
 ```hcl
-process "api" {
-  cwd     = "../approvals-engine"          # working dir, relative to this file
-  command = "go run main.go -program api"  # run via `sh -c` (pipes, &&, expansion OK)
-  port    = 8080                           # the port the app binds (doze does NOT bind it)
+app "api" {
+  dir  = "../approvals-engine"            # working dir, relative to this file
+  run  = "go run main.go -program api"    # run via `sh -c` (pipes, &&, expansion OK)
+  port = 8080                             # the port the app listens on
 
   env = {
-    DATABASE_URL  = postgres.app.url       # typed ref → dependency edge + injected value
+    DATABASE_URL  = module.app.url        # reference → dependency edge + value
     HTTP_API_PORT = "8080"
   }
-  env_file = ".env.local"                  # optional; lower precedence than env{}
+  env_file = ".env.local"                 # optional; lower precedence than env
 
-  depends_on = { postgres.app = "healthy" } # explicit; the env refs above also imply edges
+  after = [task.migrate]                  # ordering with no value to reference
 
-  hooks {
-    pre_start  = ["go run main.go -program migrate -command up"]  # after deps, before start
-    post_start = ["./scripts/notify-ready.sh"]                    # after the app is healthy
-    pre_stop   = ["./scripts/drain.sh"]                           # before SIGINT
-  }
+  setup    = "go run main.go -program migrate -command up"   # before the app starts
+  on_ready = "./scripts/notify-ready.sh"                     # once it is ready
+  stop     = "./scripts/drain.sh"                            # before it is signalled
 
-  health {
-    http     = "http://localhost:8080/health/ready"
-    interval = "2s"
-    timeout  = "3s"
-    retries  = 30                          # readiness budget = interval × retries
-  }
+  ready         = http("/health/ready")   # probed on the app's own port
+  ready_timeout = "90s"
 
   restart {
-    policy      = "on_failure"             # no | on_failure | always
-    backoff     = "1s"                     # exponential, capped at 30s
+    policy      = "on_failure"            # no | on_failure | always
+    backoff     = "1s"                    # exponential, capped at 30s
     max_retries = 5
   }
 }
@@ -556,53 +581,72 @@ process "api" {
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `command` | string | — | Command line, run via `sh -c`. **Required.** |
-| `cwd` | string | the file's dir | Working directory, resolved relative to the declaring file. |
-| `port` | number | none | The port the app listens on. Exposed as `process.<name>.{url,host,port}`; doze opens **no** proxy listener for it. Omit for a worker with no endpoint. |
-| `env` | map | none | Environment for the process and its hooks. Highest precedence; values may reference other instances. |
+| `run` | string | — | Command line, run via `sh -c`. **Required.** |
+| `dir` | string | the file's dir | Working directory, resolved relative to the declaring file. |
+| `port` | number | none | The port the app listens on. Exposed as `app.<name>.{url,address,host,port}`. Omit for a worker with no endpoint. With `defaults { domains = true }` an app that declares a port is also served at `http://<name>.<stack>.doze`. |
+| `direct` | bool | `false` | Keep an app that declares a port off the shared `:80` route. |
+| `env` | map | none | Environment for the app and its steps. Highest precedence; values may reference other blocks. |
 | `env_file` | string | none | Path to a `KEY=VALUE` file (lower precedence than `env`). |
-| `hooks` | block | none | `pre_start` / `post_start` / `pre_stop` command lists, each run via `sh -c` in `cwd`. A non-zero `pre_start`/`post_start` aborts the boot and taints the instance. |
-| `health` | block | none | One probe kind — `http` (2xx), `tcp` (`host:port` accepts), `exec` (exit 0), or `log_line` (regex over logs) — plus `interval`, `timeout`, `retries`. With no `health` block, readiness = "the process stayed alive briefly". |
-| `restart` | block | `policy = "no"` | `policy` (`no` / `on_failure` / `always`), `backoff` (base, grown exponentially and capped), `max_retries` (defaults to 5 for a restarting policy). |
+| `after` | list of references | none | Blocks to wait for, written as references to the whole block: `[task.migrate, module.db]`. |
+| `ready` | probe | `tcp()` when `port` is set | `tcp()` (the port accepts a connection), `http("/path")` (a 2xx from the app's own port), `log("text")` (the app printed it) or `exec("cmd")` (exits 0). With no `port` and no `ready`, readiness = "the process stayed alive briefly". |
+| `ready_timeout` | duration | `"60s"` | How long the app gets to become ready. A first `go run` that has to compile needs more. |
+| `setup` | string or list | none | Commands run before the app starts, each via `sh -c` in `dir`. A failure aborts the start. |
+| `on_ready` | string or list | none | Commands run once the app is ready. |
+| `stop` | string or list | none | Commands run before the app is signalled to stop. |
+| `restart` | block | `policy = "on_failure"` | `policy` (`no` / `on_failure` / `always`), `backoff` (base, grown exponentially and capped), `max_retries` (default 5). |
 
-The process runs with the full environment [`doze run`](/reference/cli/#doze-run----command-args)
-injects (connection strings, AWS creds/region, `DOZE_<NAME>_URL`), layered as:
-`os` env → doze-injected → `env_file` → `env {}`. v1 runs `go`/`bun`/`node` from
-`PATH`; a `.go-version`/`.prototools` in `cwd` only triggers a warning on
-mismatch. The command and all its children are reaped as a process group on stop.
+An app's environment is layered as: the daemon's own environment → `env_file`
+→ `env`. doze adds nothing of its own, so an app gets exactly what it declares.
+doze runs `go`/`bun`/`node` from `PATH`; a `.go-version`/`.prototools` in `dir`
+only triggers a warning on mismatch. The command and all its children are
+reaped as a process group on stop.
 
-> Note: HCL single-line blocks hold one argument only — write `health { … }` and
-> `restart { … }` across multiple lines (one argument per line), as above.
+> Note: HCL single-line blocks hold one argument only — write `restart { … }`
+> across multiple lines (one argument per line), as above.
+
+---
+
+## service and task
+
+Two more kinds are part of the language and are checked by `doze lint`, but
+**this build cannot run them yet**: `doze up` refuses a stack that declares
+either one.
+
+A **service** is a long-running command that comes from outside the doze
+registry — anything you can start from a shell. A **task** is a command that
+runs to completion, such as a migration.
+
+```hcl
+service "mongo" {
+  download = "https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz"
+  run      = "bin/mongod --dbpath $DATA --port $PORT"
+  port     = 27017
+}
+
+task "migrate" {
+  run    = "go run ./cmd/migrate up"
+  inputs = ["migrations/*.sql"]
+  env    = { DATABASE_URL = module.db.url }
+}
+```
+
+A service takes `run`, `dir`, `port`, `env`, `env_file`, `after`, `ready`,
+`ready_timeout`, `setup`, `on_ready`, `stop` and `restart` as an app does, plus
+`download` (a URL, or a map of `mac` / `mac_intel` / `linux` / `linux_arm` to a
+URL). A task takes `run`, `dir`, `env`, `env_file`, `after`, `inputs` (globs;
+the task re-runs when what they match changes) and `manual`.
 
 ---
 
 ## modules
 
-Every engine except `process` is provided by a **module** — a signed plugin
-doze fetches from the registry on first use. The defaults are right for almost
-everyone: engine type `postgres` resolves to source `doze/postgres` on the
-public registry, doze selects the newest module release compatible with your
+Every `module` block is backed by a **module** — a signed plugin doze fetches
+from the doze registry on first use. `module postgres "db"` resolves to the
+module `doze/postgres`; doze selects the newest release compatible with your
 doze and your declared engine versions, and `doze.lock` freezes the choice.
-The optional `modules {}` block holds the overrides:
-
-```hcl
-modules {
-  mirror  = "file:///path/to/registry"   # air-gapped / dev registry base
-  enabled = true                          # (implied when mirror is set)
-
-  cache {                                 # per engine TYPE (the block keyword)
-    source  = "acme/valkey"               # a third-party publisher's module
-    version = "0.2.0"                     # rare: pin the MODULE release exactly
-  }
-}
-```
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `mirror` | string | the public registry | Registry base URL (or `file://` path). Also settable via `DOZE_MODULES_MIRROR`. |
-| `enabled` | bool | on | Fetch modules at all. `DOZE_MODULES=off` disables globally (offline / `process`-only). |
-| `<type> { source }` | string | `doze/<type>` | Which `<namespace>/<name>` provides this engine type. |
-| `<type> { version }` | string | auto | Exact **module** release pin — the escape hatch for holding back a regressed release. Not the engine version. |
+There is one registry and nothing to configure: no mirror, no per-module
+source, no `modules {}` block. `DOZE_MODULES=off` disables fetching (offline,
+apps only), and `DOZE_<TYPE>_PLUGIN` runs a module you built yourself.
 
 Module workflow in one breath: discovery and docs live on the
 [registry](https://doze.nerdmenot.in/registry/); updates are explicit —
@@ -622,7 +666,7 @@ every `*.hcl` in a directory. See [Files & storage](/guides/files-and-storage/#b
 A bare major (`version = 16`) resolves to the newest minor and is pinned in
 `doze.lock`; a dotted string (`version = "16.14"`) pins exactly. The lock also
 pins each engine's **module** (release, plugin protocol, supported engine
-versions, per-platform checksums) and each registry namespace's publisher key.
+versions, per-platform checksums).
 **Commit `doze.lock`** — every machine then runs byte-identical modules *and*
 engine binaries. Run `doze binaries available <engine>` to see engine versions;
 `doze modules upgrade --check` to see waiting module updates. See
@@ -630,15 +674,16 @@ engine binaries. Run `doze binaries available <engine>` to see engine versions;
 
 ## Connection-string environment variables
 
-A supervised `process` block receives these env vars for the dependencies it
-declares; the full set is also written to `.doze/endpoints.yaml` for external
-tooling. (`doze run` does **not** inject them — see
-[Workflows](/guides/workflows/#getting-connection-strings-into-your-code).)
+`doze env` prints these, `doze run --env` runs a command with them set, and
+the full set is written to `.doze/endpoints.yaml` for external tooling. An
+`app` block does **not** receive them automatically: it gets the environment
+it declares, so pass each one by reference (`DATABASE_URL = module.app.url`).
+See [Workflows](/guides/workflows/#getting-connection-strings-into-your-code).
 
 | Variable | For |
 |---|---|
 | `DOZE_<NAME>_URL` | every instance, always |
 | `DATABASE_URL` | the single postgres instance (if unambiguous) |
 | `REDIS_URL` | the single valkey/kvrocks instance |
-| `MONGODB_URI` | the single documentdb instance |
+| `MONGODB_URI` | the single ferret instance |
 | `AWS_ENDPOINT_URL_S3` / `_SQS` / `_SNS` | the AWS services, plus `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (dummy values) |

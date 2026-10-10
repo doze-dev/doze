@@ -12,7 +12,7 @@ A MongoDB-wire database you connect to with any Mongo client. Under the hood it 
 ## Usage
 
 ```hcl
-ferret "shop" {
+module ferret "shop" {
   version = "2.7"
 
   database "catalog" {

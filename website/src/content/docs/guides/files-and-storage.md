@@ -162,15 +162,15 @@ my-app/
 # doze.hcl  — root settings live here, and only here
 defaults { idle_timeout = "5m" }
 
-postgres "app" {
+module postgres "app" {
   version = 16
   role "app" { password = "app" }
 }
 ```
 
 ```hcl
-# aws.doze.hcl  — just more instances
-aws "cloud" {
+# module.doze.hcl  — just more instances
+module aws "cloud" {
   port = 4566
   bucket "uploads" {}
   queue  "emails" {}
@@ -203,7 +203,7 @@ ones in a **gitignored** `local.doze.hcl`:
 
 ```hcl
 # local.doze.hcl  (gitignored — yours alone)
-postgres "scratch" {
+module postgres "scratch" {
   version = 17
   role "me" { password = "me" }
 }

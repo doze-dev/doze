@@ -10,7 +10,7 @@ scheduler, and three more you inherited — that turns out to be the bigger stor
 
 A modern local stack isn't "a database." It's a mesh of processes that need to
 start in the right order, find each other, and be *ready* before you point a
-browser at them. doze has a `process` block for exactly that, and you can build a
+browser at them. doze has an `app` block for exactly that, and you can build a
 `doze.hcl` out of nothing but processes if you want — no database in sight.
 
 ## How people do this today (and it's not bad)
@@ -45,49 +45,49 @@ needs a database ready before it starts:
 ```hcl
 # doze.hcl — a stack of your services
 
-postgres "db" {
+module postgres "db" {
   version = 18
   port    = 5432
-  role "app" { password = "app"; login = true }
-}
-
-process "auth" {
-  cwd     = "../auth-service"
-  command = "go run ./cmd/auth"
-  port    = 4000
-
-  env = { DATABASE_URL = postgres.db.url }
-
-  health {
-    http     = "http://localhost:4000/healthz"
-    interval = "1s"
-    retries  = 30
+  role "app" {
+    password = "app"
+    login = true
   }
 }
 
-process "api" {
-  cwd     = "../api"
-  command = "go run ./cmd/api"
+app "auth" {
+  dir     = "../auth-service"
+  run = "go run ./cmd/auth"
+  port    = 4000
+
+  env = { DATABASE_URL = module.db.url }
+
+  ready = http("/healthz")
+}
+
+app "api" {
+  dir     = "../api"
+  run = "go run ./cmd/api"
   port    = 8080
 
   env = {
-    DATABASE_URL = postgres.db.url      # wires the dependency to the db
-    AUTH_URL     = process.auth.url     # …and to the auth service
+    DATABASE_URL = module.db.url      # wires the dependency to the db
+    AUTH_URL     = app.auth.url     # …and to the auth service
   }
 
   # run migrations after the db is up, before the api starts
-  hooks {
-    pre_start = ["go run ./cmd/migrate up"]
-  }
+  setup = "go run ./cmd/migrate up"
 
-  health { http = "http://localhost:8080/health/ready"; retries = 30 }
+  ready = http("/health/ready")
 }
 
-process "worker" {
-  cwd     = "../api"
-  command = "go run ./cmd/worker"       # no port — a background worker has no endpoint
-  env     = { DATABASE_URL = postgres.db.url }
-  restart { policy = "on_failure"; max_retries = 5 }
+app "worker" {
+  dir     = "../api"
+  run = "go run ./cmd/worker"       # no port — a background worker has no endpoint
+  env     = { DATABASE_URL = module.db.url }
+  restart {
+    policy = "on_failure"
+    max_retries = 5
+  }
 }
 ```
 
@@ -97,7 +97,7 @@ Then:
 doze up
 ```
 
-doze reads the references — `postgres.db.url`, `process.auth.url` — as the
+doze reads the references — `module.db.url`, `app.auth.url` — as the
 **dependency graph**, and boots in order: the database, then `auth` (waiting
 until its `/healthz` actually answers), then the API's migration hook, then the
 API, with the worker alongside. "Up" means *ready*, not "the processes were
@@ -114,21 +114,21 @@ a pure process runner:
 ```hcl
 # doze.hcl — only your services; the database lives elsewhere
 
-process "api" {
-  cwd     = "../api"
-  command = "npm run dev"
+app "api" {
+  dir     = "../api"
+  run = "npm run dev"
   port    = 8080
   env = {
     # point straight at your remote/shared database — doze runs nothing for it
     DATABASE_URL = "postgres://app@db.staging.internal:5432/app"
     REDIS_URL    = "redis://cache.staging.internal:6379"
   }
-  health { http = "http://localhost:8080/health"; retries = 30 }
+  ready = http("/health")
 }
 
-process "worker" {
-  cwd     = "../api"
-  command = "npm run worker"
+app "worker" {
+  dir     = "../api"
+  run = "npm run worker"
   env     = { DATABASE_URL = "postgres://app@db.staging.internal:5432/app" }
 }
 ```
@@ -158,19 +158,19 @@ because this is code you're editing every few minutes:
 
 ## The pieces, briefly
 
-Each `process` block gives you the orchestration a Procfile doesn't:
+Each `app` block gives you the orchestration a Procfile doesn't:
 
-- **`command` + `cwd`** — what to run and where (run via `sh -c`, so pipes and
+- **`run` + `dir`** — what to run and where (run via `sh -c`, so pipes and
   `&&` work).
-- **`env` + `env_file`** — environment, with typed references to other instances
-  (`postgres.db.url`, `process.auth.url`) that double as dependency edges.
-- **`health`** — an `http`, `tcp`, `exec`, or `log_line` readiness probe, so
+- **`env` + `env_file`** — environment, with references to other blocks
+  (`module.db.url`, `app.auth.url`) that double as dependency edges.
+- **`ready`** — a `tcp()`, `http("/path")`, `log("text")` or `exec("cmd")` readiness probe, so
   dependents wait for *ready*, not just *launched*.
-- **`hooks`** — `pre_start` (migrations, codegen), `post_start`, `pre_stop`
-  (graceful drain).
+- **`setup`, `on_ready`, `stop`** — commands before the app starts (migrations,
+  codegen), once it is ready, and before it is stopped (graceful drain).
 - **`restart`** — `no` / `on_failure` / `always`, with capped exponential
   backoff, for the flaky worker that should just come back.
-- **`depends_on`** — explicit ordering when there's no env reference to imply it.
+- **`after`** — explicit ordering when there's no env reference to imply it.
 
 The full field-by-field reference is in
 [configuration → process](/reference/configuration/#process), and there's a

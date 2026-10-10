@@ -63,7 +63,7 @@ CPU, and dependencies. `--json` for scripts.
 
 Print the services' connection variables as eval-able exports —
 `DATABASE_URL`, `REDIS_URL`, `AWS_ENDPOINT_URL_*`, `KAFKA_BROKERS`, … —
-exactly what doze injects into your `process` blocks. `--dotenv` and `--json`
+the same set `doze run --env` injects. `--dotenv` and `--json`
 for other consumers, dummy AWS credentials included when an AWS endpoint is
 present.
 
@@ -108,7 +108,7 @@ all share canonical ports by DNS name — three Postgres instances, each at
 
 ### `doze modules upgrade [engine-type ...]` 
 
-Every engine except `process` is a signed module fetched from the
+Every `module` block is backed by a signed module fetched from the
 [registry](https://doze.nerdmenot.in/registry/), selected automatically and
 pinned in `doze.lock` — pins never move on their own. `upgrade` re-selects
 against the registry, downloads + verifies, and moves the pins (**commit the
@@ -131,7 +131,6 @@ Print the doze version.
 | `DOZE_VAR_<name>` | Set a config variable (lower precedence than `--var`). |
 | `DOZE_<ENGINE>_BINDIR` | Use an explicit engine bin dir instead of downloading (e.g. `DOZE_POSTGRES_BINDIR`). |
 | `DOZE_<ENGINE>_MIRROR` / `DOZE_MIRROR` | Override the engine-binaries mirror — see [BINARIES](/reference/binaries/). |
-| `DOZE_MODULES_MIRROR` | Override the module registry base (URL or `file://`). |
-| `DOZE_MODULES` | `off` disables module fetching entirely (offline / `process`-only). |
+| `DOZE_MODULES` | `off` disables module fetching entirely (offline / apps only). |
 | `DOZE_<TYPE>_PLUGIN` | Run a local plugin binary for an engine type, skipping the registry (module development). |
 | `NO_COLOR` | Disable colored output. |

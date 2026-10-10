@@ -11,7 +11,7 @@ wired into apps with zero hardcoded ports.
 ```hcl
 defaults { idle_timeout = "10m" }
 
-postgres "app" {
+module postgres "app" {
   version = 16
   port    = 5432
   owner   = "app"
@@ -24,13 +24,13 @@ postgres "app" {
   extensions = ["uuid-ossp", "pg_trgm"]
 }
 
-valkey "cache" {
+module valkey "cache" {
   version   = 9
   port      = 6379
   maxmemory = "256mb"
 }
 
-aws "cloud" {
+module aws "cloud" {
   port = 4566
 
   bucket "user-uploads" {}
@@ -50,7 +50,7 @@ doze run -- ./bin/worker           # same env; processes the queues
 ## Event-driven services: SNS fanout into SQS
 
 ```hcl
-aws "cloud" {
+module aws "cloud" {
   port = 4566
 
   queue "email-svc" {}
@@ -76,7 +76,7 @@ only the filtered subset.
 ## Mongo-style service
 
 ```hcl
-ferret "docs" {
+module ferret "docs" {
   version = "2.7"
   port    = 27017
 }
@@ -92,23 +92,23 @@ Split across `*.doze.hcl` for readability — see [config layout](/guides/recipe
 ```hcl
 # doze.hcl
 defaults { idle_timeout = "10m" }
-postgres "app" {
+module postgres "app" {
   version = 16
   role "app" { password = "app" }
 }
-valkey  "cache" { version = 9 }
-kvrocks "kv"    { version = 2 }
+module valkey  "cache" { version = 9 }
+module kvrocks "kv"    { version = 2 }
 ```
 ```hcl
 # mongo.doze.hcl
-ferret "mongo" {
+module ferret "mongo" {
   version = "2.7"
   port    = 27017
 }
 ```
 ```hcl
-# aws.doze.hcl
-aws "cloud" {
+# module.doze.hcl
+module aws "cloud" {
   port = 4566
 
   bucket "data" {}
@@ -131,8 +131,8 @@ doze run -- make integration-test
 
 ## Framework wiring
 
-doze injects the **standard** env vars apps already read — usually no code
-changes.
+`doze env` exports the **standard** env vars apps already read — usually no
+code changes.
 
 **Rails** — reads `DATABASE_URL` and `REDIS_URL`:
 ```sh

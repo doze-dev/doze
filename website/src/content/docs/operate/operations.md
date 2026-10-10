@@ -47,15 +47,14 @@ isn't live yet."
 
 ## Key rotation
 
-The severe one. The namespace key is pinned in **every user's `doze.lock`** —
-rotate it and every locked project hard-errors on its next registry contact
+The severe one. The registry key is compiled into **every doze binary** —
+rotate it and every installed doze rejects the registry until it is upgraded
 (by design: silent key swaps are the attack). So:
 
 - **Routine rotation isn't a thing.** Rotate on suspected compromise, not on a
   calendar. Custody discipline beats rotation cadence here.
-- **When you must:** publish the new `keys.json`, announce loudly, and users
-  clear the pinned key from their locks (the error message tells them the
-  precise line). Their next resolve re-pins the new key. Locked+cached
+- **When you must:** ship a doze release carrying the new key, announce
+  loudly, and re-sign the registry with it. Users upgrade doze. Locked+cached
   projects keep working offline throughout — only registry *contact* fails.
 - **Compromise response order:** rotate key → audit what the old key signed
   (the registry's git history is the ledger — another reason indexes are
@@ -67,8 +66,8 @@ Cheap and sufficient for static files:
 
 - CI: `validate` on every PR/push; `validate:remote` scheduled daily (catches
   archive-host bitrot).
-- A canary: `DOZE_MODULES_MIRROR=<your base> doze modules upgrade --check`
-  in a scheduled job — exercises the exact client path, signatures included.
+- A canary: `doze modules upgrade --check` against a fixture project in a
+  scheduled job — exercises the exact client path, signatures included.
 - Availability is the CDN's problem; *integrity* failures are what your alerts
   are for, and clients enforce those anyway. The registry being down never
   breaks locked projects — they resolve from cache.

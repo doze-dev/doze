@@ -12,7 +12,7 @@ A local Temporal dev server: a single pure-Go binary bundling the Temporal servi
 ## Usage
 
 ```hcl
-temporal "dev" {
+module temporal "dev" {
   version = "1.1"
   port    = 7233
   ui_port = 8233

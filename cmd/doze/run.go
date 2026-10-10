@@ -18,8 +18,8 @@ func runCmd() *cobra.Command {
 			"test or dev-server command so the backends are awake before it connects. By\n" +
 			"default doze injects nothing into the environment: because every instance has\n" +
 			"an explicit port, your connection strings are stable — put them in your app\n" +
-			"config, or declare the app as a `process` block to have its dependencies'\n" +
-			"URLs injected. --env opts in to injecting the same variables `doze env`\n" +
+			"config, or declare the app as an `app` block and pass each URL by\n" +
+			"reference. --env opts in to injecting the same variables `doze env`\n" +
 			"prints (DATABASE_URL, AWS_ENDPOINT_URL_*, dummy AWS creds, …).",
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

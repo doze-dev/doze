@@ -19,7 +19,7 @@ daemon's real state and updates as things change. If the daemon isn't running,
 ## What you're looking at
 
 The main view is your stack, grouped by category — databases, caches, queues,
-storage, your own `process` blocks — each service on a line with its state,
+storage, your own `app` blocks — each service on a line with its state,
 endpoint, connection count, and live resource use. The state is the honest
 picture of doze's whole lazy-boot idea, in one column:
 

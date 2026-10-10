@@ -17,7 +17,7 @@ lives:
 ## A cache (Valkey)
 
 ```hcl
-valkey "cache" {
+module valkey "cache" {
   version   = 9            # newest 9.x; or pin "9.1.0"
   maxmemory = "256mb"      # optional cap
   password  = "cache"      # optional
@@ -36,7 +36,7 @@ redis-cli -u redis://127.0.0.1:6379 get greeting
 ## A durable KV store (Kvrocks)
 
 ```hcl
-kvrocks "store" {
+module kvrocks "store" {
   version  = 2
   password = "store"       # optional
 }
@@ -65,11 +65,11 @@ redis-cli -h 127.0.0.1 -p 6433 -a cache
 ## Cache + durable store together
 
 ```hcl
-valkey "cache" {
+module valkey "cache" {
   version   = 9
   maxmemory = "128mb"
 }
-kvrocks "store" {
+module kvrocks "store" {
   version = 2
 }
 ```
@@ -81,8 +81,8 @@ redis-cli -u redis://127.0.0.1:6379 set session:42 active   # cache
 redis-cli -u redis://127.0.0.1:6380 set user:42  "{...}"    # store
 ```
 
-A `process` block that depends on both gets each one injected under its own
-`env_var`.
+An `app` block references each one by name — `module.<name>.url` — so two
+instances of the same engine never collide.
 
 ## Common tasks
 

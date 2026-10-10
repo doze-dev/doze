@@ -3,7 +3,7 @@ title: "Modules, for users"
 description: How engines are provided, selected, locked, and upgraded — and the one version that's actually yours.
 ---
 
-Every engine except `process` is a **module**: a signed plugin doze fetches
+Every `module` block is backed by a **module**: a signed plugin doze fetches
 from the registry the first time your config names its type. This page is the
 user's side of that machinery — [authors go here](/modules/overview/).
 
@@ -12,8 +12,8 @@ user's side of that machinery — [authors go here](/modules/overview/).
 The only version you ever write is the **engine version** — the thing itself:
 
 ```hcl
-postgres "app" { version = 18 }   # the actual Postgres major
-kafka    "bus" { version = 4  }   # the Kafka protocol level
+module postgres "app" { version = 18 }   # the actual Postgres major
+module kafka    "bus" { version = 4  }   # the Kafka protocol level
 ```
 
 Behind that sit two numbers you'll see in `doze.lock` and occasionally in an
@@ -65,34 +65,24 @@ Some arguments are **version-gated by the engine**, not the module — using a
 Postgres-18-only setting with `version = 16` fails at `doze lint` naming the
 argument and the required major. The docs mark these (*engine ≥ 18*).
 
-## The `modules {}` block (rarely needed)
+## One registry
 
-```hcl
-modules {
-  mirror = "file:///path/to/registry"   # air-gapped / dev registry
-
-  cache {
-    source  = "acme/valkey"             # a third-party publisher's module
-    version = "0.2.0"                   # hold back an exact MODULE release
-  }
-}
-```
-
-Defaults are right for almost everyone: type `postgres` → source
-`doze/postgres` → public registry. The `version` knob exists for bisecting a
-module regression; the lock is the normal pin. Full field reference:
-[configuration → modules](/reference/configuration/#modules).
+Every module comes from the doze registry: type `postgres` is the module
+`doze/postgres`. There is no setting that points doze at another registry or
+at another publisher's module. doze picks the newest release that fits your
+doze and your declared engine versions, and `doze.lock` holds it there until
+you run `doze modules upgrade`. To stay on an older release, keep its pin in
+the lock.
 
 ## Development overrides
 
 - `DOZE_<TYPE>_PLUGIN=/path/to/plugin` — run a local plugin binary, skipping
   the registry entirely (the module-author loop).
-- `DOZE_MODULES_MIRROR=…` — point every fetch at another registry base.
-- `DOZE_MODULES=off` — no fetching at all (offline, `process`-only).
+- `DOZE_MODULES=off` — no fetching at all (offline, apps only).
 
 ## Trust, in one paragraph
 
 The registry index that *selects* your module is ed25519-signed; every archive
-checksum is signed; the publisher key pins on first use into `doze.lock`.
-Tampered, unsigned, or key-rotated ⇒ hard error. The full story:
+checksum is signed; the key they are checked against is compiled into doze.
+Tampered, unsigned, or signed by another key ⇒ hard error. The full story:
 [the trust model](/why/trust/).

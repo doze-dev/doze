@@ -14,7 +14,7 @@ pinned for reproducibility, and how to host your own mirror.
 > **modules themselves** (the plugins providing each engine) come from the
 > *signed registry* — a separate chain with ed25519 signatures and TOFU key
 > pinning, covered in [Core concepts → Engines are modules](/start/concepts/#engines-are-modules)
-> and the [`modules {}` reference](/reference/configuration/#modules). Both pin
+> and the [modules reference](/reference/configuration/#modules). Both pin
 > into the same `doze.lock`.
 
 ## Resolution order

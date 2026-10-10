@@ -113,8 +113,9 @@ to get a URL into your app:
 1. **Write the stable URL directly** in your app config or `.env` —
    `postgresql://app:app@127.0.0.1:5432/app`, `redis://127.0.0.1:6379`,
    `mongodb://127.0.0.1:27017/`. Connecting cold-boots the instance.
-2. **Declare your app as a `process` block** — doze injects each declared
-   dependency's `env_var` → its URL automatically when it runs the process.
+2. **Declare your app as an `app` block** and pass each URL by reference
+   (`DATABASE_URL = module.app.url`); doze fills in the value and boots the
+   module first.
 3. **Read `.doze/endpoints.yaml`** — the daemon writes the current address and
    connection string for every instance there, for other tooling to consume.
 
@@ -136,7 +137,7 @@ a dotted string (`version = "16.14"`) pins exactly. See
 ## Engines are modules
 
 The doze binary you install contains no databases — every engine (except the
-`process` primitive) is a **module**: a separately-versioned plugin fetched from
+`app` block) is a **module**: a separately-versioned plugin fetched from
 the signed registry the first time your config names its type. Think Terraform
 providers. What keeps this invisible day to day:
 
@@ -146,8 +147,8 @@ providers. What keeps this invisible day to day:
   per-platform checksums — in `doze.lock`.
 - **Nothing runs unverified.** The registry index carrying each module's
   compatibility metadata is ed25519-signed; each archive's checksum is signed;
-  the publisher's key is pinned on first use in your lock. A tampered index, a
-  swapped archive, or a rotated key is a hard error, not a warning.
+  the key they are checked against is compiled into doze. A tampered index, a
+  swapped archive, or another key is a hard error, not a warning.
 - **Pins move only when you say so.** `doze modules upgrade --check` reports
   waiting updates (exit 1 in CI); `doze modules upgrade` moves the pins. When a
   config needs a newer module — you declared `version = 19`, or used an
@@ -175,15 +176,15 @@ You express it with a typed reference, and doze derives the dependency and handl
 the lifecycle:
 
 ```hcl
-aws "cloud" {
+module aws "cloud" {
   port = 4566
   queue "emails" {}
 }
 
-process "worker" {
-  command = "go run ./cmd/worker"
+app "worker" {
+  run = "go run ./cmd/worker"
   env = {
-    AWS_ENDPOINT_URL = aws.cloud.url   # reference → worker depends on cloud
+    AWS_ENDPOINT_URL = module.cloud.url   # reference → worker depends on cloud
   }
 }
 ```

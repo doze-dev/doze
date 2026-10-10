@@ -37,13 +37,13 @@ This is the feature the others can't fake. doze blocks reference each other as
 **values**:
 
 ```hcl
-postgres "app" { version = 16 }
+module postgres "app" { version = 16 }
 
-process "api" {
-  command = "go run ./cmd/api"
+app "api" {
+  run = "go run ./cmd/api"
   port    = 8080
   env = {
-    DATABASE_URL = postgres.app.url   # a typed reference, not a string that happens to match
+    DATABASE_URL = module.app.url   # a typed reference, not a string that happens to match
   }
 }
 ```
@@ -59,18 +59,19 @@ data.
 
 ## Expressions scale past the toy example
 
-Real projects want three tenant databases from a list, a port that's
-`base + index`, a password from an environment variable in CI but a literal
+Real projects want three tenant databases from a list, a port per tenant, a password from an environment variable in CI but a literal
 locally. HCL has variables, locals, functions, and `for_each`/`count`:
 
 ```hcl
-variable "tenants" { default = ["acme", "globex", "initech"] }
+variable "tenants" {
+  default = { acme = 5432, globex = 5433, initech = 5434 }
+}
 
-postgres "tenant" {
+module postgres "tenant" {
   for_each = var.tenants
   version  = 18
-  port     = 5432 + index(var.tenants, each.value)
-  owner    = each.value
+  port     = each.value
+  owner    = each.key
 }
 ```
 
@@ -82,7 +83,7 @@ the file the same artifact.
 ## It reads like what it declares
 
 ```hcl
-postgres "app" {
+module postgres "app" {
   version = 18
 
   role "app" {

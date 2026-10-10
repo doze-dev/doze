@@ -12,15 +12,24 @@ Every doze-aws service — S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM
 ## Usage
 
 ```hcl
-aws "local" {
+module aws "local" {
   port = 4566
 
   bucket "uploads" { versioning = true }
-  queue  "emails"  { dlq = "auto"  max_receives = 5 }
-  queue  "orders"  { fifo = true  content_dedup = true }
+  queue "emails" {
+    dlq = "auto"
+    max_receives = 5
+  }
+  queue "orders" {
+    fifo = true
+    content_dedup = true
+  }
 
   topic "signups" {
-    subscribe { queue = "emails"  raw = true }
+    subscribe {
+      queue = "emails"
+      raw = true
+    }
   }
 
   table "sessions" {
