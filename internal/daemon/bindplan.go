@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/endpoints"
 	"github.com/doze-dev/doze/internal/loopback"
@@ -20,12 +22,14 @@ type bindPlan struct {
 	loopback bool
 }
 
-// buildBindPlan assigns addresses for every enabled, proxied endpoint.
-func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, alloc *loopback.Allocator) (*bindPlan, error) {
+// buildBindPlan assigns addresses for every enabled, proxied endpoint. In
+// loopback mode each address comes from the shared names registry (zone), which
+// is the one allocator for the machine: doze, doze-aws and doze-kafka all take
+// addresses from it under one lock, so no two of them can hand out the same one.
+func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (*bindPlan, error) {
 	p := &bindPlan{bind: map[string]string{}, resolve: map[string]net.IP{}}
 	domainsOn := d.cfg.Defaults.Domains
-	p.loopback = domainsOn && loopback.Available()
-	stack := d.cfg.Stack()
+	p.loopback = domainsOn && zone != nil && loopback.Available()
 	loopbackIP := net.IPv4(127, 0, 0, 1)
 
 	usedPort := map[string]string{} // port -> instance, for the fallback dup-port error
@@ -55,7 +59,7 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, alloc *loopback.Allocat
 		var ip net.IP
 		switch {
 		case p.loopback:
-			a, err := alloc.For(stack, ep.Name)
+			a, err := claimAddress(zone, d.cfg.DomainFor(ep.Name))
 			if err != nil {
 				return nil, err
 			}
@@ -77,4 +81,20 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, alloc *loopback.Allocat
 		}
 	}
 	return p, nil
+}
+
+// claimAddress claims host in the shared registry and returns the address the
+// registry gave it. Claiming is allocating: the name and its address are
+// recorded together, under the registry's lock. A name another live process
+// holds is an error that says who.
+func claimAddress(zone *names.Registry, host string) (net.IP, error) {
+	lease, err := zone.Claim(names.Name{Host: host, Tier: names.TierQualified})
+	if err != nil {
+		if held, ok := names.Held(err); ok {
+			return nil, fmt.Errorf("%s is already in use on this machine by %s (pid %d): stop it, or rename this stack or service",
+				held.Host, held.Owner, held.PID)
+		}
+		return nil, fmt.Errorf("no address for %s: %w", host, err)
+	}
+	return lease.IP, nil
 }

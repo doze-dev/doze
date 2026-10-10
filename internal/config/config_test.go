@@ -716,3 +716,17 @@ func TestLogRetentionDefaults(t *testing.T) {
 		}
 	}
 }
+
+// DOZE_ZONE=off turns names off whatever the config asks for.
+func TestZoneOffOverridesDomains(t *testing.T) {
+	const src = "defaults {\n  domains = true\n}\n"
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
+	if err != nil || !cfg.Defaults.Domains {
+		t.Fatalf("domains = true should hold by default: %+v, %v", cfg.Defaults, err)
+	}
+	t.Setenv("DOZE_ZONE", "off")
+	cfg, err = Parse([]byte(src), "doze.hcl", nil)
+	if err != nil || cfg.Defaults.Domains {
+		t.Fatalf("DOZE_ZONE=off should turn names off: %+v, %v", cfg.Defaults, err)
+	}
+}

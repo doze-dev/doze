@@ -7,6 +7,7 @@ import (
 	names "github.com/doze-dev/doze-names"
 
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -20,7 +21,6 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
 	"github.com/doze-dev/doze/internal/journal"
-	"github.com/doze-dev/doze/internal/loopback"
 	"github.com/doze-dev/doze/internal/proxy"
 	"github.com/doze-dev/doze/internal/runtime"
 )
@@ -77,7 +77,6 @@ type Daemon struct {
 	// guarded by mu. See dynamic.go.
 	mu         sync.Mutex
 	px         *proxy.Proxy
-	alloc      *loopback.Allocator
 	plan       *bindPlan
 	rootCtx    context.Context
 	instWG     *sync.WaitGroup
@@ -160,13 +159,29 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Per-service addressing: allocate a loopback IP per proxied instance (when
 	// domains are on and the range is aliased) so many services share a canonical
 	// port, resolved by name. Falls back to 127.0.0.1 + distinct ports otherwise.
-	alloc := loopback.NewAllocator(d.cfg.Home, os.Getpid())
-	plan, err := d.buildBindPlan(eps, alloc)
+	// Names are on: join the zone every doze program on this machine shares, and
+	// take this stack's name in it before anything of the stack's is claimed.
+	if d.cfg.Defaults.Domains {
+		stack := d.cfg.Stack()
+		if names.ReservedStack(stack) {
+			return fmt.Errorf("a stack cannot be called %q: %s.doze is the machine-wide name of a standalone tool, and this stack's services would sit under it — set another `stack = \"…\"`", stack, stack)
+		}
+		d.zone = names.Open(d.cfg.Home, "doze")
+		releaseStack, err := d.zone.ClaimStack(stack, filepath.Dir(d.cfg.Path()))
+		if err != nil {
+			var taken *names.ErrStackTaken
+			if errors.As(err, &taken) {
+				return fmt.Errorf("stack name %q is already in use by %s (daemon pid %d) — set a unique `stack = \"…\"` in this project's doze.hcl", stack, taken.Dir, taken.PID)
+			}
+			return err
+		}
+		defer releaseStack()
+	}
+	plan, err := d.buildBindPlan(eps, d.zone)
 	if err != nil {
 		return err
 	}
 	if plan.loopback {
-		defer alloc.Release()
 		d.logf("domains: per-service addressing on — each service has its own 127.0.0.x, sharing canonical ports")
 	}
 	// Remember where each instance actually listens so Status shows the real
@@ -202,7 +217,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Publish the state the dynamic Add/Remove path needs (see dynamic.go).
 	var wg sync.WaitGroup
 	d.px = px
-	d.alloc = alloc
 	d.plan = plan
 	d.rootCtx = ctx
 	d.instWG = &wg
@@ -238,11 +252,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	// Local DNS names (defaults{domains=true}): <service>.<stack>.doze via
 	// the built-in resolver, each answering with the service's per-service IP.
-	releaseStack, err := d.setupDomains(ctx, plan.resolve)
+	releaseNames, err := d.setupDomains(ctx, plan.resolve)
 	if err != nil {
 		return err
 	}
-	defer releaseStack()
+	defer releaseNames()
 	// HTTP ingress: apps that declare a `port` share :80, routed by Host.
 	releaseIngress, err := d.setupIngress(ctx, eps, plan, awsRoutes)
 	if err != nil {

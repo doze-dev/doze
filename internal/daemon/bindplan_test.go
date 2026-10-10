@@ -3,6 +3,8 @@ package daemon
 import (
 	"testing"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
@@ -21,14 +23,27 @@ func TestBindPlanFallbackDuplicatePort(t *testing.T) {
 		{Name: "orders_pg", Engine: "postgres", Address: "127.0.0.1:5432", Domain: "orders-pg.demo.doze"},
 		{Name: "analytics_pg", Engine: "postgres", Address: "127.0.0.1:5432", Domain: "analytics-pg.demo.doze"},
 	}
-	alloc := loopback.NewAllocator(t.TempDir(), 1)
-	_, err := d.buildBindPlan(eps, alloc)
+	zone := names.Open(t.TempDir(), "doze")
+	plan, err := d.buildBindPlan(eps, zone)
 	// This test runs where the range isn't aliased (CI/dev macOS) → fallback →
 	// dup-port error. On Linux the range IS available, so it'd allocate distinct
 	// IPs and succeed; accept either but assert the message when it errors.
 	if loopback.Available() {
 		if err != nil {
 			t.Fatalf("loopback available but plan errored: %v", err)
+		}
+		// Two services on one port, each at an address of its own — and each
+		// address is the one the shared registry has for that name, because
+		// the registry is where it came from.
+		a, b := plan.bind["orders_pg"], plan.bind["analytics_pg"]
+		if a == b || !contains(a, ":5432") || !contains(b, ":5432") {
+			t.Fatalf("binds = %q and %q; want two addresses on 5432", a, b)
+		}
+		for host, name := range map[string]string{"orders-pg.demo.doze": "orders_pg", "analytics-pg.demo.doze": "analytics_pg"} {
+			ip := zone.Resolve(host)
+			if ip == nil || ip.String()+":5432" != plan.bind[name] {
+				t.Fatalf("%s resolves to %v in the registry but %s listens on %s", host, ip, name, plan.bind[name])
+			}
 		}
 		return
 	}

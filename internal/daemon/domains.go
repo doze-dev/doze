@@ -9,8 +9,6 @@ package daemon
 import (
 	"context"
 	"net"
-	"os"
-	"path/filepath"
 	"runtime"
 
 	names "github.com/doze-dev/doze-names"
@@ -18,8 +16,9 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 )
 
-// setupDomains claims the stack name, publishes this stack's name→IP mappings
-// to the shared registry, and starts (or joins) the *.doze resolver —
+// setupDomains publishes this stack's name→IP mappings to the shared registry
+// (the stack's own name is claimed in Run, before any address is) and starts
+// (or joins) the *.doze resolver —
 // answering each name with its per-service loopback IP, from the machine-wide
 // union so any daemon can resolve any stack. Returns a release func for shutdown.
 func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (release func(), err error) {
@@ -27,22 +26,15 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 		return func() {}, nil
 	}
 	stack := d.cfg.Stack()
-	dir := filepath.Dir(d.cfg.Path())
-	unclaim, err := claimStack(d.cfg.Home, stack, dir, os.Getpid())
-	if err != nil {
-		return nil, err
-	}
 
 	// Publish our names into the SHARED registry — the same one doze-aws and
-	// doze-kafka write to. Before this, doze kept its own domains.json and its
-	// own resolver on the same port as theirs, so whichever binary started
-	// first served the zone and the others' names silently stopped resolving.
-	reg := names.Open(d.cfg.Home, "doze")
-	d.zone = reg
+	// doze-kafka write to. A proxied service's name is already there, claimed
+	// with its address when the bind plan was built; claiming it again here
+	// refreshes it. What this adds are the names with no address of their own:
+	// apps, which resolve to 127.0.0.1.
+	reg := d.zone
 	leases := make([]*names.Lease, 0, len(own))
 	for host, ip := range own {
-		// ClaimAt, not Claim: these addresses come from doze's own allocator,
-		// which persists them per (stack, service).
 		l, err := reg.ClaimAt(names.Name{Host: host, Tier: names.TierQualified}, ip)
 		if err != nil {
 			if held, ok := names.Held(err); ok {
@@ -56,7 +48,6 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 	}
 	d.zoneLeases = leases
 	release = func() {
-		unclaim()
 		for _, l := range leases {
 			_ = l.Release()
 		}

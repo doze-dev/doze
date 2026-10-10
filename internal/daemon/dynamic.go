@@ -218,7 +218,7 @@ func (d *Daemon) bindFor(name, address string) (string, net.IP, error) {
 		return "", nil, fmt.Errorf("instance %q has no TCP port to bind", name)
 	}
 	if d.plan.loopback {
-		ip, err := d.alloc.For(d.cfg.Stack(), name)
+		ip, err := claimAddress(d.zone, d.cfg.DomainFor(name))
 		if err != nil {
 			return "", nil, err
 		}

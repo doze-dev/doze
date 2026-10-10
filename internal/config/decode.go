@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -49,7 +51,10 @@ func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx
 		}
 		cfg.Defaults.IdleTimeout = td
 	}
-	cfg.Defaults.Domains = d.Domains
+	// DOZE_ZONE=off switches names off for every doze program at once: a CI job or
+	// a container says so once, and a config that asks for names runs without
+	// them — everything on 127.0.0.1, as if the line were not there.
+	cfg.Defaults.Domains = d.Domains && !names.Disabled()
 	if d.LogRuns < 0 {
 		return posErr(parser, block.DefRange, "invalid log_runs", "must not be negative")
 	}

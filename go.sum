@@ -40,6 +40,14 @@ github.com/doze-dev/doze-names v0.0.0-20260810110416-9dc9c2f7d869 h1:4k/vL6GmvQq
 github.com/doze-dev/doze-names v0.0.0-20260810110416-9dc9c2f7d869/go.mod h1:mMmncxtG5bBQlGZILYjU/u4oQckRy14Di4vXdw9T4xg=
 github.com/doze-dev/doze-names v0.0.0-20260912101014-06107ced21f0 h1:vO1wzEf/ralWINiiPYJU2j/26NCKiLsRIuejUnli6/M=
 github.com/doze-dev/doze-names v0.0.0-20260912101014-06107ced21f0/go.mod h1:mMmncxtG5bBQlGZILYjU/u4oQckRy14Di4vXdw9T4xg=
+github.com/doze-dev/doze-names v0.1.1-0.20261010091859-502f2ed45e76 h1:HG36YfaexPDS8p/5jyLGXlId9ct7PZxs021Fw8ph6dg=
+github.com/doze-dev/doze-names v0.1.1-0.20261010091859-502f2ed45e76/go.mod h1:mMmncxtG5bBQlGZILYjU/u4oQckRy14Di4vXdw9T4xg=
+github.com/doze-dev/doze-names v0.1.1-0.20261010091923-dc1fa8fded88 h1:15GLIyStRgVHEV3McjpNNH02yMmU8Edfm++gjsL0WLY=
+github.com/doze-dev/doze-names v0.1.1-0.20261010091923-dc1fa8fded88/go.mod h1:mMmncxtG5bBQlGZILYjU/u4oQckRy14Di4vXdw9T4xg=
+github.com/doze-dev/doze-names v0.1.1-0.20261010092057-cf98eff121af h1:kXVY5RVnP/J1ja9ac59lrMMyIHhhHa8jwH2+EY5bkBo=
+github.com/doze-dev/doze-names v0.1.1-0.20261010092057-cf98eff121af/go.mod h1:mMmncxtG5bBQlGZILYjU/u4oQckRy14Di4vXdw9T4xg=
+github.com/doze-dev/doze-names v0.1.1-0.20261010092426-298140b487b3 h1:u939VxK++JuckiIa6C9hQrq1o9HR42MfbTXnDvkwpSI=
+github.com/doze-dev/doze-names v0.1.1-0.20261010092426-298140b487b3/go.mod h1:mMmncxtG5bBQlGZILYjU/u4oQckRy14Di4vXdw9T4xg=
 github.com/doze-dev/doze-sdk v0.7.0 h1:84Knv7oOCr760ghDO8sFlAJgVALpknSh2pklw9GpTW4=
 github.com/doze-dev/doze-sdk v0.7.0/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
 github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f h1:Y/CXytFA4m6baUTXGLOoWe4PQhGxaX0KpnayAqC48p4=

@@ -22,6 +22,7 @@ import (
 
 	names "github.com/doze-dev/doze-names"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/doze-dev/doze/internal/endpoints"
@@ -316,4 +317,12 @@ func (d *Daemon) zoneRoute(host, target string) error {
 		return nil
 	}
 	return d.zone.RouteFor(host, target)
+}
+
+func pidAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	err := syscall.Kill(pid, 0)
+	return err == nil || err == syscall.EPERM
 }
