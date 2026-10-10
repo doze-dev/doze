@@ -44,6 +44,7 @@ func syncCmd() *cobra.Command {
 					return instanceNotFound(cfg, target)
 				}
 			}
+			renderBlocks(cfg)
 			prior, err := state.Load(state.Path(cfg.Path()))
 			if err != nil {
 				return err

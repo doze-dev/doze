@@ -7,6 +7,7 @@ import (
 	names "github.com/doze-dev/doze-names"
 
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -227,6 +228,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.rootCtx = ctx
 	d.instWG = &wg
 	d.running = map[string]*instHandle{}
+	d.recordBlocks()
 	d.nameOnly = map[string]bool{}
 	d.consoles = map[string]string{}
 	d.resolveMap = plan.resolve
@@ -308,3 +310,19 @@ func (d *Daemon) Run(ctx context.Context) error {
 	wg.Wait()
 	return nil
 }
+
+// recordBlocks writes down what this daemon started with: each block's kind
+// and fingerprint. The daemon does not re-read doze.hcl while it runs, so
+// `doze sync` compares the file as it is now with this, and can say which
+// blocks differ and what applying them would restart.
+func (d *Daemon) recordBlocks() {
+	b, err := json.MarshalIndent(d.cfg.BlockFingerprints(), "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(filepath.Join(d.cfg.RunDir(), BlocksFile), b, 0o644)
+}
+
+// BlocksFile is where a daemon records the blocks it started with, in its run
+// directory.
+const BlocksFile = "blocks.json"

@@ -87,3 +87,56 @@ func TestABlockThatDoesNotParseIsRefused(t *testing.T) {
 		t.Fatalf("a refused edit changed the file:\n%s", e.Bytes())
 	}
 }
+
+func TestFingerprintsFollowTheConfigAndNothingElse(t *testing.T) {
+	load := func(src string) map[string]config.BlockPrint {
+		cfg, err := config.ParseShape([]byte(src), "/work/doze.hcl")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cfg.BlockFingerprints()
+	}
+	base := load(`
+stack = "s"
+app "api" {
+  run = "go run ./cmd/api"
+  env = { A = "1", B = "2" }
+}
+app "web" {
+  run = "go run ./cmd/web"
+}
+`)
+	same := load(`
+# a comment, and the env keys in another order
+stack = "s"
+
+app "web" {
+  run = "go run ./cmd/web"
+}
+app "api" {
+  env = { B = "2", A = "1" }
+  run = "go run ./cmd/api"
+}
+`)
+	for _, name := range []string{"api", "web"} {
+		if base[name].Fingerprint != same[name].Fingerprint {
+			t.Errorf("%s: reordering and a comment changed its fingerprint", name)
+		}
+	}
+	changed := load(`
+stack = "s"
+app "api" {
+  run = "go run ./cmd/api -v"
+  env = { A = "1", B = "2" }
+}
+app "web" {
+  run = "go run ./cmd/web"
+}
+`)
+	if base["api"].Fingerprint == changed["api"].Fingerprint {
+		t.Error("changing run did not change api's fingerprint")
+	}
+	if base["web"].Fingerprint != changed["web"].Fingerprint {
+		t.Error("changing api changed web's fingerprint")
+	}
+}

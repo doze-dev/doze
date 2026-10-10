@@ -607,3 +607,69 @@ func newDownloadServer(t *testing.T, archive *[]byte, hits *int) string {
 	t.Cleanup(srv.Close)
 	return srv.URL
 }
+
+// doze sync says which blocks differ from the ones the running daemon started
+// with, and what applying them does — the daemon reads doze.hcl once.
+func TestSyncNamesTheBlocksThatDifferFromTheRunningDaemon(t *testing.T) {
+	p := newProject(t, `
+stack = "blocks"
+
+defaults {
+  domains = false
+}
+
+app "api" {
+  run = "sleep 600"
+}
+
+app "old" {
+  run = "sleep 600"
+}
+
+app "same" {
+  run = "sleep 600"
+}
+`)
+	p.must("up")
+
+	// Nothing differs yet: sync has nothing to say about blocks.
+	if out := p.must("sync", "--dry-run"); strings.Contains(out, "differs from what the running daemon") {
+		t.Fatalf("an unchanged file differs from itself:\n%s", out)
+	}
+
+	p.write("doze.hcl", `
+stack = "blocks"
+
+defaults {
+  domains = false
+}
+
+app "api" {
+  run = "sleep 601"
+}
+
+app "same" {
+  run = "sleep 600"
+}
+
+service "mail" {
+  run  = "sleep 600"
+}
+`)
+	out := p.must("sync", "--dry-run")
+	for _, want := range []string{
+		"differs from what the running daemon started with",
+		"api", "changed", "restarts",
+		"mail", "new", "starts when something uses it",
+		"old", "removed", "its data is kept",
+		"1 block unchanged",
+		"doze down && doze up",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("sync lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "same ") && strings.Contains(out, "same     app") {
+		t.Errorf("an unchanged block is listed as changed:\n%s", out)
+	}
+}

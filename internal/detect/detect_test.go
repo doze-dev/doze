@@ -3,6 +3,7 @@ package detect
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -132,7 +133,7 @@ func TestNothingToFindIsNothing(t *testing.T) {
 
 func TestScaffoldOfTheShopFixtureParsesAndIsWired(t *testing.T) {
 	r, _ := Scan("../../examples/shop")
-	src := r.Scaffold(Versions{"postgres": "16", "valkey": "9", "kafka": "4"}, nil)
+	src := strings.Join(strings.Fields(r.Scaffold(Versions{"postgres": "16", "valkey": "9", "kafka": "4"}, nil)), " ")
 	for _, want := range []string{
 		`stack = "shop"`,
 		`module postgres "db" {`, `module valkey "cache" {`, `module kafka "events" {`, `module aws "cloud" {`,
