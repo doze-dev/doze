@@ -1,0 +1,58 @@
+engines:
+    postgres:
+        "16":
+            resolved: 16.15.0
+            source: mirror
+            hashes:
+                aarch64-apple-darwin: sha256:34fe4be81ed9fba4c726adebb711d8d86c69cc141b540f345022a971beb1638c
+    valkey:
+        "9":
+            resolved: 9.1.1
+            source: mirror
+            hashes:
+                aarch64-apple-darwin: sha256:2906e1ef45f8ac0315e48d06257f4fa1bbf3e5b6942f145aeaad5620d2308988
+modules:
+    doze/aws:
+        version: 0.1.1
+        protocol: 1
+        hashes:
+            aarch64-apple-darwin: sha256:10edd75a23bb969559bb65ea4191f92edfcad1cd52e2d506c48af9d538ccb9e3
+            aarch64-unknown-linux-gnu: sha256:9a986d2836ee746bbc370539978bfd37c34aa8b7650277228f9f240f66c1f1b7
+            x86_64-unknown-linux-gnu: sha256:dd0fd25000e0cf5514650b53f67acc3821b45c8140dc3b3caa1921631c93d02d
+    doze/kafka:
+        version: 0.1.1
+        protocol: 1
+        engines:
+            - "1"
+            - "2"
+            - "3"
+            - "4"
+        hashes:
+            aarch64-apple-darwin: sha256:c5dfcbf911517ac8718aac8f7f9f94fceb473a4482cad37abf68ec4472c71ed6
+            aarch64-unknown-linux-gnu: sha256:644d99d060ea0878c47f4b8a6dab5ab2bbc6d73462a0fe3576aaec056c33b184
+            x86_64-unknown-linux-gnu: sha256:eaf11bab449e281be6483cf18586502ffef2b4db6c5426db5fbe01ce02cc4640
+    doze/postgres:
+        version: 0.2.3
+        protocol: 1
+        engines:
+            - "14"
+            - "15"
+            - "16"
+            - "17"
+            - "18"
+        hashes:
+            aarch64-apple-darwin: sha256:b92e4a9242e1a042cd368ad2c0328a9a04c510eb10669827edd45e22091cbb46
+            aarch64-unknown-linux-gnu: sha256:0c615d46b24495a05583d4a684e68b4f802f18179c7a063ac11fdad5e7278db9
+            x86_64-unknown-linux-gnu: sha256:4fad3b7e5378eff742031b36a21199a656b17b2fde263f6f479a695449ecc5e3
+    doze/valkey:
+        version: 0.2.1
+        protocol: 1
+        engines:
+            - "8"
+            - "9"
+        hashes:
+            aarch64-apple-darwin: sha256:4d4ccc27eafeced61dc6597fb9089fac8ab64803dbf4d67e01f98fc52e987f13
+            aarch64-unknown-linux-gnu: sha256:f800301cfc0427474587d20cbee3387613593dda3cfc7819e9961e4b0f6a42b4
+            x86_64-unknown-linux-gnu: sha256:d06d41ea23051a8310dee5ad94bce2c6c06f0912c9bf3360fd73402d2fdac458
+keys:
+    doze: Nu5y8mbjYv7XEtNFBXwPVl+C8SBteVApIROefBwGWjw=
