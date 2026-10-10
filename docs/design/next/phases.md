@@ -16,7 +16,7 @@ starts by re-reading its own files and replacing its range with a number.
 | 3 | Names and ports | 9 to 13 | none |
 | 4 | Services, apps and tasks | 9 to 13 (built) | 1, 2, 3 |
 | 5 | The dash | 14 to 20 (built) | 2 |
-| 6 | Module consoles | 8 to 12 | 5 |
+| 6 | Module consoles | 8 to 12 (built) | 5 |
 | 7 | add, init, doctor, sync | 7 to 10 | 1, 4, 5 |
 | | Total | 63 to 91 | |
 
@@ -459,6 +459,63 @@ Contract: [consoles.md](consoles.md).
 
 Exit measures: the three in [consoles.md](consoles.md#measures), plus golden
 files for both consoles.
+
+### Status
+
+Units 6.1 to 6.6 are built. Nothing is pushed: doze pins a doze-sdk commit that
+is local, and doze-modules pins the same one.
+
+| Unit | Built |
+|---|---|
+| 6.1 | `engine.Console` (`DescribeConsole`, `Tail`) in doze-sdk, `DescribeConsole` and `Tail` in the plugin protocol, the adapter and server, proven over a real go-plugin round trip |
+| 6.2 | The `console` topic: spec and actions first, then tables on an interval, then a stream's rows; it never wakes the instance. `Daemon.Admin` for the module's actions |
+| 6.3 | The generic console tab: tables with role-aware cells (counts, rates from successive totals, lag, state, status codes), counters, a stream that follows the selected row, and actions that ask for their input |
+| 6.4 | kafka: topics with a rate column, consumer groups with lag, a tail of the selected topic, produce. Tested against the embedded broker |
+| 6.5 | aws: services in use as counters, the resources as a table, the wire as a stream, read from the stack's own console feed behind the module |
+| 6.6 | `WebURL` and `console =` as a Web tab with `o` to open; the runtime marker on table rows |
+
+Exit measures:
+
+| Measure | Result |
+|---|---|
+| The dash has no module names in it | `TestTheDashKnowsNoModuleByName` |
+| A module without a console still loads | `TestAModuleWithoutAConsoleHasAnEmptyOne`, over a real plugin |
+| A console costs nothing when closed | `TestAConsoleCostsNothingWhileNobodyLooks`: 200 snapshots, no table read, no tail |
+| A golden for each console | kafka at 120 × 36, the web tab at 120 × 36. The aws console has none: see below |
+
+Also run for real, on this Mac: the actual kafka plugin under a real daemon,
+with a throwaway client on the console topic. It got the spec, the tables
+twice a second apart, a produce through `Admin` landing as a tail row, and the
+topic's high-water mark moving from 0 to 1.
+
+What changed from the plan:
+
+- **The protocol version is not bumped.** Version 2 would make go-plugin refuse
+  every existing module, which is the opposite of "a version 1 module still
+  loads". The console is additive and gated by a capability, so a host that
+  does not know the calls never makes them and a module that does not advertise
+  it is never asked.
+- **The method is `DescribeConsole`, not `Describe`**, because modules already
+  have a `Describe` (their registry metadata) and the two cannot share a name.
+- **Rates are worked out in the dash** from successive totals, as the contract
+  says the host does; the module names the running total in the column key.
+
+What is not done:
+
+- **The aws module does not build in this checkout.** `modules/aws` imports
+  `doze-aws/console` and `doze-aws/provision`, which doze-aws moved under
+  `internal/` in its 1.0 prep, so the module needs reworking against doze-aws's
+  new public API before it will compile. That predates this phase. The console
+  code is in `awslocal` (tested against a stand-in console on a unix socket) and
+  the two files in `modules/aws` type-check on their own, but the aws console has
+  not run against a real stack and has no golden.
+- **The runtime marker** only marks a kind the config declares some of. A module
+  that declares no topics cannot be told apart from one whose topics were all
+  made at runtime without a new call.
+- **"Keep in doze.hcl"** (`RenderObject`) is dream tier and not built.
+- **Push order:** doze-sdk, then doze-modules and doze (both pin it). doze-modules
+  also carries the user's own unpushed commits and a `replace` to a sibling
+  doze-aws.
 
 ## Phase 7: add, init, doctor, sync
 
