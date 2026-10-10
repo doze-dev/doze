@@ -11,8 +11,10 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -229,8 +231,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	if len(decl.Deps) > 0 {
 		deps, h, err := r.bootDeps(ctx, name, decl.Deps)
 		if err != nil {
-			r.reg.MarkReaped(name)
-			r.reg.SetError(name, err.Error())
+			r.reg.MarkFailed(name, err.Error())
 			return engine.Endpoint{}, err
 		}
 		inst.Deps, held = deps, h
@@ -241,8 +242,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		for _, dn := range held {
 			r.Release(dn)
 		}
-		r.reg.MarkReaped(name)
-		r.reg.SetError(name, err.Error())
+		r.reg.MarkFailed(name, err.Error())
 		return engine.Endpoint{}, err
 	}
 
@@ -301,6 +301,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	r.procs[name] = proc
 	r.deps[name] = held
 	r.mu.Unlock()
+	r.reg.SetAlwaysOn(name, r.isSupervised(drv, inst))
 	r.reg.MarkRunning(name, inst.SocketDir, inst.Port, proc.PID())
 	r.writePidfile(name, proc.PID()) // for orphan reconciliation after a daemon crash
 	go r.watch(name, proc)           // detect an unexpected exit and mark it reaped
@@ -536,18 +537,42 @@ func (r *Runtime) watch(name string, proc engine.Process) {
 		count := r.reg.IncRestart(name)
 		if count <= spec.MaxRetries {
 			delay := backoffFor(spec.Backoff, count)
-			r.reg.SetError(name, fmt.Sprintf("exited; restarting (%d/%d) in %s", count, spec.MaxRetries, delay))
+			r.reg.MarkCrashing(name, spec.MaxRetries, time.Now().Add(delay),
+				fmt.Sprintf("%s; restarting (%d/%d) in %s", exitText(exitErr), count, spec.MaxRetries, delay))
 			r.logf("process %q exited; restarting (%d/%d) in %s", name, count, spec.MaxRetries, delay)
 			r.scheduleRestart(name, delay)
 			return
 		}
-		r.reg.SetError(name, fmt.Sprintf("exited; gave up after %d restarts", spec.MaxRetries))
+		r.reg.MarkFailed(name, fmt.Sprintf("%s; gave up after %d restarts", exitText(exitErr), spec.MaxRetries))
 		r.logf("process %q exited; gave up after %d restarts", name, spec.MaxRetries)
 		return
 	}
 
-	r.reg.SetError(name, "backend exited unexpectedly")
+	if r.supervised(name) {
+		// An app that stopped by itself and is not being restarted: its policy is
+		// "no", or it exited 0 under "on_failure".
+		if exitErr == nil {
+			r.reg.SetError(name, "exited with status 0 and was not restarted")
+		} else {
+			r.reg.MarkFailed(name, exitText(exitErr)+"; not restarted")
+		}
+		r.logf("app %q %s; not restarted", name, exitText(exitErr))
+		return
+	}
+	r.reg.MarkFailed(name, "exited unexpectedly; it wakes again on the next connection")
 	r.logf("backend %q exited unexpectedly; it will re-boot on the next connection", name)
+}
+
+// exitText says how a process ended, for the user: "exited with status 1".
+func exitText(err error) string {
+	if err == nil {
+		return "exited with status 0"
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() >= 0 {
+		return fmt.Sprintf("exited with status %d", ee.ExitCode())
+	}
+	return "exited: " + err.Error()
 }
 
 // restartStabilityWindow is how long a restarted process must stay up before a

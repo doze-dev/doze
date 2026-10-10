@@ -116,6 +116,10 @@ type InstanceView struct {
 	// RestartCount is how many times a supervised process has been re-booted after
 	// an unexpected exit; 0 for DB/AWS backends.
 	RestartCount int `json:"restart_count,omitempty"`
+	// RestartMax is the restart budget and NextRestart when the next attempt is
+	// due; both are set only while State is "crashing".
+	RestartMax  int       `json:"restart_max,omitempty"`
+	NextRestart time.Time `json:"next_restart,omitempty"`
 	// Children are the instance's descendant processes (a supervised app's own
 	// subprocesses), each with its own meters — the APPS view's process tree.
 	Children []ProcView `json:"children,omitempty"`
@@ -187,6 +191,8 @@ func ViewFromRegistry(inst registry.Instance, engineType, version string, declar
 		Declared:     declared,
 		KeepAwake:    inst.KeepAwake,
 		RestartCount: inst.RestartCount,
+		RestartMax:   inst.RestartMax,
+		NextRestart:  inst.NextRestart,
 		Healthy:      inst.Healthy,
 	}
 }

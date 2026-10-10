@@ -14,6 +14,8 @@ type instSig struct {
 	healthy   int8 // -1 unknown, 0 false, 1 true
 	lastError string
 	tainted   bool
+	restarts  int
+	keepAwake bool
 }
 
 func sigOf(inst *Instance) instSig {
@@ -25,11 +27,15 @@ func sigOf(inst *Instance) instSig {
 			h = 0
 		}
 	}
-	return instSig{state: inst.State, healthy: h, lastError: inst.LastError, tainted: inst.Tainted}
+	return instSig{
+		state: inst.State, healthy: h, lastError: inst.LastError, tainted: inst.Tainted,
+		restarts: inst.RestartCount, keepAwake: inst.KeepAwake,
+	}
 }
 
 // Subscribe registers a feed of instance snapshots, delivered whenever an
-// instance's observable state (State, Healthy, LastError, Tainted) transitions.
+// instance's observable state (State, Healthy, LastError, Tainted, RestartCount,
+// KeepAwake) transitions.
 // buf is the channel buffer; when full, updates are dropped (lossy). The
 // returned function unsubscribes and closes the channel; call it exactly once.
 func (r *Registry) Subscribe(buf int) (<-chan Instance, func()) {

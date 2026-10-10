@@ -45,6 +45,9 @@ var (
 		"asleep":   dimStyle, // display word for reaped
 		"disabled": dimStyle,
 		"error":    badStyle.Bold(true),
+		"crashing": lipgloss.NewStyle().Foreground(warnColor).Bold(true),
+		"failed":   badStyle.Bold(true),
+		"done":     goodStyle,
 		"tainted":  badStyle.Bold(true),
 		"running":  goodStyle,
 	}
@@ -118,6 +121,12 @@ func StateGlyph(state string) string {
 		return paint(stateStyles["waking"], "◌")
 	case "error":
 		return paint(stateStyles["error"], "✕")
+	case "failed":
+		return paint(stateStyles["failed"], "✕")
+	case "crashing":
+		return paint(stateStyles["crashing"], "↻")
+	case "done":
+		return paint(stateStyles["done"], "✓")
 	case "tainted":
 		return paint(stateStyles["tainted"], "!")
 	case "disabled":

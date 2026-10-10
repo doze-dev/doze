@@ -131,10 +131,123 @@ func TestBackendCrashDetected(t *testing.T) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if inst, _ := rt.Registry().Get("solo"); inst.State == registry.Reaped && inst.LastError != "" {
+		if inst, _ := rt.Registry().Get("solo"); inst.State == registry.Failed && inst.LastError != "" {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("crash was not detected: instance not marked reaped with an error")
+	t.Fatal("crash was not detected: instance not marked failed with an error")
 }
+
+// loopProc is a process that exits by itself, with status 1, as soon as it starts.
+type loopProc struct{ fakeProc }
+
+func (p *loopProc) Wait() error { return errCrash }
+
+var errCrash = errorString("exit status 1")
+
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
+
+// loopDriver is an always-on engine whose process crashes at once, with a
+// restart budget of two.
+type loopDriver struct{ leafDriver }
+
+func (loopDriver) Type() string                    { return "tloop" }
+func (loopDriver) Supervised(engine.Instance) bool { return true }
+func (loopDriver) Spawn(context.Context, engine.Instance, engine.Toolchain) (engine.Process, error) {
+	return &loopProc{}, nil
+}
+func (loopDriver) RestartPolicy(engine.Instance) engine.RestartSpec {
+	return engine.RestartSpec{Policy: engine.RestartOnFailure, Backoff: 20 * time.Millisecond, MaxRetries: 2}
+}
+
+// A process that keeps dying is `crashing`, with the attempt and the budget,
+// while a restart is pending — and `failed` once the budget is spent.
+func TestCrashLoopIsCrashingThenFailed(t *testing.T) {
+	t.Setenv("DOZE_HOME", t.TempDir())
+	engine.Register(loopDriver{})
+	cfg, err := config.Parse([]byte("module tloop \"api\" { version = 1 }\n"), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.EnsureDataRoot(); err != nil {
+		t.Fatal(err)
+	}
+	events, cancel := rt.Registry().Subscribe(64)
+	defer cancel()
+	if _, err := rt.Boot(context.Background(), "api"); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+
+	var sawCrashing registry.Instance
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case inst := <-events:
+			switch inst.State {
+			case registry.Crashing:
+				if sawCrashing.Name == "" {
+					sawCrashing = inst
+				}
+			case registry.Failed:
+				if sawCrashing.Name == "" {
+					t.Fatal("failed without ever being crashing")
+				}
+				if sawCrashing.RestartCount != 1 || sawCrashing.RestartMax != 2 || sawCrashing.NextRestart.IsZero() {
+					t.Errorf("first crash = attempt %d of %d, next %v; want 1 of 2 with a time",
+						sawCrashing.RestartCount, sawCrashing.RestartMax, sawCrashing.NextRestart)
+				}
+				if inst.PID != 0 || inst.LastError == "" {
+					t.Errorf("failed instance = %+v", inst)
+				}
+				return
+			}
+		case <-deadline:
+			got, _ := rt.Registry().Get("api")
+			t.Fatalf("never reached failed; last state %s (%s)", got.State, got.LastError)
+		}
+	}
+}
+
+// An always-on instance with nobody connected is active, not idle: nothing is
+// counting down to stop it.
+func TestAlwaysOnIsActiveWithNoConnections(t *testing.T) {
+	t.Setenv("DOZE_HOME", t.TempDir())
+	engine.Register(steadyDriver{})
+	engine.Register(leafDriver{})
+	cfg, err := config.Parse([]byte("module tsteady \"web\" { version = 1 }\nmodule tleaf \"db\" { version = 1 }\n"), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.EnsureDataRoot(); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"web", "db"} {
+		if _, err := rt.Boot(context.Background(), name); err != nil {
+			t.Fatalf("boot %s: %v", name, err)
+		}
+	}
+	if web, _ := rt.Registry().Get("web"); web.State != registry.Active {
+		t.Errorf("an always-on instance with no connections is %s, want active", web.State)
+	}
+	if db, _ := rt.Registry().Get("db"); db.State != registry.Idle {
+		t.Errorf("a module with no connections is %s, want idle", db.State)
+	}
+	_ = rt.Stop(context.Background(), "web")
+	_ = rt.Stop(context.Background(), "db")
+}
+
+type steadyDriver struct{ leafDriver }
+
+func (steadyDriver) Type() string                    { return "tsteady" }
+func (steadyDriver) Supervised(engine.Instance) bool { return true }

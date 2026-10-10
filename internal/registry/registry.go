@@ -23,6 +23,15 @@ const (
 	// Idle means the backend is running but has zero connections; the idle
 	// timer is counting down toward a reap.
 	Idle State = "idle"
+	// Crashing means the process exited unexpectedly and a restart is scheduled.
+	// RestartCount is the attempt, RestartMax the budget, NextRestart when.
+	Crashing State = "crashing"
+	// Failed means nothing is running and something went wrong: the restart
+	// budget ran out, or a start did not get as far as running. LastError says
+	// what. A new attempt (a connection, a command) moves it to Booting.
+	Failed State = "failed"
+	// Done means a command that runs to completion exited 0.
+	Done State = "done"
 )
 
 // Instance is the tracked state of one database's backend.
@@ -60,6 +69,13 @@ type Instance struct {
 	// RestartCount is how many times a supervised process has been re-booted after
 	// an unexpected exit (per its restart policy). Surfaced in status and the dash.
 	RestartCount int
+	// RestartMax is the restart budget and NextRestart when the next attempt is
+	// due. Both are set only while the instance is Crashing.
+	RestartMax  int
+	NextRestart time.Time
+	// AlwaysOn marks an instance the idle reaper never stops (an app). Running
+	// with no connections, it is Active, not Idle: nothing is counting down.
+	AlwaysOn bool
 	// Healthy is the result of the most recent periodic liveness probe for a
 	// supervised process: nil = not yet probed (or no probe), true/false otherwise.
 	// Distinct from State (which tracks running/idle/reaped).
@@ -141,6 +157,7 @@ func (r *Registry) IncRestart(name string) int {
 	defer r.mu.Unlock()
 	inst := r.ensure(name)
 	inst.RestartCount++
+	r.emit(inst)
 	return inst.RestartCount
 }
 
@@ -148,7 +165,53 @@ func (r *Registry) IncRestart(name string) int {
 func (r *Registry) ResetRestart(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.ensure(name).RestartCount = 0
+	inst := r.ensure(name)
+	inst.RestartCount = 0
+	r.emit(inst)
+}
+
+// MarkCrashing records an unexpected exit that will be retried at next, out of
+// a budget of max attempts. msg is what the user is told.
+func (r *Registry) MarkCrashing(name string, max int, next time.Time, msg string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	inst := r.ensure(name)
+	r.clearRuntime(inst)
+	inst.State = Crashing
+	inst.RestartMax = max
+	inst.NextRestart = next
+	inst.LastError = msg
+	r.emit(inst)
+}
+
+// MarkFailed records that nothing is running for name, and why.
+func (r *Registry) MarkFailed(name, msg string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	inst := r.ensure(name)
+	r.clearRuntime(inst)
+	inst.State = Failed
+	inst.LastError = msg
+	r.emit(inst)
+}
+
+// MarkDone records that a command which runs to completion exited 0.
+func (r *Registry) MarkDone(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	inst := r.ensure(name)
+	r.clearRuntime(inst)
+	inst.State = Done
+	inst.LastError = ""
+	r.emit(inst)
+}
+
+// SetAlwaysOn marks whether the idle reaper leaves name alone. The runtime sets
+// it before the instance is marked running.
+func (r *Registry) SetAlwaysOn(name string, on bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensure(name).AlwaysOn = on
 }
 
 // SetHealthy records the result of the most recent periodic liveness probe.
@@ -171,7 +234,8 @@ func (r *Registry) MarkRunning(name, socketDir string, port, pid int) {
 	inst.StartedAt = r.now()
 	inst.IdleSince = r.now()
 	inst.LastError = "" // booted successfully
-	if inst.Conns > 0 {
+	inst.RestartMax, inst.NextRestart = 0, time.Time{}
+	if inst.Conns > 0 || inst.AlwaysOn {
 		inst.State = Active
 		inst.IdleSince = time.Time{}
 	} else {
@@ -185,7 +249,14 @@ func (r *Registry) MarkReaped(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	inst := r.ensure(name)
+	r.clearRuntime(inst)
 	inst.State = Reaped
+	r.emit(inst)
+}
+
+// clearRuntime zeroes everything that describes a running process. Caller must
+// hold r.mu.
+func (r *Registry) clearRuntime(inst *Instance) {
 	inst.SocketDir = ""
 	inst.PID = 0
 	inst.Port = 0
@@ -193,7 +264,7 @@ func (r *Registry) MarkReaped(name string) {
 	inst.StartedAt = time.Time{}
 	inst.IdleSince = time.Time{}
 	inst.Healthy = nil // a stopped process has no current health
-	r.emit(inst)
+	inst.RestartMax, inst.NextRestart = 0, time.Time{}
 }
 
 // Acquire increments the live connection count, returning the new count. It
@@ -204,7 +275,7 @@ func (r *Registry) Acquire(name string) int {
 	inst := r.ensure(name)
 	inst.Conns++
 	inst.IdleSince = time.Time{}
-	if inst.State != Booting && inst.State != Reaped {
+	if inst.State == Idle {
 		inst.State = Active
 	}
 	r.emit(inst)
@@ -222,7 +293,7 @@ func (r *Registry) Release(name string) int {
 	}
 	if inst.Conns == 0 {
 		inst.IdleSince = r.now()
-		if inst.State == Active {
+		if inst.State == Active && !inst.AlwaysOn {
 			inst.State = Idle
 		}
 	}
@@ -257,6 +328,7 @@ func (r *Registry) ToggleKeepAwake(name string) bool {
 	defer r.mu.Unlock()
 	inst := r.ensure(name)
 	inst.KeepAwake = !inst.KeepAwake
+	r.emit(inst)
 	return inst.KeepAwake
 }
 

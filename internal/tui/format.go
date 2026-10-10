@@ -98,6 +98,11 @@ func displayState(in control.InstanceView) string {
 	if in.LastError != "" && (in.State == "reaped" || in.State == "") {
 		return "error"
 	}
+	// This dash predates the crashing and failed states; both read as its
+	// error state, which already shows LastError.
+	if in.State == "failed" || in.State == "crashing" {
+		return "error"
+	}
 	if in.Tainted {
 		return "tainted"
 	}

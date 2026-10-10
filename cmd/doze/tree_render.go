@@ -207,6 +207,8 @@ func stateDot(_ string, v control.InstanceView, running bool, decl *config.Insta
 	switch {
 	case decl != nil && !decl.Enabled:
 		return ui.StateGlyph("disabled")
+	case v.State == "crashing" || v.State == "failed":
+		return ui.StateGlyph(v.State)
 	case running && (v.Tainted || v.State == "tainted"):
 		return ui.StateGlyph("tainted")
 	case running && v.State == "error":
@@ -222,6 +224,11 @@ func stateText(v control.InstanceView, running bool, decl *config.InstanceDecl) 
 	switch {
 	case decl != nil && !decl.Enabled:
 		return ui.State("disabled")
+	case v.State == "crashing":
+		// The attempt out of the budget: "crashing 2/5".
+		return ui.State("crashing") + fmt.Sprintf(" %d/%d", v.RestartCount, v.RestartMax)
+	case v.State == "failed":
+		return ui.State("failed")
 	case running && (v.Tainted || v.State == "tainted" || v.State == "error"):
 		return ui.Fail(stateWord(v.State)) // red even when a tainted backend is otherwise active
 	case running && awakeState(v.State):

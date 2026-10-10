@@ -64,3 +64,67 @@ func drain(t *testing.T, ch <-chan Instance, n int) []Instance {
 	}
 	return out
 }
+
+// A restart and a pin are things a watcher needs to hear about, even though
+// neither changes the state.
+func TestRestartCountAndPinEmit(t *testing.T) {
+	r := New()
+	r.MarkRunning("api", "", 0, 1)
+	ch, cancel := r.Subscribe(8)
+	defer cancel()
+
+	r.IncRestart("api")
+	if got := recv(t, ch); got.RestartCount != 1 {
+		t.Fatalf("after a restart: %+v", got)
+	}
+	r.ToggleKeepAwake("api")
+	if got := recv(t, ch); !got.KeepAwake {
+		t.Fatalf("after a pin: %+v", got)
+	}
+	r.ResetRestart("api")
+	if got := recv(t, ch); got.RestartCount != 0 {
+		t.Fatalf("after a reset: %+v", got)
+	}
+}
+
+func TestCrashingFailedDone(t *testing.T) {
+	r := New()
+	r.MarkRunning("api", "/sock", 1, 99)
+	next := time.Now().Add(time.Second)
+	r.IncRestart("api")
+	r.MarkCrashing("api", 5, next, "exited with status 1; restarting (1/5) in 1s")
+	got, _ := r.Get("api")
+	if got.State != Crashing || got.PID != 0 || got.RestartMax != 5 || !got.NextRestart.Equal(next) || got.RestartCount != 1 {
+		t.Fatalf("crashing = %+v", got)
+	}
+	// A new attempt is booting, and a successful one clears the schedule.
+	r.MarkBooting("api")
+	r.MarkRunning("api", "/sock", 1, 100)
+	if got, _ := r.Get("api"); got.RestartMax != 0 || !got.NextRestart.IsZero() || got.LastError != "" {
+		t.Fatalf("running again = %+v", got)
+	}
+	r.MarkFailed("api", "exited with status 1; gave up after 5 restarts")
+	if got, _ := r.Get("api"); got.State != Failed || got.PID != 0 || got.LastError == "" {
+		t.Fatalf("failed = %+v", got)
+	}
+	// Neither is reapable, and a connection does not make either look awake.
+	r.Acquire("api")
+	if got, _ := r.Get("api"); got.State != Failed {
+		t.Fatalf("a connection moved a failed instance to %s", got.State)
+	}
+	r.MarkDone("migrate")
+	if got, _ := r.Get("migrate"); got.State != Done || got.LastError != "" {
+		t.Fatalf("done = %+v", got)
+	}
+}
+
+func recv(t *testing.T, ch <-chan Instance) Instance {
+	t.Helper()
+	select {
+	case inst := <-ch:
+		return inst
+	case <-time.After(time.Second):
+		t.Fatal("no event")
+		return Instance{}
+	}
+}
