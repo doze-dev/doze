@@ -1,0 +1,24 @@
+‹ db  postgres  ● awake  127.0.0.13:5432 · db.shop.doze
+ Overview   Logs    held by api, worker
+────────────────────────────────────────────────────────────────────────────────
+name      db.shop.doze
+address   127.0.0.13:5432
+version   16.4
+
+awake because
+  held by api
+  held by worker
+  3 connections
+
+vitals    96M  cpu 2%  5 holds
+
+recent
+  nothing yet
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+esc back  ·  tab next tab  ·  w wake  ·  s sleep  ·  r restart  ·  R reset

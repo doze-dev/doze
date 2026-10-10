@@ -1,0 +1,24 @@
+Palette  on db
+› ▏
+────────────────────────────────────────────────────────────────────────────────
+wake db               wake a service now (with its de…  doze wake db
+sleep db              put a service to sleep (depende…  doze sleep db
+restart db            restart a service's backend       doze restart db
+reset db              wipe a service's data and re-pr…  doze reset db
+up db                 converge structure and wake eve…  doze up db
+sync db               reconcile a service with the co…  doze sync db
+pin db                keep a service awake past its i…  doze pin db
+
+
+
+
+
+
+
+
+
+
+
+
+
+

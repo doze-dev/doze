@@ -271,12 +271,14 @@ func (m *Model) View(c *core.Context, w, h int) string {
 
 func (m *Model) header(c *core.Context, rs []row, w int) string {
 	st := c.Styles
-	var awake, dozing, asleep int
+	var awake, dozing, asleep, failing int
 	var ram int64
 	for _, r := range rs {
 		switch r.v.State {
 		case "active":
 			awake++
+		case "crashing", "failed":
+			failing++
 		case "idle":
 			dozing++
 		default:
@@ -296,6 +298,9 @@ func (m *Model) header(c *core.Context, rs []row, w int) string {
 	}
 	parts = append(parts, fmt.Sprintf("%d asleep", asleep))
 	right := st.Dim.Render(strings.Join(parts, " · ") + "   " + bytes(ram) + " resident")
+	if failing > 0 {
+		right = st.Bad.Render(fmt.Sprintf("%d failing", failing)) + st.Dim.Render(" · ") + right
+	}
 	gap := w - ansi.StringWidth(left) - ansi.StringWidth(right)
 	if gap < 1 {
 		gap = 1
@@ -342,6 +347,9 @@ func (m *Model) list(c *core.Context, rs []row, r layout.Rect) []string {
 func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
 	st := c.Styles
 	word, gl, style := core.State(v, st)
+	if v.State == "crashing" && v.RestartMax > 0 {
+		word = fmt.Sprintf("crashing %d/%d", v.RestartCount, v.RestartMax)
+	}
 	kind := v.Engine
 	switch v.Kind {
 	case "app", "service", "task":
@@ -352,6 +360,11 @@ func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
 		mem = bytes(v.RAM)
 	}
 	note, bad := display.Note(v, c.Snap.IdleTimeout, c.Now)
+	if v.State == "crashing" && !v.NextRestart.IsZero() {
+		if left := v.NextRestart.Sub(c.Now).Round(time.Second); left > 0 {
+			note += " · trying again in " + left.String()
+		}
+	}
 	if v.Task != nil {
 		note = fmt.Sprintf("ran %s ago in %s", ago(c.Now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(time.Millisecond))
 		if v.Task.Why != "" {
@@ -371,7 +384,7 @@ func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
 	line := "  " + style.Render(gl) + " " +
 		st.Text.Render(padR(v.Name, 14)) + " " +
 		st.Dim.Render(padR(kind, 10)) + " " +
-		style.Render(padR(word, 9)) + " " +
+		style.Render(padR(word, 12)) + " " +
 		st.Dim.Render(padL(mem, 5)) + "  " +
 		noteStyle.Render(note)
 	return ansi.Truncate(line, w, "…")
@@ -403,6 +416,23 @@ func (m *Model) preview(c *core.Context, r layout.Rect) []string {
 	}
 	if v.RAM > 0 {
 		add(st.Dim.Render("memory   ") + st.Text.Render(fmt.Sprintf("%s · cpu %.0f%%", bytes(v.RAM), v.CPU)))
+	}
+	if v.LastError != "" && (v.State == "crashing" || v.State == "failed") {
+		add("")
+		add(st.Bad.Render("what went wrong"))
+		for i, l := range strings.Split(strings.TrimSpace(v.LastError), "\n") {
+			if i >= 4 {
+				break
+			}
+			add("  " + st.Text.Render(ansi.Truncate(l, r.W-4, "…")))
+		}
+		if v.State == "crashing" && v.RestartMax > 0 {
+			again := fmt.Sprintf("restart %d of %d", v.RestartCount, v.RestartMax)
+			if left := v.NextRestart.Sub(c.Now).Round(time.Second); !v.NextRestart.IsZero() && left > 0 {
+				again += " · trying again in " + left.String()
+			}
+			add("  " + st.Dim.Render(again))
+		}
 	}
 	if len(v.Holders) > 0 {
 		add("")

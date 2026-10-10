@@ -1,0 +1,24 @@
+doze                   1 failing · 3 awake · 1 dozing · 3 asleep   220M resident
+────────────────────────────────────────────────────────────────────────────────
+Apps  3
+  ● api            app        awake          42M
+  ○ web            app        dozing         18M  sleeps in 3m12s
+  ↻ worker         app        crashing 2/5        exit status 1 · trying again …
+
+Modules  4
+  · cache          valkey     asleep
+  ● cloud          aws        awake          64M  held by worker
+  ● db             postgres   awake          96M  held by api, worker
+  · events         kafka      asleep
+
+Services  1
+  · mailpit        service    asleep
+
+Tasks  2
+  ✓ migrate        task       done                ran 12m ago in 412ms · inputs…
+  · seed           task       asleep              never ran
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·…

@@ -1,22 +1,22 @@
 doze                                                                       4 awake · 1 dozing · 3 asleep   251M resident
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 Apps  3                                                                 │ api  app  ● awake
-  ● api            app        awake       42M                           │
-  ○ web            app        dozing      18M  sleeps in 3m12s          │ name     api.shop.doze
-  ● worker         app        awake       31M                           │ address  127.0.0.11:8080
+  ● api            app        awake          42M                        │
+  ○ web            app        dozing         18M  sleeps in 3m12s       │ name     api.shop.doze
+  ● worker         app        awake          31M                        │ address  127.0.0.11:8080
                                                                         │ memory   42M · cpu 3%
 Modules  4                                                              │
   · cache          valkey     asleep                                    │ awake because
-  ● cloud          aws        awake       64M  held by worker           │   2 connections
-  ● db             postgres   awake       96M  held by api, worker      │
+  ● cloud          aws        awake          64M  held by worker        │   2 connections
+  ● db             postgres   awake          96M  held by api, worker   │
   · events         kafka      asleep                                    │ last lines
                                                                         │  listening on :8080
 Services  1                                                             │  GET /healthz 200 1ms
   · mailpit        service    asleep                                    │  GET /orders 200 14ms
                                                                         │
 Tasks  2                                                                │
-  ✓ migrate        task       done             ran 12m ago in 412ms · i…│
-  · seed           task       asleep           never ran                │
+  ✓ migrate        task       done                ran 12m ago in 412ms …│
+  · seed           task       asleep              never ran             │
                                                                         │
                                                                         │
                                                                         │

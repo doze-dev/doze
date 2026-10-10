@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/control/fakedaemon"
 	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/dash/theme"
@@ -458,4 +459,64 @@ func TestEveryThemeHasADarkAndALightVariant(t *testing.T) {
 			t.Errorf("%s: the light variant is the dark one", th.Name)
 		}
 	}
+}
+
+func crashing() *fakedaemon.Fake {
+	d := shop()
+	for i := range d.Snap.Instances {
+		if d.Snap.Instances[i].Name == "worker" {
+			d.Snap.Instances[i].State = "crashing"
+			d.Snap.Instances[i].RAM = 0
+			d.Snap.Instances[i].RestartCount, d.Snap.Instances[i].RestartMax = 2, 5
+			d.Snap.Instances[i].NextRestart = epoch.Add(4 * time.Second)
+			d.Snap.Instances[i].LastError = "exit status 1\npanic: connection refused: dial tcp 127.0.0.13:5432\ngoroutine 1 [running]:\nmain.main()"
+		}
+	}
+	return d
+}
+
+func TestACrashShowsOnHome(t *testing.T) {
+	s := newSession(t, crashing(), 120, 36)
+	s.key("j", "j") // worker
+	out := s.screen()
+	for _, want := range []string{"1 failing", "crashing 2/5", "trying again in 4s", "what went wrong", "panic: connection refused", "restart 2 of 5"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("home lacks %q:\n%s", want, out)
+		}
+	}
+	golden(t, "home_crash_120x36", out)
+}
+
+// The small screen: one column, everything still reachable.
+func TestCoreScreensAt80x24(t *testing.T) {
+	d := crashing()
+	d.Lines["migrate"] = []control.LogFrame{{Instance: "migrate", Line: "applied 1 migration", Time: epoch.Add(-12 * time.Minute)}}
+
+	s := newSession(t, d, 80, 24)
+	golden(t, "home_80x24", s.screen())
+
+	s = newSession(t, d, 80, 24)
+	s.key("j", "j", "enter")
+	golden(t, "frame_logs_80x24", s.screen())
+
+	s = newSession(t, d, 80, 24)
+	s.key("j", "j", "j", "j", "j", "enter")
+	golden(t, "frame_overview_80x24", s.screen())
+
+	s = newSession(t, d, 80, 24)
+	s.key("L")
+	s.logs("stacklogs", stackLines()...)
+	golden(t, "stacklogs_80x24", s.screen())
+
+	s = newSession(t, d, 80, 24)
+	s.key("j", "j", "j", "j", "j", "s")
+	golden(t, "confirm_in_use_80x24", s.screen())
+
+	s = newSession(t, d, 80, 24)
+	s.key("j", "j", "j", "j", "j", ":")
+	golden(t, "palette_80x24", s.screen())
+
+	s = newSession(t, d, 80, 24)
+	s.key("T")
+	golden(t, "themes_80x24", s.screen())
 }
