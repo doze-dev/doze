@@ -208,10 +208,10 @@ func resolvesToLoopback(name string) bool {
 		return false
 	}
 	for _, a := range addrs {
-		// Any loopback address counts: per-service addressing resolves each
-		// service to its own 127.0.0.x (not just 127.0.0.1) so they can share
-		// a canonical port, and the AWS shared host resolves to the ingress.
-		if ip := net.ParseIP(a); ip != nil && ip.IsLoopback() {
+		// Any address of this machine counts: each service resolves to an
+		// address of its own (not just 127.0.0.1) so they can share a canonical
+		// port, and the AWS shared host resolves to the ingress.
+		if names.OnThisMachine(net.ParseIP(a)) {
 			return true
 		}
 	}

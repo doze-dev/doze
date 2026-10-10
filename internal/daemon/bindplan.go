@@ -12,7 +12,7 @@ import (
 
 // bindPlan decides, for one daemon run, where each proxied instance listens and
 // what its DNS name resolves to. In loopback mode (defaults{domains=true} and
-// the aliased range present) every service gets its own 127.0.0.x and keeps its
+// the machine set up) every service gets an address of its own and keeps its
 // declared port — so many services share a canonical port, disambiguated by IP.
 // Otherwise services listen on 127.0.0.1 with distinct ports (today's behavior).
 type bindPlan struct {
@@ -61,7 +61,7 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (
 			ip = a
 		default:
 			ip = loopbackIP
-			if domainsOn { // wanted per-IP but the range isn't aliased
+			if domainsOn { // wanted per-IP but the machine is not set up
 				if other, dup := usedPort[port]; dup {
 					return nil, fmt.Errorf(
 						"%q and %q both use port %s, but this machine is not set up to give each service its own address — run `doze doctor --fix` once (needs sudo), or give them distinct ports",

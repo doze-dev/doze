@@ -84,7 +84,9 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Set the machine up for .doze names
-        run: go run ./cmd/doze doctor --fix
+        run: |
+          go build -o "$RUNNER_TEMP/doze" ./cmd/doze
+          "$RUNNER_TEMP/doze" doctor --fix
       - name: Names
         env:
           DOZE_TEST_SYSTEM_RESOLVER: "1"

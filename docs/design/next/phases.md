@@ -228,12 +228,14 @@ measures are not verified. In order:
 
 What changed from the plan:
 
-- **Decision D13 is half-built, on purpose, and needs a decision.** It widened
-  the address pool to about 245 on the reasoning that 56 is few. doze's own
-  allocator carried a note that the macOS range was kept small deliberately:
-  mDNSResponder registers every interface address, and a few hundred aliases
-  have been seen to peg it. So the pool is 245 on Linux, where it is free,
-  and stays at 56 on macOS. Widening macOS needs that measured first.
+- **Decision D13 was replaced by D29.** A wider pool of loopback aliases was
+  measured on macOS and is not survivable (see D13a). Addresses now come from
+  a block of about 32,000: bound directly on Linux, and served on macOS by a
+  network daemon that setup installs. doze opens every listener through
+  doze-names (`Registry.Listen`), so it is the same code on both. The names
+  job in CI runs two stacks with one app port each on a real Mac and a real
+  Linux machine; it has not run since this change, because doze is not
+  pushed.
 - **Unit 3.10 is not done.** doze-aws and doze-kafka both build against the new
   doze-names unchanged, but their `go.mod` pins are not moved: both repos had
   work in progress, and a pin has to point at a pushed commit. doze's own pin

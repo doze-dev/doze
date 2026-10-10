@@ -166,7 +166,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return err
 	}
 	// Per-service addressing: allocate a loopback IP per proxied instance (when
-	// domains are on and the range is aliased) so many services share a canonical
+	// domains are on and the machine is set up) so many services share a canonical
 	// port, resolved by name. Falls back to 127.0.0.1 + distinct ports otherwise.
 	// Names are on: join the zone every doze program on this machine shares, and
 	// take this stack's name in it before anything of the stack's is claimed.
@@ -191,7 +191,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return err
 	}
 	if plan.loopback {
-		d.logf("domains: per-service addressing on — each service has its own 127.0.0.x, sharing canonical ports")
+		d.logf("domains: per-service addressing on — each service has an address of its own, sharing canonical ports")
 	}
 	// Remember where each instance actually listens so Status shows the real
 	// per-service address, not the canonical 127.0.0.1:<port> placeholder.

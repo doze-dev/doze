@@ -34,11 +34,22 @@ func looksLikeUnresolvedRef(err error) bool {
 	return false
 }
 
+// listen opens a listener for one of this stack's addresses. A service's own
+// address goes through the zone, which binds it where the system can and
+// registers a private port for it where it cannot (macOS); doze does not need
+// to know which.
+func (d *Daemon) listen(addr string) (net.Listener, error) {
+	if d.zone == nil || strings.HasPrefix(addr, "unix:") {
+		return proxy.Listen(addr)
+	}
+	return d.zone.Listen(addr)
+}
+
 // startProxyInstance opens a proxy listener for a proxied instance and serves it
 // on its own cancelable context so Remove can stop just this one. The caller
 // holds d.mu (or runs during single-threaded Run).
 func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, drv engine.Driver, ip net.IP) error {
-	ln, err := proxy.Listen(bindAddr)
+	ln, err := d.listen(bindAddr)
 	if err != nil {
 		return fmt.Errorf("listening for %q on %s: %w", name, bindAddr, err)
 	}
@@ -65,7 +76,7 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 	if _, isApp := drv.(interface{ Proxied(engine.Instance) bool }); isApp {
 		if host, port, err := net.SplitHostPort(bindAddr); err == nil && host != "127.0.0.1" {
 			local := net.JoinHostPort("127.0.0.1", port)
-			if l, err := proxy.Listen(local); err != nil {
+			if l, err := d.listen(local); err != nil {
 				d.nameOnly[name] = true
 				d.logf("%s/%s: %s is taken, so it is reachable by name only", engineType, name, local)
 			} else {
@@ -93,7 +104,7 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 				}
 				if host == "127.0.0.1" {
 					d.consoles[name] = "http://" + target + path
-				} else if l, err := proxy.Listen(net.JoinHostPort(host, port)); err != nil {
+				} else if l, err := d.listen(net.JoinHostPort(host, port)); err != nil {
 					d.consoles[name] = "http://" + target + path
 					d.logf("%s/%s: cannot front its console on %s:%s (%v); it is at %s only while the service is awake", engineType, name, host, port, err, target)
 				} else {

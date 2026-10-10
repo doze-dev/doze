@@ -12,7 +12,7 @@ doze-names (`doze-names/`, standard library only) provides four things:
 | Registry | `<home>/names.json`: host to `{IP, PID, Owner, Tier, Target}`. File-locked, written atomically, pruned of dead PIDs on every access. |
 | Resolver | A UDP DNS server on `127.0.0.1:5323` (macOS) or `192.0.2.53:5323` (Linux). Answers A records for the zone. First process to bind serves everyone; others retry every 2 s to take over. |
 | Front door | One HTTP reverse proxy on `:80`, routed by Host to `Entry.Target`. Loopback peers only. |
-| Setup | macOS: a launchd job aliasing `127.0.0.2` to `.65` on `lo0`, and `/etc/resolver/doze`. Linux: a sysctl for port 80, a managed block in `/etc/hosts`, and a systemd-resolved or dnsmasq route. Windows: nothing yet. |
+| Setup | macOS: the network daemon (a launchd job holding one interface with `198.19.0.0/17` routed to it, decision D29), and `/etc/resolver/doze`. Linux: a sysctl for port 80, a managed block in `/etc/hosts`, and a systemd-resolved or dnsmasq route. Windows: nothing yet. |
 
 Naming rules as implemented:
 
@@ -63,10 +63,10 @@ What follows from that:
    free one from its own file. Moving doze onto the library allocator (N1)
    fixes it on doze's side with no change to the tools.
 5. **Setup is one installation for all three.** The address range, the
-   resolver file and the Linux configuration are shared. Widening the range
-   (decision D13) changes what every tool's setup installs. A machine set up
-   before the change has only `127.0.0.2` to `.65` until setup is run again,
-   and doze uses what is there in the meantime.
+   resolver file and the Linux configuration are shared. On macOS setup installs
+   the network daemon (decision D29), whichever tool runs it. A machine with
+   no setup has no per-service addresses, and every tool falls back to
+   `127.0.0.1` and distinct ports.
 6. **The TLD binds three products.** It is `.doze` (decision D7). doze-aws is
    close to 1.0, and what it ships with is what `.env` files and CI configs
    will contain.
@@ -157,6 +157,7 @@ already runs per instance; it needs the per-instance value.
 |---|---|---|
 | N1 | One allocator, in doze-names, behind the registry lock. doze stops using `internal/loopback`'s own file. | Two allocators hand out `127.0.0.10` to `.65` from two files with no coordination. `ClaimAt` does no collision check. |
 | N2 | Widen the pool from `127.0.0.10`–`.65` to `127.0.0.10`–`.254` (decision D13). macOS setup aliases the wider range; Linux needs nothing. The fixed addresses for `aws` and `kafka` do not move. | 55 addresses for the whole machine. A stack of ten services uses ten. |
+| N2a | Superseded by decision D29: the pool is a block of about 32,000 on every system, and on macOS it is served by the network daemon and not by aliases. |
 | N3 | Return an address when a service is removed. | Today it leaks until the daemon exits. |
 | N4 | `Lease.Listen(port)` or equivalent, so extra listeners (the console port) are claimed with the name. | The console port needs to be released with the name. |
 | N5 | Front-door routes for all ports live in `names.json`. Remove `ingress.json` and `aws-ingress.json`. | Route state is in two places, and the non-80 handler does exact match only. |
@@ -231,4 +232,4 @@ result.
 | Two services share a port | The fixture stack runs two postgres instances on 5432. |
 | First-connection latency through the proxy to a service | From the journal: `ready.Took` for a connection-caused wake. |
 | Proxy overhead on a dev server | Request latency to an app with and without the proxy. Checks decision D12 with data; `direct = true` is the fallback. |
-| Cost of the wider address pool on macOS | Time for setup to alias the full range, and boot time of the launchd job. Checks decision D13. |
+| Cost of the address block on macOS | Measured in doze-names CI on each push (decision D29): 2,000 services on one port, mDNSResponder CPU and lookup time before and after, throughput through the daemon. |

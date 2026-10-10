@@ -12,6 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/hostboot"
@@ -48,6 +50,10 @@ func mutating(cmd *cobra.Command) *cobra.Command {
 }
 
 func main() {
+	// On a Mac, setup installs a copy of this program as the zone's network
+	// daemon; this is where that copy becomes it.
+	names.Helper()
+
 	// All exits funnel through here so realMain's defers (plugin reaping) always
 	// run — an os.Exit anywhere deeper would orphan the engine-plugin processes.
 	os.Exit(realMain())

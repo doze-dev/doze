@@ -200,7 +200,7 @@ func startStandalone(t *testing.T, z *zone, owner, service, stack string) *stand
 func both(t *testing.T, z *zone, other string) {
 	t.Helper()
 	waitFor(t, "doze's name resolves and is fronted", func() error {
-		if ip := z.lookup("api.namestest.doze"); !strings.HasPrefix(ip, "127.") {
+		if ip := z.lookup("api.namestest.doze"); !names.OnThisMachine(net.ParseIP(ip)) {
 			return fmt.Errorf("api.namestest.doze resolved to %q", ip)
 		}
 		body, err := z.viaFrontDoor("api.namestest.doze")
@@ -213,7 +213,7 @@ func both(t *testing.T, z *zone, other string) {
 		return nil
 	})
 	waitFor(t, "the other program's name resolves and is fronted", func() error {
-		if ip := z.lookup(other); !strings.HasPrefix(ip, "127.") {
+		if ip := z.lookup(other); !names.OnThisMachine(net.ParseIP(ip)) {
 			return fmt.Errorf("%s resolved to %q", other, ip)
 		}
 		body, err := z.viaFrontDoor(other)
@@ -255,6 +255,12 @@ func TestDozeAndAStandaloneToolShareTheZone(t *testing.T) {
 // and doze says who has it instead of starting on top of it.
 func TestANameAStandaloneToolHoldsStopsTheStack(t *testing.T) {
 	z := newZone(t, appStack)
+	if !names.PoolUsable() {
+		// Without an address of its own a service is reached by port, the stack
+		// runs, and the lost name is reported, not fatal. On a Mac that is every
+		// private zone: the network daemon serves the machine's real one.
+		t.Skip("this zone cannot give a service its own address")
+	}
 	// The tool's instance happens to be called what the stack's app is.
 	startStandalone(t, z, "doze-kafka", "api", "namestest")
 	out, err := z.run("up")
@@ -289,41 +295,65 @@ func TestNamesThroughTheSystemResolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(root, "p")
-	_ = os.MkdirAll(dir, 0o755)
-	if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(appStack), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	doze := buildDoze(t)
-	run := func(args ...string) (string, error) {
-		cmd := exec.Command(doze, args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "NO_COLOR=1", "DOZE_MODULES=off")
-		out, err := cmd.CombinedOutput()
-		return string(out), err
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+
+	// Two projects, and the same app on the same port in each. Nobody chose a
+	// second port: each has an address of its own.
+	hosts := []string{"api.namestest.doze", "api.namestest2.doze"}
+	addrs := map[string]string{}
+	for i, host := range hosts {
+		dir := filepath.Join(root, fmt.Sprintf("p%d", i))
+		_ = os.MkdirAll(dir, 0o755)
+		config := appStack
+		if i == 1 {
+			config = strings.Replace(appStack, `"namestest"`, `"namestest2"`, 1)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(config), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "which.txt"), []byte(host), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run := func(args ...string) (string, error) {
+			cmd := exec.Command(doze, args...)
+			cmd.Dir = dir
+			cmd.Env = append(os.Environ(), "NO_COLOR=1", "DOZE_MODULES=off")
+			out, err := cmd.CombinedOutput()
+			return string(out), err
+		}
+		t.Cleanup(func() { run("down") })
+		if out, err := run("up"); err != nil {
+			t.Fatalf("doze up in %s: %v\n%s", dir, err, out)
+		}
+		waitFor(t, host+" resolves through the system resolver", func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			got, err := net.DefaultResolver.LookupHost(ctx, host)
+			if err != nil {
+				return err
+			}
+			if len(got) == 0 || !names.OnThisMachine(net.ParseIP(got[0])) || got[0] == "127.0.0.1" {
+				return fmt.Errorf("resolved to %v, want an address of its own on this machine", got)
+			}
+			addrs[host] = got[0]
+			return nil
+		})
 	}
-	t.Cleanup(func() { run("down"); _ = os.RemoveAll(root) })
-	if out, err := run("up"); err != nil {
-		t.Fatalf("doze up: %v\n%s", err, out)
+	if addrs[hosts[0]] == addrs[hosts[1]] {
+		t.Fatalf("both stacks' apps are at %s", addrs[hosts[0]])
 	}
-	waitFor(t, "api.namestest.doze resolves through the system resolver", func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		addrs, err := net.DefaultResolver.LookupHost(ctx, "api.namestest.doze")
+	// The app serves its project's directory, so which.txt says which one answered.
+	for _, host := range hosts {
+		resp, err := (&http.Client{Timeout: 5 * time.Second}).Get("http://" + host + ":18431/which.txt")
 		if err != nil {
-			return err
+			t.Fatalf("reaching %s by name: %v", host, err)
 		}
-		if len(addrs) == 0 || !strings.HasPrefix(addrs[0], "127.") {
-			return fmt.Errorf("resolved to %v", addrs)
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 || string(body) != host {
+			t.Fatalf("%s:18431 answered %d %q, want its own project", host, resp.StatusCode, body)
 		}
-		return nil
-	})
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Get("http://api.namestest.doze:18431/")
-	if err != nil {
-		t.Fatalf("reaching the app by name: %v", err)
 	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("the app by name answered %d", resp.StatusCode)
-	}
+	t.Logf("two stacks, one port: %s at %s and %s at %s", hosts[0], addrs[hosts[0]], hosts[1], addrs[hosts[1]])
 }
