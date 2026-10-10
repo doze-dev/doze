@@ -260,12 +260,12 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		return fail(err)
 	}
 
-	// Lifecycle hooks run around the start: pre_start (e.g. migrations) after deps
+	// Lifecycle hooks run around the start: `setup` (e.g. migrations) after deps
 	// are up but before the process spawns. A failure aborts and taints the boot.
 	if h, ok := drv.(engine.Hooked); ok {
 		if err := h.PreStart(ctx, inst); err != nil {
 			r.reg.SetTainted(name)
-			return fail(fmt.Errorf("pre_start for %q: %w", name, err))
+			return fail(fmt.Errorf("setup for %q: %w", name, err))
 		}
 	}
 
@@ -334,7 +334,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		}
 	}
 
-	// post_start runs once the instance is up and (for Healthy) ready. A failure
+	// `on_ready` runs once the instance is up and (for Healthy) ready. A failure
 	// taints and tears it down so a half-started service never looks healthy.
 	if cond != engine.Started {
 		if h, ok := drv.(engine.Hooked); ok {
@@ -346,7 +346,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 				r.mu.Unlock()
 				_ = proc.Stop(context.Background())
 				r.removePidfile(name)
-				return fail(fmt.Errorf("post_start for %q: %w", name, err))
+				return fail(fmt.Errorf("on_ready for %q: %w", name, err))
 			}
 		}
 	}

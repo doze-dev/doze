@@ -10,41 +10,46 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/zclconf/go-cty/cty"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/runspec"
 )
 
 // Logf is the sink for toolchain-mismatch warnings; cmd/doze points it at stderr.
 var Logf = func(string, ...any) {}
 
-// Config is the decoded `process "<name>" { … }` block.
+// Config is the decoded `app "<name>" { … }` block.
 type Config struct {
-	Cwd     string            // absolute working directory (resolved against the declaring file)
-	Command string            // the shell command line, run via `sh -c`
-	Port    int               // the port the app binds; 0 if it has none (a worker)
-	Ingress bool              // legacy alias for `forward = 80`
-	Forward int               // public port to serve at http://<name>.<stack>.doze via the shared ingress; 0 = not forwarded
+	Dir     string            // absolute working directory (resolved against the declaring file)
+	Run     string            // the shell command line, run via `sh -c`
+	Port    int               // the port the app binds itself, for AdvertisedAddr; 0 from a decode
 	Env     map[string]string // explicit env, highest precedence (may hold typed refs)
 	EnvFile string            // absolute path to an env file, "" if none
-	Hooks   Hooks
-	Health  *Health // nil when no health block is declared
-	Restart Restart
-}
 
-// Hooks are the lifecycle command lists run around start/stop, each via `sh -c`.
-type Hooks struct {
-	PreStart  []string
-	PostStart []string
-	PreStop   []string
-}
+	// Setup runs before the app starts, OnReady once it is ready, Stop before it
+	// is signalled. Until the lifecycle work lands (docs/design/next/lifecycle.md)
+	// Setup runs on every start, not once per data folder, and Stop runs ahead
+	// of the signals instead of replacing them.
+	Setup   []string
+	OnReady []string
+	Stop    []string
 
-// Health is the readiness/liveness probe. Exactly one of the probe kinds is set.
-type Health struct {
-	Kind     string // "http" | "tcp" | "exec" | "log_line"
-	Target   string // the URL / address / command / regex, per Kind
-	Interval time.Duration
-	Timeout  time.Duration
-	Retries  int // readiness budget = Interval*Retries
+	Ready        *runspec.Probe // nil: tcp() when a port is declared, else a brief liveness check
+	ReadyTimeout time.Duration
+	Restart      Restart
+
+	// Parsed and validated, not acted on yet: per-app idle time, the dash's
+	// front tab, console link and log volume, file watching, and opting out of
+	// the proxy.
+	Sleep     runspec.Sleep
+	Front     string
+	Console   string
+	QuietLogs bool
+	Watch     []string
+	Direct    bool
+
+	declaredPort int // the block's `port`, handed over by config (see BindPort)
 }
 
 // Restart is the supervisor restart policy for an unexpected exit.
@@ -54,34 +59,24 @@ type Restart struct {
 	MaxRetries int
 }
 
-// hclConfig is the gohcl decode target for a process block.
+// hclConfig is the gohcl decode target for an app block.
 type hclConfig struct {
-	Cwd     string            `hcl:"cwd,optional"`
-	Command string            `hcl:"command"`
-	Port    int               `hcl:"port,optional"`
-	Ingress bool              `hcl:"ingress,optional"`
-	Forward int               `hcl:"forward,optional"`
-	Env     map[string]string `hcl:"env,optional"`
-	EnvFile string            `hcl:"env_file,optional"`
-	Hooks   *hooksBlock       `hcl:"hooks,block"`
-	Health  *healthBlock      `hcl:"health,block"`
-	Restart *restartBlock     `hcl:"restart,block"`
-}
-
-type hooksBlock struct {
-	PreStart  []string `hcl:"pre_start,optional"`
-	PostStart []string `hcl:"post_start,optional"`
-	PreStop   []string `hcl:"pre_stop,optional"`
-}
-
-type healthBlock struct {
-	HTTP     string `hcl:"http,optional"`
-	TCP      string `hcl:"tcp,optional"`
-	Exec     string `hcl:"exec,optional"`
-	LogLine  string `hcl:"log_line,optional"`
-	Interval string `hcl:"interval,optional"`
-	Timeout  string `hcl:"timeout,optional"`
-	Retries  int    `hcl:"retries,optional"`
+	Run          string            `hcl:"run"`
+	Dir          string            `hcl:"dir,optional"`
+	Env          map[string]string `hcl:"env,optional"`
+	EnvFile      string            `hcl:"env_file,optional"`
+	Ready        cty.Value         `hcl:"ready,optional"`
+	ReadyTimeout string            `hcl:"ready_timeout,optional"`
+	Setup        cty.Value         `hcl:"setup,optional"`
+	OnReady      cty.Value         `hcl:"on_ready,optional"`
+	Stop         cty.Value         `hcl:"stop,optional"`
+	Restart      *restartBlock     `hcl:"restart,block"`
+	Sleep        string            `hcl:"sleep,optional"`
+	Front        string            `hcl:"front,optional"`
+	Console      string            `hcl:"console,optional"`
+	Logs         string            `hcl:"logs,optional"`
+	Watch        []string          `hcl:"watch,optional"`
+	Direct       bool              `hcl:"direct,optional"`
 }
 
 type restartBlock struct {
@@ -92,101 +87,130 @@ type restartBlock struct {
 
 // Defaults for unset fields.
 const (
-	defaultHealthInterval = 2 * time.Second
-	defaultHealthTimeout  = 3 * time.Second
-	defaultHealthRetries  = 30
-	defaultBackoff        = time.Second
-	defaultMaxRetries     = 5
+	readyInterval     = time.Second
+	readyProbeTimeout = 3 * time.Second
+	defaultBackoff    = time.Second
+	defaultMaxRetries = 5
 )
 
+// removed maps each argument and block of the old `process` form to what
+// replaces it, so a stale config fails with the fix instead of HCL's bare
+// "unsupported argument".
+var removed = []struct {
+	name, now string
+	block     bool
+}{
+	{name: "command", now: "`run`"},
+	{name: "cwd", now: "`dir`"},
+	{name: "forward", now: "nothing: an app with a `port` is named automatically"},
+	{name: "ingress", now: "nothing: an app with a `port` is named automatically"},
+	{name: "hooks", now: "`setup`, `on_ready` and `stop`", block: true},
+	{name: "health", now: "`ready`, e.g. ready = http(\"/healthz\")", block: true},
+}
+
+func checkRemoved(body hcl.Body) error {
+	schema := &hcl.BodySchema{}
+	for _, r := range removed {
+		if r.block {
+			schema.Blocks = append(schema.Blocks, hcl.BlockHeaderSchema{Type: r.name})
+		} else {
+			schema.Attributes = append(schema.Attributes, hcl.AttributeSchema{Name: r.name})
+		}
+	}
+	content, _, _ := body.PartialContent(schema)
+	if content == nil {
+		return nil
+	}
+	for _, r := range removed {
+		if attr, ok := content.Attributes[r.name]; ok {
+			return fmt.Errorf("%s: `%s` is no longer an argument; use %s", attr.NameRange, r.name, r.now)
+		}
+		for _, blk := range content.Blocks {
+			if blk.Type == r.name {
+				return fmt.Errorf("%s: the `%s` block is gone; use %s", blk.DefRange, r.name, r.now)
+			}
+		}
+	}
+	return nil
+}
+
 // DecodeConfig implements engine.ConfigDecoder. baseDir is the directory of the
-// file that declared the block; cwd and env_file are resolved against it.
+// file that declared the block; dir and env_file are resolved against it.
 func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, _ engine.VersionSpec) (engine.EngineConfig, error) {
+	if err := checkRemoved(body); err != nil {
+		return nil, err
+	}
+	// The probe constructors (tcp, http, log, exec) exist only while an app
+	// block decodes, so they cannot shadow anything elsewhere in a config.
+	ectx := &hcl.EvalContext{}
+	if ctx != nil {
+		ectx = ctx.NewChild()
+	}
+	ectx.Functions = runspec.Functions()
+
 	var raw hclConfig
-	if d := gohcl.DecodeBody(body, ctx, &raw); d.HasErrors() {
+	if d := gohcl.DecodeBody(body, ectx, &raw); d.HasErrors() {
 		return nil, fmt.Errorf("%s", d.Error())
 	}
-	if strings.TrimSpace(raw.Command) == "" {
-		return nil, fmt.Errorf("process needs a non-empty command")
+	if strings.TrimSpace(raw.Run) == "" {
+		return nil, fmt.Errorf("an app needs a non-empty `run`")
 	}
 
 	c := &Config{
-		Command: raw.Command,
-		Port:    raw.Port,
-		Ingress: raw.Ingress,
-		Forward: raw.Forward,
+		Run:     raw.Run,
 		Env:     raw.Env,
-		Cwd:     resolveDir(baseDir, raw.Cwd),
-	}
-	if raw.Port < 0 || raw.Port > 65535 {
-		return nil, fmt.Errorf("process port %d is out of range", raw.Port)
-	}
-	if raw.Forward < 0 || raw.Forward > 65535 {
-		return nil, fmt.Errorf("process forward port %d is out of range", raw.Forward)
+		Dir:     resolveDir(baseDir, raw.Dir),
+		Front:   raw.Front,
+		Console: raw.Console,
+		Watch:   raw.Watch,
+		Direct:  raw.Direct,
 	}
 	if raw.EnvFile != "" {
 		c.EnvFile = resolveDir(baseDir, raw.EnvFile)
 	}
-	if h := raw.Hooks; h != nil {
-		c.Hooks = Hooks{PreStart: h.PreStart, PostStart: h.PostStart, PreStop: h.PreStop}
-	}
-
-	if h := raw.Health; h != nil {
-		hc, err := decodeHealth(h)
-		if err != nil {
-			return nil, err
-		}
-		c.Health = hc
-	}
-
-	rs, err := decodeRestart(raw.Restart)
-	if err != nil {
+	var err error
+	if c.Setup, err = runspec.Steps("setup", raw.Setup); err != nil {
 		return nil, err
 	}
-	c.Restart = rs
+	if c.OnReady, err = runspec.Steps("on_ready", raw.OnReady); err != nil {
+		return nil, err
+	}
+	if c.Stop, err = runspec.Steps("stop", raw.Stop); err != nil {
+		return nil, err
+	}
+	if c.Ready, err = runspec.ParseReady(raw.Ready); err != nil {
+		return nil, err
+	}
+	if c.ReadyTimeout, err = runspec.ParseReadyTimeout(raw.ReadyTimeout); err != nil {
+		return nil, err
+	}
+	if c.Sleep, err = runspec.ParseSleep(raw.Sleep); err != nil {
+		return nil, err
+	}
+	if c.QuietLogs, err = runspec.ParseLogs(raw.Logs); err != nil {
+		return nil, err
+	}
+	if err := runspec.CheckConsole(raw.Console); err != nil {
+		return nil, err
+	}
+	if c.Restart, err = decodeRestart(raw.Restart); err != nil {
+		return nil, err
+	}
 
-	warnToolchain(c.Cwd)
+	warnToolchain(c.Dir)
 	return c, nil
 }
 
-// decodeHealth validates and normalizes the health block: exactly one probe kind.
-func decodeHealth(h *healthBlock) (*Health, error) {
-	kinds := []struct {
-		kind, target string
-	}{
-		{"http", h.HTTP}, {"tcp", h.TCP}, {"exec", h.Exec}, {"log_line", h.LogLine},
+// BindPort hands the app the `port` its block declares. Config reads `port`
+// off every block before the driver decodes the rest, so the driver never sees
+// it; config calls this straight after the decode. The port is what tcp() and
+// http() probe.
+func (c *Config) BindPort(port int) error {
+	c.declaredPort = port
+	if port == 0 && c.Ready != nil && c.Ready.NeedsPort() {
+		return fmt.Errorf("ready = %s(…) needs a `port` to probe", c.Ready.Kind)
 	}
-	out := &Health{Interval: defaultHealthInterval, Timeout: defaultHealthTimeout, Retries: defaultHealthRetries}
-	for _, k := range kinds {
-		if k.target == "" {
-			continue
-		}
-		if out.Kind != "" {
-			return nil, fmt.Errorf("health block sets both %q and %q — choose one probe kind", out.Kind, k.kind)
-		}
-		out.Kind, out.Target = k.kind, k.target
-	}
-	if out.Kind == "" {
-		return nil, fmt.Errorf("health block needs one of http, tcp, exec, or log_line")
-	}
-	if h.Interval != "" {
-		d, err := time.ParseDuration(h.Interval)
-		if err != nil {
-			return nil, fmt.Errorf("invalid health interval %q: %w", h.Interval, err)
-		}
-		out.Interval = d
-	}
-	if h.Timeout != "" {
-		d, err := time.ParseDuration(h.Timeout)
-		if err != nil {
-			return nil, fmt.Errorf("invalid health timeout %q: %w", h.Timeout, err)
-		}
-		out.Timeout = d
-	}
-	if h.Retries > 0 {
-		out.Retries = h.Retries
-	}
-	return out, nil
+	return nil
 }
 
 // decodeRestart validates the restart block, applying defaults. A process is a
@@ -333,22 +357,17 @@ func versionMatches(want, got string) bool {
 	return true
 }
 
-// ForwardPort is the public port this process is served on through the shared
-// ingress (http://<name>.<stack>.doze:<port>), or 0 if it isn't forwarded.
-// `forward = <port>` sets it; the legacy `ingress = true` means `forward = 80`.
-// The daemon type-asserts for this, keeping engine specs opaque to it otherwise.
+// ForwardPort is the public port this app is served on through the shared
+// ingress (http://<name>.<stack>.doze), or 0 if it isn't. An app that declares a
+// `port` is named automatically; `direct = true` opts out. The daemon
+// type-asserts for this, keeping engine specs opaque to it otherwise.
 func (c *Config) ForwardPort() int {
-	if c.Forward > 0 {
-		return c.Forward
-	}
-	if c.Ingress {
+	if c.declaredPort > 0 && !c.Direct {
 		return 80
 	}
 	return 0
 }
 
-// IngressEnabled reports whether this process is forwarded through the shared
-// ingress. NOTE: not gated on c.Port — core's common schema consumes `port`
-// before the driver decodes, so it is always 0 here; the daemon checks the
-// declared port via the instance's endpoint instead.
+// IngressEnabled reports whether this app is forwarded through the shared
+// ingress.
 func (c *Config) IngressEnabled() bool { return c.ForwardPort() > 0 }

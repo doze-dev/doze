@@ -31,8 +31,8 @@ func serveTestStack(t *testing.T, sb *doze.Stack) *doze.Session {
 func TestTopology(t *testing.T) {
 	// Built-in process engine only, so the test is hermetic (no module fetch).
 	sb := doze.NewStack("topo")
-	sb.AddProcess("api", doze.Process{Command: "sh -c 'sleep 1000'", Port: 8080})
-	sb.AddProcess("worker", doze.Process{Command: "sh -c 'sleep 1000'"})
+	sb.AddApp("api", doze.App{Run: "sh -c 'sleep 1000'", Port: 8080})
+	sb.AddApp("worker", doze.App{Run: "sh -c 'sleep 1000'"})
 
 	if testing.Short() {
 		// Topology is a pure config projection; still needs a Serve to build cfg.
@@ -63,7 +63,7 @@ func TestTypedErrors(t *testing.T) {
 		t.Skip("boots the daemon")
 	}
 	sb := doze.NewStack("errs")
-	sb.AddProcess("only", doze.Process{Command: "sh -c 'while true; do sleep 1; done'"})
+	sb.AddApp("only", doze.App{Run: "sh -c 'while true; do sleep 1; done'"})
 	sess := serveTestStack(t, sb)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -78,9 +78,9 @@ func TestTypedErrors(t *testing.T) {
 	}
 
 	// Adding a name that already exists → ErrAlreadyExists.
-	_, err := sess.AddProcess(ctx, "only", doze.Process{Command: "sh -c 'sleep 1'"})
+	_, err := sess.AddApp(ctx, "only", doze.App{Run: "sh -c 'sleep 1'"})
 	if !errors.Is(err, doze.ErrAlreadyExists) {
-		t.Fatalf("AddProcess(dup) err = %v, want ErrAlreadyExists", err)
+		t.Fatalf("AddApp(dup) err = %v, want ErrAlreadyExists", err)
 	}
 
 	// NOTE: live-adding the aws engine is gated (ErrUnsupported), but reaching

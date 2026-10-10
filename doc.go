@@ -27,11 +27,11 @@ You don't need an HCL file. Build the topology in Go — map it from your own YA
 a database, an API — and hand it to Serve/Attach:
 
 	sb := doze.NewStack("shop").Domains(true)
-	sb.AddProcess("worker", doze.Process{Command: "python worker.py"})
+	sb.AddApp("worker", doze.App{Run: "python worker.py"})
 	sb.AddModule("postgres", "db").Version("16").Body(`databases = ["app"]`)
 	sess, _ := doze.Serve(ctx, doze.Options{Stack: sb})
 
-AddProcess is typed (process is a first-class engine); AddModule takes engine
+AddApp is typed (an app is built into doze); AddModule takes engine
 config as HCL, because module engines decode out-of-process. Stack.HCL() renders
 the equivalent file. LoadStack(path) parses an existing config back into an
 editable Stack (read → mutate → re-render), and EngineSchema(opts, engine)
@@ -47,7 +47,7 @@ Modules(opts) lists module pins and upgrades them.
 # Driving and reading a live stack
 
 Lifecycle: Up, Boot, Down, Restart, Apply, Destroy, Reset, plus live
-AddProcess/AddModule/Remove to mutate a running stack with no restart.
+AddApp/AddModule/Remove to mutate a running stack with no restart.
 
 Introspection for building a UI:
   - Topology() — the declared graph as []Node, without the daemon running.

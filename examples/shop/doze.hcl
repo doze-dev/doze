@@ -1,15 +1,14 @@
 # shop — the fixture stack.
 #
 # A small but real project that doze's own tests and measurements run against:
-# three Go programs and four modules, wired together by references. It is
-# written in today's syntax and is ported as the redesign lands (see
+# three Go programs and four modules, wired together by references (see
 # docs/design/next/phases.md).
 #
 #   doze up            from this directory
 #   doze up --var domains=false    on a machine without `doze dns-setup`,
 #                                  or beside other stacks you must not disturb
 
-name = "shop"
+stack = "shop"
 
 variable "domains" {
   type        = bool
@@ -24,17 +23,17 @@ defaults {
 
 # ── modules ───────────────────────────────────────────────────────────────
 
-postgres "db" {
+module postgres "db" {
   version = 16
   port    = 5432
 }
 
-valkey "cache" {
+module valkey "cache" {
   version = 9
   port    = 6379
 }
 
-kafka "events" {
+module kafka "events" {
   version = 4
   port    = 9092
 
@@ -43,7 +42,7 @@ kafka "events" {
   }
 }
 
-aws "cloud" {
+module aws "cloud" {
   port = 4566
 
   bucket "uploads" {}
@@ -52,47 +51,41 @@ aws "cloud" {
 
 # ── apps ──────────────────────────────────────────────────────────────────
 
-process "api" {
-  command = "go run ./cmd/api"
-  port    = 8080
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
 
   env = {
     PORT          = "8080"
-    DATABASE_URL  = postgres.db.url
-    CACHE_ADDR    = valkey.cache.address
-    KAFKA_BROKERS = kafka.events.address
+    DATABASE_URL  = module.db.url
+    CACHE_ADDR    = module.cache.address
+    KAFKA_BROKERS = module.events.address
   }
 
-  health {
-    http     = "http://127.0.0.1:8080/healthz"
-    interval = "1s"
-    retries  = 90 # the first `go run` compiles the program
-  }
+  ready         = http("/healthz")
+  ready_timeout = "90s" # the first `go run` compiles the program
 }
 
-process "worker" {
-  command = "go run ./cmd/worker"
+app "worker" {
+  run = "go run ./cmd/worker"
 
   env = {
-    KAFKA_BROKERS = kafka.events.address
-    AWS_ENDPOINT  = aws.cloud.url
+    KAFKA_BROKERS = module.events.address
+    AWS_ENDPOINT  = module.cloud.url
     ORDERS_QUEUE  = "orders"
     UPLOADS       = "uploads"
   }
 }
 
-process "web" {
-  command = "go run ./cmd/web"
-  port    = 8081
+app "web" {
+  run  = "go run ./cmd/web"
+  port = 8081
 
   env = {
     PORT    = "8081"
-    API_URL = "http://${process.api.address}"
+    API_URL = "http://${app.api.address}"
   }
 
-  health {
-    http     = "http://127.0.0.1:8081/healthz"
-    interval = "1s"
-    retries  = 90
-  }
+  ready         = http("/healthz")
+  ready_timeout = "90s"
 }

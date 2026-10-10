@@ -35,10 +35,10 @@ func TestServeLifecycle(t *testing.T) {
 
 	cfgPath := filepath.Join(dir, "doze.hcl")
 	if err := os.WriteFile(cfgPath, []byte(`
-name = "embedtest"
+stack = "embedtest"
 
-process "ticker" {
-  command = "sh -c 'while true; do echo tick; sleep 1; done'"
+app "ticker" {
+  run     = "sh -c 'while true; do echo tick; sleep 1; done'"
 }
 `), 0o644); err != nil {
 		t.Fatal(err)

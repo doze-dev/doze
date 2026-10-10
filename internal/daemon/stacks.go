@@ -30,7 +30,7 @@ func claimStack(home, name, dir string, pid int) (func(), error) {
 		_ = json.Unmarshal(data, &claims)
 	}
 	if cur, ok := claims[name]; ok && cur.Dir != dir && pidAlive(cur.PID) {
-		return nil, fmt.Errorf("stack name %q is already in use by %s (daemon pid %d) — set a unique `name = \"…\"` in this project's doze.hcl", name, cur.Dir, cur.PID)
+		return nil, fmt.Errorf("stack name %q is already in use by %s (daemon pid %d) — set a unique `stack = \"…\"` in this project's doze.hcl", name, cur.Dir, cur.PID)
 	}
 	claims[name] = stackClaim{Dir: dir, PID: pid}
 	if err := writeStacks(path, claims); err != nil {

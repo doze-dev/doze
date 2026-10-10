@@ -29,7 +29,7 @@ type Config struct {
 	// DataDir is this project's state directory; defaults to
 	// <Home>/projects/<slug> so projects never collide.
 	DataDir string
-	// StackName names this stack — the `name = "shop"` root attribute, defaulting
+	// StackName names this stack — the `stack = "shop"` root attribute, defaulting
 	// to the config directory's name. It scopes local domains
 	// (<service>.<stack>.doze) and must be unique among the machine's
 	// running stacks (the daemon enforces it via the shared stack registry).
@@ -40,8 +40,12 @@ type Config struct {
 	TLS TLSSettings
 	// Modules configures the out-of-process engine plugin fetcher (source + pins).
 	Modules ModulesConfig
-	// Instances preserves declaration order from the file.
+	// Instances are the declared modules and apps, in declaration order.
 	Instances []*InstanceDecl
+	// Services and Tasks are the declared `service` and `task` blocks. They
+	// are checked but not yet runnable: see Unbuilt.
+	Services []*ServiceDecl
+	Tasks    []*TaskDecl
 	// Outputs are the declared output values, keyed by name (declaration order in
 	// OutputOrder), resolved against the final evaluation context.
 	Outputs     map[string]Output
@@ -82,7 +86,8 @@ type TLSSettings struct {
 
 // InstanceDecl is one declared instance: a database server of some engine.
 type InstanceDecl struct {
-	Type    string              // engine type / block keyword ("postgres")
+	Kind    string              // KindModule or KindApp
+	Type    string              // engine type ("postgres"); AppEngine for an app
 	Name    string              // block label
 	Version engine.VersionSpec  // "16" (major) or "16.14" (exact)
 	Listen  string              // optional full endpoint override ("host:port")
@@ -98,6 +103,10 @@ type InstanceDecl struct {
 	// paused — not booted by up/wake, not converged or pruned by sync (its data is
 	// preserved), shown as "disabled" in the tree. Re-enabling brings it back as-is.
 	Enabled bool
+	// After is the block's `after` list. Refs is everything its body references,
+	// of any kind — Deps holds only the ones that are instances.
+	After []Ref
+	Refs  []Ref
 }
 
 // ModulesConfig is the decoded `modules {}` block: where to fetch out-of-process

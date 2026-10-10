@@ -19,7 +19,7 @@ func TestTemporalNamespace(t *testing.T) {
 
 	port := FreePort(t)
 	uiPort := FreePort(t)
-	cfg := fmt.Sprintf(`temporal "dev" {
+	cfg := fmt.Sprintf(`module temporal "dev" {
   version = "1.1"
   port    = %d
   ui_port = %d

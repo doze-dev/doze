@@ -22,9 +22,9 @@ type initEngine struct {
 
 // initSeed is the offline fallback when the registry catalog can't be fetched.
 var initSeed = []initEngine{
-	{"postgres", "SQL database (Postgres)", "postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}"},
-	{"valkey", "in-memory cache (Redis API)", "valkey \"cache\" {\n  version          = 9\n  port             = 6379\n  maxmemory        = \"256mb\"\n  maxmemory_policy = \"allkeys-lru\"\n}"},
-	{"kvrocks", "durable Redis API on disk", "kvrocks \"store\" {\n  version = 2\n  port    = 6380\n}"},
+	{"postgres", "SQL database (Postgres)", "module postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}"},
+	{"valkey", "in-memory cache (Redis API)", "module valkey \"cache\" {\n  version          = 9\n  port             = 6379\n  maxmemory        = \"256mb\"\n  maxmemory_policy = \"allkeys-lru\"\n}"},
+	{"kvrocks", "durable Redis API on disk", "module kvrocks \"store\" {\n  version = 2\n  port    = 6380\n}"},
 	{"documentdb", "MongoDB-compatible store", "documentdb \"docs\" {\n  port = 27017\n}"},
 	{"s3", "S3 object storage", "s3 \"media\" {\n  port = 9000\n  bucket \"uploads\" {}\n}"},
 	{"sqs", "SQS message queue", "sqs \"jobs\" {\n  port = 9324\n  queue \"tasks\" {}\n}"},
@@ -208,9 +208,9 @@ func scaffoldFor(picks []string, app string, offers []initEngine) string {
 		}
 	}
 	if app != "" {
-		b.WriteString("\nprocess \"api\" {\n  command = " + hclString(app) + "\n  port    = 8080\n\n  env = {\n")
+		b.WriteString("\napp \"api\" {\n  run  = " + hclString(app) + "\n  port = 8080\n\n  env = {\n")
 		if hasPostgres {
-			b.WriteString("    DATABASE_URL = postgres.app.url\n")
+			b.WriteString("    DATABASE_URL = module.app.url\n")
 		}
 		b.WriteString("    PORT         = \"8080\"\n  }\n}\n")
 	}

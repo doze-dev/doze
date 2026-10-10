@@ -82,7 +82,8 @@ Shared by `service`, `app` and `task`:
 | Attribute | Type | Default | Notes |
 |---|---|---|---|
 | `port` | number | none | The public port. See [networking.md](networking.md). |
-| `ready` | call | `tcp()` when `port` is set | `tcp()`, `http("/path")`, `log("text")`, `exec("cmd")`. |
+| `ready` | call | `tcp()` when `port` is set | `tcp()`, `http("/path")`, `log("text")`, `exec("cmd")`. `http` takes a path on the block's own port; `log` matches the text literally. |
+| `ready_timeout` | duration | `"60s"` | How long the command gets to become ready. A first `go run` that compiles needs more. |
 | `setup` | string or list | none | Once per data folder. See [lifecycle.md](lifecycle.md). |
 | `on_ready` | string or list | none | Every wake, once ready. |
 | `stop` | string or list | none | Instead of the default signals. |
@@ -113,7 +114,13 @@ Shared by `service`, `app` and `task`:
 | `manual` | bool | Only runs when asked (`doze task <name>`). |
 
 `front`, `console` and `logs` are also accepted inside a `module` block. The
-host reads them and strips them before the module decodes its body.
+host reads them and strips them before the module decodes its body. This
+part is not built in phase 1: it lands with the dash work that reads them
+(phases 5 and 6).
+
+`module` and `app` blocks also keep today's meta-arguments: `count`,
+`for_each`, `enabled` and `depends_on`. `service` and `task` do not take them
+yet.
 
 ## Environment given to every command
 
@@ -140,9 +147,11 @@ One rule: `kind.name.attribute`.
 - A reference in `env` is a dependency with condition `healthy`, as today.
 - A reference in `after` is ordering only: the target must have succeeded
   (task) or be ready (anything else).
-- Names are unique within a kind. Because `module.db` no longer carries the
-  type, two modules of different types can no longer share a name. Lint
-  reports the clash.
+- Names are unique across the stack, whatever the kind. A name is also a
+  DNS label (`db.shop.doze`) and a data folder, so `module.db` and
+  `service.db` cannot both exist. Lint reports the clash with both positions.
+- A reference written the old way, type first (`postgres.db.url`), fails with
+  the new form in the message.
 
 ## How the keyword reaches a plugin
 

@@ -22,7 +22,7 @@ type fakeDriver struct{}
 
 type fakeConfig struct {
 	Color string
-	Ref   string // populated from a cross-instance reference, e.g. fake.a.name
+	Ref   string // populated from a cross-instance reference, e.g. module.a.name
 }
 
 func (fakeDriver) Type() string { return "fake" }
@@ -55,11 +55,11 @@ func TestParseRootAndInstances(t *testing.T) {
 listen = "127.0.0.1:7000"
 defaults { idle_timeout = "90s" }
 
-fake "a" {
+module fake "a" {
   version = 16
   color   = "red"
 }
-fake "b" {
+module fake "b" {
   version = "17.2"
 }
 `
@@ -90,7 +90,7 @@ fake "b" {
 }
 
 func TestVersionRequired(t *testing.T) {
-	_, err := Parse([]byte(`fake "x" {}`), "doze.hcl", nil)
+	_, err := Parse([]byte(`module fake "x" {}`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "version") {
 		t.Errorf("expected missing-version error, got %v", err)
 	}
@@ -98,24 +98,24 @@ func TestVersionRequired(t *testing.T) {
 
 func TestDuplicateInstance(t *testing.T) {
 	src := `
-fake "dup" { version = 1 }
-fake "dup" { version = 1 }
+module fake "dup" { version = 1 }
+module fake "dup" { version = 1 }
 `
 	_, err := Parse([]byte(src), "doze.hcl", nil)
-	if err == nil || !strings.Contains(err.Error(), "already declared") {
+	if err == nil || !strings.Contains(err.Error(), "already taken") {
 		t.Errorf("expected duplicate error, got %v", err)
 	}
 }
 
 func TestUnknownEngine(t *testing.T) {
-	_, err := Parse([]byte(`mysql "x" { version = 8 }`), "doze.hcl", nil)
+	_, err := Parse([]byte(`module mysql "x" { version = 8 }`), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "mysql") {
 		t.Errorf("expected unknown-engine error mentioning mysql, got %v", err)
 	}
 }
 
 func TestDefaultsApplied(t *testing.T) {
-	cfg, err := Parse([]byte(`fake "x" { version = 1 }`), "doze.hcl", nil)
+	cfg, err := Parse([]byte(`module fake "x" { version = 1 }`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,10 +151,10 @@ defaults {
 
 func TestReferenceResolvesAndBuildsEdge(t *testing.T) {
 	src := `
-fake "a" { version = 1 }
-fake "b" {
+module fake "a" { version = 1 }
+module fake "b" {
   version = 1
-  ref     = fake.a.name
+  ref     = module.a.name
 }
 `
 	cfg, err := Parse([]byte(src), "doze.hcl", nil)
@@ -181,26 +181,26 @@ fake "b" {
 
 func TestReferenceToUndeclaredInstance(t *testing.T) {
 	src := `
-fake "b" {
+module fake "b" {
   version = 1
-  ref     = fake.ghost.name
+  ref     = module.ghost.name
 }
 `
 	_, err := Parse([]byte(src), "doze.hcl", nil)
-	if err == nil || !strings.Contains(err.Error(), "undeclared instance") || !strings.Contains(err.Error(), "ghost") {
+	if err == nil || !strings.Contains(err.Error(), "undeclared module") || !strings.Contains(err.Error(), "ghost") {
 		t.Errorf("expected undeclared-instance error, got %v", err)
 	}
 }
 
 func TestReferenceCycleDetected(t *testing.T) {
 	src := `
-fake "x" {
+module fake "x" {
   version = 1
-  ref     = fake.y.name
+  ref     = module.y.name
 }
-fake "y" {
+module fake "y" {
   version = 1
-  ref     = fake.x.name
+  ref     = module.x.name
 }
 `
 	_, err := Parse([]byte(src), "doze.hcl", nil)
@@ -211,7 +211,7 @@ fake "y" {
 
 func TestFunctionsAvailableInExpressions(t *testing.T) {
 	src := `
-fake "a" {
+module fake "a" {
   version = 1
   color   = upper("red")
 }
@@ -228,11 +228,11 @@ fake "a" {
 func TestVariableDefaultAndOutput(t *testing.T) {
 	src := `
 variable "color" { default = "teal" }
-fake "a" {
+module fake "a" {
   version = 1
   color   = var.color
 }
-output "the_color" { value = fake.a.name }
+output "the_color" { value = module.a.name }
 `
 	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
@@ -250,7 +250,7 @@ func TestVariableEnvOverride(t *testing.T) {
 	t.Setenv("DOZE_VAR_color", "crimson")
 	src := `
 variable "color" { default = "teal" }
-fake "a" {
+module fake "a" {
   version = 1
   color   = var.color
 }
@@ -271,7 +271,7 @@ locals {
   a = upper(var.base)
   b = "${local.a}-x"
 }
-fake "x" {
+module fake "x" {
   version = 1
   color   = local.b
 }
@@ -291,7 +291,7 @@ locals {
   a = local.b
   b = local.a
 }
-fake "x" { version = 1 }
+module fake "x" { version = 1 }
 `
 	_, err := Parse([]byte(src), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "cycle") {
@@ -302,7 +302,7 @@ fake "x" { version = 1 }
 func TestRequiredVariableMissing(t *testing.T) {
 	src := `
 variable "needed" {}
-fake "x" {
+module fake "x" {
   version = 1
   color   = var.needed
 }
@@ -315,9 +315,9 @@ fake "x" {
 
 func TestOutputSensitiveFlag(t *testing.T) {
 	src := `
-fake "a" { version = 1 }
+module fake "a" { version = 1 }
 output "secret" {
-  value     = fake.a.name
+  value     = module.a.name
   sensitive = true
 }
 `
@@ -338,7 +338,7 @@ variable "n" {
   type    = number
   default = 1
 }
-fake "a" {
+module fake "a" {
   version = 1
   port    = 7001
   color   = "${var.env}-${var.n}"
@@ -374,7 +374,7 @@ func writeFile(t *testing.T, dir, name, content string) {
 
 func TestForEachStampsInstances(t *testing.T) {
 	src := `
-fake "node" {
+module fake "node" {
   for_each = toset(["x", "y"])
   version  = 1
   color    = each.key
@@ -400,7 +400,7 @@ fake "node" {
 
 func TestForEachMapEachValue(t *testing.T) {
 	src := `
-fake "n" {
+module fake "n" {
   for_each = { a = "red", b = "blue" }
   version  = 1
   color    = each.value
@@ -420,7 +420,7 @@ fake "n" {
 
 func TestCountStampsInstances(t *testing.T) {
 	src := `
-fake "rep" {
+module fake "rep" {
   count   = 3
   version = 1
   color   = "c${count.index}"
@@ -449,7 +449,7 @@ fake "rep" {
 }
 
 func TestCountZeroProducesNoInstances(t *testing.T) {
-	cfg, err := Parse([]byte(`fake "none" { count = 0 }`), "doze.hcl", nil)
+	cfg, err := Parse([]byte(`module fake "none" { count = 0 }`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -460,7 +460,7 @@ func TestCountZeroProducesNoInstances(t *testing.T) {
 
 func TestCountAndForEachConflict(t *testing.T) {
 	src := `
-fake "x" {
+module fake "x" {
   count    = 2
   for_each = toset(["a"])
 }
@@ -473,14 +473,14 @@ fake "x" {
 
 func TestReferenceToStampedInstance(t *testing.T) {
 	src := `
-fake "node" {
+module fake "node" {
   for_each = toset(["a"])
   version  = 1
   color    = "x"
 }
-fake "client" {
+module fake "client" {
   version = 1
-  ref     = fake.node_a.name
+  ref     = module.node_a.name
 }
 `
 	cfg, err := Parse([]byte(src), "doze.hcl", nil)
@@ -498,10 +498,10 @@ fake "client" {
 
 func TestReferenceDepIsHealthy(t *testing.T) {
 	cfg, err := Parse([]byte(`
-fake "a" { version = 1 }
-fake "b" {
+module fake "a" { version = 1 }
+module fake "b" {
   version = 1
-  ref     = fake.a.name
+  ref     = module.a.name
 }
 `), "doze.hcl", nil)
 	if err != nil {
@@ -515,10 +515,10 @@ fake "b" {
 
 func TestDependsOnAddsConditionedEdge(t *testing.T) {
 	cfg, err := Parse([]byte(`
-fake "a" { version = 1 }
-fake "b" {
+module fake "a" { version = 1 }
+module fake "b" {
   version    = 1
-  depends_on = { "fake.a" = "started" }
+  depends_on = { "module.a" = "started" }
 }
 `), "doze.hcl", nil)
 	if err != nil {
@@ -532,11 +532,11 @@ fake "b" {
 
 func TestDependsOnOverridesReferenceCondition(t *testing.T) {
 	cfg, err := Parse([]byte(`
-fake "a" { version = 1 }
-fake "b" {
+module fake "a" { version = 1 }
+module fake "b" {
   version    = 1
-  ref        = fake.a.name
-  depends_on = { "fake.a" = "started" }
+  ref        = module.a.name
+  depends_on = { "module.a" = "started" }
 }
 `), "doze.hcl", nil)
 	if err != nil {
@@ -550,9 +550,9 @@ fake "b" {
 
 func TestDependsOnUndeclared(t *testing.T) {
 	_, err := Parse([]byte(`
-fake "b" {
+module fake "b" {
   version    = 1
-  depends_on = { "fake.ghost" = "healthy" }
+  depends_on = { "module.ghost" = "healthy" }
 }
 `), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "depends_on") || !strings.Contains(err.Error(), "ghost") {
@@ -562,10 +562,10 @@ fake "b" {
 
 func TestDependsOnInvalidCondition(t *testing.T) {
 	_, err := Parse([]byte(`
-fake "a" { version = 1 }
-fake "b" {
+module fake "a" { version = 1 }
+module fake "b" {
   version    = 1
-  depends_on = { "fake.a" = "whenever" }
+  depends_on = { "module.a" = "whenever" }
 }
 `), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "condition") {
@@ -577,16 +577,16 @@ func TestSiblingDozeHCLFilesAreMerged(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "doze.hcl", `
 defaults { idle_timeout = "1m" }
-fake "anchor" {
+module fake "anchor" {
   version = 1
   port    = 7001
 }
 `)
-	writeFile(t, dir, "extra.doze.hcl", `fake "sibling" {
+	writeFile(t, dir, "extra.doze.hcl", `module fake "sibling" {
   version = 1
   port    = 7002
 }`)
-	writeFile(t, dir, "ignored.hcl", `fake "nope" { version = 1 }`) // not *.doze.hcl
+	writeFile(t, dir, "ignored.hcl", `module fake "nope" { version = 1 }`) // not *.doze.hcl
 
 	cfg, err := Load(dir+"/doze.hcl", nil)
 	if err != nil {
@@ -651,11 +651,11 @@ func TestStackFromRelativeConfigPath(t *testing.T) {
 func TestValidateDomainsCollision(t *testing.T) {
 	src := `
 defaults { domains = true }
-fake "orders_pg" {
+module fake "orders_pg" {
   version = 1
   port    = 1001
 }
-fake "orders-pg" {
+module fake "orders-pg" {
   version = 1
   port    = 1002
 }
@@ -685,8 +685,8 @@ func TestHooksReceiveDeclaredEngines(t *testing.T) {
 		EngineNames: func() []string { return []string{"postgres"} },
 	}
 	src := `
-fake "a" { version = 16 }
-fake "b" { version = "17.2" }
+module fake "a" { version = 16 }
+module fake "b" { version = "17.2" }
 `
 	if _, err := Parse([]byte(src), "doze.hcl", hooks); err != nil {
 		t.Fatalf("unexpected error: %v", err)

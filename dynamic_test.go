@@ -25,8 +25,8 @@ func TestLiveAddRemoveProcess(t *testing.T) {
 	t.Setenv("DOZE_HOME", base)
 
 	sb := doze.NewStack("livetest")
-	sb.AddProcess("first", doze.Process{
-		Command: "sh -c 'while true; do echo one; sleep 1; done'",
+	sb.AddApp("first", doze.App{
+		Run: "sh -c 'while true; do echo one; sleep 1; done'",
 	})
 
 	ctx := context.Background()
@@ -50,11 +50,11 @@ func TestLiveAddRemoveProcess(t *testing.T) {
 	// Dynamically add a second process — no config file, no restart.
 	addCtx, addCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer addCancel()
-	inst, err := sess.AddProcess(addCtx, "second", doze.Process{
-		Command: "sh -c 'while true; do echo two; sleep 1; done'",
+	inst, err := sess.AddApp(addCtx, "second", doze.App{
+		Run: "sh -c 'while true; do echo two; sleep 1; done'",
 	})
 	if err != nil {
-		t.Fatalf("AddProcess: %v", err)
+		t.Fatalf("AddApp: %v", err)
 	}
 	if inst.PID == 0 {
 		t.Fatalf("added process not running: %+v", inst)

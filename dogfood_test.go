@@ -19,8 +19,8 @@ func TestDogfoodStatusAndDash(t *testing.T) {
 		t.Skip("boots real processes")
 	}
 	sb := doze.NewStack("dogfood")
-	sb.AddProcess("api", doze.Process{Command: "sh -c 'while true; do sleep 1; done'", Port: 8080})
-	sb.AddProcess("worker", doze.Process{Command: "sh -c 'while true; do sleep 1; done'"})
+	sb.AddApp("api", doze.App{Run: "sh -c 'while true; do sleep 1; done'", Port: 8080, Ready: &doze.Ready{Exec: "true"}})
+	sb.AddApp("worker", doze.App{Run: "sh -c 'while true; do sleep 1; done'"})
 	sess := serveTestStack(t, sb)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)

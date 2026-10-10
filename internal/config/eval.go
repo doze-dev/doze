@@ -19,28 +19,100 @@ import (
 // but whose driver body is decoded later, in dependency order, by evaluate.
 type pendingInstance struct {
 	decl         *InstanceDecl
-	drv          engine.Driver
+	drv          engine.Driver               // nil for a module in the shape pass
 	body         hcl.Body                    // block body (meta-args stripped), for reference extraction
 	remain       hcl.Body                    // body minus common fields, for the driver decode
 	ctx          *hcl.EvalContext            // the context this stamp decodes against (carries each/count)
 	explicitDeps map[string]engine.Condition // explicit depends_on: instance name -> condition
+	after        *hcl.Attribute              // the block's `after`, nil if unset
 	defRange     hcl.Range
 	blockLabel   string // the source block's label (the count/for_each base, e.g. "assets")
 	baseDir      string
 }
 
-// evaluate is config's second pass: it derives the cross-instance reference graph
-// (each instance's references to other instances build its dependency edges),
-// topologically orders the instances, then decodes each driver body against an
-// evaluation context that already holds the attributes of every instance it
-// references — so `sqs = sqs.jobs.name` resolves to a value and the dependency is
-// recorded without any hand-declared DependsOn.
-// fileBytes returns the raw source of a parsed file (for a plugin's remote decode).
-func fileBytes(parser *hclparse.Parser, filename string) []byte {
-	if f := parser.Files()[filename]; f != nil {
-		return f.Bytes
+// declared is everything a stack declares, by name: what a reference is
+// checked against.
+type declared struct {
+	kind        map[string]string // name -> kind
+	moduleTypes map[string]bool   // the engine types of the declared modules
+}
+
+func (cfg *Config) declared() *declared {
+	d := &declared{kind: map[string]string{}, moduleTypes: map[string]bool{}}
+	for _, inst := range cfg.Instances {
+		d.kind[inst.Name] = inst.Kind
+		if inst.Kind == KindModule {
+			d.moduleTypes[inst.Type] = true
+		}
 	}
-	return nil
+	for _, s := range cfg.Services {
+		d.kind[s.Name] = KindService
+	}
+	for _, t := range cfg.Tasks {
+		d.kind[t.Name] = KindTask
+	}
+	return d
+}
+
+// names returns the declared names of one kind, sorted.
+func (d *declared) names(kind string) []string {
+	var out []string
+	for n, k := range d.kind {
+		if k == kind {
+			out = append(out, n)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// resolve classifies a traversal. A reference to a declared block returns it
+// with ok true. Anything that is not a block reference at all — var.x, local.x,
+// each.key — returns ok false. A block reference that points at nothing, or is
+// written the old way with the engine type first, is a positioned error.
+func (d *declared) resolve(parser *hclparse.Parser, t hcl.Traversal) (Ref, bool, error) {
+	root := t.RootName()
+	name, hasName := traversalName(t)
+	if !isKind(root) {
+		// The form doze used to read: <type>.<name>.<attribute>.
+		if (d.moduleTypes[root] || root == AppEngine) && hasName {
+			kind := KindModule
+			if root == AppEngine {
+				kind = KindApp
+			}
+			if k, ok := d.kind[name]; ok {
+				kind = k
+			}
+			return Ref{}, false, posErr(parser, t.SourceRange(),
+				"a reference starts with the kind, not the type",
+				fmt.Sprintf("write %s.%s in place of %s.%s", kind, name, root, name))
+		}
+		return Ref{}, false, nil
+	}
+	if !hasName {
+		return Ref{}, false, posErr(parser, t.SourceRange(), "incomplete reference",
+			fmt.Sprintf("a reference reads %s.<name>.<attribute>", root))
+	}
+	switch k, ok := d.kind[name]; {
+	case !ok:
+		detail := fmt.Sprintf("no %s named %q is declared", root, name)
+		if s := nearest(name, d.names(root)); s != "" {
+			detail += fmt.Sprintf(". Did you mean %s.%s?", root, s)
+		}
+		return Ref{}, false, posErr(parser, t.SourceRange(), fmt.Sprintf("reference to undeclared %s %q", root, name), detail)
+	case k != root:
+		return Ref{}, false, posErr(parser, t.SourceRange(),
+			fmt.Sprintf("%q is %s, not %s", name, article(k), article(root)),
+			fmt.Sprintf("write %s.%s", k, name))
+	}
+	return Ref{Kind: root, Name: name}, true, nil
+}
+
+func article(kind string) string {
+	if kind == KindApp {
+		return "an app"
+	}
+	return "a " + kind
 }
 
 // mergedVars flattens the global eval context with a stamp's (each/count) variables
@@ -58,25 +130,24 @@ func mergedVars(global, stamp *hcl.EvalContext) map[string]cty.Value {
 	return out
 }
 
-func (l *loader) evaluate(cfg *Config, pending []*pendingInstance, ctx *hcl.EvalContext) error {
+// evaluate is config's second pass: it derives the cross-instance reference graph
+// (each instance's references to other instances build its dependency edges),
+// topologically orders the instances, then decodes each driver body against an
+// evaluation context that already holds the attributes of every instance it
+// references — so `queue = module.jobs.name` resolves to a value and the
+// dependency is recorded without any hand-declared ordering.
+func (l *loader) evaluate(cfg *Config, pending []*pendingInstance, ctx *hcl.EvalContext, known *declared) error {
 	parser := l.parser
-	// An engine type is "known" (a resource reference root, not var/local) if some
-	// declared instance uses it — config can't enumerate engines (they're modules),
-	// so the declared set is the source of truth for reference resolution.
-	knownTypes := map[string]bool{}
 	byName := map[string]*pendingInstance{}
 	for _, p := range pending {
-		knownTypes[p.decl.Type] = true
 		byName[p.decl.Name] = p
 	}
 
 	// 1. Reference extraction: each instance's dependency names, validated.
 	for _, p := range pending {
-		deps, err := cfg.instanceDeps(parser, p, knownTypes)
-		if err != nil {
+		if err := cfg.instanceDeps(parser, p, known); err != nil {
 			return err
 		}
-		p.decl.Deps = deps
 	}
 
 	// 2. Topological order (dependencies before dependents); detect cycles.
@@ -94,16 +165,23 @@ func (l *loader) evaluate(cfg *Config, pending []*pendingInstance, ctx *hcl.Eval
 		for _, d := range p.decl.Deps {
 			if dep, ok := byName[d.Name]; ok && !dep.decl.Enabled {
 				return posErr(parser, p.defRange,
-					fmt.Sprintf("%s %q depends on %q, which is disabled", p.decl.Type, p.decl.Name, d.Name),
+					fmt.Sprintf("%s depends on %q, which is disabled", p.decl.Title(), d.Name),
 					fmt.Sprintf("enable %q, or disable %q as well", d.Name, p.decl.Name))
 			}
 		}
 	}
 
 	// 3. Decode each driver body in order, growing the evaluation context (which
-	// already holds var.*/local.*) with each instance's attribute object under
-	// <type>.<name>.
-	byType := map[string]map[string]cty.Value{}
+	// already holds var.*/local.*, service.* and task.*) with each instance's
+	// attribute object under module.<name> or app.<name>. Both roots exist from
+	// the start, so a stack with no apps still reads `app.x` as "no such app".
+	byKind := map[string]map[string]cty.Value{KindModule: {}, KindApp: {}}
+	ctx.Variables[KindModule] = cty.EmptyObjectVal
+	ctx.Variables[KindApp] = cty.EmptyObjectVal
+	var standIns map[string]map[string]bool
+	if l.shape {
+		standIns = l.referencedModuleAttrs()
+	}
 	for _, p := range order {
 		// p.ctx is the stamp-specific context (with each/count) for a for_each/count
 		// instance; it chains to the shared ctx so var/local/resources resolve too.
@@ -111,74 +189,146 @@ func (l *loader) evaluate(cfg *Config, pending []*pendingInstance, ctx *hcl.Eval
 		if decodeCtx == nil {
 			decodeCtx = ctx
 		}
-		switch dec := p.drv.(type) {
-		case engine.ConfigDecoder: // in-tree engine
-			spec, err := dec.DecodeConfig(p.remain, decodeCtx, p.baseDir, p.decl.Version)
-			if err != nil {
-				return fmt.Errorf("%s %q: %w", p.decl.Type, p.decl.Name, err)
+		var attrs cty.Value
+		if p.drv == nil {
+			attrs = standInAttributes(p.decl, standIns[p.decl.Name])
+		} else {
+			if err := l.decodeBody(cfg, p, ctx, decodeCtx); err != nil {
+				return err
 			}
-			p.decl.Spec = spec
-		case engine.RemoteDecoder: // out-of-process plugin: it decodes its own block
-			src := fileBytes(parser, p.defRange.Filename)
-			if src == nil {
-				return fmt.Errorf("%s %q: cannot locate source for remote decode", p.decl.Type, p.decl.Name)
+			if attrs, err = cfg.attributesFor(p); err != nil {
+				return err
 			}
-			// Find the block by its source label (the count/for_each base), not the
-			// expanded instance name; the each/count vars in decodeCtx differentiate stamps.
-			spec, err := dec.DecodeRemote(src, p.defRange.Filename, p.decl.Type, p.blockLabel, mergedVars(ctx, decodeCtx), p.baseDir, p.decl.Version)
-			if err != nil {
-				// The plugin re-parses the source under a synthesized name
-				// ("<label>.doze.hcl"); its positions are relative to the real file,
-				// so put the real filename back before the user sees it.
-				msg := strings.ReplaceAll(err.Error(), p.blockLabel+".doze.hcl", p.defRange.Filename)
-				// The block was decoded by a specific module release; say which, and
-				// (best-effort, error path only) whether an upgrade would help — a
-				// schema mismatch on an old plugin should read as its fix, not as an
-				// opaque "unsupported argument".
-				return fmt.Errorf("%s %q: %s%s", p.decl.Type, p.decl.Name, msg, l.hooks.remoteDecodeErrSuffix(p.decl.Type))
-			}
-			p.decl.Spec = spec
 		}
-		attrs, err := cfg.attributesFor(p)
-		if err != nil {
-			return err
-		}
-		if byType[p.decl.Type] == nil {
-			byType[p.decl.Type] = map[string]cty.Value{}
-		}
-		byType[p.decl.Type][p.decl.Name] = attrs
-		ctx.Variables[p.decl.Type] = cty.ObjectVal(byType[p.decl.Type])
+		byKind[p.decl.Kind][p.decl.Name] = attrs
+		ctx.Variables[p.decl.Kind] = cty.ObjectVal(byKind[p.decl.Kind])
 	}
 	return nil
 }
 
-// instanceDeps returns the other declared instances p must boot first: every
-// instance it references (a Healthy dependency) plus any explicit depends_on
-// (which may set a stronger or weaker condition). A reference whose root is an
-// engine type and whose next segment names a declared instance (e.g. sqs.jobs) is
-// a dependency; an unknown instance is a positioned error. Self references drop.
-func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, knownTypes map[string]bool) ([]engine.Dependency, error) {
+// decodeBody hands one instance's body to its driver.
+func (l *loader) decodeBody(cfg *Config, p *pendingInstance, ctx, decodeCtx *hcl.EvalContext) error {
+	switch dec := p.drv.(type) {
+	case engine.ConfigDecoder: // in-tree engine
+		spec, err := dec.DecodeConfig(p.remain, decodeCtx, p.baseDir, p.decl.Version)
+		if err != nil {
+			return fmt.Errorf("%s: %w", p.decl.Title(), err)
+		}
+		// Config reads `port` off the block before the driver sees the rest; an
+		// engine whose probes need it takes it here.
+		if b, ok := spec.(interface{ BindPort(int) error }); ok {
+			if err := b.BindPort(p.decl.Port); err != nil {
+				return posErr(l.parser, p.defRange, p.decl.Title()+": "+err.Error(), "")
+			}
+		}
+		p.decl.Spec = spec
+	case engine.RemoteDecoder: // out-of-process plugin: it decodes its own block
+		src := l.pluginBytes(p.defRange.Filename)
+		if src == nil {
+			return fmt.Errorf("%s: cannot locate source for remote decode", p.decl.Title())
+		}
+		// Find the block by its source label (the count/for_each base), not the
+		// expanded instance name; the each/count vars in decodeCtx differentiate stamps.
+		spec, err := dec.DecodeRemote(src, p.defRange.Filename, p.decl.Type, p.blockLabel, mergedVars(ctx, decodeCtx), p.baseDir, p.decl.Version)
+		if err != nil {
+			// The plugin re-parses the source under a synthesized name
+			// ("<label>.doze.hcl"); its positions are relative to the real file,
+			// so put the real filename back before the user sees it.
+			msg := strings.ReplaceAll(err.Error(), p.blockLabel+".doze.hcl", p.defRange.Filename)
+			// The block was decoded by a specific module release; say which, and
+			// (best-effort, error path only) whether an upgrade would help — a
+			// schema mismatch on an old plugin should read as its fix, not as an
+			// opaque "unsupported argument".
+			return fmt.Errorf("%s: %s%s", p.decl.Title(), msg, l.hooks.remoteDecodeErrSuffix(p.decl.Type))
+		}
+		p.decl.Spec = spec
+	}
+	return nil
+}
+
+// referencedModuleAttrs collects, per module name, every attribute the config
+// reads off it (module.db.url → db: url). The shape pass has no module to ask
+// what attributes exist, so it stands in exactly the ones that are used.
+func (l *loader) referencedModuleAttrs() map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, f := range l.files {
+		for _, t := range referencedTraversals(f.Body) {
+			if t.RootName() != KindModule || len(t) < 3 {
+				continue
+			}
+			name, ok := traversalName(t)
+			attr, isAttr := t[2].(hcl.TraverseAttr)
+			if !ok || !isAttr {
+				continue
+			}
+			if out[name] == nil {
+				out[name] = map[string]bool{}
+			}
+			out[name][attr.Name] = true
+		}
+	}
+	return out
+}
+
+// standInAttributes is what a module publishes in the shape pass: the baseline
+// every module has, plus a string for each further attribute the config reads.
+// The values are placeholders — only their presence and type matter offline.
+func standInAttributes(decl *InstanceDecl, used map[string]bool) cty.Value {
+	m := map[string]cty.Value{
+		"name":    cty.StringVal(decl.Name),
+		"engine":  cty.StringVal(decl.Type),
+		"address": cty.StringVal("127.0.0.1:" + strconv.Itoa(decl.Port)),
+		"host":    cty.StringVal("127.0.0.1"),
+		"port":    cty.NumberIntVal(int64(decl.Port)),
+		"url":     cty.StringVal(""),
+		"env_var": cty.StringVal(""),
+		"socket":  cty.StringVal(""),
+	}
+	for attr := range used {
+		if _, ok := m[attr]; !ok {
+			m[attr] = cty.StringVal("")
+		}
+	}
+	return cty.ObjectVal(m)
+}
+
+// instanceDeps records what p must boot first: every module or app it
+// references (a Healthy dependency), any `after` entry, and any explicit
+// depends_on (which may set a stronger or weaker condition). References to
+// services and tasks are checked and kept on the declaration, but add no boot
+// edge until something runs them. Self references drop.
+func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, known *declared) error {
 	cond := map[string]engine.Condition{}
 	var order []string
+	edge := func(ref Ref) {
+		if ref.Name == p.decl.Name || (ref.Kind != KindModule && ref.Kind != KindApp) {
+			return
+		}
+		if _, ok := cond[ref.Name]; !ok {
+			order = append(order, ref.Name)
+			cond[ref.Name] = engine.Healthy
+		}
+	}
 	// Reference-derived dependencies (always Healthy).
 	for _, t := range referencedTraversals(p.body) {
-		root := t.RootName()
-		if !knownTypes[root] {
-			continue // var./local./functions are handled elsewhere; not a resource ref
+		ref, ok, err := known.resolve(parser, t)
+		if err != nil {
+			return err
 		}
-		name, ok := traversalName(t)
-		if !ok || name == p.decl.Name {
+		if !ok || ref.Name == p.decl.Name {
 			continue
 		}
-		if _, declared := cfg.index[name]; !declared {
-			rng := t.SourceRange()
-			return nil, posErr(parser, rng,
-				fmt.Sprintf("reference to undeclared instance %q", root+"."+name),
-				fmt.Sprintf("no %s instance named %q is declared", root, name))
+		p.decl.Refs = append(p.decl.Refs, ref)
+		edge(ref)
+	}
+	if p.after != nil {
+		after, err := parseAfter(parser, p.after, known)
+		if err != nil {
+			return err
 		}
-		if _, ok := cond[name]; !ok {
-			order = append(order, name)
-			cond[name] = engine.Healthy
+		p.decl.After = after
+		for _, ref := range after {
+			edge(ref)
 		}
 	}
 	// Explicit depends_on conditions (override the default, add new edges).
@@ -187,8 +337,8 @@ func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, kno
 			continue
 		}
 		if _, declared := cfg.index[name]; !declared {
-			return nil, posErr(parser, p.defRange,
-				fmt.Sprintf("%s %q: depends_on references undeclared instance %q", p.decl.Type, p.decl.Name, name), "")
+			return posErr(parser, p.defRange,
+				fmt.Sprintf("%s: depends_on references undeclared instance %q", p.decl.Title(), name), "")
 		}
 		if _, ok := cond[name]; !ok {
 			order = append(order, name)
@@ -199,7 +349,8 @@ func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, kno
 	for _, n := range order {
 		deps = append(deps, engine.Dependency{Name: n, Condition: cond[n]})
 	}
-	return deps, nil
+	p.decl.Deps = deps
+	return nil
 }
 
 // sortedConditionKeys returns m's keys sorted, for deterministic dep order.
@@ -214,7 +365,8 @@ func sortedConditionKeys(m map[string]engine.Condition) []string {
 
 // referencedTraversals collects every variable traversal in body, recursing into
 // nested blocks. Native HCL only (doze parses native syntax); other bodies yield
-// none.
+// none. A block's own `after` is left out: it names blocks to wait for, and is
+// read by parseAfter.
 func referencedTraversals(body hcl.Body) []hcl.Traversal {
 	hb, ok := body.(*hclsyntax.Body)
 	if !ok {
@@ -223,7 +375,10 @@ func referencedTraversals(body hcl.Body) []hcl.Traversal {
 	var out []hcl.Traversal
 	var walk func(b *hclsyntax.Body)
 	walk = func(b *hclsyntax.Body) {
-		for _, attr := range b.Attributes {
+		for name, attr := range b.Attributes {
+			if b == hb && name == "after" {
+				continue
+			}
 			out = append(out, attr.Expr.Variables()...)
 		}
 		for _, blk := range b.Blocks {
@@ -302,7 +457,7 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 	}
 	// In domains mode a reference's user-facing host is the service's DNS name
 	// (which resolves to its per-service loopback IP), not a raw address — so
-	// `postgres.orders_pg.url` stays correct even when several Postgres share
+	// `module.orders_pg.url` stays correct even when several Postgres share
 	// port 5432 on distinct IPs. The raw address is only the daemon's bind target.
 	if cfg.Defaults.Domains {
 		if host, portStr, err := net.SplitHostPort(addr); err == nil && host != "" {

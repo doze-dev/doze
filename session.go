@@ -108,10 +108,10 @@ func (s *Session) KeepAwake(ctx context.Context, name string) error {
 	return s.backend.op(ctx, "keepawake", name)
 }
 
-// AddProcess adds a supervised process to the running stack and boots it,
-// returning its state. The stack need not have been built from a Stack.
-func (s *Session) AddProcess(ctx context.Context, name string, p Process) (Instance, error) {
-	return s.add(ctx, name, p.blockHCL(name))
+// AddApp adds an app to the running stack and boots it, returning its state.
+// The stack need not have been built from a Stack.
+func (s *Session) AddApp(ctx context.Context, name string, a App) (Instance, error) {
+	return s.add(ctx, name, a.blockHCL(name))
 }
 
 // AddModule adds a module-engine instance (built with NewModule or

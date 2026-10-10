@@ -18,7 +18,7 @@ func psql(t *testing.T, addr, db, sql string) (string, error) {
 
 func pgConfig(name string, port int, roles ...string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "postgres %q {\n  version = 16\n  port    = %d\n", name, port)
+	fmt.Fprintf(&b, "module postgres %q {\n  version = 16\n  port    = %d\n", name, port)
 	for _, r := range roles {
 		fmt.Fprintf(&b, "  role %q {}\n", r)
 	}

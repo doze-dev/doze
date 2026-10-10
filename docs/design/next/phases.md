@@ -50,6 +50,25 @@ Exit: every open question has an answer and a date.
 
 Contract: [config.md](config.md).
 
+Progress, 2026-10-10: units 1.1, 1.2 and 1.3 are done, along with the code
+half of 1.5 and 1.6 (the shape pass exists as `config.LoadShape`; the parser
+rejects every old form with the new one in the message; the Go tests, the
+repo's `doze.hcl`, `examples/shop` and `doze init` are ported). Still to do:
+1.4, wiring `doze lint` to the shape pass, the website docs, and 1.7.
+
+Behaviour that is deliberately interim until a later phase replaces it:
+
+- `setup` runs on every start of an app and `stop` runs ahead of the
+  signals, as `hooks.pre_start` and `hooks.pre_stop` did. Once-per-data-folder
+  and stop-instead-of-signals arrive in phase 4.
+- An app with a `port` gets the `:80` route `forward = 80` used to ask for
+  (`direct = true` opts out). Phase 3 replaces the route with the front door.
+- `sleep`, `front`, `console`, `logs`, `watch` and `direct` are parsed and
+  checked on an app, and otherwise ignored.
+- `service` and `task` blocks are parsed, checked and visible to references.
+  `doze up` refuses a stack that declares one.
+- `$PORT`, `$DATA` and `$HOST` are not set yet (unit 3.5).
+
 | Unit | Work | Files |
 |---|---|---|
 | 1.1 | Parse `module <type> "<name>"`. Generalise the `use` rewrite into it. | `internal/config/use.go`, `load.go`, `shallow.go` |

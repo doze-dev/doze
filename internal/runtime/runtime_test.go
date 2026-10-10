@@ -65,10 +65,10 @@ func TestDependencyBootAndHold(t *testing.T) {
 	engine.Register(depDriver{})
 
 	cfg, err := config.Parse([]byte(`
-tleaf "base" { version = 1 }
-tdep "app" {
+module tleaf "base" { version = 1 }
+module tdep "app" {
   version = 1
-  base    = tleaf.base.name
+  base    = module.base.name
 }
 `), "", nil)
 	if err != nil {
@@ -111,7 +111,7 @@ func TestBackendCrashDetected(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
 	engine.Register(leafDriver{})
 
-	cfg, err := config.Parse([]byte("tleaf \"solo\" { version = 1 }\n"), "", nil)
+	cfg, err := config.Parse([]byte("module tleaf \"solo\" { version = 1 }\n"), "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

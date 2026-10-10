@@ -16,7 +16,7 @@ defaults {
 }
 
 # --- PostgreSQL -------------------------------------------------------------
-postgres "app_dev" {
+module postgres "app_dev" {
   version  = 16                  # major (newest minor), or an exact "16.14"
   port     = 5432
   owner    = "app"               # the role that owns the database
@@ -60,20 +60,20 @@ postgres "app_dev" {
 }
 
 # --- Valkey (Redis protocol, in-memory) -------------------------------------
-valkey "cache" {
+module valkey "cache" {
   version   = 9
   port      = 6379
   maxmemory = "256mb"
 }
 
 # --- Kvrocks (Redis protocol, RocksDB-backed) -------------------------------
-kvrocks "store" {
+module kvrocks "store" {
   version = 2
   port    = 6380
 }
 
 # --- FerretDB (MongoDB wire, Postgres under the hood) -----------------------
-ferret "events" {
+module ferret "events" {
   version = 2
   port    = 27017
 }
@@ -86,7 +86,7 @@ ferret "events" {
 # `doze env` exports AWS_ENDPOINT_URL plus dummy creds and a region, so an
 # unmodified AWS SDK or the `aws` CLI talks to it with no other change.
 
-aws "cloud" {
+module aws "cloud" {
   port = 4566
 
   bucket "uploads" {
@@ -107,30 +107,23 @@ aws "cloud" {
   }
 }
 
-# --- Application processes (no Docker) --------------------------------------
-# A `process` runs your app directly on the host, wired to the services above by
-# typed references. `doze up` boots the databases first, runs pre_start hooks
-# (migrations), starts the app, then waits for its health probe before streaming
-# logs. Uncomment and point `cwd` at a real app to try it.
+# --- Apps (no Docker) --------------------------------------------------------
+# An `app` runs your code directly on the host, wired to the modules above by
+# references. `doze up` boots the databases first, runs `setup` (migrations),
+# starts the app, then waits for `ready` before streaming logs. Uncomment and
+# point `dir` at a real app to try it.
 #
-# process "api" {
-#   cwd     = "../approvals-engine"
-#   command = "go run main.go -program api"
-#   port    = 8080
+# app "api" {
+#   dir  = "../approvals-engine"
+#   run  = "go run main.go -program api"
+#   port = 8080
 #
 #   env = {
-#     DATABASE_URL = postgres.app_dev.url   # typed ref → boots app_dev first
+#     DATABASE_URL = module.app_dev.url   # a reference → boots app_dev first
 #   }
 #
-#   hooks {
-#     pre_start = ["go run main.go -program migrate -command up"]
-#   }
-#
-#   health {
-#     http     = "http://localhost:8080/health/ready"
-#     interval = "2s"
-#     retries  = 30
-#   }
+#   setup = "go run main.go -program migrate -command up"
+#   ready = http("/health/ready")
 #
 #   restart {
 #     policy      = "on_failure"

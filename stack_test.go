@@ -12,14 +12,16 @@ import (
 )
 
 // TestStackHCLRender checks the builder renders faithful, parseable HCL for both
-// AddProcess and AddModule (including a raw Body fragment).
+// AddApp and AddModule (including a raw Body fragment).
 func TestStackHCLRender(t *testing.T) {
 	sb := doze.NewStack("shop").Domains(true).IdleTimeout(5 * time.Minute)
-	sb.AddProcess("worker", doze.Process{
-		Command: "python worker.py",
-		Env:     map[string]string{"LOG": "debug"},
-		Ingress: true,
-		Health:  &doze.Health{HTTP: "http://localhost:8080/health", Interval: "2s"},
+	sb.AddApp("worker", doze.App{
+		Run:   "python worker.py",
+		Port:  8080,
+		Env:   map[string]string{"LOG": "debug"},
+		Ready: &doze.Ready{HTTP: "/health", Timeout: "90s"},
+		Setup: []string{"make migrate"},
+		After: []string{"module.events"},
 	})
 	sb.AddModule("kafka", "events").Version("4").Port(9092).
 		Set("auto_create_topics", true).
@@ -27,13 +29,15 @@ func TestStackHCLRender(t *testing.T) {
 
 	got := sb.HCL()
 	for _, want := range []string{
-		`name = "shop"`,
+		`stack = "shop"`,
 		"domains = true",
-		`process "worker"`,
-		`command = "python worker.py"`,
-		"ingress = true",
-		"health {",
-		`kafka "events"`,
+		`app "worker"`,
+		`run = "python worker.py"`,
+		`ready = http("/health")`,
+		`ready_timeout = "90s"`,
+		`setup = ["make migrate"]`,
+		"after = [module.events]",
+		`module kafka "events"`,
 		"version = \"4\"",
 		"auto_create_topics = true",
 		`topic "orders"`,
@@ -61,8 +65,8 @@ func TestServeFromStack(t *testing.T) {
 	t.Setenv("DOZE_HOME", base)
 
 	sb := doze.NewStack("embedbuilt")
-	sb.AddProcess("ticker", doze.Process{
-		Command: "sh -c 'while true; do echo tick; sleep 1; done'",
+	sb.AddApp("ticker", doze.App{
+		Run: "sh -c 'while true; do echo tick; sleep 1; done'",
 	})
 
 	ctx := context.Background()

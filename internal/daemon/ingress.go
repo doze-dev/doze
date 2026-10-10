@@ -1,4 +1,4 @@
-// The shared HTTP ingress: processes declaring `ingress = true` are served at
+// The shared HTTP ingress: apps that declare a `port` are served at
 // http://<name>.<stack>.doze (port 80) — many services, one port, routed
 // by Host header. Every daemon writes its routes into <home>/ingress.json;
 // whichever daemon bound :80 first proxies for ALL stacks by re-reading that
@@ -28,7 +28,7 @@ import (
 )
 
 // IngressPort is the default HTTP front door for forwarded processes (the port a
-// bare `ingress = true` / `forward = 80` uses).
+// an app with a `port` uses).
 const IngressPort = 80
 
 // ingressRoute is one Host → local backend mapping.
@@ -303,7 +303,7 @@ func (h *ingressHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "doze ingress: no service at %q — processes opt in with `ingress = true`\n", host)
+		fmt.Fprintf(w, "doze ingress: no app at %q — an app is served here once it declares a `port`\n", host)
 		return
 	}
 	proxy.ServeHTTP(w, r)

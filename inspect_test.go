@@ -21,8 +21,8 @@ func TestLoadDaemonless(t *testing.T) {
 	t.Setenv("DOZE_HOME", base)
 
 	sb := doze.NewStack("static")
-	sb.AddProcess("api", doze.Process{Command: "sh -c 'sleep 1'", Port: 8080})
-	sb.AddProcess("worker", doze.Process{Command: "sh -c 'sleep 1'"})
+	sb.AddApp("api", doze.App{Run: "sh -c 'sleep 1'", Port: 8080})
+	sb.AddApp("worker", doze.App{Run: "sh -c 'sleep 1'"})
 
 	in, err := doze.Load(doze.Options{Stack: sb})
 	if err != nil {
@@ -60,8 +60,8 @@ func TestLoadInvalidIsLint(t *testing.T) {
 
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "doze.hcl")
-	// `nonsense` is not a known engine — a validation error.
-	if err := os.WriteFile(cfgPath, []byte("nonsense \"x\" {\n  foo = 1\n}\n"), 0o644); err != nil {
+	// `nonsense` is not a known module — a validation error.
+	if err := os.WriteFile(cfgPath, []byte("module nonsense \"x\" {\n  foo = 1\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	in, err := doze.Load(doze.Options{ConfigPath: cfgPath})

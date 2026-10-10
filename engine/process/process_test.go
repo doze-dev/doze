@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/hcl/v2/hclparse"
 
@@ -25,12 +26,12 @@ func decode(t *testing.T, src string) (*Config, error) {
 }
 
 func TestDecodeMinimal(t *testing.T) {
-	c, err := decode(t, `command = "go run ./..."`)
+	c, err := decode(t, `run = "go run ./..."`)
 	if err != nil {
-		t.Fatalf("minimal process should decode: %v", err)
+		t.Fatalf("minimal app should decode: %v", err)
 	}
-	if c.Command != "go run ./..." {
-		t.Fatalf("command = %q", c.Command)
+	if c.Run != "go run ./..." {
+		t.Fatalf("run = %q", c.Run)
 	}
 	if c.Restart.Policy != engine.RestartOnFailure {
 		t.Fatalf("default restart policy = %q, want on_failure", c.Restart.Policy)
@@ -38,51 +39,151 @@ func TestDecodeMinimal(t *testing.T) {
 	if c.Restart.MaxRetries <= 0 {
 		t.Fatalf("default restart should have a positive retry budget, got %d", c.Restart.MaxRetries)
 	}
-	if c.Health != nil {
-		t.Fatalf("no health block should leave Health nil")
+	if c.Ready != nil || c.readySpec() != nil {
+		t.Fatalf("a portless app with no `ready` should fall back to the liveness check")
 	}
 }
 
-func TestDecodeRequiresCommand(t *testing.T) {
-	if _, err := decode(t, `port = 8080`); err == nil {
-		t.Fatal("a process without a command should be rejected")
+func TestDecodeRequiresRun(t *testing.T) {
+	if _, err := decode(t, `dir = "."`); err == nil {
+		t.Fatal("an app without `run` should be rejected")
 	}
 }
 
-func TestDecodeHealthSingleKind(t *testing.T) {
-	if _, err := decode(t, `
-		command = "x"
-		health {
-			http = "http://localhost/h"
-			tcp  = "localhost:1"
+func TestReady(t *testing.T) {
+	for _, tc := range []struct {
+		name, src    string
+		port         int
+		kind, target string
+		retries      int
+	}{
+		{"default with a port is tcp", `run = "x"`, 8080, "tcp", "127.0.0.1:8080", 60},
+		{"tcp", `run = "x"
+			ready = tcp()`, 8080, "tcp", "127.0.0.1:8080", 60},
+		{"http", `run = "x"
+			ready = http("/healthz")
+			ready_timeout = "90s"`, 8080, "http", "http://127.0.0.1:8080/healthz", 90},
+		{"log is matched literally", `run = "x"
+			ready = log("listening on [::]")`, 0, "log_line", `listening on \[::\]`, 60},
+		{"exec", `run = "x"
+			ready = exec("pg_isready")`, 0, "exec", "pg_isready", 60},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := decode(t, tc.src)
+			if err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if err := c.BindPort(tc.port); err != nil {
+				t.Fatalf("BindPort: %v", err)
+			}
+			r := c.readySpec()
+			if r == nil || r.Kind != tc.kind || r.Target != tc.target || r.Retries != tc.retries {
+				t.Fatalf("ready = %+v, want %s %s ×%d", r, tc.kind, tc.target, tc.retries)
+			}
+		})
+	}
+
+	for name, src := range map[string]string{
+		"a bare string":       `ready = "/healthz"`,
+		"http without a path": `ready = http("healthz")`,
+		"an empty log":        `ready = log("")`,
+		"a bad timeout":       `ready_timeout = "soon"`,
+	} {
+		if _, err := decode(t, "run = \"x\"\n"+src); err == nil {
+			t.Errorf("%s should be rejected", name)
 		}
-	`); err == nil {
-		t.Fatal("two probe kinds in one health block should be rejected")
 	}
+
+	c, err := decode(t, `run = "x"
+		ready = http("/healthz")`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.BindPort(0); err == nil {
+		t.Error("http() with no port to probe should be rejected")
+	}
+}
+
+func TestSteps(t *testing.T) {
 	c, err := decode(t, `
-		command = "x"
-		health {
-			http    = "http://localhost/h"
-			retries = 5
-		}
+		run      = "x"
+		setup    = "make migrate"
+		on_ready = ["make seed", "make warm"]
+		stop     = "make drain"
 	`)
 	if err != nil {
-		t.Fatalf("single-kind health should decode: %v", err)
+		t.Fatalf("decode: %v", err)
 	}
-	if c.Health.Kind != "http" || c.Health.Target != "http://localhost/h" {
-		t.Fatalf("health = %+v", c.Health)
+	if len(c.Setup) != 1 || c.Setup[0] != "make migrate" || len(c.OnReady) != 2 || len(c.Stop) != 1 {
+		t.Fatalf("steps = %v / %v / %v", c.Setup, c.OnReady, c.Stop)
 	}
-	if c.Health.Retries != 5 {
-		t.Fatalf("retries = %d, want 5", c.Health.Retries)
+	if _, err := decode(t, `run = "x"
+		setup = 3`); err == nil {
+		t.Error("a non-string step should be rejected")
 	}
-	if c.Health.Interval != defaultHealthInterval {
-		t.Fatalf("interval default = %s", c.Health.Interval)
+}
+
+func TestSettings(t *testing.T) {
+	c, err := decode(t, `
+		run     = "x"
+		sleep   = "10m"
+		logs    = "quiet"
+		console = "http://localhost:9000"
+		front   = "console"
+		watch   = ["**/*.go"]
+		direct  = true
+	`)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if c.Sleep.After != 10*time.Minute || !c.QuietLogs || !c.Direct || c.Front != "console" || len(c.Watch) != 1 {
+		t.Fatalf("settings = %+v", c)
+	}
+	for name, src := range map[string]string{
+		"a bad sleep":   `sleep = "later"`,
+		"a bad logs":    `logs = "loud"`,
+		"a bad console": `console = "localhost:9000"`,
+	} {
+		if _, err := decode(t, "run = \"x\"\n"+src); err == nil {
+			t.Errorf("%s should be rejected", name)
+		}
+	}
+}
+
+func TestForwardPort(t *testing.T) {
+	c, _ := decode(t, `run = "x"`)
+	if c.ForwardPort() != 0 {
+		t.Fatal("a portless app is not forwarded")
+	}
+	_ = c.BindPort(8080)
+	if c.ForwardPort() != 80 {
+		t.Fatalf("an app with a port is named automatically, got %d", c.ForwardPort())
+	}
+	c.Direct = true
+	if c.ForwardPort() != 0 {
+		t.Fatal("direct = true opts out")
+	}
+}
+
+func TestOldFormsNameTheirReplacement(t *testing.T) {
+	for src, want := range map[string]string{
+		`command = "x"`:               "use `run`",
+		"run = \"x\"\ncwd = \"..\"":   "use `dir`",
+		"run = \"x\"\nforward = 80":   "named automatically",
+		"run = \"x\"\nhooks {}":       "`setup`, `on_ready` and `stop`",
+		"run = \"x\"\nhealth {}":      "`ready`",
+		"run = \"x\"\ningress = true": "named automatically",
+	} {
+		_, err := decode(t, src)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: error = %v, want it to mention %q", src, err, want)
+		}
 	}
 }
 
 func TestDecodeRestartDefaults(t *testing.T) {
 	c, err := decode(t, `
-		command = "x"
+		run = "x"
 		restart { policy = "always" }
 	`)
 	if err != nil {
@@ -97,7 +198,7 @@ func TestDecodeRestartDefaults(t *testing.T) {
 
 	// `policy = "no"` opts out: zero retry budget so the runtime never restarts.
 	off, err := decode(t, `
-		command = "x"
+		run = "x"
 		restart { policy = "no" }
 	`)
 	if err != nil {
@@ -106,7 +207,7 @@ func TestDecodeRestartDefaults(t *testing.T) {
 	if off.Restart.Policy != engine.RestartNo || off.Restart.MaxRetries != 0 {
 		t.Fatalf("policy=no should zero retries, got policy=%q retries=%d", off.Restart.Policy, off.Restart.MaxRetries)
 	}
-	if _, err := decode(t, `command = "x"
+	if _, err := decode(t, `run = "x"
 		restart { policy = "sometimes" }`); err == nil {
 		t.Fatal("an invalid restart policy should be rejected")
 	}

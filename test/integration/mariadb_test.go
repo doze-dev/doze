@@ -21,7 +21,7 @@ func mariadbQ(t *testing.T, addr, sql string) (string, error) {
 // exist in the running backend.
 func TestMariaDBConverge(t *testing.T) {
 	port := FreePort(t)
-	cfg := fmt.Sprintf(`mariadb "shop" {
+	cfg := fmt.Sprintf(`module mariadb "shop" {
   version = "11.4"
   port    = %d
 

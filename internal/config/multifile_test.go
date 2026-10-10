@@ -22,13 +22,13 @@ func TestLoadMergesSiblingDozeHCL(t *testing.T) {
 	main := filepath.Join(dir, "doze.hcl")
 	write(t, main, `
 defaults { idle_timeout = "1m" }
-fake "a" {
+module fake "a" {
   version = "1"
   port    = 7001
 }
 `)
 	write(t, filepath.Join(dir, "extra.doze.hcl"), `
-fake "b" {
+module fake "b" {
   version = "1"
   port    = 7002
 }
@@ -48,11 +48,11 @@ fake "b" {
 
 func TestLoadDirectory(t *testing.T) {
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, "00-root.hcl"), `fake "a" {
+	write(t, filepath.Join(dir, "00-root.hcl"), `module fake "a" {
   version = "1"
   port    = 7001
 }`)
-	write(t, filepath.Join(dir, "10-more.hcl"), `fake "b" {
+	write(t, filepath.Join(dir, "10-more.hcl"), `module fake "b" {
   version = "1"
   port    = 7002
 }`)
@@ -69,11 +69,11 @@ func TestLoadDirectory(t *testing.T) {
 func TestDuplicateAcrossFiles(t *testing.T) {
 	dir := t.TempDir()
 	main := filepath.Join(dir, "doze.hcl")
-	write(t, main, `fake "dup" { version = "1" }`)
-	write(t, filepath.Join(dir, "x.doze.hcl"), `fake "dup" { version = "1" }`)
+	write(t, main, `module fake "dup" { version = "1" }`)
+	write(t, filepath.Join(dir, "x.doze.hcl"), `module fake "dup" { version = "1" }`)
 
 	_, err := Load(main, nil)
-	if err == nil || !strings.Contains(err.Error(), "already declared") {
+	if err == nil || !strings.Contains(err.Error(), "already taken") {
 		t.Fatalf("expected cross-file duplicate error, got %v", err)
 	}
 	// The positioned error should name the first declaration's file.
@@ -83,14 +83,14 @@ func TestDuplicateAcrossFiles(t *testing.T) {
 }
 
 func TestUnknownBlockSuggests(t *testing.T) {
-	_, err := Parse([]byte(`fak "a" { version = "1" }`), "doze.hcl", nil)
-	if err == nil || !strings.Contains(err.Error(), `did you mean "fake"`) {
+	_, err := Parse([]byte(`module fak "a" { version = "1" }`), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), `Did you mean "fake"?`) {
 		t.Fatalf("expected did-you-mean suggestion, got %v", err)
 	}
 }
 
 func TestPositionedMissingVersion(t *testing.T) {
-	_, err := Parse([]byte("fake \"a\" {\n}\n"), "doze.hcl", nil)
+	_, err := Parse([]byte("module fake \"a\" {\n}\n"), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "missing required") {
 		t.Fatalf("expected missing-version error, got %v", err)
 	}

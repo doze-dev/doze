@@ -9,8 +9,7 @@ import (
 )
 
 // Stack builds a doze stack programmatically — the config-less alternative to
-// an HCL file. Add services with AddProcess (the built-in supervised-process
-// engine, typed) and AddModule (any module engine — postgres, valkey, kafka,
+// an HCL file. Add your own code with AddApp (typed) and engines with AddModule (any module engine — postgres, valkey, kafka,
 // s3, … — whose body is expressed as HCL since it is decoded out-of-process).
 // Pass the Stack to Serve/Attach via Options.Stack, or render it with HCL().
 //
@@ -23,7 +22,7 @@ type Stack struct {
 	idleTimeout time.Duration
 	blocks      []blockRenderer
 	// rawPreamble is set by LoadStack: the verbatim top-level of a loaded config
-	// (name attribute + defaults/tls/modules blocks). When present, HCL() emits it
+	// (stack attribute + defaults/tls/modules blocks). When present, HCL() emits it
 	// instead of synthesizing the header — so a round-trip preserves the original.
 	rawPreamble string
 }
@@ -42,10 +41,10 @@ func (s *Stack) Domains(on bool) *Stack { s.domains = &on; return s }
 // IdleTimeout sets how long an idle backend lives before the reaper stops it.
 func (s *Stack) IdleTimeout(d time.Duration) *Stack { s.idleTimeout = d; return s }
 
-// AddProcess adds a supervised process (the first-class core engine). It
-// returns the Stack for chaining.
-func (s *Stack) AddProcess(name string, p Process) *Stack {
-	s.blocks = append(s.blocks, &processBlock{name: name, p: p})
+// AddApp adds an app: a long-running command that is your code. It returns
+// the Stack for chaining.
+func (s *Stack) AddApp(name string, a App) *Stack {
+	s.blocks = append(s.blocks, &appBlock{name: name, a: a})
 	return s
 }
 
@@ -72,9 +71,9 @@ func (m *Module) blockHCL() string {
 	return b.String()
 }
 
-func (p Process) blockHCL(name string) string {
+func (a App) blockHCL(name string) string {
 	var b strings.Builder
-	(&processBlock{name: name, p: p}).render(&b)
+	(&appBlock{name: name, a: a}).render(&b)
 	return b.String()
 }
 
@@ -87,7 +86,7 @@ func (s *Stack) HCL() string {
 		b.WriteString("\n\n")
 	} else {
 		if s.name != "" {
-			fmt.Fprintf(&b, "name = %s\n\n", hclString(s.name))
+			fmt.Fprintf(&b, "stack = %s\n\n", hclString(s.name))
 		}
 		if s.domains != nil || s.idleTimeout != 0 {
 			b.WriteString("defaults {\n")
@@ -183,7 +182,7 @@ func (m *Module) Set(key string, value any) *Module {
 }
 
 // Body appends a raw HCL body fragment — the way to express nested blocks
-// (role "app" {}, target { arn = sqs.jobs.arn }) and cross-service references.
+// (role "app" {}, target { arn = module.jobs.arn }) and cross-service references.
 func (m *Module) Body(hcl string) *Module {
 	m.bodies = append(m.bodies, strings.TrimRight(hcl, "\n"))
 	return m
@@ -192,7 +191,7 @@ func (m *Module) Body(hcl string) *Module {
 func (m *Module) instanceName() string { return m.name }
 
 func (m *Module) render(b *strings.Builder) {
-	fmt.Fprintf(b, "%s %s {\n", m.engine, hclString(m.name))
+	fmt.Fprintf(b, "module %s %s {\n", m.engine, hclString(m.name))
 	if m.version != "" {
 		fmt.Fprintf(b, "  version = %s\n", hclString(m.version))
 	}
@@ -220,121 +219,111 @@ func (m *Module) render(b *strings.Builder) {
 	b.WriteString("}\n")
 }
 
-// --- process block ---
+// --- app block ---
 
-// Process is the typed configuration of a supervised process, mirroring the
-// `process` block. Command is required.
-type Process struct {
-	Command   string
-	Cwd       string
-	Port      int
-	Ingress   bool
-	Forward   int // forward port for an ingress process
-	Env       map[string]string
-	EnvFile   string
-	Health    *Health
-	Restart   *Restart
-	Hooks     *Hooks
-	Group     string
+// App is the typed configuration of an app: a long-running command that is
+// your code, mirroring the `app` block. Run is required.
+type App struct {
+	Run     string
+	Dir     string
+	Port    int
+	Env     map[string]string
+	EnvFile string
+	Ready   *Ready
+	Restart *Restart
+	// Setup runs before the app starts, OnReady once it is ready, Stop before
+	// it is signalled.
+	Setup   []string
+	OnReady []string
+	Stop    []string
+	// Direct keeps an app that declares a Port off the shared ingress.
+	Direct bool
+	// After names blocks to wait for, as references: "module.db", "app.api".
+	After     []string
 	DependsOn []string
 	Enabled   *bool // default true
 }
 
-// Health is a process readiness/liveness probe (set exactly one of the targets).
-type Health struct {
-	HTTP     string
-	TCP      string
-	Exec     string
-	LogLine  string
-	Interval string // Go duration string, e.g. "2s"
-	Timeout  string
-	Retries  int
+// Ready is an app's readiness probe: set exactly one of HTTP (a path on the
+// app's own port, "/healthz"), TCP (the app's port accepts a connection), Log
+// (text the app prints) or Exec (a command that exits 0).
+type Ready struct {
+	HTTP    string
+	TCP     bool
+	Log     string
+	Exec    string
+	Timeout string // Go duration string, e.g. "90s"; how long the app gets to become ready
 }
 
 // Restart is the supervisor restart policy for an unexpected exit.
 type Restart struct {
-	Policy     string // "always" | "on-failure" | "never"
+	Policy     string // "always" | "on_failure" | "no"
 	Backoff    string // Go duration string
 	MaxRetries int
 }
 
-// Hooks are lifecycle command hooks.
-type Hooks struct {
-	PreStart  []string
-	PostStart []string
-	PreStop   []string
-}
-
-type processBlock struct {
+type appBlock struct {
 	name string
-	p    Process
+	a    App
 }
 
-func (pb *processBlock) instanceName() string { return pb.name }
+func (ab *appBlock) instanceName() string { return ab.name }
 
-func (pb *processBlock) render(b *strings.Builder) {
-	p := pb.p
-	fmt.Fprintf(b, "process %s {\n", hclString(pb.name))
-	fmt.Fprintf(b, "  command = %s\n", hclString(p.Command))
-	if p.Cwd != "" {
-		fmt.Fprintf(b, "  cwd = %s\n", hclString(p.Cwd))
+func (ab *appBlock) render(b *strings.Builder) {
+	a := ab.a
+	fmt.Fprintf(b, "app %s {\n", hclString(ab.name))
+	fmt.Fprintf(b, "  run = %s\n", hclString(a.Run))
+	if a.Dir != "" {
+		fmt.Fprintf(b, "  dir = %s\n", hclString(a.Dir))
 	}
-	if p.Port != 0 {
-		fmt.Fprintf(b, "  port = %d\n", p.Port)
+	if a.Port != 0 {
+		fmt.Fprintf(b, "  port = %d\n", a.Port)
 	}
-	if p.Ingress {
-		b.WriteString("  ingress = true\n")
+	if a.Direct {
+		b.WriteString("  direct = true\n")
 	}
-	if p.Forward != 0 {
-		fmt.Fprintf(b, "  forward = %d\n", p.Forward)
+	if a.EnvFile != "" {
+		fmt.Fprintf(b, "  env_file = %s\n", hclString(a.EnvFile))
 	}
-	if p.EnvFile != "" {
-		fmt.Fprintf(b, "  env_file = %s\n", hclString(p.EnvFile))
+	if len(a.Env) > 0 {
+		fmt.Fprintf(b, "  env = %s\n", hclStringMap(a.Env))
 	}
-	if len(p.Env) > 0 {
-		fmt.Fprintf(b, "  env = %s\n", hclStringMap(p.Env))
+	if a.Enabled != nil {
+		fmt.Fprintf(b, "  enabled = %s\n", strconv.FormatBool(*a.Enabled))
 	}
-	if p.Group != "" {
-		fmt.Fprintf(b, "  group = %s\n", hclString(p.Group))
+	if len(a.After) > 0 {
+		fmt.Fprintf(b, "  after = [%s]\n", strings.Join(a.After, ", "))
 	}
-	if p.Enabled != nil {
-		fmt.Fprintf(b, "  enabled = %s\n", strconv.FormatBool(*p.Enabled))
+	if len(a.DependsOn) > 0 {
+		fmt.Fprintf(b, "  depends_on = %s\n", hclDependsMap(a.DependsOn))
 	}
-	if len(p.DependsOn) > 0 {
-		fmt.Fprintf(b, "  depends_on = %s\n", hclDependsMap(p.DependsOn))
-	}
-	if h := p.Health; h != nil {
-		b.WriteString("  health {\n")
-		writeOptAttr(b, "    ", "http", h.HTTP)
-		writeOptAttr(b, "    ", "tcp", h.TCP)
-		writeOptAttr(b, "    ", "exec", h.Exec)
-		writeOptAttr(b, "    ", "log_line", h.LogLine)
-		writeOptAttr(b, "    ", "interval", h.Interval)
-		writeOptAttr(b, "    ", "timeout", h.Timeout)
-		if h.Retries != 0 {
-			fmt.Fprintf(b, "    retries = %d\n", h.Retries)
+	if r := a.Ready; r != nil {
+		switch {
+		case r.HTTP != "":
+			fmt.Fprintf(b, "  ready = http(%s)\n", hclString(r.HTTP))
+		case r.Log != "":
+			fmt.Fprintf(b, "  ready = log(%s)\n", hclString(r.Log))
+		case r.Exec != "":
+			fmt.Fprintf(b, "  ready = exec(%s)\n", hclString(r.Exec))
+		case r.TCP:
+			b.WriteString("  ready = tcp()\n")
 		}
-		b.WriteString("  }\n")
+		writeOptAttr(b, "  ", "ready_timeout", r.Timeout)
 	}
-	if r := p.Restart; r != nil {
+	for _, steps := range []struct {
+		attr  string
+		lines []string
+	}{{"setup", a.Setup}, {"on_ready", a.OnReady}, {"stop", a.Stop}} {
+		if len(steps.lines) > 0 {
+			fmt.Fprintf(b, "  %s = %s\n", steps.attr, hclStringList(steps.lines))
+		}
+	}
+	if r := a.Restart; r != nil {
 		b.WriteString("  restart {\n")
 		writeOptAttr(b, "    ", "policy", r.Policy)
 		writeOptAttr(b, "    ", "backoff", r.Backoff)
 		if r.MaxRetries != 0 {
 			fmt.Fprintf(b, "    max_retries = %d\n", r.MaxRetries)
-		}
-		b.WriteString("  }\n")
-	}
-	if hk := p.Hooks; hk != nil {
-		b.WriteString("  hooks {\n")
-		if len(hk.PreStart) > 0 {
-			fmt.Fprintf(b, "    pre_start = %s\n", hclStringList(hk.PreStart))
-		}
-		if len(hk.PostStart) > 0 {
-			fmt.Fprintf(b, "    post_start = %s\n", hclStringList(hk.PostStart))
-		}
-		if len(hk.PreStop) > 0 {
-			fmt.Fprintf(b, "    pre_stop = %s\n", hclStringList(hk.PreStop))
 		}
 		b.WriteString("  }\n")
 	}

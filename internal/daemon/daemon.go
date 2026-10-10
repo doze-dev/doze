@@ -94,6 +94,9 @@ type instHandle struct {
 // New builds a Daemon for cfg. hooks is the module integration passed to
 // config.Parse when a live-added instance block is decoded; nil means pure parse.
 func New(cfg *config.Config, logf func(string, ...any), hooks *config.Hooks) (*Daemon, error) {
+	if err := cfg.Unbuilt(); err != nil {
+		return nil, err
+	}
 	rt, err := runtime.New(cfg)
 	if err != nil {
 		return nil, err
@@ -232,7 +235,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return err
 	}
 	defer releaseStack()
-	// HTTP ingress: processes with `ingress = true` share :80, routed by Host.
+	// HTTP ingress: apps that declare a `port` share :80, routed by Host.
 	releaseIngress, err := d.setupIngress(ctx, eps, plan, awsRoutes)
 	if err != nil {
 		return err

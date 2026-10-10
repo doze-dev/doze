@@ -34,8 +34,8 @@ func TestAttachFromStack(t *testing.T) {
 	}
 
 	sb := doze.NewStack("attachtest")
-	sb.AddProcess("first", doze.Process{
-		Command: "sh -c 'while true; do echo one; sleep 1; done'",
+	sb.AddApp("first", doze.App{
+		Run: "sh -c 'while true; do echo one; sleep 1; done'",
 	})
 
 	ctx := context.Background()
@@ -68,11 +68,11 @@ func TestAttachFromStack(t *testing.T) {
 	// Live-add a second process against the BACKGROUND daemon (proves Attach mode).
 	addCtx, addCancel := context.WithTimeout(ctx, 40*time.Second)
 	defer addCancel()
-	inst, err := sess.AddProcess(addCtx, "second", doze.Process{
-		Command: "sh -c 'while true; do echo two; sleep 1; done'",
+	inst, err := sess.AddApp(addCtx, "second", doze.App{
+		Run: "sh -c 'while true; do echo two; sleep 1; done'",
 	})
 	if err != nil {
-		t.Fatalf("AddProcess (attach): %v", err)
+		t.Fatalf("AddApp (attach): %v", err)
 	}
 	if inst.PID == 0 {
 		t.Fatalf("live-added process not running: %+v", inst)

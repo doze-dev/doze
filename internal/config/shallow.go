@@ -1,8 +1,6 @@
 package config
 
 import (
-	"os"
-
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -10,10 +8,11 @@ import (
 	"github.com/zclconf/go-cty/cty/convert"
 )
 
-// ShallowDecl is one engine block header from a shallow load: the type, label,
-// and declared engine version — nothing that needs a driver.
+// ShallowDecl is one module or app block header from a shallow load: the kind,
+// engine type, name, and declared engine version — nothing that needs a driver.
 type ShallowDecl struct {
-	Type    string
+	Kind    string // KindModule or KindApp
+	Type    string // the engine type; AppEngine for an app
 	Name    string
 	Version string // "" when unset or not statically evaluable (a var reference)
 }
@@ -28,10 +27,10 @@ type ShallowConfig struct {
 // Path returns the primary config path the shallow load anchored on.
 func (c *ShallowConfig) Path() string { return c.path }
 
-// LoadShallow reads just the modules{} block and the engine block headers
-// (type, name, declared version) from the config at path — no driver lookup, no
-// plugin launch, no body decode, no hooks. It exists for commands that must run
-// when the full load can't: `doze modules upgrade` fixes the exact
+// LoadShallow reads just the modules{} block and the module and app block
+// headers (type, name, declared version) from the config at path — no driver
+// lookup, no plugin launch, no body decode, no hooks. It exists for commands that
+// must run when the full load can't: `doze modules upgrade` fixes the exact
 // protocol/engine-support gates that fail a full load, so it cannot depend on
 // one succeeding. Versions referencing variables are returned empty (the module
 // requirement is simply not narrowed by them here).
@@ -43,28 +42,23 @@ func LoadShallow(path string) (*ShallowConfig, error) {
 	parser := hclparse.NewParser()
 	hclFiles := make([]*hcl.File, 0, len(files))
 	for _, f := range files {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			return nil, err
-		}
-		src, err = rewriteUseBlocks(src, f)
-		if err != nil {
-			return nil, err
-		}
-		hf, diags := parser.ParseHCL(src, f)
+		hf, diags := parser.ParseHCLFile(f)
 		if diags.HasErrors() {
 			return nil, diagError(parser, diags)
 		}
 		hclFiles = append(hclFiles, hf)
 	}
+	if err := checkOldForms(parser, hclFiles); err != nil {
+		return nil, err
+	}
 	merged := hcl.MergeFiles(hclFiles)
 
 	out := &ShallowConfig{path: primary}
-	types := engineBlockTypes(hclFiles)
-	schema := &hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{{Type: "modules"}}}
-	for _, t := range types {
-		schema.Blocks = append(schema.Blocks, hcl.BlockHeaderSchema{Type: t, LabelNames: []string{"name"}})
-	}
+	schema := &hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{
+		{Type: "modules"},
+		{Type: KindModule, LabelNames: []string{"type", "name"}},
+		{Type: KindApp, LabelNames: []string{"name"}},
+	}}
 	content, _, _ := merged.PartialContent(schema)
 	for _, block := range content.Blocks {
 		if block.Type == "modules" {
@@ -83,9 +77,9 @@ func LoadShallow(path string) (*ShallowConfig, error) {
 			}
 			continue
 		}
-		decl := ShallowDecl{Type: block.Type}
-		if len(block.Labels) == 1 {
-			decl.Name = block.Labels[0]
+		decl := ShallowDecl{Kind: KindApp, Type: AppEngine, Name: block.Labels[0]}
+		if block.Type == KindModule {
+			decl = ShallowDecl{Kind: KindModule, Type: block.Labels[0], Name: block.Labels[1]}
 		}
 		attrs, _, _ := block.Body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "version"}}})
 		if attr, ok := attrs.Attributes["version"]; ok {

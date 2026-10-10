@@ -75,15 +75,15 @@ func dedupeDiags(diags hcl.Diagnostics) hcl.Diagnostics {
 }
 
 // addFixHints appends an actionable fix to HCL grammar errors that are easy to hit
-// but cryptic on their own. The common one for the short health/restart blocks is
+// but cryptic on their own. The common one for a short block such as restart is
 // writing several arguments on one line, which HCL's single-line block grammar
 // forbids — the raw message never says "use multiple lines", so we add that.
 func addFixHints(diags hcl.Diagnostics) {
 	const hint = "\n\nHCL single-line blocks take exactly one argument; put each on its " +
 		"own line instead:\n" +
-		"    health {\n" +
-		"      http     = \"http://localhost:8080/health\"\n" +
-		"      interval = \"2s\"\n" +
+		"    restart {\n" +
+		"      policy      = \"on_failure\"\n" +
+		"      max_retries = 5\n" +
 		"    }"
 	for _, d := range diags {
 		if d == nil {

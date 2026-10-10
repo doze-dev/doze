@@ -22,8 +22,8 @@ func TestDogfoodStaticCommands(t *testing.T) {
 	t.Setenv("DOZE_HOME", base)
 
 	sb := doze.NewStack("shop")
-	sb.AddProcess("api", doze.Process{Command: "sh -c 'sleep 1'", Port: 8080})
-	sb.AddProcess("worker", doze.Process{Command: "sh -c 'sleep 1'", DependsOn: []string{"api"}})
+	sb.AddApp("api", doze.App{Run: "sh -c 'sleep 1'", Port: 8080})
+	sb.AddApp("worker", doze.App{Run: "sh -c 'sleep 1'", DependsOn: []string{"api"}})
 
 	in, err := doze.Load(doze.Options{Stack: sb})
 	if err != nil {

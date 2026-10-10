@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/runspec"
 )
 
 func init() { engine.Register(Driver{}) }
@@ -91,40 +92,50 @@ func (Driver) Provisioned(dataDir string) bool {
 }
 
 // Plan implements engine.Spawner: a process is a single supervised spec — run the
-// command via `sh -c` in its cwd with the merged environment, killed as a process
+// command via `sh -c` in its dir with the merged environment, killed as a process
 // group, gated on its health probe (or a brief liveness check for a worker). Core
 // executes and supervises it.
 func (Driver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) (engine.SpawnPlan, error) {
 	cfg, ok := inst.Spec.(*Config)
 	if !ok {
-		return engine.SpawnPlan{}, fmt.Errorf("process %q: missing config", inst.Name)
+		return engine.SpawnPlan{}, fmt.Errorf("app %q: missing config", inst.Name)
 	}
-	if fi, err := os.Stat(cfg.Cwd); err != nil || !fi.IsDir() {
-		return engine.SpawnPlan{}, fmt.Errorf("process %q: working dir %q does not exist", inst.Name, cfg.Cwd)
+	if fi, err := os.Stat(cfg.Dir); err != nil || !fi.IsDir() {
+		return engine.SpawnPlan{}, fmt.Errorf("app %q: dir %q does not exist", inst.Name, cfg.Dir)
 	}
 	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
 		Name:  inst.Name,
-		Dir:   cfg.Cwd,
+		Dir:   cfg.Dir,
 		Bin:   "sh",
-		Args:  []string{"-c", cfg.Command},
+		Args:  []string{"-c", cfg.Run},
 		Env:   cfg.mergedEnv(),
 		Tree:  true, // reap `go run`/`bun` and all children as a group
 		Ready: cfg.readySpec(),
 	}}}, nil
 }
 
-// readySpec translates the optional health block into a core readiness probe
-// (nil → a brief liveness check, for a worker with no endpoint).
+// readySpec translates `ready` into a core readiness probe. With no `ready`, an
+// app that declares a port is ready when the port accepts a connection, and a
+// portless one (a worker) gets nil: a brief liveness check.
 func (c *Config) readySpec() *engine.Ready {
-	if c.Health == nil {
-		return nil
+	probe := c.Ready
+	if probe == nil {
+		if c.declaredPort == 0 {
+			return nil
+		}
+		probe = &runspec.Probe{Kind: "tcp"}
 	}
+	timeout := c.ReadyTimeout
+	if timeout <= 0 {
+		timeout = runspec.DefaultReadyTimeout
+	}
+	kind, target := probe.Target(c.declaredPort)
 	return &engine.Ready{
-		Kind:     c.Health.Kind,
-		Target:   c.Health.Target,
-		Interval: c.Health.Interval,
-		Timeout:  c.Health.Timeout,
-		Retries:  c.Health.Retries,
+		Kind:     kind,
+		Target:   target,
+		Interval: readyInterval,
+		Timeout:  readyProbeTimeout,
+		Retries:  int(timeout / readyInterval),
 	}
 }
 
@@ -140,7 +151,7 @@ func (Driver) ConnString(engine.Instance, engine.Endpoint) (string, string) { re
 // mergedEnv builds the child environment, lowest precedence first: the daemon's
 // own environment (PATH, HOME, …), then the env_file, then the explicit env{}
 // block. doze does not inject anything — a process gets exactly the env it
-// declares (the env block can reference peers, e.g. DATABASE_URL = postgres.app.url).
+// declares (the env block can reference peers, e.g. DATABASE_URL = module.app.url).
 func (c *Config) mergedEnv() []string {
 	merged := map[string]string{}
 	for _, kv := range os.Environ() {

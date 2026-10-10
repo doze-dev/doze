@@ -10,10 +10,10 @@ import (
 )
 
 // LoadStack parses an existing HCL config into an editable Stack — the
-// round-trip: read the current topology, mutate it (AddProcess/AddModule/
+// round-trip: read the current topology, mutate it (AddApp/AddModule/
 // Remove), then re-render (HCL) or serve it. Existing service blocks are
 // retained verbatim (their config is the opaque plugin-decoded spec, so only the
-// original source renders back exactly); the top-level (name + defaults/tls/
+// original source renders back exactly); the top-level (stack + defaults/tls/
 // modules) is preserved as-is. It does not validate — call Validate or Load for
 // that. Daemon-less; reads no plugins.
 func LoadStack(path string) (*Stack, error) {
@@ -29,10 +29,10 @@ func LoadStack(path string) (*Stack, error) {
 
 	s := &Stack{}
 	var pre strings.Builder
-	if attr := body.GetAttribute("name"); attr != nil {
+	if attr := body.GetAttribute("stack"); attr != nil {
 		name := strings.Trim(string(attr.Expr().BuildTokens(nil).Bytes()), " \t\"")
 		s.name = name
-		fmt.Fprintf(&pre, "name = %q\n\n", name)
+		fmt.Fprintf(&pre, "stack = %q\n\n", name)
 	}
 	for _, blk := range body.Blocks() {
 		switch blk.Type() {
@@ -43,10 +43,10 @@ func LoadStack(path string) (*Stack, error) {
 				pre.WriteString("\n")
 			}
 		default:
-			// An engine instance block: type = engine, label = instance name.
+			// A module, app, service or task block: the name is its last label.
 			name := ""
 			if labels := blk.Labels(); len(labels) > 0 {
-				name = labels[0]
+				name = labels[len(labels)-1]
 			}
 			text := strings.TrimRight(string(blk.BuildTokens(nil).Bytes()), "\n")
 			s.blocks = append(s.blocks, &rawBlock{name: name, text: text})

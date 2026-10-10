@@ -26,7 +26,7 @@ import (
 // another service that couldn't resolve because the block was decoded alone.
 func looksLikeUnresolvedRef(err error) bool {
 	msg := err.Error()
-	for _, s := range []string{"Unknown variable", "Variables not allowed", "no such variable", "There is no variable named"} {
+	for _, s := range []string{"Unknown variable", "Variables not allowed", "no such variable", "There is no variable named", "reference to undeclared"} {
 		if strings.Contains(msg, s) {
 			return true
 		}
@@ -75,8 +75,11 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 		}
 		return "", fmt.Errorf("decoding block: %w", err)
 	}
+	if err := mini.Unbuilt(); err != nil {
+		return "", err
+	}
 	if len(mini.Instances) != 1 {
-		return "", fmt.Errorf("expected exactly one instance block, got %d", len(mini.Instances))
+		return "", fmt.Errorf("expected exactly one module or app block, got %d", len(mini.Instances))
 	}
 	decl := mini.Instances[0]
 

@@ -18,7 +18,7 @@ func TestFerretConvergeAndSeed(t *testing.T) {
 	mongosh := mustTool(t, "DOZE_FERRET_BINDIR", "mongosh")
 
 	port := FreePort(t)
-	cfg := fmt.Sprintf(`ferret "shop" {
+	cfg := fmt.Sprintf(`module ferret "shop" {
   version = "2.7"
   port    = %d
 

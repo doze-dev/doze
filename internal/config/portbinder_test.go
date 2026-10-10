@@ -59,13 +59,13 @@ func (fakeProcDriver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, _ string
 
 func TestPortBinderAdvertisesOwnAddress(t *testing.T) {
 	src := `
-fake "db" {
+module fake "db" {
   version = 1
   port    = 5432
 }
-fakeproc "api" {
+module fakeproc "api" {
   port = 9090
-  env  = { DATABASE_URL = fake.db.url }
+  env  = { DATABASE_URL = module.db.url }
 }
 `
 	cfg, err := Parse([]byte(src), "doze.hcl", nil)
@@ -83,7 +83,7 @@ fakeproc "api" {
 	if addr != "127.0.0.1:9090" {
 		t.Errorf("InstanceAddr(api) = %q, want the app's own port 127.0.0.1:9090", addr)
 	}
-	// The env reference to fake.db.url must create a dependency edge.
+	// The env reference to module.db.url must create a dependency edge.
 	var dep bool
 	for _, d := range api.Deps {
 		if d.Name == "db" {
@@ -99,7 +99,7 @@ func TestSingleLineBlockErrorHasFixHint(t *testing.T) {
 	// A multi-argument single-line block is invalid HCL; doze should turn the
 	// cryptic grammar error into an actionable "put each on its own line" hint.
 	src := `
-fakeproc "api" {
+module fakeproc "api" {
   health { http = "http://x" interval = "2s" }
 }
 `
@@ -116,7 +116,7 @@ func TestMissingPortIsAClearError(t *testing.T) {
 	// doze does not auto-assign ports; a portless instance must fail with a clear,
 	// actionable message at load time (not a silent fallback or an opaque bind error).
 	dir := t.TempDir()
-	writeFile(t, dir, "doze.hcl", `fake "db" { version = 1 }`) // a proxied engine needs a port
+	writeFile(t, dir, "doze.hcl", `module fake "db" { version = 1 }`) // a proxied engine needs a port
 	_, err := Load(dir+"/doze.hcl", nil)
 	if err == nil {
 		t.Fatal("a portless proxied engine should error on load")
@@ -129,7 +129,7 @@ func TestMissingPortIsAClearError(t *testing.T) {
 func TestPortlessProcessIsAllowed(t *testing.T) {
 	// A supervised process with no endpoint (a background worker) needs no port.
 	dir := t.TempDir()
-	writeFile(t, dir, "doze.hcl", `fakeproc "worker" {}`)
+	writeFile(t, dir, "doze.hcl", `module fakeproc "worker" {}`)
 	if _, err := Load(dir+"/doze.hcl", nil); err != nil {
 		t.Fatalf("a portless worker process should load fine: %v", err)
 	}
@@ -138,8 +138,8 @@ func TestPortlessProcessIsAllowed(t *testing.T) {
 func TestPortConflictIsAClearError(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "doze.hcl", `
-fakeproc "a" { port = 8080 }
-fakeproc "b" { port = 8080 }
+module fakeproc "a" { port = 8080 }
+module fakeproc "b" { port = 8080 }
 `)
 	_, err := Load(dir+"/doze.hcl", nil)
 	if err == nil {

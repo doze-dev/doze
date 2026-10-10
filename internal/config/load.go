@@ -11,15 +11,22 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 )
 
 // loader carries the per-load decode state: the HCL parser (for positioned
-// diagnostics) and the caller's module-integration hooks (nil for pure parse).
+// diagnostics), the parsed files, and the caller's module-integration hooks
+// (nil for pure parse).
 type loader struct {
 	parser *hclparse.Parser
+	files  []*hcl.File
 	hooks  *Hooks
+	// shape is the offline pass: everything about the config that can be
+	// checked without resolving a module. No driver is looked up, no module
+	// body is decoded, and a module's attributes are stand-ins.
+	shape bool
+	// pluginSrc caches each file's bytes in the form a plugin decodes.
+	pluginSrc map[string][]byte
 }
 
 // Load reads and validates the doze configuration at path, with no variable
@@ -33,38 +40,45 @@ func Load(path string, hooks *Hooks) (*Config, error) { return LoadWithVars(path
 // DOZE_VAR_<name> env vars and sibling *.auto.doze.vars files. hooks integrates
 // the module fetcher into decode; nil means pure parse.
 func LoadWithVars(path string, cliVars map[string]string, hooks *Hooks) (*Config, error) {
+	return load(path, cliVars, &loader{hooks: hooks})
+}
+
+// LoadShape runs the offline pass over the configuration at path: block kinds
+// and names, the arguments of app, service and task blocks, references that
+// point at something declared, and cycles. It resolves no module, so it needs
+// neither the network nor the module cache; a module's own body is checked by
+// the full load. The Config it returns carries every declaration but no module
+// spec, and must not be run.
+func LoadShape(path string, cliVars map[string]string) (*Config, error) {
+	return load(path, cliVars, &loader{shape: true})
+}
+
+func load(path string, cliVars map[string]string, l *loader) (*Config, error) {
 	files, primary, err := gatherConfigFiles(path)
 	if err != nil {
 		return nil, err
 	}
-	parser := hclparse.NewParser()
-	hclFiles := make([]*hcl.File, 0, len(files))
+	l.parser = hclparse.NewParser()
 	for _, f := range files {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			return nil, err
-		}
-		src, err = rewriteUseBlocks(src, f)
-		if err != nil {
-			return nil, err
-		}
-		hf, diags := parser.ParseHCL(src, f)
+		hf, diags := l.parser.ParseHCLFile(f)
 		if diags.HasErrors() {
-			return nil, diagError(parser, diags)
+			return nil, diagError(l.parser, diags)
 		}
-		hclFiles = append(hclFiles, hf)
+		l.files = append(l.files, hf)
 	}
 	autoVars, err := loadAutoVars(configDirOf(path))
 	if err != nil {
 		return nil, err
 	}
-	l := &loader{parser: parser, hooks: hooks}
-	cfg, err := l.buildConfig(hcl.MergeFiles(hclFiles), primary, &varInputs{cli: cliVars, auto: autoVars}, engineBlockTypes(hclFiles))
+	cfg, err := l.buildConfig(hcl.MergeFiles(l.files), primary, &varInputs{cli: cliVars, auto: autoVars})
 	if err != nil {
 		return nil, err
 	}
-	if err := cfg.validatePorts(); err != nil {
-		return nil, err
+	if !l.shape {
+		// A module's port and whether it needs one are the module's to say.
+		if err := cfg.validatePorts(); err != nil {
+			return nil, err
+		}
 	}
 	if err := cfg.validateDomains(); err != nil {
 		return nil, err
@@ -115,29 +129,33 @@ func gatherConfigFiles(path string) (files []string, primary string, err error) 
 // Engine drivers must already be registered (cmd/doze blank-imports them).
 // hooks integrates the module fetcher into decode; nil means pure parse.
 func Parse(src []byte, filename string, hooks *Hooks) (*Config, error) {
-	src, err := rewriteUseBlocks(src, filename)
-	if err != nil {
-		return nil, err
-	}
-	parser := hclparse.NewParser()
-	file, diags := parser.ParseHCL(src, filename)
-	if diags.HasErrors() {
-		return nil, diagError(parser, diags)
-	}
-	l := &loader{parser: parser, hooks: hooks}
-	return l.buildConfig(file.Body, filename, nil, engineBlockTypes([]*hcl.File{file}))
+	return parse(src, filename, &loader{hooks: hooks})
 }
 
-// buildConfig validates a (possibly merged) HCL body into a Config. engineTypes is
-// the set of engine block types declared in the source (every non-reserved labeled
-// block); each is accepted into the schema and validated to a real driver later.
-func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInputs, engineTypes []string) (*Config, error) {
+// ParseShape is LoadShape for source bytes.
+func ParseShape(src []byte, filename string) (*Config, error) {
+	return parse(src, filename, &loader{shape: true})
+}
+
+func parse(src []byte, filename string, l *loader) (*Config, error) {
+	l.parser = hclparse.NewParser()
+	file, diags := l.parser.ParseHCL(src, filename)
+	if diags.HasErrors() {
+		return nil, diagError(l.parser, diags)
+	}
+	l.files = []*hcl.File{file}
+	return l.buildConfig(file.Body, filename, nil)
+}
+
+// buildConfig validates a (possibly merged) HCL body into a Config.
+func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInputs) (*Config, error) {
 	parser := l.parser
-	// Accept every declared engine block type — config can't enumerate engines
-	// (they're out-of-process modules), so it trusts the type and resolves it later.
+	if err := checkOldForms(parser, l.files); err != nil {
+		return nil, err
+	}
 	schema := &hcl.BodySchema{
 		Attributes: []hcl.AttributeSchema{
-			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "name"},
+			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "stack"},
 		},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "defaults"},
@@ -146,10 +164,11 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 			{Type: "variable", LabelNames: []string{"name"}},
 			{Type: "locals"},
 			{Type: "output", LabelNames: []string{"name"}},
+			{Type: KindModule, LabelNames: []string{"type", "name"}},
+			{Type: KindApp, LabelNames: []string{"name"}},
+			{Type: KindService, LabelNames: []string{"name"}},
+			{Type: KindTask, LabelNames: []string{"name"}},
 		},
-	}
-	for _, t := range engineTypes {
-		schema.Blocks = append(schema.Blocks, hcl.BlockHeaderSchema{Type: t, LabelNames: []string{"name"}})
 	}
 
 	content, diags := body.Content(schema)
@@ -166,7 +185,7 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 
 	// Classify the top-level blocks. variable/locals/output are resolved before
 	// the resources so that var.*/local.* are available everywhere.
-	var varBlocks, localsBlocks, outputBlocks, instanceBlocks []*hcl.Block
+	var varBlocks, localsBlocks, outputBlocks, instanceBlocks, runnableBlocks []*hcl.Block
 	seenDefaults, seenTLS, seenModules := false, false, false
 	var defaultsBlock, tlsBlock, modulesBlock *hcl.Block
 	for _, block := range content.Blocks {
@@ -192,6 +211,8 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 			localsBlocks = append(localsBlocks, block)
 		case "output":
 			outputBlocks = append(outputBlocks, block)
+		case KindService, KindTask:
+			runnableBlocks = append(runnableBlocks, block)
 		default:
 			instanceBlocks = append(instanceBlocks, block)
 		}
@@ -218,7 +239,7 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 			dst = &cfg.Home
 		case "data_dir":
 			dst = &cfg.DataDir
-		case "name":
+		case "stack":
 			dst = &cfg.StackName
 		}
 		if diags := gohcl.DecodeExpression(attr.Expr, ctx, dst); diags.HasErrors() {
@@ -248,8 +269,10 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 	}
 	l.hooks.configureModules(cfg.Modules)
 
-	// Instance shells (engine-agnostic fields), then the reference graph + driver
-	// bodies in dependency order, then outputs (which may reference everything).
+	// Declare everything by name first, so a reference can be checked against
+	// the whole stack whatever order the blocks are written in. Then the
+	// reference graph and the module and app bodies in dependency order, then
+	// the service and task bodies, then outputs (which may reference anything).
 	declRanges := map[string]hcl.Range{}
 	var pending []*pendingInstance
 	for _, block := range instanceBlocks {
@@ -259,7 +282,20 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 		}
 		pending = append(pending, ps...)
 	}
-	if err := l.evaluate(cfg, pending, ctx); err != nil {
+	for _, block := range runnableBlocks {
+		if err := l.declareRunnable(cfg, block, declRanges, ctx); err != nil {
+			return nil, err
+		}
+	}
+	known := cfg.declared()
+	cfg.publishRunnables(ctx)
+	if err := l.evaluate(cfg, pending, ctx, known); err != nil {
+		return nil, err
+	}
+	if err := l.decodeRunnables(cfg, ctx, known); err != nil {
+		return nil, err
+	}
+	if err := cfg.checkCycles(parser, declRanges); err != nil {
 		return nil, err
 	}
 	// Post-decode engine-support pass: the FIRST block of a type drives module
@@ -284,37 +320,26 @@ func emptyIfNil(m map[string]cty.Value) map[string]cty.Value {
 	return m
 }
 
-// checkBlockTypes reports the first unknown top-level block type with a friendly,
-// positioned diagnostic (with a "did you mean" suggestion) — better than HCL's
-// generic "Unsupported block type". Operates on native-syntax bodies.
-// reservedBlocks are the non-engine top-level block types. Every other labeled
-// top-level block is an engine instance — its type isn't validated here (engines
-// are out-of-process modules config can't enumerate), only at driver resolution.
+// reservedBlocks are the top-level block types that are neither a module, an
+// app, a service nor a task.
 var reservedBlocks = map[string]bool{
 	"defaults": true, "tls": true, "modules": true,
 	"variable": true, "locals": true, "output": true,
 }
 
-// engineBlockTypes returns the distinct engine block types declared across the
-// files (every top-level labeled block that isn't a reserved keyword). They seed
-// the decode schema and reference resolution; whether a type actually resolves to
-// a driver (in-tree or a fetched module) is checked when the instance is built.
-func engineBlockTypes(files []*hcl.File) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, f := range files {
-		body, ok := f.Body.(*hclsyntax.Body)
-		if !ok {
-			continue
-		}
-		for _, blk := range body.Blocks {
-			if reservedBlocks[blk.Type] || seen[blk.Type] {
-				continue
-			}
-			seen[blk.Type] = true
-			out = append(out, blk.Type)
-		}
+// pluginBytes returns filename's source in the form a plugin decodes.
+func (l *loader) pluginBytes(filename string) []byte {
+	if src, ok := l.pluginSrc[filename]; ok {
+		return src
 	}
-	sort.Strings(out)
-	return out
+	f := l.parser.Files()[filename]
+	if f == nil {
+		return nil
+	}
+	if l.pluginSrc == nil {
+		l.pluginSrc = map[string][]byte{}
+	}
+	src := pluginSource(f.Bytes, filename)
+	l.pluginSrc[filename] = src
+	return src
 }

@@ -15,19 +15,19 @@ import (
 func TestStackRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "doze.hcl")
-	original := `name = "shop"
+	original := `stack = "shop"
 
 defaults {
   domains = true
 }
 
-process "api" {
-  command = "./api"
+app "api" {
+  run     = "./api"
   port    = 8080
 }
 
-process "legacy" {
-  command = "./legacy"
+app "legacy" {
+  run     = "./legacy"
 }
 `
 	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
@@ -41,7 +41,7 @@ process "legacy" {
 
 	// The loaded stack round-trips the existing blocks verbatim.
 	out := sb.HCL()
-	for _, want := range []string{`name = "shop"`, "domains = true", `process "api"`, "port    = 8080", `process "legacy"`} {
+	for _, want := range []string{`stack = "shop"`, "domains = true", `app "api"`, "port    = 8080", `app "legacy"`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("round-trip HCL missing %q:\n%s", want, out)
 		}
@@ -54,10 +54,10 @@ process "legacy" {
 	}
 
 	out = sb.HCL()
-	if !strings.Contains(out, `valkey "cache"`) {
+	if !strings.Contains(out, `module valkey "cache"`) {
 		t.Fatalf("added service missing:\n%s", out)
 	}
-	if strings.Contains(out, `process "legacy"`) {
+	if strings.Contains(out, `app "legacy"`) {
 		t.Fatalf("removed service still present:\n%s", out)
 	}
 	// The untouched api block survives verbatim.
@@ -77,7 +77,7 @@ func TestStackValidate(t *testing.T) {
 	t.Setenv("DOZE_HOME", base)
 
 	good := doze.NewStack("ok")
-	good.AddProcess("w", doze.Process{Command: "sh -c 'sleep 1'"})
+	good.AddApp("w", doze.App{Run: "sh -c 'sleep 1'"})
 	if err := good.Validate(doze.Options{}); err != nil {
 		t.Fatalf("valid stack failed Validate: %v", err)
 	}

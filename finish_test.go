@@ -18,7 +18,7 @@ func TestUpWithProgress(t *testing.T) {
 		t.Skip("boots a process")
 	}
 	sb := doze.NewStack("prog")
-	sb.AddProcess("w", doze.Process{Command: "sh -c 'while true; do sleep 1; done'"})
+	sb.AddApp("w", doze.App{Run: "sh -c 'while true; do sleep 1; done'"})
 	sess := serveTestStack(t, sb)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -62,7 +62,7 @@ func TestManyStacksOneProcess(t *testing.T) {
 	ctx := context.Background()
 	mk := func(name string) *doze.Session {
 		sb := doze.NewStack(name)
-		sb.AddProcess("w", doze.Process{Command: "sh -c 'while true; do sleep 1; done'"})
+		sb.AddApp("w", doze.App{Run: "sh -c 'while true; do sleep 1; done'"})
 		s, err := doze.Serve(ctx, doze.Options{Stack: sb})
 		if err != nil {
 			t.Fatalf("Serve(%s): %v", name, err)
@@ -95,7 +95,7 @@ func TestLiveAddCrossRefClearError(t *testing.T) {
 		t.Skip("boots a daemon")
 	}
 	sb := doze.NewStack("refs")
-	sb.AddProcess("w", doze.Process{Command: "sh -c 'while true; do sleep 1; done'"})
+	sb.AddApp("w", doze.App{Run: "sh -c 'while true; do sleep 1; done'"})
 	sess := serveTestStack(t, sb)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -104,10 +104,8 @@ func TestLiveAddCrossRefClearError(t *testing.T) {
 		t.Fatalf("Up: %v", err)
 	}
 
-	// A process block (built-in, so hermetic) with a reference to another
-	// service by HCL traversal, injected via a raw body.
-	m := doze.NewModule("process", "x").Body("command = other.svc.arn")
-	_, err := sess.AddModule(ctx, m)
+	// An app (built-in, so hermetic) that references another block.
+	_, err := sess.AddApp(ctx, "x", doze.App{Run: "true", Env: map[string]string{"ARN": "${module.other.arn}"}})
 	if err == nil {
 		t.Fatal("expected an error for a cross-referencing live add")
 	}
