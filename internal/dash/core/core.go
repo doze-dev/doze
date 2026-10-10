@@ -110,3 +110,14 @@ type Tab interface {
 	View(c *Context, inst control.InstanceView, w, h int) string
 	Keys() []Key
 }
+
+// Notice is a short message for the footer: "copied 12 lines".
+type Notice struct {
+	Text string
+	Bad  bool
+}
+
+// Capturer is implemented by a tab that sometimes takes every key for itself:
+// while a selection is open, "w" saves it rather than waking the instance, and
+// esc closes it rather than going back.
+type Capturer interface{ Capturing() bool }

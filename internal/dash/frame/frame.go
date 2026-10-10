@@ -21,12 +21,13 @@ import (
 
 // Model is the frame of one instance.
 type Model struct {
-	name   string
-	tabs   []core.Tab
-	active int
-	shown  bool
-	lay    layout.Map
-	notice string
+	name      string
+	tabs      []core.Tab
+	active    int
+	shown     bool
+	lay       layout.Map
+	notice    string
+	noticeBad bool
 }
 
 // New returns the frame for an instance. The tabs are the ones its kind has.
@@ -77,6 +78,9 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 		cmds = append(cmds, m.tabs[m.active].Show(c, inst))
 	}
 	switch msg := msg.(type) {
+	case core.Notice:
+		m.notice = msg.Text
+		m.noticeBad = msg.Bad
 	case core.Done:
 		if msg.Err != nil {
 			m.notice = fmt.Sprintf("%s %s: %v", msg.Verb, msg.Target, msg.Err)
@@ -89,7 +93,12 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 			}
 		}
 	case tea.KeyPressMsg:
-		m.notice = ""
+		m.notice, m.noticeBad = "", false
+		if cp, ok := m.tabs[m.active].(core.Capturer); ok && cp.Capturing() {
+			t, cmd := m.tabs[m.active].Update(msg, c, inst)
+			m.tabs[m.active] = t
+			return m, tea.Batch(append(cmds, cmd)...)
+		}
 		switch msg.String() {
 		case "esc", "backspace", "h", "left":
 			cmds = append(cmds, m.tabs[m.active].Hide(), func() tea.Msg { return core.Back{} })
@@ -182,7 +191,11 @@ func (m *Model) View(c *core.Context, w, h int) string {
 		text, bad := display.Note(inst, c.Snap.IdleTimeout, c.Now)
 		switch {
 		case m.notice != "":
-			note = st.Bad.Render(m.notice)
+			if m.noticeBad {
+				note = st.Bad.Render(m.notice)
+			} else {
+				note = st.Good.Render(m.notice)
+			}
 		case bad:
 			note = st.Bad.Render(text)
 		case text != "":

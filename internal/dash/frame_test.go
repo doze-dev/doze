@@ -1,6 +1,8 @@
 package dash
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/journal"
 )
@@ -252,5 +255,48 @@ func TestStackLogsSearchTogglesAndLevel(t *testing.T) {
 	out = s.screen()
 	if strings.Contains(out, "listening on") || !strings.Contains(out, "WARN order 7713") || !strings.Contains(out, "ERROR out of shared") {
 		t.Fatalf("level warn should keep only warn and error:\n%s", out)
+	}
+}
+
+func TestCopyModeSelectsAndCopies(t *testing.T) {
+	s := newSession(t, shop(), 120, 36)
+	s.key("enter")
+	s.logs("logs:api", apiLines...)
+
+	// v starts on the newest line; two up extends over three.
+	s.key("v", "up", "up")
+	out := s.screen()
+	if !strings.Contains(out, "extend") || !strings.Contains(out, "copy") {
+		t.Fatalf("copy mode should advertise its keys:\n%s", out)
+	}
+	// While selecting, w saves rather than waking.
+	d := s.m.ctx.Daemon.(interface{ Done() []control.Verb })
+	before := len(d.Done())
+	s.key("w")
+	if len(d.Done()) != before {
+		t.Fatalf("w woke the instance during a selection: %v", d.Done())
+	}
+	// A saved file lands in the working directory; the test does not want one.
+	files, _ := filepath.Glob("doze-api-*.log")
+	for _, f := range files {
+		os.Remove(f)
+	}
+}
+
+func TestCopyTextCanDropTimestamps(t *testing.T) {
+	lines := apiLines[:2]
+	with := copymode.Text(lines, time.UTC, true, false)
+	without := copymode.Text(lines, time.UTC, false, false)
+	if !strings.HasPrefix(with, "11:51:00 starting api") || !strings.HasPrefix(without, "starting api") {
+		t.Fatalf("with %q, without %q", with, without)
+	}
+	if got := copymode.Text(lines[:1], time.UTC, false, true); got != "api starting api 1.4.2\n" {
+		t.Fatalf("with source: %q", got)
+	}
+	var s copymode.Selection
+	s.Start(5)
+	s.Move(-3, 9)
+	if from, to := s.Range(); from != 2 || to != 5 || !s.Contains(3) || s.Contains(6) {
+		t.Fatalf("range %d..%d", from, to)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/dash/copymode"
 	"github.com/doze-dev/doze/internal/dash/core"
 	"github.com/doze-dev/doze/internal/display"
 )
@@ -30,6 +31,7 @@ type Tab struct {
 	run    int  // 0: the live run; -1, -2: earlier ones
 	err    string
 	id     string
+	sel    copymode.Selection
 }
 
 // New returns the logs tab for an instance.
@@ -50,8 +52,11 @@ func (t *Tab) Hide() tea.Cmd {
 
 // Keys implements core.Tab.
 func (t *Tab) Keys() []core.Key {
+	if t.sel.Active {
+		return []core.Key{{Keys: "↑↓", Label: "extend"}, {Keys: "y", Label: "copy"}, {Keys: "Y", Label: "copy without times"}, {Keys: "w", Label: "save"}, {Keys: "esc", Label: "cancel"}}
+	}
 	keys := []core.Key{{Keys: "↑↓", Label: "scroll"}, {Keys: "f", Label: "follow"}}
-	keys = append(keys, core.Key{Keys: "[ ]", Label: "runs"})
+	keys = append(keys, core.Key{Keys: "[ ]", Label: "runs"}, core.Key{Keys: "v", Label: "select"})
 	return keys
 }
 
@@ -80,7 +85,15 @@ func (t *Tab) Update(msg tea.Msg, c *core.Context, _ control.InstanceView) (core
 		t.err, t.lines = "", msg.Lines
 		t.follow, t.off = t.run == 0, 0
 	case tea.KeyPressMsg:
+		if t.sel.Active {
+			return t, t.selecting(c, msg.String())
+		}
 		switch msg.String() {
+		case "v":
+			if n := len(t.lines); n > 0 {
+				t.sel.Start(n - 1 - t.off)
+				t.follow = false
+			}
 		case "up", "k":
 			t.follow = false
 			t.off++
@@ -112,6 +125,42 @@ func (t *Tab) Update(msg tea.Msg, c *core.Context, _ control.InstanceView) (core
 		}
 	}
 	return t, nil
+}
+
+// selecting handles a key while a selection is open: extend it, copy it, save
+// it, or let it go.
+func (t *Tab) selecting(c *core.Context, key string) tea.Cmd {
+	last := len(t.lines) - 1
+	switch key {
+	case "up", "k":
+		t.sel.Move(-1, last)
+	case "down", "j":
+		t.sel.Move(1, last)
+	case "esc", "v":
+		t.sel.Stop()
+	case "y", "Y":
+		from, to := t.sel.Range()
+		text := copymode.Text(t.lines[from:to+1], c.Loc, key == "y", false)
+		t.sel.Stop()
+		n := to - from + 1
+		return tea.Batch(copymode.Clipboard(text), func() tea.Msg {
+			return core.Notice{Text: fmt.Sprintf("copied %d line%s", n, plural(n))}
+		})
+	case "w":
+		from, to := t.sel.Range()
+		text := copymode.Text(t.lines[from:to+1], c.Loc, true, false)
+		t.sel.Stop()
+		now := c.Now
+		name := t.name
+		return func() tea.Msg {
+			path, err := copymode.Save(".", name, text, now)
+			if err != nil {
+				return core.Notice{Text: "save: " + err.Error(), Bad: true}
+			}
+			return core.Notice{Text: "saved to " + path}
+		}
+	}
+	return nil
 }
 
 // fetch reads one earlier run, or goes back to the live one.
@@ -176,6 +225,19 @@ func (t *Tab) View(c *core.Context, inst control.InstanceView, w, h int) string 
 		if end < 0 {
 			end = 0
 		}
+		if t.sel.Active {
+			// the cursor stays on screen as it moves
+			if t.sel.Cursor >= end {
+				end = t.sel.Cursor + 1
+			}
+			if t.sel.Cursor < end-body {
+				end = t.sel.Cursor + body
+			}
+			if end > len(t.lines) {
+				end = len(t.lines)
+			}
+			t.off = len(t.lines) - end
+		}
 		start := end - body
 		if start < 0 {
 			start = 0
@@ -187,7 +249,11 @@ func (t *Tab) View(c *core.Context, inst control.InstanceView, w, h int) string 
 				out = append(out, st.Faint.Render(fmt.Sprintf("── run %d ──", l.Run)))
 			}
 			lastRun = l.Run
-			out = append(out, t.line(c, l, w))
+			row := t.line(c, l, w)
+			if t.sel.Contains(i) {
+				row = st.Selected.Render(pad(ansi.Strip(row), w))
+			}
+			out = append(out, row)
 		}
 	}
 	for len(out) < h {
@@ -231,6 +297,13 @@ func (t *Tab) line(c *core.Context, l control.LogFrame, w int) string {
 	return st.Dim.Render(stamp) + " " + st.Faint.Render(mark) + " " + style.Render(ansi.Truncate(text, room, "…"))
 }
 
+func pad(s string, w int) string {
+	if n := w - ansi.StringWidth(s); n > 0 {
+		return s + strings.Repeat(" ", n)
+	}
+	return s
+}
+
 func plural(n int) string {
 	if n == 1 {
 		return ""
@@ -239,3 +312,6 @@ func plural(n int) string {
 }
 
 var _ = time.Second
+
+// Capturing implements core.Capturer.
+func (t *Tab) Capturing() bool { return t.sel.Active }

@@ -33,4 +33,4 @@ live · 1 error · 1 warning
 
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-esc back  ·  tab next tab  ·  ↑↓ scroll  ·  f follow  ·  [ ] runs  ·  w wake  ·  s sleep  ·  r restart
+esc back  ·  tab next tab  ·  ↑↓ scroll  ·  f follow  ·  [ ] runs  ·  v select  ·  w wake  ·  s sleep  ·  r restart
