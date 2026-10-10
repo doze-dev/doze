@@ -12,6 +12,7 @@ import (
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/journal"
+	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/runtime"
 )
@@ -448,7 +449,16 @@ func TestOutputIsKeptAfterTheProcessExits(t *testing.T) {
 	if rt.Backend("job") != nil {
 		t.Fatal("the process should have exited by now")
 	}
-	if runs, _ := rt.Logs().Runs("job"); len(runs) != 1 || runs[0].Live {
+	// The run is closed by a goroutine that waits for the process, a moment after
+	// the runtime notices the exit: wait for it rather than race it.
+	var runs []logstore.RunInfo
+	for end := time.Now().Add(3 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+		runs, _ = rt.Logs().Runs("job")
+		if len(runs) == 1 && !runs[0].Live {
+			break
+		}
+	}
+	if len(runs) != 1 || runs[0].Live {
 		t.Fatalf("runs = %+v, want one finished run", runs)
 	}
 }
