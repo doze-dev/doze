@@ -51,11 +51,12 @@ type Runtime struct {
 
 	mu           sync.Mutex
 	procs        map[string]engine.Process
-	deps         map[string][]string      // instance -> dependency names it holds running
-	taskMu       sync.Mutex               // guards the task records in the state file
-	runs         map[string]*logstore.Run // instance -> the log run of its running command
-	readyPending map[string]bool          // running, but left not ready by a failed on_ready
-	restarts     map[string]*restartEntry // pending supervised restarts, cancellable by Stop/shutdown
+	deps         map[string][]string           // instance -> dependency names it holds running
+	watchers     map[string]context.CancelFunc // instance -> stops its file watcher
+	taskMu       sync.Mutex                    // guards the task records in the state file
+	runs         map[string]*logstore.Run      // instance -> the log run of its running command
+	readyPending map[string]bool               // running, but left not ready by a failed on_ready
+	restarts     map[string]*restartEntry      // pending supervised restarts, cancellable by Stop/shutdown
 
 	// shuttingDown gates boots and crash restarts once the daemon has begun its
 	// final reap (BeginShutdown). Without it, a restart-policy process that
@@ -99,6 +100,7 @@ func New(cfg *config.Config) (*Runtime, error) {
 		reg:          registry.New(),
 		procs:        map[string]engine.Process{},
 		runs:         map[string]*logstore.Run{},
+		watchers:     map[string]context.CancelFunc{},
 		readyPending: map[string]bool{},
 		deps:         map[string][]string{},
 		restarts:     map[string]*restartEntry{},
@@ -453,6 +455,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 
 	r.journal.Append(journal.Event{Kind: journal.Ready, Instance: name, Took: time.Since(started)})
 	r.logf("%q ready (pid %d)", name, proc.PID())
+	r.startWatch(name, decl, drv)
 	return inst.Endpoint, nil
 }
 
@@ -568,6 +571,10 @@ func (r *Runtime) Stop(ctx context.Context, name string) error {
 	delete(r.deps, name)
 	run := r.runs[name]
 	delete(r.runs, name)
+	if cancel := r.watchers[name]; cancel != nil {
+		cancel()
+		delete(r.watchers, name)
+	}
 	delete(r.readyPending, name)
 	if e := r.restarts[name]; e != nil { // cancel any pending restart
 		e.cancel()

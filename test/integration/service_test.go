@@ -446,3 +446,80 @@ app "api" {
 		t.Error("doze task seed did not run the manual task")
 	}
 }
+
+// eventually polls check until it holds or the time is up.
+func eventually(t *testing.T, within time.Duration, what string, check func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for time.Now().Before(deadline) {
+		if check() {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("%s: not within %s", what, within)
+}
+
+// `watch` restarts an app when a matching file changes; a file that does not
+// match does nothing; and editing the input of a task the app waits for runs
+// the task and then restarts the app.
+func TestWatchRestartsAnAppAndRerunsItsTasks(t *testing.T) {
+	p := newProject(t, `
+stack = "watch"
+
+defaults {
+  domains = false
+}
+
+task "gen" {
+  run    = "echo gen >> gen.log"
+  inputs = ["schema/*.sql"]
+}
+
+app "api" {
+  run   = "echo started >> starts.log; sleep 600"
+  watch = ["src/*.txt"]
+  after = [task.gen]
+}
+`)
+	p.write("src/a.txt", "1")
+	p.write("schema/s.sql", "1")
+	p.write("other/ignored.txt", "1")
+
+	p.must("up")
+	if p.lines("starts.log") != 1 || p.lines("gen.log") != 1 {
+		t.Fatalf("after up: starts %d, gen %d", p.lines("starts.log"), p.lines("gen.log"))
+	}
+
+	// A file the globs match.
+	p.write("src/a.txt", "2")
+	eventually(t, 15*time.Second, "restart on a watched file", func() bool { return p.lines("starts.log") == 2 })
+	if p.lines("gen.log") != 1 {
+		t.Errorf("the task ran though its inputs did not change: %d", p.lines("gen.log"))
+	}
+
+	// A file nothing matches.
+	p.write("other/ignored.txt", "2")
+	time.Sleep(3 * time.Second)
+	if p.lines("starts.log") != 2 {
+		t.Errorf("an unwatched file restarted the app: %d starts", p.lines("starts.log"))
+	}
+
+	// A task input: the task runs first, then the app starts again.
+	p.write("schema/s.sql", "2")
+	eventually(t, 15*time.Second, "restart on a task input", func() bool { return p.lines("starts.log") == 3 })
+	if p.lines("gen.log") != 2 {
+		t.Errorf("the task did not re-run before the restart: %d runs", p.lines("gen.log"))
+	}
+
+	// The journal says why.
+	found := false
+	for _, e := range p.journal() {
+		if e["kind"] == "sleep" && fmt.Sprint(e["cause"]) != "" && strings.Contains(fmt.Sprint(e["cause"]), "watch") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("no journal event carries the watch cause")
+	}
+}

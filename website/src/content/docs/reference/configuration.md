@@ -587,6 +587,7 @@ app "api" {
 | `port` | number | none | The app's public port. **doze listens on it, not the app**: the app is started with `$PORT`, a private port doze picks at each start, and doze forwards between the two (see [Ports](#ports-for-an-app)). Exposed as `app.<name>.{url,address,host,port}`. Omit for a worker with no endpoint. |
 | `direct` | bool | `false` | The app binds `port` itself, and doze only starts it: no `$PORT`, no waking on a connection, no connection count. For anything a TCP proxy cannot carry, such as UDP. |
 | `sleep` | duration or `"never"` | `"never"` | Put the app to sleep after this long with nothing holding it; its next connection wakes it. Needs a `port` and not `direct`, since only a connection through doze can wake it. |
+| `watch` | list of globs | none | Restart the app when a file matching one of these (relative to `dir`, `**` for any depth) changes while it is awake. The inputs of the tasks it waits for count too: the task runs first if its inputs changed. Files are checked once a second; a burst of writes is one restart. |
 | `console` | URL | none | A web console the app serves on a second port, such as `http://127.0.0.1:8025`. doze fronts that port too, on the app's own address, and opening it wakes the app. |
 | `env` | map | none | Environment for the app and its steps. Highest precedence; values may reference other blocks. |
 | `env_file` | string | none | Path to a `KEY=VALUE` file (lower precedence than `env`). |

@@ -81,12 +81,11 @@ Behaviour that is deliberately interim until a later phase replaces it:
 
 - An app with a `port` gets the `:80` route `forward = 80` used to ask for
   (`direct = true` opts out). Phase 3 replaces the route with the front door.
-- `sleep`, `front`, `console`, `logs`, `watch` and `direct` are parsed and
-  checked on an app, and otherwise ignored.
+- `front`, `console` and `logs` are parsed and checked on an app, and
+  otherwise ignored until the dash (phase 5) reads them.
 - `task` blocks, and a `service` with a `download`, are parsed, checked and
   visible to references. `doze up` refuses a stack that declares one (phase 4:
   units 4.3 and 4.4).
-- `watch` is parsed and ignored (unit 4.6).
 - `$PORT`, `$DATA` and `$HOST` are not set yet (unit 3.5).
 
 | Unit | Work | Files |

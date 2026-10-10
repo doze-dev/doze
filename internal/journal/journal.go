@@ -38,6 +38,7 @@ const (
 	ByRestart    = "restart"    // the restart policy
 	ByIdle       = "idle"       // nobody held it for the idle time
 	ByShutdown   = "shutdown"   // the daemon is stopping
+	ByWatch      = "watch"      // a file it watches changed; By names the path
 )
 
 // Cause is why something happened.

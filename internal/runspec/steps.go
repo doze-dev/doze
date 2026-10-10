@@ -37,3 +37,14 @@ type Tasker interface {
 	// Task returns the task an instance is, and false when it is not one.
 	Task(engine.Instance) (TaskSpec, bool)
 }
+
+// WatchSet is a directory and the globs in it whose changes restart a command.
+type WatchSet struct {
+	Dir   string
+	Globs []string
+}
+
+// Watcher is implemented by an engine whose commands restart on file changes.
+type Watcher interface {
+	Watches(engine.Instance) []WatchSet
+}

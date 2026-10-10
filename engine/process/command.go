@@ -66,3 +66,14 @@ func (Driver) Task(inst engine.Instance) (runspec.TaskSpec, bool) {
 	}
 	return runspec.TaskSpec{Run: cfg.Run, Dir: cfg.Dir, Env: cfg.envFor(inst), Inputs: cfg.Inputs, Manual: cfg.Manual}, true
 }
+
+var _ runspec.Watcher = Driver{}
+
+// Watches implements runspec.Watcher: the globs of `watch`, in the app's dir.
+func (Driver) Watches(inst engine.Instance) []runspec.WatchSet {
+	cfg, ok := inst.Spec.(*Config)
+	if !ok || len(cfg.Watch) == 0 {
+		return nil
+	}
+	return []runspec.WatchSet{{Dir: cfg.Dir, Globs: cfg.Watch}}
+}
