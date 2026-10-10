@@ -99,6 +99,8 @@ var registry = []Action{
 		Arg: ArgNone, Kind: KindLocal, Confirm: false, CLI: true},
 	{Name: "run", Summary: "ensure the daemon is up, then run a command",
 		Arg: ArgNone, Kind: KindLocal, CLI: true},
+	{Name: "add", Summary: "add a module or a service to doze.hcl",
+		Arg: ArgNone, Kind: KindLocal, CLI: true, Dash: false},
 	{Name: "lint", Summary: "validate the config without touching anything",
 		Arg: ArgNone, Kind: KindLocal, CLI: true},
 	{Name: "init", Summary: "scaffold a doze.hcl",

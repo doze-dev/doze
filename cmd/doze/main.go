@@ -171,6 +171,7 @@ func rootCmd() *cobra.Command {
 		grouped(groupOne, urlCmd()),
 		// Before-the-dash tools
 		grouped(groupTools, lintCmd()),
+		grouped(groupTools, addCmd()),
 		grouped(groupTools, initCmd()),
 		grouped(groupTools, doctorCmd()),
 		grouped(groupTools, dnsSetupCmd()),

@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
+	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/detect"
 	"github.com/doze-dev/doze/internal/modules"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -30,14 +33,24 @@ var initSeed = []initEngine{
 }
 
 func initCmd() *cobra.Command {
-	var force bool
+	var force, wizard, yes bool
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Scaffold a doze.hcl — an interactive wizard, or a starter when non-interactive",
-		Args:  cobra.NoArgs,
+		Short: "Write a doze.hcl for this project — from what it finds, or a wizard",
+		Long: "init reads the project — go.mod and the imports and environment variables of\n" +
+			"its main packages, package.json, a compose file, a Makefile, .env — and writes\n" +
+			"a doze.hcl with the apps to run, the modules and services they talk to, the\n" +
+			"tasks that prepare them, and each app's environment wired to what it reads.\n" +
+			"Every block says why it is there. Nothing found, or --wizard, asks instead.",
+		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if _, err := os.Stat(configPath); err == nil && !force {
 				return fmt.Errorf("%s already exists (use --force to overwrite)", configPath)
+			}
+			if !wizard {
+				if done, err := initFromDetection(yes); done || err != nil {
+					return err
+				}
 			}
 
 			offers := gatherOffers()
@@ -67,6 +80,8 @@ func initCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing config")
+	cmd.Flags().BoolVar(&wizard, "wizard", false, "ask instead of reading the project")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "write what was found without asking")
 	return cmd
 }
 
@@ -239,4 +254,75 @@ func isInteractive() bool {
 // pipes and log files.
 func stdoutIsTerminal() bool {
 	return isatty.IsTerminal(os.Stdout.Fd())
+}
+
+// initFromDetection writes a doze.hcl from what the project says. done is
+// false when it found nothing, so the caller falls back to asking.
+func initFromDetection(yes bool) (done bool, err error) {
+	dir := configDir(configPath)
+	res, err := detect.Scan(dir)
+	if err != nil {
+		return false, err
+	}
+	if len(res.Apps)+len(res.Modules)+len(res.Services)+len(res.Tasks) == 0 {
+		return false, nil
+	}
+	src := res.Scaffold(versionsFor(res), func(bin string) string {
+		if p, err := exec.LookPath(bin); err == nil {
+			return p
+		}
+		return ""
+	})
+	// What is written has to be a config doze reads.
+	if _, perr := config.ParseShape([]byte(src), absConfig()); perr != nil {
+		return false, fmt.Errorf("the guess does not make a readable doze.hcl (%v) — run doze init --wizard", perr)
+	}
+
+	fmt.Println(ui.Title("Found in this project:"))
+	for _, a := range res.Apps {
+		fmt.Printf("  app      %-14s %s\n", a.Name, ui.Muted(a.Why))
+	}
+	for _, m := range res.Modules {
+		fmt.Printf("  module   %-14s %s\n", m.Type, ui.Muted(m.Why))
+	}
+	for _, s := range res.Services {
+		fmt.Printf("  service  %-14s %s\n", s.Name, ui.Muted(s.Why))
+	}
+	for _, t := range res.Tasks {
+		fmt.Printf("  task     %-14s %s\n", t.Name, ui.Muted(t.Why))
+	}
+	for _, n := range res.Notes {
+		fmt.Println("  " + ui.Muted(n))
+	}
+	fmt.Println()
+
+	if !yes && isInteractive() && !confirmDefaultYes("Write "+configPath+" with this?") {
+		fmt.Println("nothing written — doze init --wizard asks instead")
+		return true, nil
+	}
+	if err := os.WriteFile(configPath, []byte(src), 0o644); err != nil {
+		return true, err
+	}
+	fmt.Println(ui.OK("✓") + " wrote " + configPath)
+	fmt.Println(ui.Muted("  next:") + " read it   ·   doze lint   ·   doze up   ·   doze add <module> for more")
+	return true, nil
+}
+
+// versionsFor looks up the version to write for each module a detection found.
+func versionsFor(res detect.Result) detect.Versions {
+	out := detect.Versions{}
+	for _, m := range res.Modules {
+		if f := lookupModule(m.Type); f.version != "" {
+			out[m.Type] = f.version
+		}
+	}
+	return out
+}
+
+// confirmDefaultYes asks a yes/no question where Enter means yes.
+func confirmDefaultYes(question string) bool {
+	fmt.Printf("%s [Y/n]: ", question)
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	line = strings.ToLower(strings.TrimSpace(line))
+	return line == "" || line == "y" || line == "yes"
 }
