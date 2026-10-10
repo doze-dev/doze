@@ -181,6 +181,7 @@ func rootCmd() *cobra.Command {
 		versionCmd(),
 		// Hidden: the daemon self-exec entry point
 		mutating(daemonCmd()),
+		fetchCmd(),
 	)
 	return root
 }

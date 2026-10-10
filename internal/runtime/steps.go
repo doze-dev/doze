@@ -1,9 +1,12 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -145,4 +148,37 @@ func (r *Runtime) rerunOnReady(ctx context.Context, name string) (engine.Endpoin
 	r.reg.MarkRunning(name, inst.SocketDir, inst.Port, p.PID())
 	r.journal.Append(journal.Event{Kind: journal.Ready, Instance: name, Took: time.Since(started)})
 	return inst.Endpoint, nil
+}
+
+// fetchDownload fetches a service's archive in a child process and returns
+// where it was unpacked and its digest. The daemon never makes the request
+// itself: an HTTPS client in this process would stay resident for as long as
+// the daemon lives (see cmd/doze/fetch.go).
+func (r *Runtime) fetchDownload(ctx context.Context, url, expected string) (dir, digest string, err error) {
+	self, err := os.Executable()
+	if err != nil {
+		return "", "", err
+	}
+	cmd := exec.CommandContext(ctx, self, "__fetch", "--home", r.cfg.Home, "--url", url, "--sha", expected)
+	var out, errOut bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &errOut
+	runErr := cmd.Run()
+	for _, line := range strings.Split(strings.TrimSpace(errOut.String()), "\n") {
+		if strings.HasPrefix(line, "downloading ") || strings.HasPrefix(line, "cached ") {
+			r.logf("%s", line)
+		}
+	}
+	if runErr != nil {
+		msg := strings.TrimSpace(errOut.String())
+		if msg == "" {
+			msg = runErr.Error()
+		}
+		return "", "", errors.New(strings.TrimPrefix(msg, "error: "))
+	}
+	var got struct{ Dir, Digest string }
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		return "", "", fmt.Errorf("fetching %s: unreadable answer %q", url, out.String())
+	}
+	return got.Dir, got.Digest, nil
 }

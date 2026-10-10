@@ -345,7 +345,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 		}
 		if has {
 			pinned, _ := r.lock.GetDownload(url)
-			root, digest, err := r.mgr.EnsureDownload(ctx, url, pinned)
+			root, digest, err := r.fetchDownload(ctx, url, pinned)
 			if err != nil {
 				return fail(fmt.Errorf("%s: %w", name, err))
 			}
