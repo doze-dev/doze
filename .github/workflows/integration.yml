@@ -40,3 +40,29 @@ jobs:
         env:
           DOZE_MODULES_DIR: ${{ github.workspace }}/doze-modules
         run: go test -tags integration -v -timeout 20m ./test/integration/...
+
+  # Idle memory and wake time on the fixture stack (test/bench). It fetches the
+  # published modules and engine binaries, so it shares this workflow's
+  # schedule rather than running on every push. The idle figure is enforced
+  # against test/bench/budget.json; the full result is kept as an artifact.
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Measure
+        env:
+          DOZE_BENCH_OUT: ${{ runner.temp }}/bench-${{ matrix.os }}.json
+        run: make bench
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-${{ matrix.os }}
+          path: ${{ runner.temp }}/bench-${{ matrix.os }}.json
+          if-no-files-found: ignore

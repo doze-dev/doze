@@ -79,10 +79,10 @@ app "worker" {
 
 app "web" {
   run  = "go run ./cmd/web"
-  port = 8081
+  port = 8090
 
   env = {
-    PORT    = "8081"
+    PORT    = "8090"
     API_URL = "http://${app.api.address}"
   }
 

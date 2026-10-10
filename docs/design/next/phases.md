@@ -112,6 +112,29 @@ Exit measures:
 
 Contract: [daemon-api.md](daemon-api.md).
 
+Baseline, unit 2.1, measured 2026-10-10 on darwin/arm64 with `make bench`
+(the fixture stack, every service asleep, no client connected; three runs):
+
+| Measure | Value |
+|---|---|
+| Idle daemon, alone | 29.7 MB |
+| Idle daemon plus the four module plugins it keeps running | 211 to 223 MB (postgres-plugin 99 to 109, valkey 33, kafka 25, aws 25) |
+| Wake, before the readiness fix | 1008 ms for every module |
+| Wake, after | postgres 35 ms, valkey 15 ms, kafka 36 ms, aws 160 ms (medians of 5) |
+
+Two things the baseline says:
+
+- "At rest, your whole backend is one ~15 MB daemon" is not true today. The
+  daemon is twice that, and it keeps one plugin process per module type alive
+  for as long as it runs, which is seven times more again. The budget in
+  `test/bench/budget.json` holds the line at what was measured; bringing it
+  down is not in any unit yet and needs a decision.
+- Every wake had a one-second floor: the readiness check probed once, missed,
+  and slept a full interval. `internal/health` now backs off from 10 ms.
+
+Linux has no budget yet: the nightly bench job records it, and the first
+result sets it.
+
 | Unit | Work | Files |
 |---|---|---|
 | 2.1 | Measure first: idle daemon RSS and wake latency on the fixture stack, in CI. | `test/bench/` (new), `.github/workflows/test.yml` |

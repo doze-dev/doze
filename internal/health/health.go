@@ -21,11 +21,16 @@ const (
 	defaultInterval = time.Second
 	defaultTimeout  = 3 * time.Second
 	defaultRetries  = 30
+	firstBackoff    = 10 * time.Millisecond  // the first wait after a failed probe; doubles up to maxBackoff
+	maxBackoff      = 100 * time.Millisecond // so a slow start is seen within 100 ms of being ready
 	livenessGrace   = 750 * time.Millisecond // "stayed alive briefly" window for a probe-less spec
 )
 
 // WaitReady blocks until the spec's probe passes, the process dies, or the budget
-// (Interval × Retries) is exhausted. A nil spec means liveness — the process must
+// (Interval × Retries) is exhausted. It probes at once and then backs off from
+// firstBackoff to maxBackoff (or Interval, if that is shorter), so a backend
+// that is ready in 30 ms is seen in about 30 ms: waiting a whole Interval after
+// the first miss put a one-second floor under every wake. A nil spec means liveness — the process must
 // simply still be running after a short grace period. alive/logs observe the
 // process being gated (logs feeds the log_line probe).
 func WaitReady(ctx context.Context, spec *engine.Ready, alive func() bool, logs func() []string) error {
@@ -48,20 +53,25 @@ func WaitReady(ctx context.Context, spec *engine.Ready, alive func() bool, logs 
 	if retries <= 0 {
 		retries = defaultRetries
 	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for attempt := 0; attempt < retries; attempt++ {
+	budget := time.Duration(retries) * interval
+	deadline := time.Now().Add(budget)
+	wait := min(firstBackoff, interval)
+	for {
 		if !alive() {
 			return fmt.Errorf("exited during startup")
 		}
 		if err := Probe(ctx, spec, logs); err == nil {
 			return nil
 		}
+		if !time.Now().Add(wait).Before(deadline) {
+			break
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
+		case <-time.After(wait):
 		}
+		wait = min(wait*2, interval, maxBackoff)
 	}
 	return fmt.Errorf("did not become ready within %s", time.Duration(retries)*interval)
 }

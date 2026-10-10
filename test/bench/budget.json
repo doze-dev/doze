@@ -1,0 +1,3 @@
+{
+  "darwin": { "idle_daemon_kb": 34000, "idle_tree_kb": 250000 }
+}

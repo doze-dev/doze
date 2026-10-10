@@ -24,6 +24,10 @@ test: ## Run unit tests
 race: ## Run tests with the race detector
 	go test -race ./...
 
+.PHONY: bench
+bench: ## Measure idle memory and wake time on the fixture stack (boots real engines)
+	go test -tags bench -count=1 -v -timeout 20m ./test/bench/
+
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...

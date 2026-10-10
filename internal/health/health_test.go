@@ -80,3 +80,54 @@ func TestWaitReadyLiveness(t *testing.T) {
 		t.Fatal("a process that exited immediately should fail liveness")
 	}
 }
+
+// A backend that starts listening shortly after it is spawned must be seen
+// shortly after, not one whole Interval later.
+func TestWaitReadySeesAFastStart(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close() // nothing listens yet
+
+	go func() {
+		time.Sleep(40 * time.Millisecond)
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			return
+		}
+		defer l.Close()
+		time.Sleep(2 * time.Second)
+	}()
+
+	start := time.Now()
+	spec := &engine.Ready{Kind: "tcp", Target: addr, Interval: time.Second, Retries: 10}
+	if err := WaitReady(context.Background(), spec, func() bool { return true }, nil); err != nil {
+		t.Fatalf("WaitReady: %v", err)
+	}
+	if took := time.Since(start); took > 300*time.Millisecond {
+		t.Fatalf("ready after 40 ms was seen after %s", took.Round(time.Millisecond))
+	}
+}
+
+// The budget is still Interval × Retries, however the waits are spaced.
+func TestWaitReadyKeepsItsBudget(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	start := time.Now()
+	spec := &engine.Ready{Kind: "tcp", Target: addr, Interval: 100 * time.Millisecond, Retries: 5}
+	err = WaitReady(context.Background(), spec, func() bool { return true }, nil)
+	took := time.Since(start)
+	if err == nil {
+		t.Fatal("nothing ever listened; WaitReady must give up")
+	}
+	if took < 350*time.Millisecond || took > 800*time.Millisecond {
+		t.Fatalf("gave up after %s, want about the 500 ms budget", took.Round(time.Millisecond))
+	}
+}
