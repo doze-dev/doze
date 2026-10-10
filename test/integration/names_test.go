@@ -11,7 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -95,8 +97,31 @@ func (z *zone) run(args ...string) (string, error) {
 	cmd := exec.Command(z.doze, args...)
 	cmd.Dir, cmd.Env = z.dir, z.env
 	start := time.Now()
+	if os.Getenv("DOZE_TEST_DUMP") != "" && len(args) > 0 && args[0] == "up" {
+		// A diagnostic: when up is slow, say what the CLI and the daemon are
+		// waiting on, by asking both for their goroutines.
+		timer := time.AfterFunc(8*time.Second, func() {
+			if out, err := exec.Command("pgrep", "-f", z.dir).Output(); err == nil {
+				for _, pid := range strings.Fields(string(out)) {
+					if n, err := strconv.Atoi(pid); err == nil && n != os.Getpid() {
+						_ = syscall.Kill(n, syscall.SIGQUIT)
+					}
+				}
+			}
+			_ = cmd.Process.Signal(syscall.SIGQUIT)
+		})
+		defer timer.Stop()
+	}
 	out, err := cmd.CombinedOutput()
 	z.t.Logf("doze %s took %s", strings.Join(args, " "), time.Since(start).Round(time.Millisecond))
+	if os.Getenv("DOZE_TEST_DUMP") != "" && time.Since(start) > 5*time.Second {
+		z.t.Logf("output of the slow doze %s:\n%s", strings.Join(args, " "), out)
+		for _, f := range []string{"doze.log"} {
+			if b, err := os.ReadFile(firstMatch(filepath.Join(z.home, "projects", "*", "run", f))); err == nil {
+				z.t.Logf("daemon log:\n%s", b)
+			}
+		}
+	}
 	return string(out), err
 }
 

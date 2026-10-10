@@ -89,6 +89,7 @@ jobs:
           "$RUNNER_TEMP/doze" doctor --fix
       - name: Names
         env:
+          DOZE_TEST_DUMP: "1"
           DOZE_TEST_SYSTEM_RESOLVER: "1"
         run: >
           go test -tags integration -count=1 -v
