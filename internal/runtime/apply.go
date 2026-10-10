@@ -181,6 +181,7 @@ func (r *Runtime) ResetData(ctx context.Context, name string) error {
 	if err := os.RemoveAll(r.cfg.SocketDir(name)); err != nil {
 		return fmt.Errorf("removing sockets for %q: %w", name, err)
 	}
+	r.forgetTask(name) // a task that was reset runs again at its next trigger
 	return nil
 }
 

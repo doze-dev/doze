@@ -26,6 +26,8 @@ type State struct {
 	Instances map[string][]engine.Object `json:"instances"`
 	// Outputs records the last-applied output values (name → rendered value).
 	Outputs map[string]string `json:"outputs,omitempty"`
+	// Tasks records how each task last ran, by name.
+	Tasks map[string]TaskRecord `json:"tasks,omitempty"`
 }
 
 // New returns an empty state.
@@ -127,3 +129,14 @@ func Lock(path string) (unlock func(), err error) {
 
 // timeSince is a tiny indirection so tests don't need a real clock.
 var timeSince = time.Since
+
+// TaskRecord is how a task last ran: what `doze task` and the dash show, and
+// what decides whether it runs again.
+type TaskRecord struct {
+	Result   string    `json:"result"` // "done" | "failed"
+	ExitCode int       `json:"exit_code"`
+	TookMS   int64     `json:"took_ms"`
+	RanAt    time.Time `json:"ran_at"`
+	Why      string    `json:"why"`    // what made it run
+	Inputs   string    `json:"inputs"` // hash of its inputs when it started
+}

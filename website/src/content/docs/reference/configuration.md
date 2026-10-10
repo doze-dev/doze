@@ -654,19 +654,15 @@ reaped as a process group on stop.
 
 ## service and task
 
-Two more kinds are part of the language and are checked by `doze lint`, but
-**this build cannot run them yet**: `doze up` refuses a stack that declares
-either one.
-
 A **service** is a long-running command that comes from outside the doze
-registry — anything you can start from a shell. A **task** is a command that
-runs to completion, such as a migration.
+registry — anything you can start from a shell. It sleeps when nothing is using
+it and wakes when something connects, or when something that depends on it
+starts. A **task** is a command that runs to completion, such as a migration.
 
 ```hcl
-service "mongo" {
-  download = "https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz"
-  run      = "bin/mongod --dbpath $DATA --port $PORT"
-  port     = 27017
+service "mailpit" {
+  run  = "mailpit --smtp 127.0.0.1:$PORT"
+  port = 1025
 }
 
 task "migrate" {
@@ -674,13 +670,54 @@ task "migrate" {
   inputs = ["migrations/*.sql"]
   env    = { DATABASE_URL = module.db.url }
 }
+
+app "api" {
+  run   = "go run ./cmd/api"
+  port  = 8080
+  after = [task.migrate]
+  env   = { SMTP = "smtp://${service.mailpit.address}" }
+}
 ```
 
 A service takes `run`, `dir`, `port`, `env`, `env_file`, `after`, `ready`,
-`ready_timeout`, `setup`, `on_ready`, `stop` and `restart` as an app does, plus
-`download` (a URL, or a map of `mac` / `mac_intel` / `linux` / `linux_arm` to a
-URL). A task takes `run`, `dir`, `env`, `env_file`, `after`, `inputs` (globs;
-the task re-runs when what they match changes) and `manual`.
+`ready_timeout`, `setup`, `on_ready`, `stop`, `restart` and `sleep` as an app
+does. It listens on `$PORT` (a private port; doze holds `port` itself), and
+`$DATA` is a folder of its own that survives restarts.
+
+A `service` with a `download` (a URL, or a map of `mac` / `mac_intel` /
+`linux` / `linux_arm` to a URL) is checked but **cannot be run yet**: `doze up`
+refuses a stack that declares one.
+
+### The moments of a command
+
+`setup`, `on_ready` and `stop` are lists of shell lines run around `run`:
+
+| | Runs | If it fails |
+|---|---|---|
+| `setup` | Once per data folder: the first time, after `doze reset`, or when the list changes. | The start fails and `run` does not start. |
+| `run` | Every wake; the one command that stays running. | Restarted with a backoff, then failed. |
+| `ready` | Polled after `run` starts. Default: the private port accepts a connection. | The start fails after `ready_timeout`. |
+| `on_ready` | Every wake, after ready. Connections that woke it wait for it. | The command keeps running but is not ready, so what depends on it does not start. Fix it and `doze up <name>` runs this step again, and only it. |
+| `stop` | Every sleep, instead of the signals. | Logged; the signals follow. |
+
+With no `stop`, a command is asked to exit with SIGTERM, then killed after a
+grace period. `run` must stay in the foreground: `docker run -d` returns at
+once and looks like an exit. Each step is a line in `doze logs` and an event in
+the journal, with how long it took.
+
+### Tasks
+
+A task takes `run`, `dir`, `env`, `env_file`, `after`, `inputs` and `manual`. It
+runs, in order:
+
+- when something that lists it in `after` (or references it) starts, if it has
+  never succeeded, failed last time, or its `inputs` changed — the content of
+  the files the globs match, not their timestamps;
+- when you run `doze task <name>`, whatever its state.
+
+A `manual = true` task runs only the second way. A task that fails stops what
+is after it, and runs again the next time. `doze task` with no name lists every
+task and how it last ran; the result is kept in `.doze/state.json`.
 
 ---
 

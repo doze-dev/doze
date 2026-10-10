@@ -165,6 +165,7 @@ func rootCmd() *cobra.Command {
 		grouped(groupOne, sleepCmd()),
 		grouped(groupOne, mutating(restartCmd())),
 		grouped(groupOne, mutating(resetCmd())),
+		grouped(groupOne, mutating(taskCmd())),
 		grouped(groupOne, pinCmd()),
 		grouped(groupOne, logsCmd()),
 		grouped(groupOne, urlCmd()),

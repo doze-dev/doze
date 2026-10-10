@@ -148,13 +148,10 @@ func (c *Config) Unbuilt() error {
 			names = append(names, title(KindService, "", s.Name)+" (download)")
 		}
 	}
-	for _, t := range c.Tasks {
-		names = append(names, title(KindTask, "", t.Name))
-	}
 	if len(names) == 0 {
 		return nil
 	}
-	return fmt.Errorf("this build of doze checks `service` and `task` blocks but cannot run them yet: %s", strings.Join(names, ", "))
+	return fmt.Errorf("this build of doze cannot run a `service` with a `download` yet: %s", strings.Join(names, ", "))
 }
 
 // declareRunnable registers a service or task by name and, for a service,
@@ -340,18 +337,9 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 	if err != nil {
 		return fail(err)
 	}
-	var deps []engine.Dependency
-	seen := map[string]bool{s.Name: true}
-	for _, ref := range append(append([]Ref{}, s.Refs...), s.After...) {
-		if seen[ref.Name] || (ref.Kind != KindModule && ref.Kind != KindApp && ref.Kind != KindService) {
-			continue
-		}
-		seen[ref.Name] = true
-		deps = append(deps, engine.Dependency{Name: ref.Name, Condition: engine.Healthy})
-	}
 	cfg.Add(&InstanceDecl{
 		Kind: KindService, Type: AppEngine, Name: s.Name, Version: "builtin",
-		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: deps, Enabled: true,
+		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(s.Name, s.Refs, s.After), Enabled: true,
 		After: s.After, Refs: s.Refs,
 	})
 	return nil
@@ -376,7 +364,52 @@ func (l *loader) decodeTask(cfg *Config, t *TaskDecl, ctx *hcl.EvalContext, know
 	if raw.EnvFile != "" {
 		t.EnvFile = resolveAgainst(baseDir, raw.EnvFile)
 	}
+	return cfg.addTask(t)
+}
+
+// addTask makes a decoded task a declared instance of the command engine with
+// the task preset: it runs to completion and records how that went. What it
+// references, and its `after`, are what it waits for.
+func (cfg *Config) addTask(t *TaskDecl) error {
+	fail := func(err error) error {
+		return fmt.Errorf("%s: %w", title(KindTask, "", t.Name), err)
+	}
+	drv, ok := engine.Lookup(AppEngine)
+	if !ok {
+		return fail(fmt.Errorf("the command engine is not registered"))
+	}
+	b, ok := drv.(runspec.CommandBuilder)
+	if !ok {
+		return fail(fmt.Errorf("the command engine cannot build a task"))
+	}
+	spec, err := b.CommandConfig(runspec.Command{
+		Name: t.Name, Run: t.Run, Dir: t.Dir, Env: t.Env, EnvFile: t.EnvFile,
+		Task: true, Inputs: t.Inputs, Manual: t.Manual,
+	})
+	if err != nil {
+		return fail(err)
+	}
+	cfg.Add(&InstanceDecl{
+		Kind: KindTask, Type: AppEngine, Name: t.Name, Version: "builtin",
+		Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(t.Name, t.Refs, t.After), Enabled: true,
+		After: t.After, Refs: t.Refs,
+	})
 	return nil
+}
+
+// bootEdges turns what a block references and waits for into dependencies:
+// every module, app, service and task it names, once, in order.
+func bootEdges(self string, refs, after []Ref) []engine.Dependency {
+	var deps []engine.Dependency
+	seen := map[string]bool{self: true}
+	for _, ref := range append(append([]Ref{}, refs...), after...) {
+		if seen[ref.Name] {
+			continue
+		}
+		seen[ref.Name] = true
+		deps = append(deps, engine.Dependency{Name: ref.Name, Condition: engine.Healthy})
+	}
+	return deps
 }
 
 // parseDownload reads `download`: one URL, or a map of platform to URL.

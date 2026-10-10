@@ -17,7 +17,7 @@ func (Driver) CommandConfig(c runspec.Command) (engine.EngineConfig, error) {
 		Setup: c.Setup, OnReady: c.OnReady, Stop: c.Stop,
 		Ready: c.Ready, ReadyTimeout: c.ReadyTimeout,
 		Sleep: c.Sleep, Front: c.Front, Console: c.Console, QuietLogs: c.QuietLogs,
-		Service: c.Service,
+		Service: c.Service, Task: c.Task, Inputs: c.Inputs, Manual: c.Manual,
 		Restart: Restart{Policy: engine.RestartOnFailure, Backoff: defaultBackoff, MaxRetries: defaultMaxRetries},
 	}
 	if c.RestartPolicy != "" {
@@ -29,7 +29,7 @@ func (Driver) CommandConfig(c runspec.Command) (engine.EngineConfig, error) {
 	if c.RestartMaxRetries > 0 {
 		cfg.Restart.MaxRetries = c.RestartMaxRetries
 	}
-	if cfg.Restart.Policy == engine.RestartNo {
+	if cfg.Restart.Policy == engine.RestartNo || cfg.Task {
 		cfg.Restart.MaxRetries = 0
 	}
 	if err := cfg.BindPort(c.Port); err != nil {
@@ -43,7 +43,7 @@ var _ runspec.Stepper = Driver{}
 // Steps implements runspec.Stepper.
 func (Driver) Steps(inst engine.Instance) (runspec.StepSet, bool) {
 	cfg, ok := inst.Spec.(*Config)
-	if !ok {
+	if !ok || cfg.Task {
 		return runspec.StepSet{}, false
 	}
 	return runspec.StepSet{
@@ -55,3 +55,14 @@ func (Driver) Steps(inst engine.Instance) (runspec.StepSet, bool) {
 // TermFirst implements runspec.Stepper: a command is asked to stop with
 // SIGTERM, not the SIGINT a database engine is written against.
 func (Driver) TermFirst() bool { return true }
+
+var _ runspec.Tasker = Driver{}
+
+// Task implements runspec.Tasker.
+func (Driver) Task(inst engine.Instance) (runspec.TaskSpec, bool) {
+	cfg, ok := inst.Spec.(*Config)
+	if !ok || !cfg.Task {
+		return runspec.TaskSpec{}, false
+	}
+	return runspec.TaskSpec{Run: cfg.Run, Dir: cfg.Dir, Env: cfg.envFor(inst), Inputs: cfg.Inputs, Manual: cfg.Manual}, true
+}

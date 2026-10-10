@@ -55,6 +55,12 @@ type Config struct {
 	// unless it sets `sleep`.
 	Service bool
 
+	// Task is the task preset (see runspec.Command). It has no port, no
+	// readiness and no restarts: it runs to completion.
+	Task   bool
+	Inputs []string
+	Manual bool
+
 	declaredPort int // the block's `port`, handed over by config (see BindPort)
 }
 

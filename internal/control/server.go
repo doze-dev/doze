@@ -215,6 +215,8 @@ func (s *Server) unary(ctx context.Context, req Request) Response {
 		return done(s.h.Restart(ctx, req.DB))
 	case "reset":
 		return done(s.h.Reset(ctx, req.DB))
+	case "task":
+		return done(s.h.RunTask(ctx, req.DB))
 	case "logs":
 		log, err := s.h.LogLines(LogQuery{Instance: req.DB, Run: req.Run, Tail: req.Tail, Since: req.SinceTime})
 		resp.Log = log

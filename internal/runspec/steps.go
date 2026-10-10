@@ -22,3 +22,18 @@ type Stepper interface {
 	// TermFirst reports that the engine's commands are stopped with SIGTERM.
 	TermFirst() bool
 }
+
+// TaskSpec is what the core needs to run a command to completion.
+type TaskSpec struct {
+	Run    string
+	Dir    string
+	Env    []string
+	Inputs []string
+	Manual bool
+}
+
+// Tasker is implemented by an engine that can run an instance as a task.
+type Tasker interface {
+	// Task returns the task an instance is, and false when it is not one.
+	Task(engine.Instance) (TaskSpec, bool)
+}

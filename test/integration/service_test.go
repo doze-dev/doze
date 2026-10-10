@@ -314,3 +314,135 @@ service "polite" {
 		t.Errorf("the stop step did not run: %v", err)
 	}
 }
+
+func (p *project) write(rel, body string) {
+	p.t.Helper()
+	path := filepath.Join(p.dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		p.t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		p.t.Fatal(err)
+	}
+}
+
+func (p *project) lines(rel string) int {
+	raw, err := os.ReadFile(filepath.Join(p.dir, rel))
+	if err != nil {
+		return 0
+	}
+	return strings.Count(string(raw), "\n")
+}
+
+// lifecycle.md measure: "A task re-runs only on change. Touch a file outside
+// inputs: no run. Change one inside: one run."
+func TestATaskRerunsOnlyWhenItsInputsChange(t *testing.T) {
+	p := newProject(t, `
+stack = "tasks"
+
+defaults {
+  domains = false
+}
+
+task "migrate" {
+  run    = "echo ran >> ran.log"
+  inputs = ["migrations/*.sql"]
+}
+
+app "api" {
+  run   = "sleep 600"
+  after = [task.migrate]
+}
+`)
+	p.write("migrations/001.sql", "create table a;")
+	p.write("README.md", "docs")
+
+	p.must("up")
+	if got := p.lines("ran.log"); got != 1 {
+		t.Fatalf("the task ran %d times on the first up, want 1", got)
+	}
+	// It ran before the app: the app is up, and the task is done.
+	list := p.must("task")
+	if !strings.Contains(list, "migrate") || !strings.Contains(list, "done") {
+		t.Errorf("doze task should list migrate as done:\n%s", list)
+	}
+
+	p.must("down")
+	p.write("README.md", "docs, edited — not an input")
+	p.must("up")
+	if got := p.lines("ran.log"); got != 1 {
+		t.Errorf("a change outside the inputs ran the task: %d runs", got)
+	}
+
+	p.must("down")
+	p.write("migrations/001.sql", "create table a, b;")
+	p.must("up")
+	if got := p.lines("ran.log"); got != 2 {
+		t.Errorf("a changed input should run the task once more: %d runs", got)
+	}
+
+	p.must("down")
+	p.must("up")
+	if got := p.lines("ran.log"); got != 2 {
+		t.Errorf("nothing changed, but the task ran again: %d runs", got)
+	}
+
+	// `doze task` runs it whatever its state.
+	out := p.must("task", "migrate")
+	if got := p.lines("ran.log"); got != 3 || !strings.Contains(out, "done") {
+		t.Errorf("doze task migrate: %d runs, output %q", got, out)
+	}
+}
+
+// A task that fails stops what is after it, says why, and runs again next
+// time; a manual task runs only when asked.
+func TestAFailedTaskStopsWhatIsAfterIt(t *testing.T) {
+	p := newProject(t, `
+stack = "tasks"
+
+defaults {
+  domains = false
+}
+
+task "migrate" {
+  run = "echo 'no such table' >&2; test -f ok"
+}
+
+task "seed" {
+  run    = "echo seeded >> seeded.log"
+  manual = true
+}
+
+app "api" {
+  run   = "sleep 600"
+  after = [task.migrate]
+}
+`)
+	out, err := p.run("up")
+	if err == nil {
+		t.Fatalf("up should fail while the task fails:\n%s", out)
+	}
+	if !strings.Contains(out, "migrate") || !strings.Contains(out, "no such table") {
+		t.Errorf("the failure should name the task and show its output:\n%s", out)
+	}
+	if st := p.state("api"); st == "awake" || st == "dozing" {
+		t.Errorf("api started though its task failed: %s", st)
+	}
+	if p.lines("seeded.log") != 0 {
+		t.Error("a manual task ran without being asked")
+	}
+	list := p.must("task")
+	if !strings.Contains(list, "failed") || !strings.Contains(list, "manual") {
+		t.Errorf("task list:\n%s", list)
+	}
+
+	// Fixed: the next up runs it again, and the app follows.
+	p.write("ok", "")
+	p.must("up")
+	p.waitState("api", 10*time.Second, "awake", "dozing")
+
+	p.must("task", "seed")
+	if p.lines("seeded.log") != 1 {
+		t.Error("doze task seed did not run the manual task")
+	}
+}

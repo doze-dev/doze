@@ -125,6 +125,16 @@ Delete a service's data. The next wake provisions it fresh from the config.
 It cannot be undone, so it asks first; `--yes` skips the question and is
 required when there is no terminal to ask on.
 
+### `doze task [name]`
+
+Run a task now, whatever its state, after waking what it references. It returns
+when the task is over: exit 0 if it succeeded, 1 with the task's last lines of
+output if it failed. This is the only way to run a `manual = true` task.
+
+With no name it lists every task, when it last ran, how that went and why it
+ran. A task also runs by itself when something that lists it in `after` starts
+and it has never succeeded or its `inputs` changed.
+
 ### `doze pin <name…>`
 
 Keep a service awake past its idle time. It is a toggle: pin again to unpin.

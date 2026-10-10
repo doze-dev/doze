@@ -74,6 +74,8 @@ var registry = []Action{
 	// stale converged marker) behind.
 	{Name: "reset", Summary: "wipe a service's data and re-provision fresh",
 		Arg: ArgInstanceRequired, Kind: KindOp, Op: "reset", Confirm: true, CLI: true, Dash: true},
+	{Name: "task", Summary: "run a task now, or list the tasks and how they last ran",
+		Arg: ArgInstanceOptional, Kind: KindOp, Op: "task", CLI: true, Dash: false},
 	{Name: "up", Summary: "converge structure and wake every enabled service",
 		Arg: ArgInstanceOptional, Kind: KindOp, Op: "up", OpAcceptsAll: true, CLI: true, Dash: true},
 	{Name: "sync", Aliases: []string{"apply"}, Summary: "reconcile a service with the config (create new, update changed, prune removed)",

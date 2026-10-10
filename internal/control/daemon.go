@@ -35,6 +35,7 @@ const (
 	VerbSleep   = "sleep"   // stop, keeping data; an empty target is everything awake
 	VerbRestart = "restart" // stop and start
 	VerbReset   = "reset"   // stop, wipe the data, provision fresh on the next wake
+	VerbTask    = "task"    // run a task now, whatever its state
 	VerbPin     = "pin"     // toggle: keep awake past the idle timeout
 	VerbSync    = "apply"   // reconcile declared structure
 )

@@ -12,6 +12,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
+	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/registry"
 	"github.com/doze-dev/doze/internal/ui"
@@ -402,4 +403,11 @@ func (h *handler) Admin(ctx context.Context, name, action, resource, input strin
 		return "", fmt.Errorf("instance %q is not running — boot it first", name)
 	}
 	return adm.Run(ctx, inst, inst.Endpoint, action, resource, input)
+}
+
+func (h *handler) RunTask(ctx context.Context, name string) error {
+	if name == "" {
+		return fmt.Errorf("task needs a task name")
+	}
+	return h.d.rt.RunTask(journal.WithCause(ctx, journal.ByCommand, ""), name)
 }

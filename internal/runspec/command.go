@@ -35,6 +35,13 @@ type Command struct {
 	// Service selects the service preset: woken by a connection or a
 	// dependant, and put to sleep when idle.
 	Service bool
+
+	// Task selects the task preset: run to completion, then done or failed.
+	// Inputs are the globs whose content decides whether it runs again, and
+	// Manual means only when asked.
+	Task   bool
+	Inputs []string
+	Manual bool
 }
 
 // CommandBuilder is implemented by the engine behind `app` and `service`. The

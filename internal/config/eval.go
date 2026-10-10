@@ -301,7 +301,7 @@ func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, kno
 	cond := map[string]engine.Condition{}
 	var order []string
 	edge := func(ref Ref) {
-		if ref.Name == p.decl.Name || (ref.Kind != KindModule && ref.Kind != KindApp && ref.Kind != KindService) {
+		if ref.Name == p.decl.Name || (ref.Kind != KindModule && ref.Kind != KindApp && ref.Kind != KindService && ref.Kind != KindTask) {
 			return
 		}
 		if _, ok := cond[ref.Name]; !ok {

@@ -55,6 +55,8 @@ func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView,
 			group = config.KindApp
 		case "service":
 			group = config.KindService
+		case "task":
+			group = config.KindTask
 		}
 		var deps []string
 		for _, dep := range d.Deps {
@@ -121,12 +123,13 @@ func plainState(v control.InstanceView, running bool, decl *config.InstanceDecl)
 
 // category groups: the two kinds of block that run today — modules, and your
 // own apps.
-var categoryOrder = []string{"module", "service", "process"}
+var categoryOrder = []string{"module", "service", "process", "task"}
 
 var categoryLabel = map[string]string{
 	"module":  "Modules",
 	"service": "Services",
 	"process": "Apps",
+	"task":    "Tasks",
 }
 
 // categoryOf maps an instance to its display group: a `service` is "service",
@@ -135,6 +138,8 @@ func categoryOf(d *config.InstanceDecl) string {
 	switch {
 	case d.Kind == config.KindService:
 		return "service"
+	case d.Kind == config.KindTask:
+		return "task"
 	case d.Type == "process":
 		return "process"
 	}
@@ -320,6 +325,9 @@ func engineCell(decl *config.InstanceDecl, v control.InstanceView, running bool)
 	}
 	if decl.Kind == config.KindService {
 		return ui.Muted("service")
+	}
+	if decl.Kind == config.KindTask {
+		return ui.Muted("task")
 	}
 	if decl.Type == config.AppEngine {
 		return ui.Muted("app")

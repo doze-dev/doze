@@ -217,6 +217,9 @@ type Handler interface {
 	// connection re-provisions and re-converges — `doze reset` semantics, NOT
 	// Destroy's drop-the-declared-objects sync lifecycle.
 	Reset(ctx context.Context, db string) error
+	// RunTask runs a task now, whatever its state, and returns once it is over:
+	// nil for done, an error carrying its output for failed.
+	RunTask(ctx context.Context, db string) error
 	// Resources lists a builtin instance's sub-resources and the data actions it
 	// offers; empty (no error) when the engine has no admin capability.
 	Resources(ctx context.Context, db string) ([]ResourceView, []ActionView, error)

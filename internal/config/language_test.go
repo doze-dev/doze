@@ -83,10 +83,10 @@ func TestTheWholeLanguage(t *testing.T) {
 	if api == nil || api.Kind != config.KindApp || api.Type != config.AppEngine || api.Port != 8080 {
 		t.Fatalf("app api = %+v", api)
 	}
-	// The module and the service it references are boot dependencies. The task
-	// in `after` is recorded, but nothing boots a task yet.
-	if len(api.Deps) != 2 || api.Deps[0].Name != "db" || api.Deps[1].Name != "mongo" ||
-		api.Deps[0].Condition != engine.Healthy || api.Deps[1].Condition != engine.Healthy {
+	// What the app references, and the task in `after`, are boot dependencies:
+	// the task runs before the app starts.
+	if len(api.Deps) != 3 || api.Deps[0].Name != "db" || api.Deps[1].Name != "mongo" || api.Deps[2].Name != "migrate" ||
+		api.Deps[0].Condition != engine.Healthy || api.Deps[1].Condition != engine.Healthy || api.Deps[2].Condition != engine.Healthy {
 		t.Errorf("api deps = %+v", api.Deps)
 	}
 	if len(api.After) != 1 || api.After[0] != (config.Ref{Kind: config.KindTask, Name: "migrate"}) {
@@ -108,8 +108,8 @@ func TestTheWholeLanguage(t *testing.T) {
 		t.Fatalf("task migrate = %+v", migrate)
 	}
 
-	if err := cfg.Unbuilt(); err == nil || !strings.Contains(err.Error(), `service "mongo"`) || !strings.Contains(err.Error(), `task "migrate"`) {
-		t.Errorf("a stack with a service and a task is not runnable yet, got %v", err)
+	if err := cfg.Unbuilt(); err == nil || !strings.Contains(err.Error(), `service "mongo"`) {
+		t.Errorf("a service with a download is not runnable yet, got %v", err)
 	}
 }
 

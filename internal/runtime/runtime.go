@@ -52,6 +52,7 @@ type Runtime struct {
 	mu           sync.Mutex
 	procs        map[string]engine.Process
 	deps         map[string][]string      // instance -> dependency names it holds running
+	taskMu       sync.Mutex               // guards the task records in the state file
 	runs         map[string]*logstore.Run // instance -> the log run of its running command
 	readyPending map[string]bool          // running, but left not ready by a failed on_ready
 	restarts     map[string]*restartEntry // pending supervised restarts, cancellable by Stop/shutdown
@@ -281,6 +282,10 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 			return engine.Endpoint{}, fmt.Errorf("no free port to start %q on: %w", name, err)
 		}
 		r.setPrivatePort(name, port)
+	}
+	// A task runs to completion: it is started by what needs it, or asked for.
+	if ts, ok := r.taskOf(decl, drv); ok {
+		return engine.Endpoint{}, r.runTask(ctx, name, decl, ts, false)
 	}
 	inst := r.instanceFor(decl, drv)
 
