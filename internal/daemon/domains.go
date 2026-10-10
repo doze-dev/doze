@@ -9,7 +9,6 @@ package daemon
 import (
 	"context"
 	"net"
-	"runtime"
 
 	names "github.com/doze-dev/doze-names"
 
@@ -77,12 +76,8 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 	release = func() { prev(); srv.Close() }
 	d.logf("domains: *.%s.%s → per-service IP (zone on %s)", stack, config.DomainSuffix, names.ResolverAddr())
 
-	if !ResolverConfigured() {
-		if runtime.GOOS == "darwin" {
-			d.logf("domains: names won't resolve until you run `doze dns-setup` (one sudo)")
-		} else {
-			d.logf("domains: point your resolver's %s zone at %s (systemd-resolved or dnsmasq)", config.DomainSuffix, names.ResolverAddr())
-		}
+	if !names.Check().OK() {
+		d.logf("domains: names will not resolve through the system resolver until you run `doze doctor --fix` (one sudo)")
 	}
 	return release, nil
 }

@@ -10,6 +10,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -325,4 +326,12 @@ func pidAlive(pid int) bool {
 	}
 	err := syscall.Kill(pid, 0)
 	return err == nil || err == syscall.EPERM
+}
+
+func isAddrInUse(err error) bool {
+	var op *net.OpError
+	if errors.As(err, &op) {
+		return errors.Is(op.Err, syscall.EADDRINUSE)
+	}
+	return errors.Is(err, syscall.EADDRINUSE)
 }

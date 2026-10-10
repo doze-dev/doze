@@ -8,11 +8,10 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
-	"github.com/doze-dev/doze/internal/loopback"
 )
 
 // In fallback mode (domains on, loopback range NOT aliased), two services that
-// declare the same port must fail with the actionable dns-setup message rather
+// declare the same port must fail with the actionable setup message rather
 // than silently colliding at bind time.
 func TestBindPlanFallbackDuplicatePort(t *testing.T) {
 	cfg := &config.Config{StackName: "demo", Defaults: config.Defaults{Domains: true}}
@@ -28,7 +27,7 @@ func TestBindPlanFallbackDuplicatePort(t *testing.T) {
 	// This test runs where the range isn't aliased (CI/dev macOS) → fallback →
 	// dup-port error. On Linux the range IS available, so it'd allocate distinct
 	// IPs and succeed; accept either but assert the message when it errors.
-	if loopback.Available() {
+	if names.PoolUsable() {
 		if err != nil {
 			t.Fatalf("loopback available but plan errored: %v", err)
 		}
@@ -50,8 +49,8 @@ func TestBindPlanFallbackDuplicatePort(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a duplicate-port error in fallback mode")
 	}
-	if got := err.Error(); !contains(got, "dns-setup") {
-		t.Fatalf("error should point at dns-setup, got %q", got)
+	if got := err.Error(); !contains(got, "doctor --fix") {
+		t.Fatalf("error should point at doctor --fix, got %q", got)
 	}
 }
 

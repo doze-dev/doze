@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -16,8 +15,6 @@ import (
 	names "github.com/doze-dev/doze-names"
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze/internal/config"
-	"github.com/doze-dev/doze/internal/daemon"
-	"github.com/doze-dev/doze/internal/loopback"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -30,12 +27,15 @@ type doctorCheck struct {
 }
 
 func doctorCmd() *cobra.Command {
-	var jsonOut bool
+	var jsonOut, fix, printFix bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose the doze environment and configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if fix || printFix {
+				return namesFix(printFix)
+			}
 			var checks []doctorCheck
 			add := func(name, detail string, ok bool) {
 				checks = append(checks, doctorCheck{Name: name, Detail: detail, OK: ok})
@@ -118,22 +118,30 @@ func doctorCmd() *cobra.Command {
 					case !daemonRunning(cfg):
 						add("domains", "daemon stopped — names publish while it runs (doze up)", true)
 					case resolvesToLoopback(probe):
-						how := "mDNS — no setup needed"
-						if daemon.ResolverConfigured() {
-							how = "resolver drop-in"
-						}
-						add("domains", probe+" → loopback ("+how+")", true)
-					case runtime.GOOS == "darwin":
-						add("domains", probe+" did not resolve — mDNS may be blocked here; install the fallback once:\n"+daemon.ResolverSetupHint, false)
+						add("domains", probe+" resolves through the system resolver", true)
 					default:
-						add("domains", probe+" did not resolve — route "+config.DomainSuffix+" to "+names.ResolverAddr()+" (systemd-resolved or dnsmasq)", false)
+						add("domains", probe+" did not resolve through the system resolver — run doze doctor --fix (one sudo)", false)
+					}
+					// The machine setup, part by part: what a failed lookup above is
+					// usually missing. It is shared with doze-aws and doze-kafka.
+					for _, step := range names.Check().Steps {
+						add("names: "+step.Name, step.Detail, step.Done)
+					}
+					// Which program is answering for the zone. It need not be this
+					// stack's daemon: whichever doze program started first serves all.
+					zone := names.Open(cfg.Home, "doze")
+					if h, ok := zone.ResolverHolder(); ok {
+						add("names: resolver", fmt.Sprintf("%s (pid %d) is answering .%s", h.Owner, h.PID, config.DomainSuffix), true)
+					}
+					if h, ok := zone.IngressHolder(); ok {
+						add("names: front door", fmt.Sprintf("%s (pid %d) is serving port-less http:// names", h.Owner, h.PID), true)
 					}
 					// Per-service addressing (share canonical ports by name) — a
 					// nice-to-have; flag it but never fail the check on its absence.
-					if loopback.Available() {
-						add("shared ports", "loopback range active — services can share canonical ports (every Postgres on 5432)", true)
+					if names.PoolUsable() {
+						add("shared ports", "each service has an address of its own — several can share a port (every Postgres on 5432)", true)
 					} else if hasDuplicatePorts(cfg) {
-						add("shared ports", "duplicate ports declared but the range isn't set up — run doze dns-setup (one sudo)", false)
+						add("shared ports", "two services declare one port, and this machine is not set up to give each its own address — run doze doctor --fix (one sudo)", false)
 					}
 				}
 			}
@@ -171,6 +179,8 @@ func doctorCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit machine-readable JSON instead of the table")
+	cmd.Flags().BoolVar(&fix, "fix", false, "run the one-time machine setup for .doze names (one sudo)")
+	cmd.Flags().BoolVar(&printFix, "print-fix", false, "print the setup script instead of running it")
 	return cmd
 }
 

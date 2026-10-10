@@ -8,7 +8,6 @@ import (
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/endpoints"
-	"github.com/doze-dev/doze/internal/loopback"
 )
 
 // bindPlan decides, for one daemon run, where each proxied instance listens and
@@ -29,7 +28,7 @@ type bindPlan struct {
 func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (*bindPlan, error) {
 	p := &bindPlan{bind: map[string]string{}, resolve: map[string]net.IP{}}
 	domainsOn := d.cfg.Defaults.Domains
-	p.loopback = domainsOn && zone != nil && loopback.Available()
+	p.loopback = domainsOn && zone != nil && names.PoolUsable()
 	loopbackIP := net.IPv4(127, 0, 0, 1)
 
 	usedPort := map[string]string{} // port -> instance, for the fallback dup-port error
@@ -69,7 +68,7 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (
 			if domainsOn { // wanted per-IP but the range isn't aliased
 				if other, dup := usedPort[port]; dup {
 					return nil, fmt.Errorf(
-						"%q and %q both use port %s, but per-service addressing isn't set up — run `doze dns-setup` once (needs sudo) to give each its own address, or give them distinct ports",
+						"%q and %q both use port %s, but this machine is not set up to give each service its own address — run `doze doctor --fix` once (needs sudo), or give them distinct ports",
 						other, ep.Name, port)
 				}
 				usedPort[port] = ep.Name
