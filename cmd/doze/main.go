@@ -286,11 +286,15 @@ func loadConfig() (*config.Config, error) {
 	}
 	cfg, err := config.LoadWithVars(configPath, cliVars, activeHost.ConfigHooks())
 	if err != nil && os.IsNotExist(err) {
-		// The very first command in a new project shouldn't greet anyone with a
-		// stat error — point at the way in.
-		return nil, fmt.Errorf("no %s in this directory or any parent — run doze init to scaffold one, or point --config at your config", configPath)
+		return nil, noConfigError()
 	}
 	return cfg, err
+}
+
+// noConfigError replaces a stat error: the very first command in a new project
+// shouldn't greet anyone with one — point at the way in.
+func noConfigError() error {
+	return fmt.Errorf("no %s in this directory or any parent — run doze init to scaffold one, or point --config at your config", configPath)
 }
 
 // parseVarFlags turns repeated --var name=value flags into a map.
