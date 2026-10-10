@@ -135,7 +135,10 @@ type InstanceView struct {
 	Domain string `json:"domain,omitempty"` // local DNS name, e.g. "orders-pg.<stack>.doze"
 	// NameOnly marks an app that is reachable at its name but not also at
 	// 127.0.0.1:<port>, because something else on the machine has that port.
-	NameOnly bool   `json:"name_only,omitempty"`
+	NameOnly bool `json:"name_only,omitempty"`
+	// NameHeld says that a name this instance wanted belongs to another program
+	// on the machine, and which: "aws.shop.doze is held by doze-aws (pid 412)".
+	NameHeld string `json:"name_held,omitempty"`
 	URL      string `json:"url,omitempty"` // full connection string
 	// Resource is the full, directly-addressable path when the client-facing
 	// endpoint is a shared front door: an AWS built-in's resource URL/ARN

@@ -306,24 +306,12 @@ func (d *Daemon) writeManifest() {
 	d.refreshIngressRoutes(eps)
 }
 
-// refreshIngressRoutes rewrites this stack's ingress route file to match the
-// current config. The :80 listener is bound once at Run; if the stack started
-// with no ingress route, a live-added ingress process routes only after a
-// restart (the listener isn't there to front it). Caller holds d.mu.
+// refreshIngressRoutes publishes the stack's routes again after a topology
+// change, so a live-added app is fronted. A removed one needs nothing: its
+// route went with its name. Caller holds d.mu.
 func (d *Daemon) refreshIngressRoutes(eps []endpoints.Endpoint) {
-	if !d.cfg.Defaults.Domains || d.plan == nil {
+	if !d.cfg.Defaults.Domains || d.plan == nil || d.zone == nil {
 		return
 	}
-	path := ingressPath(d.cfg.Home)
-	pid := os.Getpid()
-	stack := d.cfg.Stack()
-	// Replace this stack+pid's routes with the freshly computed set.
-	removeRoutes(path, stack, pid)
-	routes := d.ingressRoutes(eps, d.plan)
-	if len(routes) == 0 {
-		return
-	}
-	if err := mergeRoutes(path, routes, stack, pid); err != nil {
-		d.logf("ingress: refreshing routes: %v", err)
-	}
+	d.publishRoutes(eps, d.plan, nil)
 }

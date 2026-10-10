@@ -211,6 +211,9 @@ func noteCell(v control.InstanceView, idle time.Duration) string {
 		return ui.Muted(firstLine(v.LastError))
 	}
 	var parts []string
+	if v.NameHeld != "" {
+		parts = append(parts, v.NameHeld)
+	}
 	var by []string
 	clients := 0
 	for _, h := range v.Holders {

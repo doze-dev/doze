@@ -80,7 +80,10 @@ type Daemon struct {
 	plan *bindPlan
 	// nameOnly marks an app that could not also be given 127.0.0.1:<port>,
 	// because something else has it: it is reachable by its name only.
-	nameOnly   map[string]bool
+	nameOnly map[string]bool
+	// heldNames says, per instance, which of its names another program on the
+	// machine has: a standalone doze-aws holding aws.<stack>.doze, say.
+	heldNames  map[string]string
 	rootCtx    context.Context
 	instWG     *sync.WaitGroup
 	running    map[string]*instHandle // proxied instances with a live listener

@@ -8,6 +8,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	names "github.com/doze-dev/doze-names"
@@ -38,6 +39,9 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 		if err != nil {
 			if held, ok := names.Held(err); ok {
 				d.logf("domains: %s is held by pid %d (%s)", held.Host, held.PID, held.Owner)
+				// Not fatal — the stack runs, and that one name is someone else's —
+				// but it must not be silent: status and doctor say who has it.
+				d.noteHeld(held)
 			} else {
 				d.logf("domains: could not register %s: %v", host, err)
 			}
@@ -80,4 +84,21 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 		d.logf("domains: names will not resolve through the system resolver until you run `doze doctor --fix` (one sudo)")
 	}
 	return release, nil
+}
+
+// noteHeld records that a name this stack wanted belongs to another program,
+// against the instance the name is for.
+func (d *Daemon) noteHeld(held *names.ErrHeld) {
+	who := fmt.Sprintf("%s is held by %s (pid %d)", held.Host, held.Owner, held.PID)
+	awsHost := "aws." + d.cfg.Stack() + "." + config.DomainSuffix
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.heldNames == nil {
+		d.heldNames = map[string]string{}
+	}
+	for _, decl := range d.cfg.Instances {
+		if d.cfg.DomainFor(decl.Name) == held.Host || (held.Host == awsHost && decl.Type == config.AWSUnifiedType) {
+			d.heldNames[decl.Name] = who
+		}
+	}
 }

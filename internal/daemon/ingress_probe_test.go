@@ -24,7 +24,7 @@ func TestIngressRouteDerivation(t *testing.T) {
 	if len(routes) != 1 {
 		t.Fatalf("routes = %v, want 1", routes)
 	}
-	if r, ok := routes["orders-api.demo.doze"]; !ok || r.Target != "127.0.0.1:28080" {
+	if target, ok := routes["orders-api.demo.doze"]; !ok || target != "127.0.0.1:28080" {
 		t.Fatalf("route = %+v", routes)
 	}
 }
