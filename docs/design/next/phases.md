@@ -135,6 +135,48 @@ Two things the baseline says:
 Linux has no budget yet: the nightly bench job records it, and the first
 result sets it.
 
+Status, 2026-10-10: **done**, all nine units. Measured against the exit:
+
+- *Idle RSS with nothing subscribed is no higher than the 2.1 baseline.*
+  **Not met, by about 1 MB**: the idle daemon is 30.5 to 30.9 MB against
+  29.7 MB. The journal, the log store and the protocol are new code, and
+  resident code counts. It is inside the budget the bench enforces (34 MB).
+  Nothing was found that buys the megabyte back; returning the heap to the
+  system when the stack goes idle was tried and measured, and did nothing.
+- *`doze logs api` works while `api` is asleep, and shows the previous run.*
+  Met, and it works with the daemon stopped too. Checked against a real daemon.
+- *A crash-looping app shows as `crashing` with an attempt count in
+  `doze status`.* Met: `crashing 2/5`, then `failed`. Checked against a real
+  daemon.
+- *CLI output for `up`, `status` and `logs` matches golden files produced from
+  `fakedaemon`.* Met for `status`, `logs`, `wake`, `sleep`, `restart`,
+  `reset` and `pin` (`cmd/doze/testdata`). `up` keeps its own progress loop,
+  which relays download progress from the daemon log, and is not behind the
+  seam; it prints the same journal durations `wake` does.
+
+The other measures in [daemon-api.md](daemon-api.md#measures):
+
+| Measure | Result |
+|---|---|
+| Daemon growth while a service writes 100,000 lines | 0.4 MB (it was 6.2 MB before writing a line was made allocation-free) |
+| Wake time, from the journal | postgres 35 ms, valkey 13 ms, kafka 36 ms, aws 158 ms |
+| Cost of a subscribed dash against the old polling | Not measured |
+
+Where the build differs from the contract:
+
+- `Daemon.Subscribe` takes a callback, not a channel. It is the shape the
+  connection already has, and a callback cannot be left undrained.
+- The daemon's state words on the wire are still `active`, `idle`, `booting`
+  and `reaped`. The CLI shows `awake`, `dozing`, `waking` and `asleep`; the
+  old dash still reads the wire words, so they change with it in phase 5.
+- No `step` events: `setup` and `on_ready` are run inside the app engine,
+  which has no journal. They move into the runtime with phase 4.
+- The idle reaper and the health probe still wake on a timer whether or not
+  anyone is subscribed. They are cheap, but "no periodic work unless
+  subscribed" is not yet literally true.
+- The old dash was run against a live daemon under a pseudo-terminal and drew
+  from the subscription. It was not driven by hand.
+
 | Unit | Work | Files |
 |---|---|---|
 | 2.1 | Measure first: idle daemon RSS and wake latency on the fixture stack, in CI. | `test/bench/` (new), `.github/workflows/test.yml` |

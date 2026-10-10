@@ -41,6 +41,8 @@ generated from the module itself, so it can't be stale.
 | `home` | string | `$DOZE_HOME` or `~/.doze` | Shared toolchain store + cache (deduplicated across projects). |
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |
 | `defaults { idle_timeout }` | duration | `5m` | Reap an instance after this long at **zero connections**. |
+| `defaults { log_runs }` | number | `5` | How many runs of each service's log are kept. A run is one start. |
+| `defaults { log_size }` | size | `"10MB"` | The most log kept per service, across its runs. |
 | `tls { … }` | block | off | Terminate client TLS for Postgres — see [TLS](#tls). |
 
 ### TLS

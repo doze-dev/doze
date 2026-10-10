@@ -7,17 +7,18 @@ The global flag `-c, --config <path>` selects the config (default `doze.hcl`,
 which auto-merges sibling `*.doze.hcl` files; a directory merges its `*.hcl`).
 `--var name=value` (repeatable) overrides a config variable.
 
-doze is deliberately **two-surface**: the [dash](/cli/dashboard/) is the primary
-human surface — every per-service verb (wake, sleep, restart, reset, logs,
-open-in-browser) lives there, reachable by key or `:` palette — and the CLI
-below is the headless automation core for CI, scripts, and Makefiles, plus the
-tools you need before a dash can run. doze starts its background daemon
-automatically on first use, so you rarely manage it directly.
+doze has two surfaces that do the same things. The [dash](/cli/dashboard/) is
+the one to live in: every verb is a key or a `:` palette row there. The CLI
+below has a command for each of them, so a script, a Makefile, CI, or a
+terminal with no room for a dash can do everything the dash can. doze starts
+its background daemon automatically on first use, so you rarely manage it
+directly.
 
 | | |
 |---|---|
 | **The dash** | `doze` (or `doze dash`) |
-| **Automation core** | `up` · `down` · `sync` · `status` · `env` · `run` |
+| **The stack** | `up` · `down` · `sync` · `status` · `env` · `run` |
+| **One service** | `wake` · `sleep` · `restart` · `reset` · `pin` · `logs` · `url` |
 | **Before the dash** | `init` · `lint` · `doctor` · `dns-setup` |
 | **Lockfile maintenance** | `modules upgrade` |
 | | `version` |
@@ -26,7 +27,8 @@ automatically on first use, so you rarely manage it directly.
 
 ### `doze` / `doze dash`
 
-Running bare `doze` opens the dash: the live fleet with per-service state,
+Running bare `doze` on a terminal opens the dash (piped or redirected, it prints
+the [status table](#doze-status-aliases-tree-ls-ps) instead): the live fleet with per-service state,
 charts, and logs; engine pages for the aws and kafka instances (service board,
 live API wire, topics and consumer lag); an APPS view (`A`) for your own
 processes; and a `:` command palette carrying every verb — `:wake`, `:sleep`,
@@ -34,14 +36,16 @@ processes; and a `:` command palette carrying every verb — `:wake`, `:sleep`,
 service's web surface (the AWS console, the Kafka console, your app) in the
 browser.
 
-## Automation core
+## The stack
 
 ### `doze up [service…]`
 
 Bring the stack up in the background: converge declared structure (databases,
 roles, buckets, queues, topics — everything your config declares), then wake
 every service (or just the named ones and their dependencies), gated on health
-probes. Returns when the stack is ready; the daemon keeps supervising.
+probes. Each line says how long that service took to become ready, as the
+daemon measured it. Returns when the stack is ready; the daemon keeps
+supervising.
 
 ### `doze down`
 
@@ -56,8 +60,22 @@ waking anything that's asleep.
 
 ### `doze status` (aliases `tree`, `ls`, `ps`)
 
-Every service: state (active / idle / asleep), endpoint, connections, memory,
-CPU, and dependencies. `--json` for scripts.
+Every module and app: state, endpoint, connections, memory, CPU, and a note.
+
+| State | Meaning |
+|---|---|
+| `awake` | Running, and something is holding it: a connection, a dependant, a pin. |
+| `dozing` | Running with nothing holding it; the note counts down to sleep. |
+| `waking` | Starting, or waiting for something it depends on. |
+| `asleep` | Not running. It wakes on its next connection. |
+| `crashing 2/5` | It exited by itself and is being restarted: attempt 2 of 5. |
+| `failed` | It is not running and something went wrong; the note says what. |
+
+The note is the one thing worth knowing beyond the state: `held by api`,
+`pinned`, `sleeps in 4m12s`, or the error. `-w` keeps the table on screen and
+redraws it as things change. `--graph` draws the dependency tree. `--json` is
+for scripts, and keeps the daemon's own state words (`active`, `idle`,
+`booting`, `reaped`).
 
 ### `doze env`
 
@@ -80,6 +98,60 @@ injected — the one-shot version of `eval "$(doze env)"`:
 ```sh
 doze run -- go test ./...
 ```
+
+## One service
+
+What the dash's keys do, as commands.
+
+### `doze wake [name…]`
+
+Start the named services now, with whatever they depend on, and wait until each
+is ready. With no name, wake everything. Unlike `up` it does not reconcile
+declared structure first.
+
+### `doze sleep [name…]`
+
+Stop the named services, keeping their data; each wakes again on its next
+connection. With no name, put everything that is awake to sleep and leave the
+daemon running (`doze down` stops that too).
+
+### `doze restart <name…>`
+
+Stop a service and start it again.
+
+### `doze reset <name…> [--yes]`
+
+Delete a service's data. The next wake provisions it fresh from the config.
+It cannot be undone, so it asks first; `--yes` skips the question and is
+required when there is no terminal to ask on.
+
+### `doze pin <name…>`
+
+Keep a service awake past its idle time. It is a toggle: pin again to unpin.
+A pin lasts until the daemon stops.
+
+### `doze logs [name…] [-f] [--run N] [-n N] [--since T]`
+
+What a service printed. Logs are kept on disk, one run per start, so this
+works for a service that is asleep or has crashed, and with the daemon stopped.
+
+```sh
+doze logs api              # the newest run
+doze logs api --run -1     # the run before it: what it said before it died
+doze logs api --since 10m  # only the last ten minutes
+doze logs -f api worker    # follow both, merged, as they print
+```
+
+Lines from stderr are marked `err`. With no name, every service is shown,
+merged by time. The last five runs and 10 MB per service are kept; change that
+with `defaults { log_runs = 5  log_size = "10MB" }` (written on separate
+lines).
+
+### `doze url <name>`
+
+Print the one line a client needs to reach a service — `doze url db | pbcopy`,
+or `psql "$(doze url db)"`. It reads the config, so the service need not be
+running.
 
 ## Before the dash
 
