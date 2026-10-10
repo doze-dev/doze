@@ -182,7 +182,6 @@ func rootCmd() *cobra.Command {
 		// Hidden: the daemon self-exec entry point
 		mutating(daemonCmd()),
 		fetchCmd(),
-		dashNextCmd(),
 	)
 	return root
 }

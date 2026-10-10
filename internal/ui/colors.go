@@ -1,5 +1,5 @@
 // Shared color constants — the single source of truth for the hex values the
-// CLI palette (this package) and the TUI dash's default theme (internal/tui)
+// CLI palette (this package) and the TUI dash's default theme (internal/dash)
 // have in common, so a palette change lands in one place.
 package ui
 

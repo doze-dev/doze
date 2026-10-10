@@ -106,7 +106,7 @@ artifact signatures + TOFU key pinning.
 | `internal/supervisor` | Generic process lifecycle: spawn, clean stop (SIGINT→SIGQUIT→SIGKILL), parent-death cleanup, ring log buffer. |
 | `internal/daemon` | Wires runtime + listeners + reaper + control IPC into the hidden `doze __daemon` self-exec. |
 | `internal/control` / `internal/endpoints` / `internal/state` / `internal/health` | Admin IPC · connection strings + `.doze/endpoints.yaml` · project state · health probes. |
-| `internal/ui` / `internal/tui` | Color-gated CLI vocabulary · the Bubble Tea dashboard. |
+| `internal/ui` / `internal/dash` | Color-gated CLI vocabulary · the Bubble Tea dashboard (pages, tabs and overlays; it reaches the daemon only through `control.Daemon`). |
 
 ## Key design decisions
 

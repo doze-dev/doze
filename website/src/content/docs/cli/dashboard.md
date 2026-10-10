@@ -1,84 +1,82 @@
 ---
 title: "The dashboard"
-description: doze dash — a live, pokeable view of your whole stack, right in the terminal.
+description: doze dash — a live view of your whole stack, right in the terminal.
 ---
 
-`doze status` is a snapshot. Sometimes you want the movie — to watch a service
-wake up, see connections come and go, tail logs, or actually reach into a queue
-and send a message without leaving the terminal. That's `doze dash`.
+`doze status` is a snapshot. Sometimes you want the movie: to watch a service
+wake up, see what is holding it, read its output as it prints. That's the
+dash.
 
 ```sh
-doze dash
+doze dash      # or just: doze
 ```
 
-It opens a live TUI (built with [Charm's Bubble Tea](https://github.com/charmbracelet/bubbletea)
-— lovely toolkit, worth a look if you build terminal apps) that reflects the
-daemon's real state and updates as things change. If the daemon isn't running,
-`dash` starts it for you.
+It opens a full-screen terminal view that follows the daemon as things change.
+If the daemon isn't running, `dash` starts it for you. It needs a real
+terminal; without one, use `doze status`.
 
-## What you're looking at
+## Home
 
-The main view is your stack, grouped by category — databases, caches, queues,
-storage, your own `app` blocks — each service on a line with its state,
-endpoint, connection count, and live resource use. The state is the honest
-picture of doze's whole lazy-boot idea, in one column:
+Your stack, grouped by what each thing is: **apps** (your code), **modules**
+(databases, caches, queues), **services** (commands from outside the registry)
+and **tasks**. Each row has a glyph and a word for its state, its memory, and a
+note that says why:
 
-- **reaped** — asleep, costing nothing. Its endpoint is still there; the next
-  connection wakes it.
-- **booting** — someone just connected (or you asked); it's coming up.
-- **active** — running, with connections.
-- **idle** — running, but nothing's talking to it. In a few minutes it'll reap
-  itself. This is the state you'll watch drift to *reaped* after you close your
-  app, which is oddly satisfying.
-- **tainted** — something went wrong on boot; the details are one keypress away
-  so you're never guessing.
+| | Meaning |
+|---|---|
+| `● awake` | Running. The note says what holds it: `held by api, worker`. |
+| `○ dozing` | Running with nothing using it, counting down: `sleeps in 3m12s`. |
+| `◌ waking` | Starting. |
+| `· asleep` | Costing nothing. The next connection wakes it. |
+| `↻ crashing 2/5` | Exited by itself and is being restarted; the note says when. |
+| `✕ failed` | Out of restarts, or a start that did not complete. |
+| `✓ done` | A task that ran, with when, how long and why. |
 
-Arrow keys move around, `tab` switches focus, and there's a filter if your
-stack is big. Select a service and you can wake or sleep it right there, or drop
-into its logs.
+On a wide terminal the right-hand pane previews the selected row: its name and
+address, why it is awake, and its last lines. On a narrow one (80 columns) the
+list stands alone, and `enter` opens the row.
 
-## The AWS console, built in
+| Key | Does |
+|---|---|
+| `↑↓` or `j k` | Select |
+| `enter` | Open the row |
+| `w` `s` `r` `p` | Wake, sleep, restart, pin awake |
+| `R` | Reset: delete its data (asks you to type its name) |
+| `c` | Copy menu: its name, address, connection string, env line |
+| `L` | All logs, merged |
+| `:` | Palette |
+| `T` | Theme |
+| `q` | Quit |
 
-Here's the part that's more than a status screen. Select one of the local AWS
-engines — S3, SQS, SNS — and the dashboard becomes a little data console for it.
-No `aws` CLI, no separate GUI, no hunting for the right endpoint flag.
+Sleeping something that is held asks first, and says who is affected.
 
-- **S3** — browse your buckets and objects, and `put` an object straight from
-  the dashboard to test an upload path.
-- **SQS** — watch queues fill and drain, `send` a message (FIFO-aware, so it'll
-  ask for the bits it needs), inspect what's sitting in a queue, and `purge`
-  when you want a clean slate. The dead-letter and redrive setup is visible too,
-  so you can actually see a message get dead-lettered instead of guessing why it
-  vanished.
-- **SNS** — see your topics and subscriptions, and `publish` a message with
-  attributes so you can watch it fan out to the subscribing queues — filter
-  policies and all. It's the fastest way to answer "is my subscription filter
-  actually matching?" without writing a throwaway script.
+## A row
 
-This is the kind of thing that usually means alt-tabbing to a web console or
-copy-pasting an `awslocal` incantation. Having it a keystroke away, pointed at
-*your* running stack, is a small thing that saves a surprising number of little
-context switches.
+`enter` opens an instance. An app opens on its **logs**; a module on its
+**overview** (where to reach it, why it is awake, vitals, what happened to it
+lately); a task on its **last run** (result, output, and the runs before it
+with the reason each ran). `tab` switches tabs, `esc` goes back.
 
-## Getting around
+On the logs tab, lines carry timestamps and a level read from what the program
+wrote; errors and warnings are counted in the status line. Scrolling pauses the
+view and `f` follows again; `[` and `]` read earlier runs. `v` starts a
+selection: `↑↓` extend it, `y` copies it (`Y` without timestamps), `w` saves it
+to a file. Copying uses the terminal's own clipboard sequence, so it works over
+SSH and inside tmux.
 
-The footer always shows the keys for wherever you are, so you don't have to
-memorize anything — but the shape of it:
+## All logs
 
-- **↑ ↓ / arrows** — move within a list
-- **tab** — switch between panels
-- **enter** — open / drill into the selected thing
-- **esc** — back out
-- **/** — filter
-- action keys (send, publish, put, purge, wake, sleep…) shown in context
-- **?** — help · **q** — quit
+`L` merges every instance's output in time order, each source in its own
+colour. `/` searches with the matches highlighted, `n` and `N` move between
+them, `1`–`9` mute a source, `e` cycles the level filter (all, warnings,
+errors).
 
-## When to reach for it
+## Palette and themes
 
-Honestly? Whenever `status` isn't enough. When you're debugging a message that
-should've been delivered and wasn't, when you want to watch a slow first boot
-finish, when you're eyeballing memory across the stack, or when you just want to
-poke a queue and see what happens. It's not required for anything — every action
-in it has a command-line equivalent — but for the exploratory, "what's actually
-going on" moments, a live view you can steer beats a snapshot you have to keep
-re-running.
+`:` lists what the dash can do to the selected instance, with the command-line
+form of each beside it — so what you did with a key, you can put in a script.
+`T` previews the five themes (dark and light) on the whole dash as you move;
+`enter` keeps one, `esc` puts the old one back, and `p` turns colour off.
+
+The AWS and Kafka consoles that used to be part of the dash are being rebuilt
+as module consoles.

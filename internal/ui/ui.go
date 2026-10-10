@@ -18,7 +18,7 @@ import (
 
 // Palette (unexported; render through the helpers below so color can be gated).
 // The values are the shared light/dark pairs in colors.go — the same accent and
-// state colors the TUI's default theme uses (internal/tui/theme.go) — so
+// state colors the TUI's default theme uses (internal/dash/theme) — so
 // `doze status` and the dash speak the same visual vocabulary, and both stay
 // readable on light terminals.
 var (
@@ -110,7 +110,7 @@ func State(s string) string {
 }
 
 // StateGlyph renders the dash's state glyph for a lifecycle state, in the same
-// color vocabulary as the TUI (internal/tui): active=● green, idle=○ gold,
+// color vocabulary as the TUI (internal/dash): active=● green, idle=○ gold,
 // waking/booting=◌ cyan (the static stand-in for the dash's spinner), error=✕,
 // tainted=! (bold red), disabled=⊘, asleep/anything else=· dim.
 func StateGlyph(state string) string {
