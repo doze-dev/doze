@@ -236,13 +236,13 @@ What changed from the plan:
   job in CI runs two stacks with one app port each on a real Mac and a real
   Linux machine; it has not run since this change, because doze is not
   pushed.
-- **Unit 3.10 is not done.** doze-aws and doze-kafka both build against the new
-  doze-names unchanged, but their `go.mod` pins are not moved: both repos had
-  work in progress, and a pin has to point at a pushed commit. doze's own pin
-  is a doze-names commit that is local until doze-names is pushed, so doze
-  does not build from a clean clone until then.
-- **N4 (`Lease.Listen`) was not needed.** A console listener binds the
-  service's own address, which the name already resolves to.
+- **Unit 3.10 is half done.** doze-names is pushed, and doze, doze-aws and
+  doze-kafka are all pinned to it and listen through it (committed in each,
+  not pushed). Their unit tests pass. None of the three has run against the
+  macOS daemon on a real machine yet: that needs their CI, which needs a push.
+  The module-versus-standalone address table in their docs is not written.
+- **N4 (`Lease.Listen`) turned out to be needed after all**, by D29: it is how
+  a listener is opened on an address macOS cannot bind.
 - A zone can be made private (`DOZE_ZONE_RESOLVER`, `DOZE_ZONE_INGRESS`, with
   `DOZE_HOME`). It was added to test beside a live zone and is how everything
   above was checked.
