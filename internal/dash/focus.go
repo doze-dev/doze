@@ -287,10 +287,13 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 		ks = append(ks, [2]string{"l", "logs"})
 	}
 	if cur.id == tabLogs {
+		if m.selecting {
+			return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1)) + "   " + s.d.Render("or drag with the mouse")
+		}
 		if m.searching {
 			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 		}
-		ks = append(ks, [2]string{"/", "search"}, [2]string{"t", "time"})
+		ks = append(ks, [2]string{"/", "search"}, [2]string{"t", "time"}, [2]string{"v", "select"})
 		if len(m.runIDs()) > 1 {
 			ks = append(ks, [2]string{"[ ]", "earlier runs"})
 		}
@@ -357,6 +360,11 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 	m.query = m.search
 	lines := m.stream(v, h-2, m.level, m.runSel)
 	m.query = ""
+	if m.selecting {
+		lines = m.decorate()
+	} else {
+		m.shown = lines
+	}
 	cap := "following · " + levelNames[m.level]
 	rcap := fmt.Sprintf("%d lines · this run", n)
 	if m.runSel > 0 {
@@ -796,6 +804,11 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	case "/":
 		if ts[m.tab].id == tabLogs {
 			m.searching = true
+			return nil, true
+		}
+	case "v":
+		if ts[m.tab].id == tabLogs {
+			m.beginSelect(len(m.shown) - 1)
 			return nil, true
 		}
 	case "[", "]":

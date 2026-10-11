@@ -692,3 +692,49 @@ func TestStackLogsPage(t *testing.T) {
 		t.Errorf("esc, esc should be back on Home: page=%d", m.page)
 	}
 }
+
+// Part of the logs can be copied: v, ↑↓ and y by keyboard, or a drag.
+func TestCopyPartOfTheLogs(t *testing.T) {
+	setup := func() *Model {
+		m := focused("api")
+		m.followed = "api"
+		m.w, m.h = 140, 30
+		m.logs = nil
+		for i := 1; i <= 6; i++ {
+			m.logs = append(m.logs, control.LogFrame{Instance: "api", Line: fmt.Sprintf("INFO line number %d", i), Time: epoch.Add(time.Duration(i-10) * time.Minute), Run: 1})
+		}
+		frame(m, 140, 30) // draws, which is what v selects from
+		return m
+	}
+
+	m := setup()
+	m.Update(tea.KeyPressMsg{Code: 'v', Text: "v"})
+	if !m.selecting {
+		t.Fatalf("v did not start a selection; notice %q", m.notice)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	out := frame(m, 140, 30)
+	if !strings.Contains(out, "3 lines") || !strings.Contains(out, "copy") {
+		t.Errorf("the key bar should say what is selected:\n%s", out)
+	}
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if cmd == nil || !strings.Contains(m.notice, "copied 3 lines") || m.selecting {
+		t.Errorf("y should copy three lines and leave: cmd=%v notice=%q selecting=%v", cmd != nil, m.notice, m.selecting)
+	}
+
+	m = setup()
+	m.Update(tea.MouseClickMsg(tea.Mouse{X: 10, Y: 2 + 1, Button: tea.MouseLeft}))
+	m.Update(tea.MouseMotionMsg(tea.Mouse{X: 10, Y: 2 + 3, Button: tea.MouseLeft}))
+	_, cmd = m.Update(tea.MouseReleaseMsg(tea.Mouse{X: 10, Y: 2 + 3, Button: tea.MouseLeft}))
+	if cmd == nil || !strings.Contains(m.notice, "copied 3 lines") {
+		t.Errorf("a drag over three lines should copy them: cmd=%v notice=%q", cmd != nil, m.notice)
+	}
+
+	m = setup()
+	m.Update(tea.KeyPressMsg{Code: 'v', Text: "v"})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.selecting || m.page != pageFocus {
+		t.Errorf("esc should cancel the selection and stay: selecting=%v page=%d", m.selecting, m.page)
+	}
+}

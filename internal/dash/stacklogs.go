@@ -70,6 +70,9 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 	case "t":
 		m.timeRel = !m.timeRel
 		return nil, true
+	case "v":
+		m.beginSelect(len(m.shown) - 1)
+		return nil, true
 	case " ", "space":
 		m.paused = !m.paused
 		return nil, true
@@ -189,6 +192,11 @@ func (m *Model) stackLogs(w, h int) []string {
 		cap = "search " + s.w.Render(m.search) + cursor
 	}
 	lines := m.stackLines(h - 4)
+	if m.selecting {
+		lines = m.decorate()
+	} else {
+		m.shown = lines
+	}
 	if len(lines) == 0 {
 		msg := "nothing printed yet"
 		if m.search != "" {
@@ -199,10 +207,12 @@ func (m *Model) stackLogs(w, h int) []string {
 	out = append(out, box(s.border, s.d.Render(cap), s.d.Render(fmt.Sprintf("%d kept", len(m.all))), lines, w, h-2)...)
 
 	var keys string
-	if m.searching {
+	if m.selecting {
+		keys = s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1)) + "   " + s.d.Render("or drag with the mouse")
+	} else if m.searching {
 		keys = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 	} else {
-		ks := [][2]string{{"/", "search"}, {"f", "level"}, {"t", "time"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
+		ks := [][2]string{{"/", "search"}, {"f", "level"}, {"t", "time"}, {"v", "select"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
 		var parts []string
 		for _, k := range ks {
 			parts = append(parts, s.cap(k[0], k[1]))

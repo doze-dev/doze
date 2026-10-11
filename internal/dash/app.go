@@ -51,15 +51,20 @@ type Model struct {
 	search       string             // /: on a logs tab, only the lines that hold it
 	all          []control.LogFrame // the stack's lines, for the logs page
 	allCancel    context.CancelFunc
-	paused       bool   // the logs page holds still
-	timeRel      bool   // t: log times as how long ago, not the clock
-	searching    bool   // the search is being typed
-	runSel       int    // [ ]: the run of the logs tab, 0 for all of them
-	query        string // the search while the logs tab is drawing
-	filter       string // /: only the rows that match
-	filtering    bool   // the filter is being typed
-	hitY0, hitX1 int    // where the stack's lines begin, and the column it ends at
-	clickName    string // the last row clicked, and when: a second click opens it
+	paused       bool     // the logs page holds still
+	timeRel      bool     // t: log times as how long ago, not the clock
+	shown        []string // the lines of the logs the last frame drew
+	selecting    bool     // v: some of them are selected, to copy
+	dragging     bool
+	selA, selB   int
+	frozen       []string // what was shown when the selection began
+	searching    bool     // the search is being typed
+	runSel       int      // [ ]: the run of the logs tab, 0 for all of them
+	query        string   // the search while the logs tab is drawing
+	filter       string   // /: only the rows that match
+	filtering    bool     // the filter is being typed
+	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
+	clickName    string   // the last row clicked, and when: a second click opens it
 	clickAt      time.Time
 	modal        *modal        // the palette or a confirmation, over the page
 	con          *consoleState // the focused instance's console, when it has one
@@ -167,7 +172,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m.keyText(msg.String(), msg.Text)
 	case tea.MouseClickMsg:
+		if cmd, ok := m.logMouse(msg); ok {
+			return m, cmd
+		}
 		m.click(tea.Mouse(msg))
+	case tea.MouseMotionMsg, tea.MouseReleaseMsg:
+		if cmd, ok := m.logMouse(msg); ok {
+			return m, cmd
+		}
 	case tea.MouseWheelMsg:
 		if m.page == pageHome && m.modal == nil {
 			switch tea.Mouse(msg).Button {
@@ -190,6 +202,9 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	if m.modal != nil {
 		return m, m.modalKey(k, text)
+	}
+	if m.selecting && (m.page == pageFocus || m.page == pageLogs) {
+		return m, m.selectKey(k)
 	}
 	if m.page == pageLogs {
 		if m.searching || m.search != "" && k == "esc" {
