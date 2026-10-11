@@ -368,3 +368,62 @@ func count(v float64) string {
 	return fmt.Sprintf("%.0f", v)
 }
 func bytesLabel(v float64) string { return mb(int64(v)) }
+
+// tiles draws the traces as one tile each: its name in the border, the figure
+// and a short trend, and a line saying what it has been doing. As many sit
+// across as can have tileMin cells, the rest under them (boards/V-A.dc.html).
+const tileMin = 30
+
+func (m *Model) tiles(ts []trace, w int) []string {
+	s := m.st
+	per := 1
+	for k := len(ts); k > 1; k-- {
+		if (w-(k-1))/k >= tileMin {
+			per = k
+			break
+		}
+	}
+	tw := (w - (per - 1)) / per
+	var out []string
+	for g := 0; g < len(ts); g += per {
+		var boxes [][]string
+		for _, t := range ts[g:min(g+per, len(ts))] {
+			vals := t.vals
+			if len(vals) == 0 {
+				vals = []float64{t.cur}
+			}
+			inner := tw - 4
+			fig := s.b.Render(t.now)
+			trend := s.a.Render(spark(vals, max(inner-width(t.now)-2, 4)))
+			if t.st.GetForeground() != nil && !m.st.plain {
+				trend = t.st.Render(spark(vals, max(inner-width(t.now)-2, 4)))
+			}
+			peak, mean := stats(vals)
+			sum := "peak " + t.unit(peak) + " · avg " + t.unit(mean)
+			if t.zoom && len(vals) > 1 {
+				d := vals[len(vals)-1] - vals[0]
+				arrow := "→"
+				switch {
+				case d > 0:
+					arrow = "↑"
+				case d < 0:
+					arrow, d = "↓", -d
+				}
+				sum = arrow + " " + t.unit(d) + " in " + ago(time.Duration(len(vals))*sampleEvery) + " · peak " + t.unit(peak)
+			}
+			lines := []string{fig + "  " + trend, s.d.Render(fit(sum, inner))}
+			boxes = append(boxes, box(s.border, s.d.Render(t.name), "", lines, tw, 4))
+		}
+		for l := 0; l < 4; l++ {
+			var b strings.Builder
+			for i, bx := range boxes {
+				if i > 0 {
+					b.WriteString(" ")
+				}
+				b.WriteString(bx[l])
+			}
+			out = append(out, b.String())
+		}
+	}
+	return out
+}

@@ -29,13 +29,14 @@ const (
 	hexBorder = "#5f5886" // clear of the page on a dim display, which #37324b was not
 	hexPanel  = "#1b1927" // the inside of a box: a step lighter than the page
 	hexSel    = "#2b2542"
+	hexPick   = "#3a3170" // the selected row of a table
 )
 
 // styles are the board's classes: a g y c r d w are the colour classes, b is
 // bold bright, and the pills and key caps are their own.
 type styles struct {
-	plain  bool
-	selHex string
+	plain           bool
+	selHex, pickHex string
 
 	text, a, g, y, c, r, d, w, b lipgloss.Style
 	border, borderOn, borderBad  lipgloss.Style
@@ -98,6 +99,7 @@ func build(plain bool, tint func(string) string) styles {
 		s.pillOn = s.pillOn.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexAccent)))
 		s.pillQ = s.pillQ.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexText)))
 		s.selHex = tint(hexSel)
+		s.pickHex = tint(hexPick)
 		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(s.selHex)).Foreground(lipgloss.Color(tint(hexBright)))
 		s.key = lipgloss.NewStyle().Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexBright))).Padding(0, 1)
 	} else {
@@ -236,6 +238,14 @@ func spark(vs []float64, w int) string {
 // on draws st on the selection's background, so a selected row keeps each
 // part's colour across the whole row (a reset inside a styled string would
 // otherwise end the highlight there).
+// onPick draws st on a table's selected row.
+func (s styles) onPick(st lipgloss.Style) lipgloss.Style {
+	if s.plain {
+		return st.Reverse(true)
+	}
+	return st.Background(lipgloss.Color(s.pickHex))
+}
+
 func (s styles) on(st lipgloss.Style) lipgloss.Style {
 	if s.plain {
 		return st.Reverse(true)

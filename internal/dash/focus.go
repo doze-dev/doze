@@ -283,6 +283,13 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 	if cur.id != tabLogs && v.Kind != "task" {
 		ks = append(ks, [2]string{"l", "logs"})
 	}
+	if cur.id == tabOverview && awake(v) {
+		if m.metrics {
+			ks = append(ks, [2]string{"m", "tiles"})
+		} else {
+			ks = append(ks, [2]string{"m", "metrics"})
+		}
+	}
 	if v.Kind == "task" {
 		ks = append(ks, [2]string{"r", "run now"})
 	} else {
@@ -495,7 +502,10 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
-		if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
+		if !m.metrics {
+			// a tile each: the figure, its trend, what it has been doing (V-A)
+			vit = append(vit, m.tiles(ts, w-4)...)
+		} else if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
 			vit = append(vit, m.charts(ts, w-4, r)...)
 		} else {
 			vit = append(vit,
@@ -720,6 +730,9 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		if ts[m.tab].id == tabWeb {
 			return openURL(webURL(v)), true
 		}
+		return nil, true
+	case "m":
+		m.metrics = !m.metrics
 		return nil, true
 	case "p":
 		if v.Kind == "module" || v.Kind == "" {

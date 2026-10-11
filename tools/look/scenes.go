@@ -47,7 +47,7 @@ func cat(parts ...[]string) []string {
 // mailpit mongo search | migrate seed. So db is five presses down, mailpit
 // seven, migrate ten.
 var scenes = []scene{
-	{name: "home", board: "Main", fixture: "shop", wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "home", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "narrow", board: "Narrow", fixture: "shop", wpx: 716, hpx: 564, cols: 80, rows: 30},
 	{name: "crash", board: "Crash", fixture: "crash", wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "focus-api", board: "View-App", fixture: "shop", keys: []string{"enter"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
@@ -65,7 +65,7 @@ var scenes = []scene{
 	{name: "kafka", board: "View-Kafka", fixture: "modules", keys: cat(downs(4), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "aws", board: "View-Aws", fixture: "modules", keys: cat(downs(1), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	// the dream at a wide window (docs/design/next/boards/W-*.dc.html)
-	{name: "w-home", board: "W-Home", fixture: "shop", wpx: 1640, hpx: 1010, cols: 190, rows: 44},
+
 	{name: "w-overview", board: "W-Overview", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1640, hpx: 1010, cols: 190, rows: 44},
 	{name: "w-activity", board: "W-Activity", fixture: "modules", keys: cat(downs(2), []string{"enter", "tab"}), wpx: 1640, hpx: 800, cols: 190, rows: 34},
 	{name: "w-task", board: "W-Task", fixture: "shop", keys: cat(downs(10), []string{"enter"}), wpx: 1640, hpx: 760, cols: 190, rows: 32},

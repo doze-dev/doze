@@ -13,7 +13,6 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
-	"github.com/doze-dev/doze/internal/journal"
 )
 
 // group is a heading on the stack box, and what belongs under it (Main.dc.html).
@@ -234,82 +233,12 @@ func mem(v control.InstanceView) string {
 // narrow is the width below which Home is one column (Narrow.dc.html).
 const narrow = 100
 
-// maxList is the widest the stack is drawn: a name, a state and a size need no
-// more, and on a wide terminal the rest belongs to the instance on the right.
-const maxList = 56
-
 // View draws Home at w x h.
 func (m *Model) home(w, h int) []string {
 	if w < narrow {
 		return m.homeNarrow(w, h)
 	}
-	s := m.st
-	out := []string{m.header(w)}
-
-	bodyH := h - 2 // the header and the key bar
-	// a third for the list, which says what each is and how it is; the rest is
-	// for the one selected, which has the room for what it runs and how it is doing
-	lw := min(w/3, maxList)
-	if lw < 40 {
-		lw = 40
-	}
-	rw := w - lw - 1
-	if rw < 30 {
-		rw = 30
-		lw = w - rw - 1
-	}
-
-	// On a tall window the list is not given the whole column: under it is what
-	// the stack has been doing, from the journal (boards/W-Home.dc.html).
-	listH, actH := bodyH, 0
-	if bodyH >= 38 {
-		actH = min(max(bodyH/4, 9), 13)
-		listH = bodyH - actH
-	}
-	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, listH-2, true, false), lw, listH)
-	if actH > 0 {
-		left = append(left, box(s.border, s.d.Render("activity"), "", m.activity(lw-4, actH-2), lw, actH)...)
-	}
-	m.hitY0, m.hitX1 = 2, lw // under the header and the box's top border
-
-	v, ok := m.selected()
-	var top, bottom []string
-	if ok {
-		// One height for the box whichever instance is selected, so the logs below
-		// do not move as the selection does; a crash is the exception.
-		topH := max(bodyH*55/100, 12)
-		topH = min(topH, bodyH-4)
-		topLines, caption, rcap, st := m.detail(v, rw-4, topH-2)
-		if troubled(v) {
-			// a crash is its own screen (Crash.dc.html): as tall as what went wrong
-			topH = min(len(topLines)+2, bodyH-4)
-		}
-		gap := 0
-		if bodyH-topH > 8 {
-			gap = 1 // air between the boxes, when there is room
-		}
-		top = box(st, caption, rcap, topLines, rw, topH)
-		if gap == 1 {
-			top = append(top, strings.Repeat(" ", rw))
-		}
-		bottom = box(s.border, s.d.Render("logs · following"), "", m.logLines(v, rw-4, bodyH-topH-gap-2), rw, bodyH-topH-gap)
-	} else {
-		top = box(s.border, s.d.Render("nothing selected"), "", nil, rw, bodyH)
-	}
-	right := append(top, bottom...)
-
-	for i := 0; i < bodyH; i++ {
-		l, r := "", ""
-		if i < len(left) {
-			l = left[i]
-		}
-		if i < len(right) {
-			r = right[i]
-		}
-		out = append(out, l+" "+r)
-	}
-	out = append(out, m.keys(w))
-	return out
+	return m.homeTable(w, h)
 }
 
 func (m *Model) header(w int) string {
@@ -462,8 +391,9 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 	return out
 }
 
-// detail is the right box's content for the selected instance: its caption,
-// right caption and border, and the rows between (Main.dc.html, api).
+// detail is what a crashed or task instance says about itself, for the box
+// under the table: its caption, right caption and border, and the rows between
+// (Crash.dc.html). Others have no detail; the table row says it.
 func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, caption, rcap string, border lipgloss.Style) {
 	s := m.st
 	lk := s.look(v)
@@ -530,45 +460,6 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 		return lines, caption, rcap, border
 	}
 
-	if troubled(v) && v.LastError != "" {
-		return lines, caption, rcap, border
-	}
-	if u := m.url(v); u != "" {
-		lines = append(lines, label("url")+u)
-	}
-	if len(v.Needs) > 0 {
-		lines = append(lines, label("needs")+m.needs(v))
-	}
-	// what it is and how it is: the list has no room for these
-	switch v.Kind {
-	case "app", "service":
-		if r := short(v.Run); r != "" {
-			lines = append(lines, label("runs")+s.text.Render(r))
-		}
-	default:
-		if e := strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin")); e != "" {
-			lines = append(lines, label("is")+s.text.Render(e))
-		}
-	}
-	if st := m.hint(v); st != "" {
-		lines = append(lines, label("now")+s.d.Render(st))
-	}
-	if awake(v) {
-		ts := []trace{
-			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
-		}
-		// side by side where there is room (chartsAcross), each as tall as the box
-		// has left after the lines above: a heading and an axis to a group, and a
-		// blank between groups and before them
-		groups := chartGroups(w, len(ts))
-		rows := min(max((h-len(lines)-1-(groups-1))/groups-2, 2), 8)
-		// a rule, so the facts above and the charts below read as two things
-		lines = append(lines, s.d.Render("─ vitals "+strings.Repeat("─", max(w-9, 0))))
-		lines = append(lines, m.charts(ts, w, rows)...)
-	} else if v.State != "booting" && !troubled(v) {
-		lines = append(lines, label("")+s.d.Render("asleep: it costs nothing until something connects"))
-	}
 	return lines, caption, rcap, border
 }
 
@@ -620,7 +511,7 @@ func (m *Model) keys(w int) string {
 	s := m.st
 	var parts []string
 	for _, k := range []struct{ key, label string }{
-		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {":", "command"}, {"q", "quit"},
+		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"o", "sort " + sortTitles[m.sortBy]}, {":", "command"}, {"q", "quit"},
 	} {
 		parts = append(parts, s.cap(k.key, k.label))
 	}
@@ -736,27 +627,4 @@ func (m *Model) click(at tea.Mouse) {
 		return
 	}
 	m.sel, m.clickName, m.clickAt = name, name, m.now
-}
-
-// activity is the newest of what doze did, newest first, in h lines of w cells:
-// the journal the dash already receives, as the logs tab reads it.
-func (m *Model) activity(w, h int) []string {
-	s := m.st
-	var out []string
-	for i := len(m.events) - 1; i >= 0 && len(out) < h; i-- {
-		e := m.events[i]
-		style := s.a
-		switch e.Kind {
-		case journal.Crash, journal.GiveUp, journal.Failed:
-			style = s.r
-		case journal.Sleep:
-			style = s.d
-		}
-		at := s.d.Render(e.Time.In(m.loc).Format("15:04:05"))
-		out = append(out, at+" "+style.Render(fit("zzz "+e.Instance+" "+display.Event(e), max(w-9, 4))))
-	}
-	if len(out) == 0 {
-		out = append(out, s.d.Render("nothing yet: the stack has not woken or slept anything"))
-	}
-	return out
 }

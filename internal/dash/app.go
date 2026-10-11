@@ -45,6 +45,8 @@ type Model struct {
 	hit          []string // the instance on each line of the stack, "" for a heading
 	listTop      int      // the first line of the stack shown, when it is longer than its box
 	areaCharts   bool     // c: charts as filled areas of blocks, not a line of dots
+	sortBy       int      // o: how the table orders its rows within a group
+	metrics      bool     // m: Focus shows the full charts, not the tiles
 	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
 	clickName    string   // the last row clicked, and when: a second click opens it
 	clickAt      time.Time
@@ -179,6 +181,8 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	switch k {
 	case "c":
 		m.areaCharts = !m.areaCharts
+	case "o":
+		m.sortBy = (m.sortBy + 1) % sortModes
 	case "enter", "l", "right":
 		m.open()
 	case "ctrl+c", "q":
@@ -191,11 +195,11 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		m.move(1)
 	case "home", "g":
-		if rs := rows(m.snap); len(rs) > 0 {
+		if rs := m.ordered(); len(rs) > 0 {
 			m.sel = rs[0].v.Name
 		}
 	case "end", "G":
-		if rs := rows(m.snap); len(rs) > 0 {
+		if rs := m.ordered(); len(rs) > 0 {
 			m.sel = rs[len(rs)-1].v.Name
 		}
 	case "w":
@@ -238,7 +242,7 @@ func (m *Model) verb(name string) tea.Cmd {
 }
 
 func (m *Model) move(by int) {
-	rs := rows(m.snap)
+	rs := m.ordered()
 	for i, r := range rs {
 		if r.v.Name == m.sel {
 			if j := i + by; j >= 0 && j < len(rs) {

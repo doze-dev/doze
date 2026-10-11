@@ -352,6 +352,33 @@
       "w": 1640,
       "x": 0,
       "y": 1970
+    },
+    "V-A.dc.html": {
+      "h": 900,
+      "page": "directions",
+      "radius": 12,
+      "title": "A · cards and stat tiles: the memory bar on top, a tile each for cpu, memory, connections",
+      "w": 1640,
+      "x": 0,
+      "y": 0
+    },
+    "V-B.dc.html": {
+      "h": 900,
+      "page": "directions",
+      "radius": 12,
+      "title": "B · filled areas: smooth gradient charts (needs a graphics protocol; blocks as fallback)",
+      "w": 1640,
+      "x": 1720,
+      "y": 0
+    },
+    "V-C.dc.html": {
+      "h": 900,
+      "page": "directions",
+      "radius": 12,
+      "title": "C · htop-style: header meters and one dense table, the selected instance's logs beneath",
+      "w": 1640,
+      "x": 3440,
+      "y": 0
     }
   },
   "createdOnFiles": {
@@ -480,6 +507,15 @@
       "w": 240,
       "x": 0,
       "y": -300
+    },
+    "x1": {
+      "kind": "title1",
+      "maxW": 5200,
+      "page": "directions",
+      "text": "Home — three directions to choose between",
+      "w": 240,
+      "x": 0,
+      "y": -300
     }
   },
   "order": [
@@ -521,7 +557,10 @@
     "W-Overview.dc.html",
     "W-Activity.dc.html",
     "W-Task.dc.html",
-    "W-Charts.dc.html"
+    "W-Charts.dc.html",
+    "V-A.dc.html",
+    "V-B.dc.html",
+    "V-C.dc.html"
   ],
   "pages": [
     {
@@ -551,6 +590,10 @@
     {
       "id": "wide",
       "name": "7 · The dash at a wide window"
+    },
+    {
+      "id": "directions",
+      "name": "8 · Home: three directions"
     }
   ],
   "title": "Doze Dream Design Canvas"

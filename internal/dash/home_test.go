@@ -75,12 +75,12 @@ func TestHomeAgainstTheBoard(t *testing.T) {
 		fmt.Println(got)
 	}
 	for _, want := range []string{
-		"doze  shop ~/code/shop", "4 awake", "1 dozing", "551 MB resident", "stack",
+		"doze  shop ~/code/shop", "mem", "cpu", "conns", "4 awake", "1 dozing", "2 waking", "3 asleep",
+		"NAME", "KIND", "STATE", "MEM", "WHY AWAKE · WHAT IT RUNS",
 		"APPS", "your code", "MODULES", "from the doze registry", "OUTSIDE", "brought in by you", "TASKS",
-		"runs", "go run ./cmd/api",
+		"go run ./cmd/api", "postgres 17", "valkey 9", "sleeps in 3:12", "woken by worker", "waiting on events",
 		"84 MB", "212 MB", "96 MB", "11 MB",
-		"api  awake", "up 14m · pid 48211 · 0 restarts", "url", "http://api.shop.doze → :8080", "needs", "✓ db", "cpu", "mem",
-		"logs · following", "INF listening addr=:8080", "WRN slow query", "zzz cache woke (api needed it)",
+		"api · logs · following", "INF listening addr=:8080", "WRN slow query", "zzz cache woke (api needed it)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Home lacks %q", want)
@@ -436,31 +436,6 @@ func TestPaletteMatchesWordStarts(t *testing.T) {
 	}
 }
 
-// The list is a third of the screen and says only what each is and how it is;
-// what a thing runs, and what it waits for, is on the right for the selected.
-func TestTheListIsAThirdAndTheRightSaysWhatItIs(t *testing.T) {
-	m := board()
-	got := frame(m, 136, 32)
-	for _, l := range strings.Split(got, "\n") {
-		if strings.Contains(l, "go run ./cmd/api") && strings.Index(l, "go run ./cmd/api") < 48 {
-			t.Errorf("the list still carries the command: %q", l)
-		}
-	}
-	for name, want := range map[string][]string{
-		"cache":  {"is", "valkey 9", "now", "sleeps in 3:12"},
-		"events": {"kafka", "woken by worker"},
-		"worker": {"waiting on events"},
-	} {
-		m.sel = name
-		out := frame(m, 136, 32)
-		for _, w := range want {
-			if !strings.Contains(out, w) {
-				t.Errorf("%s: the right lacks %q", name, w)
-			}
-		}
-	}
-}
-
 // The palette is drawn for the board's ground, so the dash asks the terminal
 // for it rather than taking the theme's, unless colour is off.
 func TestTheDashAsksForItsGround(t *testing.T) {
@@ -519,30 +494,6 @@ func TestClickingTheStack(t *testing.T) {
 	}
 }
 
-// The logs box does not move as the selection moves: the detail above it is one
-// height whichever instance is selected.
-func TestTheRightPaneKeepsItsHeight(t *testing.T) {
-	m := board()
-	at := -1
-	for _, r := range rows(m.snap) {
-		if troubled(r.v) {
-			continue
-		}
-		m.sel = r.v.Name
-		for i, l := range strings.Split(frame(m, 136, 40), "\n") {
-			if strings.Contains(l, "logs · following") {
-				if at >= 0 && i != at {
-					t.Fatalf("with %s selected the logs box starts on line %d, not %d", r.v.Name, i, at)
-				}
-				at = i
-			}
-		}
-	}
-	if at < 0 {
-		t.Fatal("no logs box found")
-	}
-}
-
 // More instances than rows: the list scrolls to keep the selection in view, and
 // a click lands on the row that is drawn there.
 func TestTheListScrollsToTheSelection(t *testing.T) {
@@ -567,30 +518,5 @@ func TestTheListScrollsToTheSelection(t *testing.T) {
 		if n != "" && !strings.Contains(frame(m, 136, 20), n) {
 			t.Errorf("hit line %d names %s, which is not drawn", i, n)
 		}
-	}
-}
-
-// On a wide terminal the list stays as wide as a list needs.
-func TestTheListIsCappedOnAWideTerminal(t *testing.T) {
-	m := board()
-	line := strings.Split(frame(m, 300, 32), "\n")[1] // the boxes' top border
-	end := strings.Index(line, "╮")
-	if end >= 0 {
-		end = width(line[:end]) // cells, not bytes
-	}
-	if end < 0 || end > maxList+1 {
-		t.Errorf("the list ends at column %d on a 300 column terminal, want within %d", end, maxList)
-	}
-}
-
-// On a tall window the list shares its column with what the stack has been doing.
-func TestActivityUnderTheListOnATallWindow(t *testing.T) {
-	m := board()
-	if out := frame(m, 136, 32); strings.Contains(out, "activity") {
-		t.Error("a short window should give the list the whole column")
-	}
-	out := frame(m, 190, 44)
-	if !strings.Contains(out, "activity") || !strings.Contains(out, "zzz cache woke") {
-		t.Errorf("a tall window lacks the activity feed:\n%s", out)
 	}
 }
