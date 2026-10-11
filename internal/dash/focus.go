@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
@@ -483,10 +484,35 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	}
 	vit := []string{}
 	if awake(v) {
-		vit = append(vit,
-			label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)), 8),
-			label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+"  "+right(s.text.Render(mb(v.RAM)), 8),
-			label("conns")+s.g.Render(spark(m.conns[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprint(v.Conns)), 8))
+		// each metric gets a band of its own, as tall as the screen can spare
+		band := 1
+		if h >= len(out)+3+3+2+4+2+len(vit)+10 {
+			band = 3
+		}
+		metric := func(name string, vals []float64, floor float64, st lipgloss.Style, fig string, rows int) {
+			if band == 1 {
+				vit = append(vit, label(name)+st.Render(spark(vals, sw))+"  "+right(s.text.Render(fig), 8))
+				return
+			}
+			ch := area(vals, sw, rows, floor)
+			for i, line := range ch {
+				left := label("")
+				switch i {
+				case 0:
+					left = label(name)
+				case 1:
+					left = label("")
+				}
+				tail := strings.Repeat(" ", 10)
+				if i == 0 {
+					tail = "  " + right(s.text.Render(fig), 8)
+				}
+				vit = append(vit, left+st.Render(line)+tail)
+			}
+		}
+		metric("cpu", m.cpu[v.Name], 5, s.a, fmt.Sprintf("%.1f%%", v.CPU), 3)
+		metric("mem", m.ram[v.Name], 0, s.a, mb(v.RAM), 3)
+		metric("conns", m.conns[v.Name], 8, s.g, fmt.Sprint(v.Conns), 2)
 	} else {
 		vit = append(vit, s.d.Render("asleep: no process, no memory"))
 	}

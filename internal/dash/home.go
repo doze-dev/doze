@@ -486,16 +486,22 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 		lines = append(lines, label("needs")+m.needs(v))
 	}
 	if awake(v) {
-		sw := w - 6 - 2 - 9
-		if sw > 26 {
-			sw = 26
-		}
+		// two rows each, across the box, the figure at the right edge
+		sw := w - 8 - 2 - 8
 		if sw < 8 {
 			sw = 8
 		}
-		cpu := s.a.Render(spark(m.cpu[v.Name], sw)) + "  " + s.text.Render(fmt.Sprintf("%.1f%%", v.CPU))
-		ram := s.a.Render(spark(m.ram[v.Name], sw)) + "  " + s.text.Render(mb(v.RAM))
-		lines = append(lines, label("cpu")+cpu, label("mem")+ram)
+		metric := func(name string, vals []float64, floor float64, fig string) {
+			for i, row := range area(vals, sw, 2, floor) {
+				left, tail := label(""), strings.Repeat(" ", 10)
+				if i == 0 {
+					left, tail = label(name), "  "+right(s.text.Render(fig), 8)
+				}
+				lines = append(lines, left+s.a.Render(row)+tail)
+			}
+		}
+		metric("cpu", m.cpu[v.Name], 5, fmt.Sprintf("%.1f%%", v.CPU))
+		metric("mem", m.ram[v.Name], 0, mb(v.RAM))
 	} else if v.State != "booting" && !troubled(v) {
 		lines = append(lines, label("")+s.d.Render("asleep: it costs nothing until something connects"))
 	}
