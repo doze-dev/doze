@@ -485,9 +485,9 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	vit := []string{}
 	if awake(v) {
 		ts := []trace{
-			{"cpu", m.cpu[v.Name], 5, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
-			{"mem", m.ram[v.Name], 0, bytesLabel, mb(v.RAM), s.a},
-			{"conns", m.conns[v.Name], 8, count, fmt.Sprint(v.Conns), s.g},
+			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), s.a},
+			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
 		if r := chartH(room, len(ts)); r > 0 {

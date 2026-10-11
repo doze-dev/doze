@@ -513,8 +513,8 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 	}
 	if awake(v) {
 		ts := []trace{
-			{"cpu", m.cpu[v.Name], 5, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
-			{"mem", m.ram[v.Name], 0, bytesLabel, mb(v.RAM), s.a},
+			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), s.a},
 		}
 		lines = append(lines, "")
 		lines = append(lines, m.charts(ts, w, 3)...)

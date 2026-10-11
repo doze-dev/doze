@@ -720,7 +720,7 @@ func (m *Model) drawChart(n control.ConsoleNode, w, h int) []string {
 		if len(vals) > 0 {
 			last = vals[len(vals)-1]
 		}
-		t := trace{"", vals, 0, count, count(last), s.a}
+		t := trace{"", vals, 0, false, count, count(last), s.a}
 		return box(s.border, s.a.Bold(true).Render(m.title(n, "chart")), "", m.charts([]trace{t}, w-4, rows), w, h)
 	}
 	line := s.a.Render(spark(vals, w-4))

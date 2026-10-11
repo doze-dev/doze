@@ -236,6 +236,22 @@ func blockOrLine(img *image.RGBA, x, y, w, h int, r rune, fg, bg color.RGBA) boo
 		fill(img, x, y, w, h, mix(fg, bg, 0.75))
 		return true
 	}
+	if r >= 0x2800 && r <= 0x28FF {
+		// braille: a 2 x 4 grid of dots, drawn as a terminal draws it. Bit order
+		// is the Unicode one: the left column top to bottom is 1 2 3 7, the right
+		// 4 5 6 8.
+		bits := int(r - 0x2800)
+		cols := [8][2]int{{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 3}, {1, 3}}
+		for i, p := range cols {
+			if bits&(1<<i) == 0 {
+				continue
+			}
+			dx := x + 1 + p[0]*3
+			dy := y + 1 + p[1]*h/4
+			fill(img, dx, dy, 3, 3, fg)
+		}
+		return true
+	}
 	// box drawing: which arms leave the centre
 	var l, rt, u, d bool
 	switch r {
