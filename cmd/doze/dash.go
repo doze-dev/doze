@@ -2,44 +2,19 @@ package main
 
 import (
 	"errors"
-	"os"
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-
-	"github.com/doze-dev/doze/internal/dash"
+	"os"
 )
 
 func dashCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "dash",
-		Short: "Launch the live TUI dashboard",
+		Short: "The live dashboard (being rebuilt)",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			// The dashboard is a full-screen TUI; without a terminal on both ends
-			// Bubble Tea can only fail obscurely, so fail plainly up front.
-			if !isTerminal(os.Stdin) || !isTerminal(os.Stdout) {
-				return errors.New("doze dash needs an interactive terminal — try `doze status`")
-			}
-			cfg, err := loadConfig()
-			if err != nil {
-				if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
-					firstRun()
-					return nil
-				}
-				return err
-			}
-			// The dashboard reflects live daemon state; start it if needed.
-			if !daemonRunning(cfg) {
-				if err := startDaemon(cfg); err != nil {
-					return err
-				}
-			}
-			return dash.Run(cmd.Context(), daemonFor(cfg), dash.Options{
-				Dark:  dash.Dark(),
-				Plain: os.Getenv("NO_COLOR") != "",
-				Home:  cfg.Home,
-			})
+		RunE: func(*cobra.Command, []string) error {
+			return errors.New("the dashboard is being rebuilt; `doze status`, `doze logs` and `doze task` cover it meanwhile")
 		},
 	}
 }
