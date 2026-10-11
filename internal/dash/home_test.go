@@ -77,9 +77,9 @@ func TestHomeAgainstTheBoard(t *testing.T) {
 	for _, want := range []string{
 		"doze  shop ~/code/shop", "4 awake", "1 dozing", "551 MB resident", "stack",
 		"APPS", "your code", "MODULES", "from the doze registry", "OUTSIDE", "brought in by you", "TASKS",
-		"go run ./cmd/api", "postgres 17", "valkey 9 · sleeps in 3:12", "kafka · woken by worker", "waiting on events",
+		"runs", "go run ./cmd/api",
 		"84 MB", "212 MB", "96 MB", "11 MB",
-		"api  awake", "up 14m · pid 48211 · 0 restarts", "docker run", "url", "http://api.shop.doze → :8080", "needs", "✓ db", "cpu", "mem",
+		"api  awake", "up 14m · pid 48211 · 0 restarts", "url", "http://api.shop.doze → :8080", "needs", "✓ db", "cpu", "mem",
 		"logs · following", "INF listening addr=:8080", "WRN slow query", "zzz cache woke (api needed it)",
 	} {
 		if !strings.Contains(got, want) {
@@ -127,7 +127,7 @@ func TestCrashAgainstTheBoard(t *testing.T) {
 	if os.Getenv("DOZE_SHOW") != "" {
 		fmt.Println(got)
 	}
-	for _, want := range []string{"1 needs you", "api  crashing", "next try in 4 s", "panic: STRIPE_KEY is required", "main.loadConfig", "try 3 of 5"} {
+	for _, want := range []string{"1 needs you", "api  crashing", "next try in 4 s", "panic: STRIPE_KEY is required", "main.loadConfig", "try", "3 of 5"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Crash lacks %q", want)
 		}
@@ -432,6 +432,31 @@ func TestPaletteMatchesWordStarts(t *testing.T) {
 	for _, c := range cases {
 		if _, got := match(c.query, c.label); got != c.want {
 			t.Errorf("match(%q, %q) = %v, want %v", c.query, c.label, got, c.want)
+		}
+	}
+}
+
+// The list is a third of the screen and says only what each is and how it is;
+// what a thing runs, and what it waits for, is on the right for the selected.
+func TestTheListIsAThirdAndTheRightSaysWhatItIs(t *testing.T) {
+	m := board()
+	got := frame(m, 136, 32)
+	for _, l := range strings.Split(got, "\n") {
+		if strings.Contains(l, "go run ./cmd/api") && strings.Index(l, "go run ./cmd/api") < 48 {
+			t.Errorf("the list still carries the command: %q", l)
+		}
+	}
+	for name, want := range map[string][]string{
+		"cache":  {"is", "valkey 9", "now", "sleeps in 3:12"},
+		"events": {"kafka", "woken by worker"},
+		"worker": {"waiting on events"},
+	} {
+		m.sel = name
+		out := frame(m, 136, 32)
+		for _, w := range want {
+			if !strings.Contains(out, w) {
+				t.Errorf("%s: the right lacks %q", name, w)
+			}
 		}
 	}
 }

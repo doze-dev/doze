@@ -715,6 +715,14 @@ func (m *Model) drawChart(n control.ConsoleNode, w, h int) []string {
 			}
 		}
 	}
+	if rows := h - 2 - 2; rows >= 2 {
+		last := 0.0
+		if len(vals) > 0 {
+			last = vals[len(vals)-1]
+		}
+		t := trace{"", vals, 0, count, count(last), s.a}
+		return box(s.border, s.a.Bold(true).Render(m.title(n, "chart")), "", m.charts([]trace{t}, w-4, rows), w, h)
+	}
 	line := s.a.Render(spark(vals, w-4))
 	return box(s.border, s.a.Bold(true).Render(m.title(n, "chart")), "", []string{line}, w, h)
 }

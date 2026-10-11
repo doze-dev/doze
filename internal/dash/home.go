@@ -241,12 +241,11 @@ func (m *Model) home(w, h int) []string {
 	out := []string{m.header(w)}
 
 	bodyH := h - 2 // the header and the key bar
-	lw := w * 49 / 100
-	if v, ok := m.selected(); ok && troubled(v) {
-		lw = w * 37 / 100 // Crash.dc.html: the list narrows to give the error room
-	}
-	if lw < 48 {
-		lw = 48
+	// a third for the list, which says what each is and how it is; the rest is
+	// for the one selected, which has the room for what it runs and how it is doing
+	lw := w / 3
+	if lw < 40 {
+		lw = 40
 	}
 	rw := w - lw - 1
 	if rw < 30 {
@@ -254,7 +253,7 @@ func (m *Model) home(w, h int) []string {
 		lw = w - rw - 1
 	}
 
-	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, bodyH-2, lw >= 60), lw, bodyH)
+	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, bodyH-2, true, false), lw, bodyH)
 
 	v, ok := m.selected()
 	var top, bottom []string
@@ -341,7 +340,7 @@ func (m *Model) header(w int) string {
 }
 
 // stack is the left box: groups of rows in the board's five columns.
-func (m *Model) stack(w, h int, subtitles bool) []string {
+func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 	s := m.st
 	rs := rows(m.snap)
 	nameW := 8
@@ -360,15 +359,17 @@ func (m *Model) stack(w, h int, subtitles bool) []string {
 		}
 	}
 	memW := 7
-	if w < 60 {
-		memW = 0 // the board drops it when the list is narrow
-	}
 	descW := w - 2 - 2 - nameW - 2 - 2 - stateW - 2 - 2 // gaps, padding
-	if memW > 0 {
-		descW -= memW + 2
-	}
+	descW -= memW + 2
 	if descW < 8 {
 		descW = 8
+	}
+	if !describe {
+		// the list is a third of the screen: name, state, memory; what it runs
+		// is on the right, where there is room
+		descW = 0
+		nameW = max(nameW, w-2-2-2-stateW-2-memW-2-2)
+		nameW = min(nameW, 24)
 	}
 
 	var out []string
@@ -392,7 +393,11 @@ func (m *Model) stack(w, h int, subtitles bool) []string {
 		if r.v.Name == m.sel {
 			bg := s.on(lipgloss.NewStyle())
 			gap := bg.Render("  ")
-			line = bg.Render(" ") + s.on(lk.style).Render(lk.glyph) + gap + s.on(s.b).Render(name) + gap + s.on(s.text).Render(what) + gap +
+			desc := ""
+			if describe {
+				desc = s.on(s.text).Render(what) + gap
+			}
+			line = bg.Render(" ") + s.on(lk.style).Render(lk.glyph) + gap + s.on(s.b).Render(name) + gap + desc +
 				s.on(lk.style).Render(state) + gap + s.on(s.w).Render(memS) + bg.Render(" ")
 		} else {
 			nameS := s.w.Render(name)
@@ -404,7 +409,11 @@ func (m *Model) stack(w, h int, subtitles bool) []string {
 			if !awake(r.v) {
 				memStyled = s.d.Render(memS)
 			}
-			line = " " + lk.style.Render(lk.glyph) + "  " + nameS + "  " + whatS + "  " + lk.style.Render(state) + "  " + memStyled + " "
+			desc := ""
+			if describe {
+				desc = whatS + "  "
+			}
+			line = " " + lk.style.Render(lk.glyph) + "  " + nameS + "  " + desc + lk.style.Render(state) + "  " + memStyled + " "
 		}
 		out = append(out, line)
 	}
@@ -444,6 +453,9 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 
 	label := func(k string) string { return s.d.Render(fit(k, 6)) + "  " }
 	if troubled(v) && v.LastError != "" {
+		if v.RestartMax > 0 {
+			lines = append(lines, label("try")+s.text.Render(fmt.Sprintf("%d of %d", v.RestartCount, v.RestartMax)))
+		}
 		for i, l := range strings.Split(strings.TrimSpace(v.LastError), "\n") {
 			if i >= 4 {
 				break
@@ -485,23 +497,27 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 	if len(v.Needs) > 0 {
 		lines = append(lines, label("needs")+m.needs(v))
 	}
+	// what it is and how it is: the list has no room for these
+	switch v.Kind {
+	case "app", "service":
+		if r := short(v.Run); r != "" {
+			lines = append(lines, label("runs")+s.text.Render(r))
+		}
+	default:
+		if e := strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin")); e != "" {
+			lines = append(lines, label("is")+s.text.Render(e))
+		}
+	}
+	if st := m.hint(v); st != "" {
+		lines = append(lines, label("now")+s.d.Render(st))
+	}
 	if awake(v) {
-		// two rows each, across the box, the figure at the right edge
-		sw := w - 8 - 2 - 8
-		if sw < 8 {
-			sw = 8
+		ts := []trace{
+			{"cpu", m.cpu[v.Name], 5, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
+			{"mem", m.ram[v.Name], 0, bytesLabel, mb(v.RAM), s.a},
 		}
-		metric := func(name string, vals []float64, floor float64, fig string) {
-			for i, row := range area(vals, sw, 2, floor) {
-				left, tail := label(""), strings.Repeat(" ", 10)
-				if i == 0 {
-					left, tail = label(name), "  "+right(s.text.Render(fig), 8)
-				}
-				lines = append(lines, left+s.a.Render(row)+tail)
-			}
-		}
-		metric("cpu", m.cpu[v.Name], 5, fmt.Sprintf("%.1f%%", v.CPU))
-		metric("mem", m.ram[v.Name], 0, mb(v.RAM))
+		lines = append(lines, "")
+		lines = append(lines, m.charts(ts, w, 3)...)
 	} else if v.State != "booting" && !troubled(v) {
 		lines = append(lines, label("")+s.d.Render("asleep: it costs nothing until something connects"))
 	}
@@ -593,7 +609,7 @@ func (m *Model) homeNarrow(w, h int) []string {
 		gap = 1
 	}
 	out := []string{l + strings.Repeat(" ", gap) + r, ""}
-	body := m.stack(w-2, h-4, false)
+	body := m.stack(w-2, h-4, false, true)
 	out = append(out, body...)
 	for len(out) < h-2 {
 		out = append(out, "")
@@ -629,4 +645,27 @@ func address(v control.InstanceView) string {
 		return v.Domain
 	}
 	return strings.TrimPrefix(v.Endpoint, "http://")
+}
+
+// hint is the part of what a row says that is about its moment: that it waits
+// on something, that it sleeps soon, who woke it.
+func (m *Model) hint(v control.InstanceView) string {
+	switch {
+	case v.State == "booting":
+		if n := m.firstUnmet(v); n != "" {
+			return "waiting on " + n
+		}
+		if by := holderNamed(v); by != "" {
+			return "woken by " + by
+		}
+	case v.State == "idle" && !v.IdleSince.IsZero():
+		after := m.snap.IdleTimeout
+		if v.IdleAfter > 0 {
+			after = v.IdleAfter
+		}
+		if left := after - m.now.Sub(v.IdleSince); left > 0 {
+			return "sleeps in " + clock(left)
+		}
+	}
+	return ""
 }

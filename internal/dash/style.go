@@ -222,8 +222,14 @@ func (s styles) cap(k, label string) string {
 // when the readings are all lower), so a steady line looks steady and a spike
 // looks like one. Each row holds eighths of a block, so h rows have 8h levels.
 func area(vs []float64, w, h int, floor float64) []string {
+	rows, _ := areaScaled(vs, w, h, floor)
+	return rows
+}
+
+// areaScaled is area and the value the top of the chart stands for.
+func areaScaled(vs []float64, w, h int, floor float64) ([]string, float64) {
 	if w < 1 || h < 1 {
-		return nil
+		return nil, 0
 	}
 	if len(vs) > w {
 		vs = vs[len(vs)-w:]
@@ -287,5 +293,5 @@ func area(vs []float64, w, h int, floor float64) []string {
 		}
 		rows[h-1-r] = b.String()
 	}
-	return rows
+	return rows, top
 }

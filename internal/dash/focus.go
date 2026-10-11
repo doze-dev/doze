@@ -9,7 +9,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
@@ -477,42 +476,28 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	out = append(out, m.extensions("connect", w)...)
 	out = append(out, m.extensions("awake", w)...)
 
-	// the chart fills the box, newest at the right edge, the figure under the edge
+	// the charts fill the box, newest at the right edge; each is as tall as the
+	// screen can spare once the recent log has its ten lines
 	sw := w - 4 - 8 - 2 - 8
 	if sw < 8 {
 		sw = 8
 	}
 	vit := []string{}
 	if awake(v) {
-		// each metric gets a band of its own, as tall as the screen can spare
-		band := 1
-		if h >= len(out)+3+3+2+4+2+len(vit)+10 {
-			band = 3
+		ts := []trace{
+			{"cpu", m.cpu[v.Name], 5, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
+			{"mem", m.ram[v.Name], 0, bytesLabel, mb(v.RAM), s.a},
+			{"conns", m.conns[v.Name], 8, count, fmt.Sprint(v.Conns), s.g},
 		}
-		metric := func(name string, vals []float64, floor float64, st lipgloss.Style, fig string, rows int) {
-			if band == 1 {
-				vit = append(vit, label(name)+st.Render(spark(vals, sw))+"  "+right(s.text.Render(fig), 8))
-				return
-			}
-			ch := area(vals, sw, rows, floor)
-			for i, line := range ch {
-				left := label("")
-				switch i {
-				case 0:
-					left = label(name)
-				case 1:
-					left = label("")
-				}
-				tail := strings.Repeat(" ", 10)
-				if i == 0 {
-					tail = "  " + right(s.text.Render(fig), 8)
-				}
-				vit = append(vit, left+st.Render(line)+tail)
-			}
+		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
+		if r := chartH(room, len(ts)); r > 0 {
+			vit = append(vit, m.charts(ts, w-4, r)...)
+		} else {
+			vit = append(vit,
+				label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)), 8),
+				label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+"  "+right(s.text.Render(mb(v.RAM)), 8),
+				label("conns")+s.g.Render(spark(m.conns[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprint(v.Conns)), 8))
 		}
-		metric("cpu", m.cpu[v.Name], 5, s.a, fmt.Sprintf("%.1f%%", v.CPU), 3)
-		metric("mem", m.ram[v.Name], 0, s.a, mb(v.RAM), 3)
-		metric("conns", m.conns[v.Name], 8, s.g, fmt.Sprint(v.Conns), 2)
 	} else {
 		vit = append(vit, s.d.Render("asleep: no process, no memory"))
 	}
