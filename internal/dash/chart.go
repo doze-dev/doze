@@ -307,7 +307,7 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 			var b strings.Builder
 			for c, col := range cols {
 				if c > 0 {
-					b.WriteString(strings.Repeat(" ", chartGap))
+					b.WriteString(m.st.d.Render(" │ ")) // chartGap cells: a rule between them
 				}
 				b.WriteString(fit(col[l], one))
 			}

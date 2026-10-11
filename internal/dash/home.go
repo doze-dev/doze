@@ -563,7 +563,8 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 		// blank between groups and before them
 		groups := chartGroups(w, len(ts))
 		rows := min(max((h-len(lines)-1-(groups-1))/groups-2, 2), 8)
-		lines = append(lines, "")
+		// a rule, so the facts above and the charts below read as two things
+		lines = append(lines, s.d.Render("─ vitals "+strings.Repeat("─", max(w-9, 0))))
 		lines = append(lines, m.charts(ts, w, rows)...)
 	} else if v.State != "booting" && !troubled(v) {
 		lines = append(lines, label("")+s.d.Render("asleep: it costs nothing until something connects"))

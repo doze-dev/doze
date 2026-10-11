@@ -26,7 +26,8 @@ const (
 	hexBad    = "#FF7A93"
 	hexDim    = "#8a85a8"
 	hexBright = "#f4f1ff"
-	hexBorder = "#37324b"
+	hexBorder = "#5f5886" // clear of the page on a dim display, which #37324b was not
+	hexPanel  = "#1b1927" // the inside of a box: a step lighter than the page
 	hexSel    = "#2b2542"
 )
 
@@ -83,6 +84,11 @@ func build(plain bool, tint func(string) string) styles {
 	s.r, s.d, s.w = fg(hexBad), fg(hexDim), fg(hexBright)
 	s.b = s.w.Bold(true)
 	s.border, s.borderOn, s.borderBad = fg(hexBorder), fg(hexAccent), fg(hexBad)
+	if !plain {
+		// a box's borders carry the ground of its inside, which box reads
+		panel := lipgloss.Color(tint(hexPanel))
+		s.border, s.borderOn, s.borderBad = s.border.Background(panel), s.borderOn.Background(panel), s.borderBad.Background(panel)
+	}
 	s.pill = pill(hexAccent, hexBg)
 	s.pillG, s.pillY, s.pillR = pill(hexGood, hexBg), pill(hexWarn, hexBg), pill(hexBad, hexBg)
 	s.pillC = pill(hexCool, hexBg)
@@ -151,16 +157,41 @@ func box(border lipgloss.Style, left, rt string, lines []string, w, h int) []str
 	if fill < 0 {
 		fill = 0
 	}
-	out := []string{top + sep + border.Render(strings.Repeat("─", fill)) + tail}
+	bg := bgSGR(border)
+	out := []string{paint(top+sep+border.Render(strings.Repeat("─", fill))+tail, bg)}
 	for i := 0; i < h-2; i++ {
 		l := ""
 		if i < len(lines) {
 			l = lines[i]
 		}
-		out = append(out, border.Render("│")+" "+fit(l, inner)+" "+border.Render("│"))
+		out = append(out, paint(border.Render("│")+" "+fit(l, inner)+" "+border.Render("│"), bg))
 	}
-	out = append(out, border.Render("╰"+strings.Repeat("─", w-2)+"╯"))
+	out = append(out, paint(border.Render("╰"+strings.Repeat("─", w-2)+"╯"), bg))
 	return out
+}
+
+// bgSGR is the escape that sets the background of st, or "" when it has none.
+func bgSGR(st lipgloss.Style) string {
+	c := st.GetBackground()
+	if c == nil {
+		return ""
+	}
+	if _, none := c.(lipgloss.NoColor); none {
+		return ""
+	}
+	r, g, b, _ := c.RGBA()
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r>>8, g>>8, b>>8)
+}
+
+// paint lays a ground under a line: every styled part of it ends in a reset,
+// which would drop the ground, so it is set again after each.
+func paint(line, sgr string) string {
+	if sgr == "" {
+		return line
+	}
+	line = strings.ReplaceAll(line, "\x1b[0m", "\x1b[0m"+sgr)
+	line = strings.ReplaceAll(line, "\x1b[m", "\x1b[m"+sgr)
+	return sgr + line + "\x1b[m"
 }
 
 // spark draws values as block glyphs, tallest the largest, w cells wide: the
