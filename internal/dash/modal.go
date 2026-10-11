@@ -23,6 +23,8 @@ const (
 	modalPalette
 	modalSleep
 	modalReset
+	modalInput // a module's action that takes some text
+	modalAsk   // a module's action that deletes something
 )
 
 type modal struct {
@@ -36,6 +38,11 @@ type modal struct {
 	// a confirmation
 	btn   int
 	typed string
+
+	// a module's action: what it is called, what it wants, and what to do with it
+	title string
+	hint  string
+	then  func(input string) tea.Cmd
 }
 
 // action is one row of the palette: a sentence, what to say beside it, the
@@ -83,7 +90,7 @@ func (m *Model) actions() []action {
 		add(action{label: "show the logs of " + n, cli: "doze logs " + n, run: func(m *Model) tea.Cmd {
 			m.sel = n
 			m.page = pageFocus
-			for i, t := range tabs(v) {
+			for i, t := range m.tabs(v) {
 				if t.id == tabLogs || t.id == tabLastRun {
 					m.tab = i
 				}
@@ -228,6 +235,8 @@ func (m *Model) modalKey(k, text string) tea.Cmd {
 		return m.sleepKey(k)
 	case modalReset:
 		return m.resetKey(k, text)
+	case modalInput, modalAsk:
+		return m.askKey(k, text)
 	}
 	return nil
 }
@@ -411,6 +420,8 @@ func (m *Model) withModal(base []string, w, h int) []string {
 		box = m.sleepBox(w)
 	case modalReset:
 		box = m.resetBox(w)
+	case modalInput, modalAsk:
+		box = m.askBox(w)
 	}
 	if len(box) == 0 {
 		return base
@@ -650,4 +661,52 @@ func (m *Model) resetBox(w int) []string {
 		s.d.Render("From a script: ")+s.a.Render("doze reset "+v.Name+" --yes"),
 	)
 	return box(s.borderBad, s.r.Bold(true).Render("reset "+v.Name+" · this deletes data"), "", lines, bw, len(lines)+2)
+}
+
+// askKey is the input box of a module's action, and the question before a
+// destructive one.
+func (m *Model) askKey(k, text string) tea.Cmd {
+	md := m.modal
+	switch k {
+	case "esc":
+		m.modal = nil
+	case "backspace":
+		if r := []rune(md.typed); len(r) > 0 {
+			md.typed = string(r[:len(r)-1])
+		}
+	case "enter":
+		if md.kind == modalInput && strings.TrimSpace(md.typed) == "" {
+			return nil
+		}
+		m.modal = nil
+		return md.then(md.typed)
+	case "space":
+		md.typed += " "
+	default:
+		if md.kind == modalInput && text != "" && unicode.IsPrint([]rune(text)[0]) {
+			md.typed += text
+		}
+	}
+	return nil
+}
+
+func (m *Model) askBox(w int) []string {
+	s := m.st
+	md := m.modal
+	bw := w * 55 / 100
+	if bw < 50 {
+		bw = min(w, 60)
+	}
+	var lines []string
+	if md.target != "" {
+		lines = append(lines, s.d.Render("for ")+s.w.Render(md.target), "")
+	}
+	if md.kind == modalInput {
+		lines = append(lines, s.d.Render(md.hint), s.w.Render(md.typed)+s.a.Render("▌"), "",
+			s.cap("⏎", "do it")+"  "+s.cap("esc", "cancel"))
+		return box(s.borderOn, s.a.Bold(true).Render(md.title), "", lines, bw, len(lines)+2)
+	}
+	lines = append(lines, s.text.Render("This deletes data and cannot be undone."), "",
+		s.cap("⏎", md.title)+"  "+s.cap("esc", "cancel"))
+	return box(s.borderBad, s.r.Bold(true).Render(md.title+"?"), "", lines, bw, len(lines)+2)
 }

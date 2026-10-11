@@ -64,6 +64,22 @@ func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(
 		if fr.Log != nil && len(sub.Names) > 0 && !contains(sub.Names, fr.Log.Instance) {
 			continue
 		}
+		// A console follows the one instance named, and a stream row is sent only
+		// to a subscriber that asked for that panel and, where the row says which
+		// ("_for"), that row of its table.
+		if c := fr.Console; c != nil {
+			if len(sub.Names) > 0 && c.Instance != "" && !contains(sub.Names, c.Instance) {
+				continue
+			}
+			if c.Row != nil {
+				if sub.Panel != c.Panel {
+					continue
+				}
+				if for_ := c.Row.Cells["_for"]; for_ != "" && sub.Selector != for_ {
+					continue
+				}
+			}
+		}
 		if ctx.Err() != nil {
 			return nil
 		}

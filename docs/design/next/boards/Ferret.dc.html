@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DocumentDB, blocks</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">docs</span><span class="d">ferret 2 · DocumentDB</span><span class="pill g">awake</span></div>
+<div class="row ce"><span class="pill on">overview</span><span class="d">collections</span><span class="d">logs</span><span class="d">config</span></div>
+</div>
+
+<div class="row" style="margin-top: 6px">
+<div class="box grow">
+<div class="cap"><span class="a b">connect</span> <span class="pill q">core</span></div>
+<div style="--c: 6ch 1fr" class="col">
+<div class="tr sel"><span class="d">url</span><span class="w">mongodb://docs.shop.doze:27017/</span></div>
+<div class="tr"><span class="d">ref</span><span><span class="w">module.docs.url</span> <span class="d">in doze.hcl</span></span></div>
+<div class="tr"><span class="d">env</span><span>MONGODB_URI</span></div>
+</div>
+</div>
+<div class="box" style="width: 480px">
+<div class="cap"><span class="a b">awake because</span> <span class="pill q">core</span></div>
+<div style="--c: 8ch 1fr" class="col">
+<div class="tr"><span class="w">api</span><span>2 connections</span></div>
+<div class="tr"><span class="w">postgres</span><span class="d">holds its documents · db</span></div>
+</div>
+</div>
+</div>
+
+<div class="box on" style="margin-top: 6px">
+<div class="cap"><span class="a b">collections</span> <span class="pill">from ferret</span> <span class="pill q">new</span></div>
+<div style="--c: 2ch 12ch 16ch 10ch 10ch 1fr" class="col">
+<div class="tr d"><span></span><span>database</span><span>collection</span><span class="ra">documents</span><span class="ra">size</span><span>indexes</span></div>
+<div class="tr sel"><span class="a">▸</span><span>catalog</span><span>products</span><span class="ra">1,204</span><span class="ra">2.4 MB</span><span>2</span></div>
+<div class="tr"><span></span><span class="w">catalog</span><span class="w">categories</span><span class="ra">18</span><span class="ra">12 KB</span><span>1</span></div>
+<div class="tr"><span></span><span class="w">sessions</span><span class="w">carts</span><span class="ra">96</span><span class="ra">210 KB</span><span>1</span></div>
+</div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+<div class="box grow">
+<div class="cap"><span class="a b">sample</span> <span class="pill q">stream · from collections</span></div>
+<div class="ln"><span class="d">_id</span> <span class="w">65f3…a1</span>  <span class="d">sku</span> "TS-204"  <span class="d">price</span> 1850  <span class="d">stock</span> 12</div>
+<div class="ln"><span class="d">_id</span> <span class="w">65f3…a2</span>  <span class="d">sku</span> "TS-205"  <span class="d">price</span> 990   <span class="d">stock</span> 0</div>
+<div class="ln"><span class="d">_id</span> <span class="w">65f3…a3</span>  <span class="d">sku</span> "TS-210"  <span class="d">price</span> 12400 <span class="d">stock</span> 3</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">the first documents of the selected collection, as the wire returns them</div>
+</div>
+<div class="box" style="width: 430px">
+<div class="cap"><span class="a b">actions</span></div>
+<div class="row"><span class="pill">⏎ Sample documents</span><span class="pill q"><span class="r">D</span> Drop collection</span></div>
+<div class="ln d" style="padding: 0 1ch">dropping asks, and says how many documents go</div>
+</div>
+</div>
+
+<div class="ln d" style="padding: 0 1ch; margin-top: 6px">Built from <span class="w">listDatabases</span>, <span class="w">listCollections</span> and <span class="w">collStats</span> over the Mongo wire: nothing the module cannot already ask.</div>
+
+<div class="keys">
+<span><span class="k">↑↓</span>select</span><span><span class="k">⏎</span>sample documents</span><span><span class="k">D</span>drop collection</span><span><span class="k">tab</span>next tab</span><span><span class="k">esc</span>back</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

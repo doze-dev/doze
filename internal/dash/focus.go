@@ -42,7 +42,18 @@ func orStr(a, b string) string {
 }
 
 // tabs is what the instance opens on first, then the rest, by kind.
-func tabs(v control.InstanceView) []tab {
+func (m *Model) tabs(v control.InstanceView) []tab {
+	if v.HasConsole && v.Kind != "task" {
+		var spec *control.ConsoleSpec
+		if m.con != nil && m.con.inst == v.Name {
+			spec = m.con.spec
+		}
+		out := consoleTabs(spec)
+		if v.ConsoleFront != "console" && v.ConsoleFront != "" {
+			out = append([]tab{{tabOverview, "overview"}}, out...)
+		}
+		return append(out, tab{tabLogs, "logs"})
+	}
 	switch {
 	case v.Kind == "task":
 		return []tab{{tabLastRun, "last run"}}
@@ -58,8 +69,11 @@ func tabs(v control.InstanceView) []tab {
 
 // open shows the selected instance in the frame, on its front tab.
 func (m *Model) open() {
-	if _, ok := m.selected(); ok {
+	if v, ok := m.selected(); ok {
 		m.page, m.tab = pageFocus, 0
+		if v.HasConsole {
+			m.startConsole(v.Name)
+		}
 	}
 }
 
@@ -182,7 +196,7 @@ func (m *Model) focus(w, h int) []string {
 		return m.home(w, h)
 	}
 	s := m.st
-	ts := tabs(v)
+	ts := m.tabs(v)
 	if m.tab >= len(ts) {
 		m.tab = 0
 	}
@@ -226,12 +240,15 @@ func (m *Model) focus(w, h int) []string {
 
 	bodyH := h - 2
 	var body []string
-	switch cur.id {
-	case tabOverview:
+	m.currentTabID = cur.id
+	switch {
+	case strings.HasPrefix(cur.id, "console:"):
+		body = m.consoleTab(v, cur.id, w, bodyH)
+	case cur.id == tabOverview:
 		body = m.overview(v, w, bodyH)
-	case tabLastRun:
+	case cur.id == tabLastRun:
 		body = m.lastRun(v, w, bodyH)
-	case tabWeb:
+	case cur.id == tabWeb:
 		body = m.web(v, w, bodyH)
 	default:
 		body = m.logsTab(v, w, bodyH)
@@ -251,6 +268,12 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 	}
 	if cur.id == tabLogs {
 		ks = append(ks, [2]string{"f", "level"})
+	}
+	if strings.HasPrefix(cur.id, "console:") && m.con != nil {
+		ks = append(ks, [2]string{"↑↓", "select"})
+		for _, a := range m.con.actions {
+			ks = append(ks, [2]string{actionKey(a), strings.ToLower(a.Label)})
+		}
 	}
 	if cur.id == tabWeb {
 		ks = append(ks, [2]string{"⏎", "open in browser"})
@@ -449,6 +472,9 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	for i := 0; i < row1; i++ {
 		out = append(out, l[i]+" "+r[i])
 	}
+	// what the module adds after the connect row
+	out = append(out, m.extensions("connect", w)...)
+	out = append(out, m.extensions("awake", w)...)
 
 	// the chart fills the box, newest at the right edge, the figure under the edge
 	sw := w - 4 - 8 - 2 - 8
@@ -475,15 +501,17 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		out = append(out, "")
 	}
 	out = append(out, box(s.border, s.a.Bold(true).Render("vitals"), "", vit, w, len(vit)+2)...)
+	out = append(out, m.extensions("vitals", w)...)
 	if gap == 1 {
 		out = append(out, "")
 	}
 
-	rest := h - len(out)
+	after := m.extensions("recent", w)
+	rest := h - len(out) - len(after)
 	if rest >= 3 {
 		out = append(out, box(s.border, s.d.Render("recent"), "", m.stream(v, rest-2, lvDebug, 0), w, rest)...)
 	}
-	return out
+	return append(out, after...)
 }
 
 func plural(n int) string {
@@ -632,10 +660,18 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		m.page = pageHome
 		return nil, true
 	}
-	ts := tabs(v)
+	ts := m.tabs(v)
+	if m.tab < len(ts) && strings.HasPrefix(ts[m.tab].id, "console:") && m.con != nil {
+		if body, ok := bodyOf(m.con.spec, ts[m.tab].id); ok {
+			if cmd, handled := m.consoleKey(k, body); handled {
+				return cmd, true
+			}
+		}
+	}
 	switch k {
 	case "esc", "left", "h", "backspace":
 		m.page, m.tab = pageHome, 0
+		m.stopConsole()
 		return nil, true
 	case "tab":
 		m.tab = (m.tab + 1) % len(ts)

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>kafka and aws are the same blocks</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="w b">blocks</span><span class="d">our own modules are written in them too</span></div>
+<div class="d">no kafka or aws code in the dash</div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+<div class="code col grow">
+<div class="ln d i"># kafka · the console tab</div>
+<div class="ln"><span class="a b">tab</span> <span class="y">"console"</span></div>
+<div class="ln"> <span class="d">└</span> <span class="a b">col</span></div>
+<div class="ln">    <span class="d">├</span> <span class="a b">row</span></div>
+<div class="ln">    <span class="d">│</span>  <span class="d">├</span> <span class="w">table</span> <span class="y">topics</span> <span class="d">weight 2 · name parts messages rate from</span></div>
+<div class="ln">    <span class="d">│</span>  <span class="d">└</span> <span class="w">table</span> <span class="y">groups</span> <span class="d">weight 1 · group topic lag members</span></div>
+<div class="ln">    <span class="d">├</span> <span class="w">stream</span> <span class="y">tail</span> <span class="d">follows topics.selected · time p offset key value</span></div>
+<div class="ln">    <span class="d">└</span> <span class="w">actions</span> <span class="d">produce(topic, key, value) · keep(topic)</span></div>
+<div class="ln"> </div>
+<div class="ln d i"># the generic overview stays; kafka adds nothing to it</div>
+<div class="ln"> </div>
+<div class="ln d i"># what was kafka-only in the dash before: nothing</div>
+</div>
+<div class="code col grow">
+<div class="ln d i"># aws · the console tab</div>
+<div class="ln"><span class="a b">tab</span> <span class="y">"console"</span></div>
+<div class="ln"> <span class="d">└</span> <span class="a b">col</span></div>
+<div class="ln">    <span class="d">├</span> <span class="w">stat</span> <span class="d">in use: S3 · 1  SQS · 2  idle: SNS DynamoDB +8</span></div>
+<div class="ln">    <span class="d">├</span> <span class="w">table</span> <span class="y">resources</span> <span class="d">type name now from · row actions: keep</span></div>
+<div class="ln">    <span class="d">└</span> <span class="w">stream</span> <span class="y">wire</span> <span class="d">time svc action target code took caller</span></div>
+<div class="ln">         <span class="d">a cell with role</span> <span class="w">state</span> <span class="d">turns red on 404</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="a b">tab</span> <span class="y">"wire"</span> <span class="d">· the stream alone, full height, filterable</span></div>
+<div class="ln"> </div>
+<div class="ln d i"># web console stays one key away:</div>
+<div class="ln"><span class="w">WebURL</span>(<span class="y">"http://{address}/_console"</span>)</div>
+</div>
+</div>
+
+<div class="box" style="margin-top: 6px">
+<div class="cap a b">what a module author gets, and does not</div>
+<div style="--c: 36ch 1fr" class="col">
+<div class="tr"><span class="g">✓</span><span class="w">their console, shipped with their module · no doze release</span></div>
+<div class="tr"><span class="g">✓</span><span class="w">actions in the palette, with the CLI form, for free</span></div>
+<div class="tr"><span class="g">✓</span><span class="w">narrow terminals, themes and copy mode, for free</span></div>
+<div class="tr"><span class="r">✗</span><span class="d">their own colours, their own layout, their own keys</span></div>
+<div class="tr"><span class="y">◐</span><span class="d">a block kind that does not exist yet · one dash release, then every module has it</span></div>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

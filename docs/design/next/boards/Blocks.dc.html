@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Blocks, the vocabulary</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="w b">blocks</span><span class="d">what any console is made of</span></div>
+<div class="d">for doze's own modules · decided by the module · never configured by a user</div>
+</div>
+
+<div class="row" style="margin-top: 6px; height: 262px">
+<div class="box" style="width: 372px">
+<div class="cap a b">stat</div>
+<div class="row" style="gap: 28px; padding: 0 1ch">
+<div class="col"><span class="d">lag</span><span class="r b" style="font-size: 20px; line-height: 30px">1,240</span></div>
+<div class="col"><span class="d">groups</span><span class="w b" style="font-size: 20px; line-height: 30px">3</span></div>
+<div class="col"><span class="d">in</span><span class="w b" style="font-size: 20px; line-height: 30px">4/s</span></div>
+</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">label · value · unit · tone</div>
+<div class="ln d" style="padding: 0 1ch">the numbers that matter</div>
+</div>
+<div class="box grow">
+<div class="cap a b">table</div>
+<div style="--c: 2ch 11ch 5ch 9ch 1fr" class="col">
+<div class="tr d"><span></span><span>name</span><span class="ra">parts</span><span class="ra">messages</span><span class="ra">rate</span></div>
+<div class="tr sel"><span class="a">▸</span><span>orders</span><span class="ra">3</span><span class="ra">1,043</span><span class="ra">4/s</span></div>
+<div class="tr"><span></span><span class="w">emails</span><span class="ra">1</span><span class="ra">87</span><span class="ra d">—</span></div>
+<div class="tr"><span></span><span class="w">orders.dlq</span><span class="ra">1</span><span class="ra">0</span><span class="ra d">—</span></div>
+</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">source · columns · select · row actions</div>
+</div>
+<div class="box" style="width: 372px">
+<div class="cap a b">detail</div>
+<div style="--c: 8ch 1fr" class="col">
+<div class="tr"><span class="d">url</span><span class="w">events.shop.doze:9092</span></div>
+<div class="tr"><span class="d">env</span><span>KAFKA_BROKERS</span></div>
+<div class="tr"><span class="d">version</span><span>4</span></div>
+<div class="tr"><span class="d">keeps</span><span>168 h</span></div>
+</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">key · value · copyable</div>
+</div>
+</div>
+
+<div class="row" style="margin-top: 6px; height: 262px">
+<div class="box grow">
+<div class="cap"><span class="a b">stream</span> <span class="d">· following</span></div>
+<div class="ln"><span class="d">14:22:10</span> <span class="d">p1 347</span> <span class="w">ord_1043</span> {"total": 4200}</div>
+<div class="ln"><span class="d">14:21:02</span> <span class="d">p0 351</span> <span class="w">ord_1042</span> {"total": 1850}</div>
+<div class="ln"><span class="d">14:19:44</span> <span class="d">p2 344</span> <span class="w">ord_1041</span> {"total": 990}</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">timed lines · follows a selection</div>
+</div>
+<div class="box" style="width: 372px">
+<div class="cap a b">chart</div>
+<div style="--c: 5ch 1fr 8ch" class="col">
+<div class="tr"><span class="d">cpu</span><span class="a">▁▁▂▁▁▃▂▁▁▂▅▃▂▁▁▂▁▁▂▃</span><span class="ra">2.1%</span></div>
+<div class="tr"><span class="d">mem</span><span class="a">▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▅▅▅</span><span class="ra">84 MB</span></div>
+<div class="tr"><span class="d">rate</span><span class="g">▁▁▁▄▄▄▄▇▇▄▄▄▁▁▁▄▄▄▄▄</span><span class="ra">4/s</span></div>
+</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">series · window · unit</div>
+</div>
+<div class="col g14" style="width: 372px">
+<div class="box">
+<div class="cap a b">note</div>
+<div class="ln d">Records are kept 168 h. A compacted topic</div>
+<div class="ln d">keeps the latest value for each key.</div>
+</div>
+<div class="box grow">
+<div class="cap a b">actions</div>
+<div class="row"><span class="pill"><span>P</span> Produce a message</span><span class="pill q">k Keep in doze.hcl</span></div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">name · inputs · asks first</div>
+</div>
+</div>
+</div>
+
+<div class="box grow" style="margin-top: 6px">
+<div class="cap a b">cells carry meaning · doze decides the colour</div>
+<div class="row" style="gap: 3ch; flex-wrap: wrap; padding: 0 1ch">
+<span><span class="d">state</span> <span class="g">● ok</span> <span class="y">◐ warn</span> <span class="r">✗ bad</span> <span class="d">· idle</span></span>
+<span><span class="d">bytes</span> <span class="w">96 MB</span></span>
+<span><span class="d">duration</span> <span class="w">212 ms</span></span>
+<span><span class="d">rate</span> <span class="w">4/s</span></span>
+<span><span class="d">time</span> <span class="w">14:22:10</span></span>
+<span><span class="d">count</span> <span class="w">1,043</span></span>
+<span><span class="d">id</span> <span class="w">ord_1043</span></span>
+</div>
+<div class="ln d" style="padding: 0 1ch">A module says what a value is, never what colour it is: every console looks like the rest.</div>
+<div class="ln d" style="padding: 0 1ch">Nothing to configure: no queries, no variables, no layout in doze.hcl. Apps and tasks keep the generic screens.</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

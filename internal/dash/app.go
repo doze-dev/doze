@@ -38,12 +38,14 @@ type Model struct {
 	nowf func() time.Time
 	loc  *time.Location
 
-	w, h  int
-	sel   string
-	page  int    // pageHome or pageFocus
-	modal *modal // the palette or a confirmation, over the page
-	tab   int    // the focused instance's tab
-	level int    // the logs tab's minimum level
+	w, h         int
+	sel          string
+	page         int           // pageHome or pageFocus
+	modal        *modal        // the palette or a confirmation, over the page
+	con          *consoleState // the focused instance's console, when it has one
+	currentTabID string        // the tab being drawn, for blocks that look up another
+	tab          int           // the focused instance's tab
+	level        int           // the logs tab's minimum level
 
 	logs   []control.LogFrame // the selected instance's, oldest first
 	events []journal.Event    // the journal, newest last
@@ -103,6 +105,7 @@ func (m *Model) snapshot() tea.Cmd {
 // Update implements tea.Model.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.now = m.nowf()
+	defer m.syncConsole()
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
@@ -125,6 +128,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case noticeMsg:
 		m.notice = string(msg)
+	case consoleMsg:
+		m.applyConsole(msg)
 	case doneMsg:
 		if msg.err != nil {
 			m.notice = fmt.Sprintf("%s %s: %v", msg.verb, msg.target, msg.err)

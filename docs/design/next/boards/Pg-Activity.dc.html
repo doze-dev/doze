@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>postgres, the activity tab</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">db</span><span class="d">postgres 17</span><span class="pill g">awake</span></div>
+<div class="row ce"><span class="d">overview</span><span class="pill on">activity</span><span class="d">roles</span><span class="d">logs</span><span class="d">config</span></div>
+</div>
+
+<div class="row" style="margin-top: 6px; gap: 28px; padding: 0 2ch">
+<div class="col"><span class="d">active</span><span class="w b" style="font-size: 20px; line-height: 30px">2</span></div>
+<div class="col"><span class="d">idle</span><span class="w b" style="font-size: 20px; line-height: 30px">2</span></div>
+<div class="col"><span class="d">waiting</span><span class="y b" style="font-size: 20px; line-height: 30px">1</span></div>
+<div class="col"><span class="d">of</span><span class="w b" style="font-size: 20px; line-height: 30px">100</span></div>
+<div class="col"><span class="d">longest</span><span class="w b" style="font-size: 20px; line-height: 30px">4.2 s</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+<div class="box on grow">
+<div class="cap"><span class="a b">sessions</span> <span class="pill q">stat · table</span></div>
+<div style="--c: 2ch 6ch 8ch 9ch 8ch 7ch 1fr" class="col">
+<div class="tr d"><span></span><span class="ra">pid</span><span>user</span><span>database</span><span>app</span><span class="ra">for</span><span>state</span></div>
+<div class="tr sel"><span class="a">▸</span><span class="ra">4412</span><span>shop</span><span>db</span><span>api</span><span class="ra">4.2 s</span><span class="y">◐ waiting · Lock</span></div>
+<div class="tr"><span></span><span class="ra">4410</span><span class="w">shop</span><span>db</span><span>api</span><span class="ra">1.1 s</span><span class="g">● active</span></div>
+<div class="tr"><span></span><span class="ra">4398</span><span class="w">shop</span><span>db</span><span>worker</span><span class="ra">0.2 s</span><span class="g">● active</span></div>
+<div class="tr"><span></span><span class="ra">4377</span><span class="w">shop</span><span>db</span><span>api</span><span class="ra">31 s</span><span class="d">· idle</span></div>
+<div class="tr"><span></span><span class="ra">4301</span><span class="w">shop</span><span>db</span><span>worker</span><span class="ra">2 m</span><span class="d">· idle in transaction</span></div>
+</div>
+</div>
+<div class="col g14" style="width: 430px">
+<div class="box grow">
+<div class="cap"><span class="a b">query</span> <span class="pill q">detail · from sessions</span></div>
+<div style="--c: 8ch 1fr" class="col">
+<div class="tr"><span class="d">pid</span><span class="w">4412</span></div>
+<div class="tr"><span class="d">waiting</span><span class="y">on a lock held by 4410</span></div>
+<div class="tr"><span class="d">since</span><span>14:22:25 · 4.2 s</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln w">UPDATE orders SET status = $1</div>
+<div class="ln w">  WHERE id = $2</div>
+</div>
+<div class="box">
+<div class="cap"><span class="a b">actions</span> <span class="pill q">actions</span></div>
+<div class="row"><span class="pill">c Cancel query</span><span class="pill q"><span class="r">T</span> Terminate session</span></div>
+<div class="ln d" style="padding: 0 1ch">doze pg cancel 4412 · terminating asks first</div>
+</div>
+</div>
+</div>
+
+<div class="ln d" style="padding: 0 1ch; margin-top: 6px">Every cell here is read from <span class="w">pg_stat_activity</span>. The module sends rows and says what each column is; it does not say how to draw it.</div>
+
+<div class="keys">
+<span><span class="k">↑↓</span>select a session</span><span><span class="k">c</span>cancel query</span><span><span class="k">T</span>terminate</span><span><span class="k">y</span>copy query</span><span><span class="k">tab</span>next tab</span><span><span class="k">esc</span>back</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

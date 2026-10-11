@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Layout grammar and slots</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="w b">blocks</span><span class="d">layout</span></div>
+<div class="d">rows, columns and tabs · weights, not pixels · chosen by the module, not the user</div>
+</div>
+
+<div class="row" style="margin-top: 6px; height: 330px">
+<div class="box grow">
+<div class="cap a b">the grammar</div>
+<div class="ln"><span class="a b">tabs</span> <span class="d">overview · activity · roles</span></div>
+<div class="ln"><span class="d">└</span> <span class="a b">row</span></div>
+<div class="ln">   <span class="d">├</span> <span class="a b">col</span> <span class="d">weight 2</span>  <span class="w">table</span> <span class="d">sessions</span></div>
+<div class="ln">   <span class="d">└</span> <span class="a b">col</span> <span class="d">weight 1</span></div>
+<div class="ln">       <span class="d">├</span> <span class="w">detail</span> <span class="d">from sessions.selected</span></div>
+<div class="ln">       <span class="d">└</span> <span class="w">actions</span></div>
+<div class="ln"> </div>
+<div class="ln d">Three containers, seven blocks.</div>
+<div class="ln d">A titled box is the only decoration.</div>
+<div class="ln d">Depth is limited to three.</div>
+</div>
+<div class="box" style="width: 360px">
+<div class="cap a b">at 80 columns</div>
+<div class="ln"><span class="d">columns stack, in order:</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="a">▌</span> <span class="w">table</span> <span class="d">sessions</span></div>
+<div class="ln"><span class="a">▌</span> <span class="w">detail</span></div>
+<div class="ln"><span class="a">▌</span> <span class="w">actions</span></div>
+<div class="ln"> </div>
+<div class="ln d">tabs stay tabs. A block that needs</div>
+<div class="ln d">more room scrolls inside its box.</div>
+</div>
+<div class="box" style="width: 360px">
+<div class="cap a b">when something is wrong</div>
+<div class="ln"><span class="r">✗</span> <span class="w">sessions</span> <span class="d">could not be read</span></div>
+<div class="ln d">  connection refused 127.0.0.1:5432</div>
+<div class="ln"> </div>
+<div class="ln"><span class="y">◐</span> <span class="w">chart</span> <span class="d">stale · 40 s</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="d">⌗</span> <span class="w">a block kind this doze does not know</span></div>
+<div class="ln d">  shows as a card. The rest still draws.</div>
+</div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+<div class="box grow">
+<div class="cap a b">the generic screen is blocks too · a module adds to it</div>
+<div class="box" style="padding: 8px 14px"><div class="cap d">connect</div><div class="ln d">detail · url · address · ref · env</div></div>
+<div class="box" style="padding: 8px 14px; margin-top: 6px"><div class="cap d">awake because</div><div class="ln d">detail · holders · sleeps in</div></div>
+<div class="box" style="padding: 8px 14px; margin-top: 6px"><div class="cap d">vitals</div><div class="ln d">chart · cpu · memory · connections</div></div>
+<div class="row ce" style="margin: 4px 0"><span class="a">⇣</span><span class="pill">after: vitals</span><span class="d">the slot a module names</span></div>
+<div class="box on" style="padding: 8px 14px"><div class="cap a b">databases <span class="pill q">from postgres</span></div><div class="ln">table · name · size · connections</div></div>
+<div class="box" style="padding: 8px 14px; margin-top: 6px"><div class="cap d">recent</div><div class="ln d">stream · journal and log lines</div></div>
+</div>
+<div class="code col" style="width: 560px">
+<div class="ln d i"># in the postgres module, written once</div>
+<div class="ln"><span class="a">console</span>.<span class="w">Extend</span>(<span class="y">"overview"</span>).</div>
+<div class="ln">  <span class="w">After</span>(<span class="y">"vitals"</span>, console.<span class="w">Table</span>(<span class="y">"databases"</span>).</div>
+<div class="ln">    <span class="w">Source</span>(<span class="y">"databases"</span>).</div>
+<div class="ln">    <span class="w">Columns</span>(</div>
+<div class="ln">      console.<span class="w">Text</span>(<span class="y">"name"</span>),</div>
+<div class="ln">      console.<span class="w">Bytes</span>(<span class="y">"size"</span>),</div>
+<div class="ln">      console.<span class="w">Count</span>(<span class="y">"connections"</span>)).</div>
+<div class="ln">    <span class="w">Refresh</span>(<span class="c">5</span>*time.Second))</div>
+<div class="ln"> </div>
+<div class="ln d i"># a tab of its own, same blocks</div>
+<div class="ln"><span class="a">console</span>.<span class="w">Tab</span>(<span class="y">"activity"</span>, console.<span class="w">Row</span>(</div>
+<div class="ln">  console.<span class="w">Table</span>(<span class="y">"sessions"</span>).<span class="w">Weight</span>(<span class="c">2</span>),</div>
+<div class="ln">  console.<span class="w">Col</span>(console.<span class="w">Detail</span>(<span class="y">"query"</span>).<span class="w">From</span>(<span class="y">"sessions"</span>))))</div>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

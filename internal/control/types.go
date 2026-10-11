@@ -374,6 +374,42 @@ type ConsoleSpec struct {
 	Front  string         `json:"front,omitempty"`
 	WebURL string         `json:"web_url,omitempty"`
 	Panels []ConsolePanel `json:"panels,omitempty"`
+	// Tabs lay the panels out: rows, columns and blocks that draw a panel (see
+	// docs/design/next/boards/Blocks.dc.html). A spec with panels and no tabs gets
+	// the default layout: its tables side by side, then its streams.
+	Tabs []ConsoleTab `json:"tabs,omitempty"`
+	// Extend adds blocks to the generic screen, after a block of it.
+	Extend []ConsoleExtension `json:"extend,omitempty"`
+}
+
+// ConsoleTab is one tab of a console: a title and what is in it.
+type ConsoleTab struct {
+	ID    string      `json:"id"`
+	Title string      `json:"title"`
+	Body  ConsoleNode `json:"body"`
+}
+
+// ConsoleExtension puts a block on the generic overview, after the block of
+// the generic screen named by After (connect, awake, vitals or recent).
+type ConsoleExtension struct {
+	After string      `json:"after"`
+	Node  ConsoleNode `json:"node"`
+}
+
+// ConsoleNode is a container or a block. The containers are row and col; the
+// blocks are table, stat, detail, stream, actions, note and chart. A block
+// draws the data of a panel; a stream or a detail can follow the selected row
+// of a table block.
+type ConsoleNode struct {
+	Kind     string        `json:"kind"`
+	ID       string        `json:"id,omitempty"`
+	Title    string        `json:"title,omitempty"`
+	Weight   int           `json:"weight,omitempty"`
+	Panel    string        `json:"panel,omitempty"`
+	From     string        `json:"from,omitempty"`
+	Text     string        `json:"text,omitempty"`
+	Actions  []string      `json:"actions,omitempty"`
+	Children []ConsoleNode `json:"children,omitempty"`
 }
 
 // ConsolePanel is one block of a console: a table, a row of counters, or a stream.

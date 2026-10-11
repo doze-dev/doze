@@ -54,11 +54,16 @@ var scenes = []scene{
 	{name: "focus-db", board: "Focus", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "focus-task", board: "View-Task", fixture: "shop", keys: cat(downs(10), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "focus-web", board: "View-Web", fixture: "shop", keys: cat(downs(7), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
-	// the data modules: cache=0 db=1 docs=2 flows=3 legacy=4
+	// the data modules: cache=0 cloud=1 db=2 docs=3 events=4 flows=5 legacy=6
 	{name: "focus-valkey", board: "Focus", fixture: "modules", keys: []string{"enter"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
-	{name: "focus-ferret", board: "Focus", fixture: "modules", keys: cat(downs(2), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
-	{name: "focus-temporal", board: "View-Web", fixture: "modules", keys: cat(downs(3), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
-	{name: "focus-mariadb", board: "Focus", fixture: "modules", keys: cat(downs(4), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-ferret", board: "Focus", fixture: "modules", keys: cat(downs(3), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-temporal", board: "View-Web", fixture: "modules", keys: cat(downs(5), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-mariadb", board: "Focus", fixture: "modules", keys: cat(downs(6), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	// consoles, from the blocks their modules publish
+	{name: "pg-overview", board: "Pg-Overview", fixture: "modules", keys: cat(downs(2), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "pg-activity", board: "Pg-Activity", fixture: "modules", keys: cat(downs(2), []string{"enter", "tab"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "kafka", board: "View-Kafka", fixture: "modules", keys: cat(downs(4), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "aws", board: "View-Aws", fixture: "modules", keys: cat(downs(1), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},

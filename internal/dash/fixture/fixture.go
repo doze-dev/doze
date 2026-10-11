@@ -116,7 +116,7 @@ func Modules(now time.Time) *fakedaemon.Fake {
 		{Name: "db", Kind: "module", Engine: "postgres", Version: "17", State: "active", RAM: 96 << 20, CPU: 0.8, PID: 612, Conns: 3,
 			StartedAt: ago(9 * time.Minute), URL: "postgres://postgres@db.data.doze:5432/db?sslmode=disable", EnvVar: "DATABASE_URL",
 			Domain: "db.data.doze", Endpoint: "127.0.0.1:5432", Bind: "127.0.0.1:5432", DataDir: "~/.doze/data/db",
-			Holders: []control.HolderView{{Kind: "connection", Count: 3}}},
+			Holders: []control.HolderView{{Kind: "connection", Count: 3}}, HasConsole: true, ConsoleFront: "overview"},
 		{Name: "docs", Kind: "module", Engine: "ferret", Version: "2", State: "reaped", URL: "mongodb://docs.data.doze:27017/", EnvVar: "MONGODB_URI",
 			Domain: "docs.data.doze", Endpoint: "127.0.0.1:27017", DataDir: "~/.doze/data/docs"},
 		{Name: "flows", Kind: "module", Engine: "temporal", Version: "1.1", State: "active", RAM: 148 << 20, CPU: 1.4, PID: 733, Conns: 1,
@@ -125,6 +125,12 @@ func Modules(now time.Time) *fakedaemon.Fake {
 			Holders: []control.HolderView{{Kind: "connection", Count: 1}}},
 		{Name: "legacy", Kind: "module", Engine: "mariadb", Version: "11.4", State: "reaped", URL: "mysql://root@legacy.data.doze:3306/legacy", EnvVar: "DATABASE_URL",
 			Domain: "legacy.data.doze", Endpoint: "127.0.0.1:3306", DataDir: "~/.doze/data/legacy"},
+		{Name: "events", Kind: "module", Engine: "kafka", Version: "4", State: "active", RAM: 188 << 20, CPU: 1.1, PID: 741, Conns: 2,
+			StartedAt: ago(9 * time.Minute), URL: "events.data.doze:9092", EnvVar: "KAFKA_BROKERS", Domain: "events.data.doze",
+			Endpoint: "127.0.0.1:9092", Bind: "127.0.0.1:9092", DataDir: "~/.doze/data/events", HasConsole: true, ConsoleFront: "console"},
+		{Name: "cloud", Kind: "module", Engine: "aws", State: "active", RAM: 64 << 20, CPU: 0.6, PID: 752, Conns: 1,
+			StartedAt: ago(9 * time.Minute), URL: "http://cloud.data.doze", EnvVar: "AWS_ENDPOINT_URL", Domain: "cloud.data.doze",
+			Endpoint: "127.0.0.1:4566", Bind: "127.0.0.1:4566", DataDir: "~/.doze/data/cloud", HasConsole: true, ConsoleFront: "console"},
 	}}
 	for i := 0; i < 60; i++ {
 		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicStats, Stats: []control.StatView{
@@ -133,6 +139,53 @@ func Modules(now time.Time) *fakedaemon.Fake {
 			{Name: "flows", PID: 733, RAM: int64(140+i/8) << 20, CPU: float64(1+i%3) / 2, Conns: 1},
 		}})
 	}
+	pgSpec, pgActions := PostgresConsole()
+	f.Frames = append(f.Frames, consoleFrames("db", pgSpec, pgActions, map[string][]map[string]string{
+		"activity": {{"active": "2", "idle": "2", "waiting": "1", "of": "100", "longest": "4.2 s"}},
+		"sessions": {
+			{"pid": "4412", "user": "shop", "database": "db", "app": "api", "for": "4.2 s", "state": "waiting", "query": "UPDATE orders SET status = $1 WHERE id = $2"},
+			{"pid": "4410", "user": "shop", "database": "db", "app": "api", "for": "1.1 s", "state": "active", "query": "SELECT * FROM orders WHERE customer_id = $1"},
+			{"pid": "4398", "user": "shop", "database": "db", "app": "worker", "for": "0.2 s", "state": "active", "query": "INSERT INTO events (kind) VALUES ($1)"},
+			{"pid": "4377", "user": "shop", "database": "db", "app": "api", "for": "31 s", "state": "idle", "query": "COMMIT"},
+		},
+		"databases": {
+			{"database": "db", "size": "38 MB", "connections": "4", "owner": "postgres"},
+			{"database": "shop_test", "size": "9 MB", "connections": "0", "owner": "postgres"},
+			{"database": "postgres", "size": "8 MB", "connections": "0", "owner": "postgres"},
+		},
+	}, nil)...)
+	kSpec, kActions := KafkaConsole()
+	f.Frames = append(f.Frames, consoleFrames("events", kSpec, kActions, map[string][]map[string]string{
+		"topics": {
+			{"name": "orders", "partitions": "3", "high": "1043"},
+			{"name": "emails", "partitions": "1", "high": "87"},
+			{"name": "orders.dlq", "partitions": "1", "high": "0", control.CellRuntime: "1"},
+		},
+		"groups": {
+			{"name": "worker", "topic": "orders", "lag": "0", "members": "1"},
+			{"name": "mailer", "topic": "emails", "lag": "12", "members": "0"},
+		},
+	}, map[string][]map[string]string{
+		"tail": {
+			{"_for": "orders", "time": "14:22:10", "partition": "1", "offset": "347", "key": "ord_1043", "value": `{"total": 4200, "items": 2}`},
+			{"_for": "orders", "time": "14:21:02", "partition": "0", "offset": "351", "key": "ord_1042", "value": `{"total": 1850, "items": 1}`},
+			{"_for": "emails", "time": "14:20:11", "partition": "0", "offset": "86", "key": "c_88", "value": `{"template": "receipt"}`},
+		},
+	})...)
+	aSpec, aActions := AwsConsole()
+	f.Frames = append(f.Frames, consoleFrames("cloud", aSpec, aActions, map[string][]map[string]string{
+		"resources": {
+			{"type": "S3", "name": "uploads", "now": "12 objects · 3.1 MB", "from": "doze.hcl"},
+			{"type": "SQS", "name": "orders", "now": "0 waiting · 2 in flight", "from": "doze.hcl"},
+			{"type": "SQS", "name": "orders-dlq", "now": "1 waiting", "from": "runtime", control.CellRuntime: "1"},
+		},
+	}, map[string][]map[string]string{
+		"wire": {
+			{"time": "14:22:31", "svc": "SQS", "action": "ReceiveMessage", "code": "ok", "target": "orders"},
+			{"time": "14:22:25", "svc": "S3", "action": "PutObject", "code": "failed", "target": "upload/receipts/1043.pdf"},
+			{"time": "14:22:10", "svc": "SQS", "action": "SendMessage", "code": "ok", "target": "orders"},
+		},
+	})...)
 	line := func(inst string, d time.Duration, s string) {
 		l := control.LogFrame{Instance: inst, Line: s, Time: ago(d), Run: 1}
 		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicLogs, Log: &l})
@@ -143,4 +196,100 @@ func Modules(now time.Time) *fakedaemon.Fake {
 	line("flows", 4*time.Minute, "INFO Temporal server started address=127.0.0.1:7233")
 	line("flows", 4*time.Minute, "INFO Web UI listening on http://127.0.0.1:8233")
 	return f
+}
+
+// consoleFrames scripts what a module's console sends: its spec and actions,
+// then rows for each table and stream. A row's "_for" says which row of its
+// table a stream row belongs to.
+func consoleFrames(inst string, spec control.ConsoleSpec, actions []control.ActionView, tables map[string][]map[string]string, streams map[string][]map[string]string) []control.Frame {
+	var out []control.Frame
+	push := func(c control.ConsoleFrame) {
+		c.Instance = inst
+		out = append(out, control.Frame{Topic: control.TopicConsole, Console: &c})
+	}
+	push(control.ConsoleFrame{State: "active", Spec: &spec, Actions: actions})
+	for panel, rows := range tables {
+		var rs []control.ConsoleRow
+		for _, r := range rows {
+			rs = append(rs, control.ConsoleRow{Cells: r})
+		}
+		push(control.ConsoleFrame{Panel: panel, Rows: rs})
+	}
+	for panel, rows := range streams {
+		for _, r := range rows {
+			row := control.ConsoleRow{Cells: r}
+			push(control.ConsoleFrame{Panel: panel, Row: &row})
+		}
+	}
+	return out
+}
+
+// PostgresConsole is what the postgres module would publish: an activity tab
+// of sessions with the selected one's query and the actions on it, and a
+// databases table added to the generic overview.
+func PostgresConsole() (control.ConsoleSpec, []control.ActionView) {
+	spec := control.ConsoleSpec{
+		Front: "overview",
+		Panels: []control.ConsolePanel{
+			{ID: "activity", Title: "", Kind: "counters", Columns: []control.ConsoleColumn{
+				{Key: "active", Title: "active"}, {Key: "idle", Title: "idle"}, {Key: "waiting", Title: "waiting"},
+				{Key: "of", Title: "of"}, {Key: "longest", Title: "longest"}}},
+			{ID: "sessions", Title: "sessions", Kind: "table", Source: "session", Columns: []control.ConsoleColumn{
+				{Key: "pid", Title: "pid", Align: "right"}, {Key: "user", Title: "user"}, {Key: "database", Title: "database"},
+				{Key: "app", Title: "app"}, {Key: "for", Title: "for", Align: "right"}, {Key: "state", Title: "state", Role: "state"},
+				{Key: "query", Title: "query", Role: "detail"}}},
+			{ID: "databases", Title: "databases", Kind: "table", Source: "database", Columns: []control.ConsoleColumn{
+				{Key: "database", Title: "database"}, {Key: "size", Title: "size", Align: "right"},
+				{Key: "connections", Title: "connections", Align: "right", Role: "count"}, {Key: "owner", Title: "owner"}}},
+		},
+		Tabs: []control.ConsoleTab{{ID: "activity", Title: "activity", Body: control.ConsoleNode{Kind: "col", Children: []control.ConsoleNode{
+			{Kind: "stat", Panel: "activity"},
+			{Kind: "row", Weight: 1, Children: []control.ConsoleNode{
+				{Kind: "table", Panel: "sessions", ID: "sessions", Weight: 2},
+				{Kind: "col", Weight: 1, Children: []control.ConsoleNode{
+					{Kind: "detail", Panel: "sessions", From: "sessions", Title: "query"},
+					{Kind: "actions"},
+				}},
+			}},
+		}}}},
+		Extend: []control.ConsoleExtension{{After: "vitals", Node: control.ConsoleNode{Kind: "table", Panel: "databases", Title: "databases"}}},
+	}
+	actions := []control.ActionView{
+		{ID: "cancel", Label: "Cancel query", Kind: "session"},
+		{ID: "terminate", Label: "Terminate session", Kind: "session", Destructive: true},
+	}
+	return spec, actions
+}
+
+// KafkaConsole is the console the kafka module publishes today: panels and no
+// layout, so the dash lays out its tables side by side and its stream below.
+func KafkaConsole() (control.ConsoleSpec, []control.ActionView) {
+	spec := control.ConsoleSpec{Front: "console", Panels: []control.ConsolePanel{
+		{ID: "topics", Title: "topics", Kind: "table", Source: "topic", Columns: []control.ConsoleColumn{
+			{Key: "name", Title: "name"}, {Key: "partitions", Title: "parts", Align: "right", Role: "count"},
+			{Key: "high", Title: "messages", Align: "right", Role: "count"}, {Key: "high", Title: "rate", Align: "right", Role: "rate"}}},
+		{ID: "groups", Title: "consumer groups", Kind: "table", Source: "group", Columns: []control.ConsoleColumn{
+			{Key: "name", Title: "group"}, {Key: "topic", Title: "topic"}, {Key: "lag", Title: "lag", Align: "right", Role: "lag"},
+			{Key: "members", Title: "members"}}},
+		{ID: "tail", Title: "tail", Kind: "stream", Select: "topics", Columns: []control.ConsoleColumn{
+			{Key: "time", Title: "time", Role: "time"}, {Key: "partition", Title: "p"}, {Key: "offset", Title: "offset", Align: "right"},
+			{Key: "key", Title: "key"}, {Key: "value", Title: "value"}}},
+	}}
+	actions := []control.ActionView{
+		{ID: "produce", Label: "Produce a message", Kind: "topic", InputHint: "message value"},
+		{ID: "keep", Label: "Keep topic in doze.hcl", Kind: "topic"},
+	}
+	return spec, actions
+}
+
+// AwsConsole is the aws module's: a table of resources and the wire.
+func AwsConsole() (control.ConsoleSpec, []control.ActionView) {
+	spec := control.ConsoleSpec{Front: "console", Panels: []control.ConsolePanel{
+		{ID: "resources", Title: "resources", Kind: "table", Source: "resource", Columns: []control.ConsoleColumn{
+			{Key: "type", Title: "type"}, {Key: "name", Title: "name"}, {Key: "now", Title: "now"}, {Key: "from", Title: "from"}}},
+		{ID: "wire", Title: "wire · every API call, newest first", Kind: "stream", Columns: []control.ConsoleColumn{
+			{Key: "time", Title: "time", Role: "time"}, {Key: "svc", Title: "svc"}, {Key: "action", Title: "action"},
+			{Key: "code", Title: "code", Align: "right", Role: "state"}, {Key: "target", Title: "target"}}},
+	}}
+	return spec, []control.ActionView{{ID: "keep", Label: "Keep in doze.hcl", Kind: "resource"}}
 }
