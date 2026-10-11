@@ -63,6 +63,13 @@ func Shop(now time.Time) *fakedaemon.Fake {
 	ev(14*time.Minute-20*time.Second, journal.Wake, "cache", journal.Cause{Kind: journal.ByDependency, By: "api"}, 0)
 	ev(14*time.Minute-19*time.Second, journal.Ready, "cache", journal.Cause{}, 38*time.Millisecond)
 	ev(3*time.Minute, journal.Wake, "events", journal.Cause{Kind: journal.ByDependency, By: "worker"}, 0)
+	// the task's runs, oldest first: a clean one, a failure after an edit, a retry
+	ev(26*time.Hour, journal.Wake, "migrate", journal.Cause{Kind: journal.ByCommand}, 0)
+	ev(26*time.Hour-900*time.Millisecond, journal.Ready, "migrate", journal.Cause{}, 900*time.Millisecond)
+	ev(3*time.Hour, journal.Wake, "migrate", journal.Cause{Kind: journal.ByWatch, By: "0014_carts.sql"}, 0)
+	ev(3*time.Hour-400*time.Millisecond, journal.Failed, "migrate", journal.Cause{}, 400*time.Millisecond)
+	ev(2*time.Minute, journal.Wake, "migrate", journal.Cause{Kind: journal.ByWatch, By: "0015_orders_index.sql"}, 0)
+	ev(2*time.Minute-1200*time.Millisecond, journal.Ready, "migrate", journal.Cause{}, 1200*time.Millisecond)
 
 	// what each instance printed
 	line := func(inst string, d time.Duration, run int, s string) {

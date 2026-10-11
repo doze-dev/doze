@@ -184,9 +184,19 @@ func short(run string) string {
 	f := strings.Fields(run)
 	if len(f) >= 2 && (f[0] == "docker" || f[0] == "podman") && f[1] == "run" {
 		image := ""
-		for _, a := range f[2:] {
-			if !strings.HasPrefix(a, "-") && !strings.Contains(a, ":") && !strings.Contains(a, "$") {
+		// the image is the first word that is neither a flag nor a flag's value
+		takes := map[string]bool{"-p": true, "--publish": true, "-e": true, "--env": true, "--env-file": true, "-v": true,
+			"--volume": true, "--name": true, "--network": true, "--net": true, "-w": true, "--workdir": true, "-u": true,
+			"--user": true, "--entrypoint": true, "--platform": true, "-l": true, "--label": true, "--add-host": true,
+			"-m": true, "--memory": true, "--cpus": true, "-h": true, "--hostname": true, "--mount": true}
+		for i := 2; i < len(f); i++ {
+			if a := f[i]; strings.HasPrefix(a, "-") {
+				if takes[a] && !strings.Contains(a, "=") {
+					i++
+				}
+			} else {
 				image = a
+				break
 			}
 		}
 		if image == "" {
@@ -511,22 +521,45 @@ var levelWord = regexp.MustCompile(`(?i)^(level=)?(info|inf|warn|warning|wrn|err
 // keys is the bar along the bottom: the keys that do something.
 func (m *Model) keys(w int) string {
 	s := m.st
-	var parts []string
-	for _, k := range []struct{ key, label string }{
-		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"y", "copy"}, {"o", "sort " + sortTitles[m.sortBy]}, {"t", "tree"}, {"/", "filter"}, {":", "command"}, {"q", "quit"},
-	} {
-		parts = append(parts, s.cap(k.key, k.label))
+	// most wanted first: when the line is wider than the window, the last go
+	type hint struct{ key, label string }
+	all := []hint{
+		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"q", "quit"}, {":", "command"}, {"r", "restart"},
+		{"l", "logs"}, {"/", "filter"}, {"y", "copy"}, {"o", "sort " + sortTitles[m.sortBy]}, {"t", "tree"},
 	}
-	line := strings.Join(parts, "  ")
+	// what is shown is in the order of the line, not the order of wanting
+	order := []string{"↑↓", "⏎", "w", "s", "r", "l", "y", "o", "t", "/", ":", "q"}
+	extra := ""
+	if m.notice != "" {
+		extra = "   " + s.y.Render(m.notice)
+	}
+	build := func(n int) string {
+		keep := map[string]bool{}
+		for _, h := range all[:n] {
+			keep[h.key] = true
+		}
+		var parts []string
+		for _, k := range order {
+			for _, h := range all {
+				if h.key == k && keep[k] {
+					parts = append(parts, s.cap(h.key, h.label))
+				}
+			}
+		}
+		return strings.Join(parts, "  ")
+	}
+	n := len(all)
+	line := build(n)
+	for n > 6 && width(line)+width(extra) > w {
+		n--
+		line = build(n)
+	}
 	if m.filtering {
 		line = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + s.a.Render("▏")
 	} else if m.filter != "" {
 		line = s.cap("esc", "clear filter") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + "   " + line
 	}
-	if m.notice != "" {
-		line += "   " + s.y.Render(m.notice)
-	}
-	return line
+	return line + extra
 }
 
 // homeNarrow is Home at 80 x 24 (Narrow.dc.html): one column, no boxes.

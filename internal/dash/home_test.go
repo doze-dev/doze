@@ -596,3 +596,99 @@ func TestYankTheAddress(t *testing.T) {
 		t.Errorf("a task has nothing to copy: cmd=%v notice=%q", cmd != nil, m.notice)
 	}
 }
+
+// The logs tab: / narrows to the lines that hold what was typed and marks it,
+// and [ ] move between the runs the daemon has kept.
+func TestLogsSearchAndRuns(t *testing.T) {
+	m := focused("api")
+	m.followed = "api" // already following, so the lines set here are kept
+	m.logs = []control.LogFrame{
+		{Instance: "api", Line: "INFO listening addr=:8080", Time: epoch.Add(-time.Hour), Run: 1},
+		{Instance: "api", Line: "ERROR boom in the old run", Time: epoch.Add(-50 * time.Minute), Run: 1},
+		{Instance: "api", Line: "INFO listening addr=:8080", Time: epoch.Add(-time.Minute), Run: 2},
+		{Instance: "api", Line: "WARN slow query 212ms", Time: epoch.Add(-30 * time.Second), Run: 2},
+	}
+	press := func(k, text string) { m.Update(tea.KeyPressMsg{Code: []rune(k)[0], Text: text}) }
+
+	if out := frame(m, 136, 32); !strings.Contains(out, "boom") || !strings.Contains(out, "slow query") {
+		t.Fatalf("both runs should show at first:\n%s", out)
+	}
+	press("/", "/")
+	for _, r := range "slow" {
+		press(string(r), string(r))
+	}
+	out := frame(m, 136, 32)
+	if !strings.Contains(out, "slow query") || strings.Contains(out, "boom") || strings.Contains(out, "listening") {
+		t.Errorf("search slow should leave one line:\n%s", out)
+	}
+	if !strings.Contains(out, "search slow") {
+		t.Errorf("the search is not named:\n%s", out)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.search != "" || m.page != pageFocus {
+		t.Errorf("esc should clear the search and stay: search=%q page=%d", m.search, m.page)
+	}
+
+	press("[", "[")
+	if m.runSel == 0 {
+		t.Fatal("[ did not move to an earlier run")
+	}
+	out = frame(m, 136, 32)
+	if !strings.Contains(out, "boom") || strings.Contains(out, "slow query") || !strings.Contains(out, "run 1 of 2") {
+		t.Errorf("run 1 only:\n%s", out)
+	}
+	press("]", "]")
+	press("]", "]")
+	if m.runSel != 0 {
+		t.Errorf("] past the newest should follow again, runSel=%d", m.runSel)
+	}
+}
+
+// A task lists the runs the journal holds: when, why, how long, how it ended.
+func TestTaskHistory(t *testing.T) {
+	m := focused("migrate")
+	m.events = []journal.Event{
+		{Time: epoch.Add(-26 * time.Hour), Kind: journal.Wake, Instance: "migrate", Cause: journal.Cause{Kind: journal.ByCommand}},
+		{Time: epoch.Add(-26 * time.Hour), Kind: journal.Ready, Instance: "migrate", Took: 900 * time.Millisecond},
+		{Time: epoch.Add(-3 * time.Hour), Kind: journal.Wake, Instance: "migrate", Cause: journal.Cause{Kind: journal.ByWatch, By: "0014_carts.sql"}},
+		{Time: epoch.Add(-3 * time.Hour), Kind: journal.Failed, Instance: "migrate", Took: 400 * time.Millisecond, Detail: "exit 1"},
+	}
+	out := frame(m, 136, 32)
+	for _, want := range []string{"history", "0014_carts.sql changed", "you asked", "✗", "✓", "0.4s", "0.9s"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("history lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+// The page of the whole stack's logs: l opens it, / narrows it, esc goes back.
+func TestStackLogsPage(t *testing.T) {
+	m := board()
+	m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	if m.page != pageLogs {
+		t.Fatalf("l did not open the logs page: page=%d", m.page)
+	}
+	m.all = []control.LogFrame{
+		{Instance: "api", Line: "INFO GET /products 200", Time: epoch.Add(-3 * time.Minute)},
+		{Instance: "db", Line: "ERROR relation does not exist", Time: epoch.Add(-2 * time.Minute)},
+		{Instance: "web", Line: "INFO hmr update", Time: epoch.Add(-time.Minute)},
+	}
+	out := frame(m, 120, 30)
+	for _, want := range []string{"all logs", "api", "db", "web", "relation does not exist", "GET /products"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("logs page lacks %q:\n%s", want, out)
+		}
+	}
+	m.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	for _, r := range "relation" {
+		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+	if out := frame(m, 120, 30); strings.Contains(out, "hmr update") || !strings.Contains(out, "relation does not exist") {
+		t.Errorf("search should leave the db line:\n%s", out)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.page != pageHome {
+		t.Errorf("esc, esc should be back on Home: page=%d", m.page)
+	}
+}

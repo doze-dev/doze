@@ -39,6 +39,7 @@ type styles struct {
 	selHex, pickHex string
 
 	text, a, g, y, c, r, d, w, b lipgloss.Style
+	hl                           lipgloss.Style // a search match
 	border, borderOn, borderBad  lipgloss.Style
 	sel                          lipgloss.Style
 	pill, pillG, pillY, pillR    lipgloss.Style
@@ -84,6 +85,10 @@ func build(plain bool, tint func(string) string) styles {
 	s.text, s.a, s.g, s.y, s.c = fg(hexText), fg(hexAccent), fg(hexGood), fg(hexWarn), fg(hexCool)
 	s.r, s.d, s.w = fg(hexBad), fg(hexDim), fg(hexBright)
 	s.b = s.w.Bold(true)
+	s.hl = lipgloss.NewStyle().Reverse(true).Bold(true)
+	if !plain {
+		s.hl = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color(tint(hexWarn))).Foreground(lipgloss.Color(tint(hexBg)))
+	}
 	s.border, s.borderOn, s.borderBad = fg(hexBorder), fg(hexAccent), fg(hexBad)
 	if !plain {
 		// a box's borders carry the ground of its inside, which box reads
@@ -112,6 +117,14 @@ func build(plain bool, tint func(string) string) styles {
 // --- cells ---
 
 func width(s string) int { return ansi.StringWidth(s) }
+
+// ansiTruncate cuts s to w cells with an ellipsis, without padding it.
+func ansiTruncate(s string, w int) string {
+	if width(s) <= w {
+		return s
+	}
+	return ansi.Truncate(s, w, "…")
+}
 
 // fit cuts s to w cells with an ellipsis, and pads it to w.
 func fit(s string, w int) string {

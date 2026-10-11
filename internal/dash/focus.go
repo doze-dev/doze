@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
@@ -71,6 +72,7 @@ func (m *Model) tabs(v control.InstanceView) []tab {
 func (m *Model) open() {
 	if v, ok := m.selected(); ok {
 		m.page, m.tab = pageFocus, 0
+		m.search, m.searching, m.runSel = "", false, 0
 		if v.HasConsole {
 			m.startConsole(v.Name)
 		}
@@ -119,6 +121,9 @@ func (m *Model) stream(v control.InstanceView, h, min int, onlyRun int) []string
 		if r < min {
 			continue
 		}
+		if m.query != "" && !strings.Contains(strings.ToLower(l.Line), strings.ToLower(m.query)) {
+			continue
+		}
 		text := l.Line
 		if tag != "" {
 			style := s.c
@@ -130,9 +135,9 @@ func (m *Model) stream(v control.InstanceView, h, min int, onlyRun int) []string
 			case "DBG":
 				style = s.d
 			}
-			text = style.Render(tag) + " " + s.text.Render(levelWord.ReplaceAllString(text, ""))
+			text = style.Render(tag) + " " + m.mark(levelWord.ReplaceAllString(text, ""), s.text)
 		} else {
-			text = s.text.Render(text)
+			text = m.mark(text, s.text)
 		}
 		items = append(items, item{l.Time, text, i})
 	}
@@ -185,6 +190,7 @@ func (m *Model) logLines(v control.InstanceView, _, h int) []string {
 const (
 	pageHome = iota
 	pageFocus
+	pageLogs // the whole stack's logs, merged
 )
 
 // focus draws the frame at w x h: the header with the tab bar, the tab, and
@@ -284,6 +290,13 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 		ks = append(ks, [2]string{"l", "logs"})
 	}
 	if cur.id == tabLogs {
+		if m.searching {
+			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
+		}
+		ks = append(ks, [2]string{"/", "search"})
+		if len(m.runIDs()) > 1 {
+			ks = append(ks, [2]string{"[ ]", "earlier runs"})
+		}
 		ks = append(ks, [2]string{"y", "copy lines"})
 	} else if m.url(v) != "" {
 		ks = append(ks, [2]string{"y", "copy address"})
@@ -340,8 +353,27 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		}
 		n++
 	}
-	lines := m.stream(v, h-2, m.level, 0)
-	left := box(s.border, s.d.Render("following · "+levelNames[m.level]), s.d.Render(fmt.Sprintf("%d lines · this run", n)), lines, lw, h)
+	runs := m.runIDs()
+	if m.runSel > 0 && !hasRun(runs, m.runSel) {
+		m.runSel = 0
+	}
+	m.query = m.search
+	lines := m.stream(v, h-2, m.level, m.runSel)
+	m.query = ""
+	cap := "following · " + levelNames[m.level]
+	rcap := fmt.Sprintf("%d lines · this run", n)
+	if m.runSel > 0 {
+		cap = "not following · " + levelNames[m.level]
+		rcap = fmt.Sprintf("run %d of %d", indexOf(runs, m.runSel)+1, len(runs))
+	}
+	if m.search != "" || m.searching {
+		cursor := ""
+		if m.searching {
+			cursor = s.a.Render("▏")
+		}
+		cap = "search " + s.w.Render(m.search) + cursor + s.d.Render(" · "+cap)
+	}
+	left := box(s.border, s.d.Render(cap), s.d.Render(rcap), lines, lw, h)
 	if rw == 0 {
 		return left
 	}
@@ -400,10 +432,10 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 	// the levels are a line, not a panel: what the filter (f) is choosing between
 	levels := s.d.Render("levels ") + s.r.Render(fmt.Sprintf("%d err", counts[lvError])) + s.d.Render(" · ") +
 		s.y.Render(fmt.Sprintf("%d warn", counts[lvWarn])) + s.d.Render(" · ") + s.c.Render(fmt.Sprintf("%d info", counts[lvInfo]))
-	if counts[lvDebug] > 0 {
-		levels += s.d.Render(fmt.Sprintf(" · %d debug hidden", counts[lvDebug]))
-	}
 	run = append(run, levels)
+	if counts[lvDebug] > 0 {
+		run = append(run, s.d.Render(fmt.Sprintf("%d debug lines hidden", counts[lvDebug])))
+	}
 	if untagged > 0 {
 		run = append(run, s.d.Render(fmt.Sprintf("%d lines carry no level", untagged)))
 	}
@@ -619,6 +651,10 @@ func (m *Model) lastRun(v control.InstanceView, w, h int) []string {
 		when = append(when, s.g.Render("✓")+"  "+s.text.Render("something that needs it starts · ")+s.d.Render(strings.Join(users, ", ")))
 	}
 	col := box(s.border, s.a.Bold(true).Render("runs when"), "", when, rw, len(when)+2)
+	if hist := m.runHistory(v.Name, rw-4); len(hist) > 0 && h-len(col) >= 5 {
+		n := min(len(hist), h-len(col)-2)
+		col = append(col, box(s.border, s.a.Bold(true).Render("history"), "", hist[:n], rw, n+2)...)
+	}
 	for len(col) < h {
 		col = append(col, strings.Repeat(" ", rw))
 	}
@@ -755,6 +791,16 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	case "m":
 		m.metrics = !m.metrics
 		return nil, true
+	case "/":
+		if ts[m.tab].id == tabLogs {
+			m.searching = true
+			return nil, true
+		}
+	case "[", "]":
+		if ts[m.tab].id == tabLogs {
+			m.stepRun(k == "]")
+			return nil, true
+		}
 	case "y":
 		if ts[m.tab].id == tabLogs {
 			return m.yankLines(v), true
@@ -773,4 +819,163 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		return nil, true // the frame is one instance; the list is behind esc
 	}
 	return nil, false
+}
+
+// causeWords says in a few words what made a run happen.
+func causeWords(c journal.Cause) string {
+	switch c.Kind {
+	case journal.ByDependency:
+		return c.By + " needs it"
+	case journal.ByCommand:
+		return "you asked"
+	case journal.ByWatch:
+		return c.By + " changed"
+	case journal.ByConnection:
+		return "a connection"
+	case journal.ByRestart:
+		return "restart policy"
+	}
+	return "doze up"
+}
+
+// runHistory is a task's earlier runs from the journal, newest first: when, why
+// it ran, how long it took and how it ended. A run is a wake and what follows
+// it, a ready or a failure.
+func (m *Model) runHistory(name string, w int) []string {
+	s := m.st
+	type run struct {
+		at   time.Time
+		why  string
+		took time.Duration
+		ok   bool
+		done bool
+	}
+	var runs []run
+	for _, e := range m.events {
+		if e.Instance != name {
+			continue
+		}
+		switch e.Kind {
+		case journal.Wake:
+			runs = append(runs, run{at: e.Time, why: causeWords(e.Cause)})
+		case journal.Ready:
+			if n := len(runs); n > 0 && !runs[n-1].done {
+				runs[n-1].took, runs[n-1].ok, runs[n-1].done = e.Took, true, true
+			}
+		case journal.Failed:
+			if n := len(runs); n > 0 && !runs[n-1].done {
+				runs[n-1].took, runs[n-1].done = e.Took, true
+			}
+		}
+	}
+	if len(runs) == 0 {
+		// the journal has not kept it: the last run is still known from the task
+		if t := m.taskOf(name); t != nil && !t.RanAt.IsZero() {
+			why := t.Why
+			if why == "" {
+				why = "doze up"
+			}
+			runs = []run{{at: t.RanAt, why: why, took: time.Duration(t.TookMS) * time.Millisecond, ok: t.Result == "done", done: true}}
+		} else {
+			return nil
+		}
+	}
+	whyW := max(w-9-2-7-2-2, 8)
+	out := []string{s.d.Render(fit("when", 9) + "  " + fit("why", whyW) + "  " + right("took", 7))}
+	for i := len(runs) - 1; i >= 0; i-- {
+		r := runs[i]
+		when := r.at.In(m.loc).Format("15:04:05")
+		if m.now.Sub(r.at) > 18*time.Hour {
+			when = r.at.In(m.loc).Format("Jan 2")
+		}
+		took, mark := "", s.d.Render("…")
+		if r.done {
+			took = fmt.Sprintf("%.1fs", r.took.Seconds())
+			mark = s.g.Render("✓")
+			if !r.ok {
+				mark = s.r.Render("✗")
+			}
+		}
+		out = append(out, s.d.Render(fit(when, 9))+"  "+s.text.Render(fit(r.why, whyW))+"  "+right(s.d.Render(took), 7)+" "+mark)
+	}
+	return out
+}
+
+// mark draws text in base with every match of the search drawn highlighted.
+func (m *Model) mark(text string, base lipgloss.Style) string {
+	q := strings.ToLower(m.query)
+	if q == "" {
+		return base.Render(text)
+	}
+	low := strings.ToLower(text)
+	var b strings.Builder
+	for {
+		i := strings.Index(low, q)
+		if i < 0 {
+			break
+		}
+		b.WriteString(base.Render(text[:i]))
+		b.WriteString(m.st.hl.Render(text[i : i+len(q)]))
+		text, low = text[i+len(q):], low[i+len(q):]
+	}
+	b.WriteString(base.Render(text))
+	return b.String()
+}
+
+// runIDs are the runs the logs hold lines of, oldest first.
+func (m *Model) runIDs() []int {
+	seen := map[int]bool{}
+	var out []int
+	for _, l := range m.logs {
+		if l.Run > 0 && !seen[l.Run] {
+			seen[l.Run] = true
+			out = append(out, l.Run)
+		}
+	}
+	sort.Ints(out)
+	return out
+}
+
+func hasRun(xs []int, x int) bool { return indexOf(xs, x) >= 0 }
+
+func indexOf(xs []int, x int) int {
+	for i, v := range xs {
+		if v == x {
+			return i
+		}
+	}
+	return -1
+}
+
+// stepRun moves the logs tab to the next run or the one before; past the newest
+// it goes back to following.
+func (m *Model) stepRun(forward bool) {
+	runs := m.runIDs()
+	if len(runs) < 2 {
+		return
+	}
+	at := len(runs) - 1 // following is the newest run
+	if m.runSel > 0 {
+		at = indexOf(runs, m.runSel)
+	}
+	if forward {
+		at++
+	} else {
+		at--
+	}
+	switch {
+	case at >= len(runs)-1:
+		m.runSel = 0 // the newest is what following shows
+	case at < 0:
+		m.runSel = runs[0]
+	default:
+		m.runSel = runs[at]
+	}
+}
+
+func (m *Model) taskOf(name string) *control.TaskView {
+	if v, ok := m.find(name); ok {
+		return v.Task
+	}
+	return nil
 }

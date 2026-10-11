@@ -41,17 +41,24 @@ type Model struct {
 
 	w, h         int
 	sel          string
-	page         int      // pageHome or pageFocus
-	hit          []string // the instance on each line of the stack, "" for a heading
-	listTop      int      // the first line of the stack shown, when it is longer than its box
-	areaCharts   bool     // c: charts as filled areas of blocks, not a line of dots
-	sortBy       int      // o: how the table orders its rows within a group
-	metrics      bool     // m: Focus shows the full charts, not the tiles
-	tree         bool     // t: the table as a dependency tree
-	filter       string   // /: only the rows that match
-	filtering    bool     // the filter is being typed
-	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
-	clickName    string   // the last row clicked, and when: a second click opens it
+	page         int                // pageHome or pageFocus
+	hit          []string           // the instance on each line of the stack, "" for a heading
+	listTop      int                // the first line of the stack shown, when it is longer than its box
+	areaCharts   bool               // c: charts as filled areas of blocks, not a line of dots
+	sortBy       int                // o: how the table orders its rows within a group
+	metrics      bool               // m: Focus shows the full charts, not the tiles
+	tree         bool               // t: the table as a dependency tree
+	search       string             // /: on a logs tab, only the lines that hold it
+	all          []control.LogFrame // the stack's lines, for the logs page
+	allCancel    context.CancelFunc
+	paused       bool   // the logs page holds still
+	searching    bool   // the search is being typed
+	runSel       int    // [ ]: the run of the logs tab, 0 for all of them
+	query        string // the search while the logs tab is drawing
+	filter       string // /: only the rows that match
+	filtering    bool   // the filter is being typed
+	hitY0, hitX1 int    // where the stack's lines begin, and the column it ends at
+	clickName    string // the last row clicked, and when: a second click opens it
 	clickAt      time.Time
 	modal        *modal        // the palette or a confirmation, over the page
 	con          *consoleState // the focused instance's console, when it has one
@@ -131,6 +138,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case frameMsg:
 		m.apply(control.Frame(msg))
 		m.settle()
+	case allLogMsg:
+		if !m.paused {
+			m.all = append(m.all, control.LogFrame(msg))
+			if len(m.all) > allKept {
+				m.all = m.all[len(m.all)-allKept:]
+			}
+		}
 	case logMsg:
 		if msg.name == m.sel {
 			m.logs = append(m.logs, msg.frame)
@@ -175,6 +189,51 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	if m.modal != nil {
 		return m, m.modalKey(k, text)
+	}
+	if m.page == pageLogs {
+		if m.searching || m.search != "" && k == "esc" {
+			switch k {
+			case "esc":
+				m.search, m.searching = "", false
+			case "enter":
+				m.searching = false
+			case "backspace":
+				if r := []rune(m.search); len(r) > 0 {
+					m.search = string(r[:len(r)-1])
+				}
+			default:
+				if text != "" && k != "ctrl+c" {
+					m.search += text
+				}
+			}
+			return m, nil
+		}
+		if k == "ctrl+c" {
+			return m, tea.Quit
+		}
+		cmd, _ := m.stackLogsKey(k)
+		return m, cmd
+	}
+	if m.page == pageFocus && m.searching {
+		switch k {
+		case "esc":
+			m.search, m.searching = "", false
+		case "enter":
+			m.searching = false
+		case "backspace":
+			if r := []rune(m.search); len(r) > 0 {
+				m.search = string(r[:len(r)-1])
+			}
+		default:
+			if text != "" && k != "ctrl+c" {
+				m.search += text
+			}
+		}
+		return m, m.follow()
+	}
+	if m.page == pageFocus && k == "esc" && m.search != "" {
+		m.search = ""
+		return m, m.follow()
 	}
 	if m.filtering && m.page == pageHome {
 		switch k {
@@ -221,8 +280,10 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		m.tree = !m.tree
 	case "/":
 		m.filtering = true
-	case "enter", "l", "right":
+	case "enter", "right":
 		m.open()
+	case "l":
+		m.openLogs()
 	case "ctrl+c", "q":
 		if m.cancel != nil {
 			m.cancel()
@@ -417,8 +478,11 @@ func (m *Model) Render(w, h int) string {
 		return ""
 	}
 	page := m.home
-	if m.page == pageFocus {
+	switch m.page {
+	case pageFocus:
 		page = m.focus
+	case pageLogs:
+		page = m.stackLogs
 	}
 	base := page(w, h)
 	if m.modal != nil {

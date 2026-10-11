@@ -277,12 +277,13 @@ func (m *Model) homeTable(w, h int) []string {
 		if m.snap.Stack != "" {
 			l += " " + s.b.Render(m.snap.Stack)
 		}
-		if m.snap.Dir != "" && w > 60 {
-			l += " " + s.d.Render(tilde(m.snap.Dir))
-		}
 		r := s.b.Render(mb(ram)) + " " + s.d.Render("resident")
 		if need > 0 {
 			r = s.pillR.Render(fmt.Sprintf("%d needs you", need)) + "  " + r
+		}
+		// the folder only if it fits beside the rest, cut with an ellipsis to what is left
+		if room := w - width(l) - width(r) - 3; m.snap.Dir != "" && room >= 12 {
+			l += " " + s.d.Render(ansiTruncate(tilde(m.snap.Dir), room))
 		}
 		out = append(out, l+strings.Repeat(" ", max(w-width(l)-width(r), 1))+r)
 	}
@@ -468,6 +469,11 @@ func (m *Model) homeTable(w, h int) []string {
 	minLogs := 6
 	if room < 16 {
 		minLogs = 3
+	}
+	if v, ok := m.selected(); ok && troubled(v) {
+		// what went wrong needs the room: a trace is not three lines. The table
+		// scrolls to keep the row in view.
+		minLogs = max(minLogs, min(room/2, 16))
 	}
 	tableH := min(len(body), max(room-minLogs, 3))
 	logsH := room - tableH

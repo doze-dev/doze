@@ -75,6 +75,13 @@ var scenes = []scene{
 	{name: "v-b", board: "V-B", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "v-c", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "v-focus", board: "V-Focus", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1640, hpx: 900, cols: 190, rows: 40},
+	// the stack a real project is: names that run on, a crash trace, a failed task
+	{name: "mess-home", board: "V-C", fixture: "mess", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "mess-narrow", board: "Narrow", fixture: "mess", wpx: 716, hpx: 564, cols: 80, rows: 24},
+	{name: "mess-crash", board: "V-Crash", fixture: "mess", keys: []string{"down"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "mess-logs", board: "View-App", fixture: "mess", keys: []string{"enter"}, wpx: 1200, hpx: 760, cols: 136, rows: 40},
+	{name: "mess-task", board: "View-Task", fixture: "mess", keys: cat(downs(20), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 40},
+	{name: "logs-all", board: "Logs", fixture: "mess", keys: []string{"l"}, wpx: 1200, hpx: 760, cols: 136, rows: 40},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
@@ -110,6 +117,8 @@ func host(args []string) {
 		d = fixture.Crash(epoch)
 	case "modules":
 		d = fixture.Modules(epoch)
+	case "mess":
+		d = fixture.Mess(epoch)
 	default:
 		d = fixture.Shop(epoch)
 	}
