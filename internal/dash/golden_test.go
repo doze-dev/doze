@@ -145,9 +145,9 @@ func TestAClickSelectsARow(t *testing.T) {
 	snap, _ := d.Snapshot(nil) //nolint:staticcheck
 	m.Update(snapshotMsg{snap: snap})
 	m.Render(120, 36) // lays the rows out
-	// The db row: a two-line header, then Apps (heading, three rows), a blank,
+	// The db row: a two-line header and the column titles, then Apps (heading, three rows), a blank,
 	// then Modules (heading, cache, cloud, db).
-	_, _ = m.Update(tea.MouseClickMsg(tea.Mouse{X: 10, Y: 10, Button: tea.MouseLeft}))
+	_, _ = m.Update(tea.MouseClickMsg(tea.Mouse{X: 10, Y: 11, Button: tea.MouseLeft}))
 	if out := ansi.Strip(m.Render(120, 36)); !strings.Contains(out, "db  postgres") {
 		t.Errorf("clicking the db row did not select it:\n%s", out)
 	}

@@ -583,7 +583,15 @@ func TestAModuleConsoleIsDrawnFromItsDescription(t *testing.T) {
 	s, clock := consoleDash(t)
 	// events is the 4th module: cache, cloud, db, events — after 3 apps.
 	s.key("j", "j", "j", "j", "j", "j", "enter")
-	if len(s.follows) == 0 || s.follows[0].Topic != "console" || s.follows[0].Names[0] != "events" {
+	// The home page follows the journal for its Recent list; the console follow
+	// is the one this test is about.
+	var console *core.Follow
+	for i := range s.follows {
+		if s.follows[i].Topic == "console" {
+			console = &s.follows[i]
+		}
+	}
+	if console == nil || console.Names[0] != "events" {
 		t.Fatalf("opening a console module should follow its console: %+v", s.follows)
 	}
 
@@ -698,4 +706,33 @@ func TestTheWebTabOpensTheAddress(t *testing.T) {
 	if got := web.Address(control.InstanceView{WebURL: "http://b"}); got != "http://b" {
 		t.Errorf("address = %s", got)
 	}
+}
+
+// The home page lists what happened lately under the table, from the journal
+// it follows, and its rows carry the address, connections and memory.
+func TestHomeShowsRecentActivity(t *testing.T) {
+	d := &fakedaemon.Fake{}
+	d.Snap.IdleTimeout = 5 * time.Minute
+	d.Snap.Instances = []control.InstanceView{
+		{Name: "docs", Kind: "service", Engine: "process", State: "asleep", Endpoint: "127.0.0.1:47812"},
+		{Name: "web", Kind: "service", Engine: "process", State: "idle", Endpoint: "127.0.0.1:47811", RAM: 14 << 20, PID: 4121, StartedAt: epoch.Add(-3 * time.Minute), IdleSince: epoch.Add(-10 * time.Second), IdleAfter: 30 * time.Second},
+		{Name: "worker", Kind: "service", Engine: "process", State: "active", RAM: 2 << 20, CPU: 1, PID: 4130, StartedAt: epoch.Add(-3 * time.Minute)},
+		{Name: "migrate", Kind: "task", Engine: "process", State: "asleep", Task: &control.TaskView{Result: "done", TookMS: 1014, RanAt: epoch.Add(-2 * time.Minute), Why: "first run"}},
+	}
+	s := newSession(t, d, 150, 28)
+	ev := func(ago time.Duration, kind, inst string, cause journal.Cause) {
+		s.send(eventMsg{ID: "home:events", Event: journal.Event{Time: epoch.Add(-ago), Kind: kind, Instance: inst, Cause: cause}})
+	}
+	ev(190*time.Second, journal.Wake, "migrate", journal.Cause{Kind: journal.ByDependency, By: "web"})
+	ev(188*time.Second, journal.Ready, "migrate", journal.Cause{})
+	ev(180*time.Second, journal.Wake, "web", journal.Cause{Kind: journal.ByConnection})
+	ev(150*time.Second, journal.Sleep, "docs", journal.Cause{Kind: journal.ByIdle})
+	s.key("j")
+	out := s.screen()
+	for _, want := range []string{"127.0.0.1:47811", "14M", "Recent", "web       woke (a connection)", "docs      went to sleep (idle)", "sleeps   20s"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("home lacks %q:\n%s", want, out)
+		}
+	}
+	golden(t, "home_recent_150x28", out)
 }

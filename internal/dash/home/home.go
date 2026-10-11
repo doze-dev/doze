@@ -22,7 +22,14 @@ import (
 	"github.com/doze-dev/doze/internal/dash/stacklogs"
 	"github.com/doze-dev/doze/internal/dash/theme"
 	"github.com/doze-dev/doze/internal/dash/themes"
-	"github.com/doze-dev/doze/internal/display"
+	"github.com/doze-dev/doze/internal/journal"
+)
+
+// eventsID names the home page's follow of the journal, and keptEvents is how
+// many events it keeps.
+const (
+	eventsID   = "home:events"
+	keptEvents = 60
 )
 
 // previewMin is the narrowest screen that shows the preview pane. Narrower
@@ -48,10 +55,12 @@ type Model struct {
 	sel       string
 	lay       layout.Map
 	logs      map[string][]control.LogFrame
-	logWant   string // the instance whose lines are being fetched
-	notice    string // the last thing a verb said, until the next key
-	menu      bool   // the copy menu is open
-	noticeBad bool   // the notice is a failure, not a confirmation
+	logWant   string          // the instance whose lines are being fetched
+	notice    string          // the last thing a verb said, until the next key
+	menu      bool            // the copy menu is open
+	noticeBad bool            // the notice is a failure, not a confirmation
+	events    []journal.Event // what happened lately, newest last
+	following bool            // the journal is being followed for events
 }
 
 // New returns the home page.
@@ -113,6 +122,18 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 	switch msg := msg.(type) {
 	case core.Resized:
 		m.w, m.h = msg.W, msg.H
+		if !m.following && c.Daemon != nil {
+			m.following = true
+			m.events = nil
+			return m, tea.Batch(m.wantLogs(c), func() tea.Msg { return core.Follow{ID: eventsID, Topic: "journal"} })
+		}
+	case core.EventLine:
+		if msg.ID == eventsID {
+			m.events = append(m.events, msg.Event)
+			if len(m.events) > keptEvents {
+				m.events = m.events[len(m.events)-keptEvents:]
+			}
+		}
 	case core.Logs:
 		if msg.Err == nil {
 			m.logs[msg.Instance] = msg.Lines
@@ -144,15 +165,19 @@ func (m *Model) Update(msg tea.Msg, c *core.Context) (core.Page, tea.Cmd) {
 				m.sel = rs[len(rs)-1].v.Name
 			}
 		case "L":
+			m.following = false
 			return m, func() tea.Msg { return core.Navigate{To: stacklogs.New()} }
 		case "enter", "l", "right":
 			if v, ok := m.selected(c); ok {
+				m.following = false
 				return m, func() tea.Msg { return core.Navigate{To: frame.New(v.Name, v)} }
 			}
 		case "T":
+			m.following = false
 			ch := theme.Choice{Name: c.Styles.Name, Dark: c.Dark, Plain: c.Styles.Plain}
 			return m, func() tea.Msg { return core.Navigate{To: themes.New(ch)} }
 		case ":", "ctrl+k":
+			m.following = false
 			name := m.sel
 			return m, func() tea.Msg { return core.Navigate{To: palette.New(name)} }
 		case "c":
@@ -223,241 +248,9 @@ func (m *Model) wantLogs(c *core.Context) tea.Cmd {
 	m.logWant = m.sel
 	d, name := c.Daemon, m.sel
 	return func() tea.Msg {
-		lines, err := d.Logs(context.Background(), control.LogQuery{Instance: name, Tail: 8})
+		lines, err := d.Logs(context.Background(), control.LogQuery{Instance: name, Tail: 40})
 		return core.Logs{Instance: name, Lines: lines, Err: err}
 	}
-}
-
-// View implements core.Page.
-func (m *Model) View(c *core.Context, w, h int) string {
-	m.w, m.h = w, h
-	st := c.Styles
-	rs := rows(c.Snap)
-	m.lay = layout.Map{}
-	if w <= 0 || h <= 0 {
-		return ""
-	}
-
-	whole := layout.Rect{W: w, H: h}
-	head, rest := layout.SplitTop(whole, 2)
-	body, foot := layout.SplitBottom(rest, 2)
-	list, preview := body, layout.Rect{}
-	if w >= previewMin {
-		list, preview = layout.SplitLeft(body, w*3/5)
-	}
-
-	var out []string
-	out = append(out, m.header(c, rs, head.W), st.Faint.Render(strings.Repeat("─", head.W)))
-
-	lines := m.list(c, rs, list)
-	pv := []string(nil)
-	if !preview.Empty() {
-		pv = m.preview(c, preview)
-	}
-	if m.menu {
-		// The menu takes the whole body: what it lists is too long for a pane.
-		lines, list, preview = m.menuView(c), body, layout.Rect{}
-	}
-	for i := 0; i < body.H; i++ {
-		l := pad(lineAt(lines, i), list.W)
-		if !preview.Empty() {
-			l += st.Faint.Render("│") + pad(lineAt(pv, i), preview.W-1)
-		}
-		out = append(out, l)
-	}
-	out = append(out, st.Faint.Render(strings.Repeat("─", foot.W)), m.footer(c, foot.W))
-	return strings.Join(out, "\n")
-}
-
-func (m *Model) header(c *core.Context, rs []row, w int) string {
-	st := c.Styles
-	var awake, dozing, asleep, failing int
-	var ram int64
-	for _, r := range rs {
-		switch r.v.State {
-		case "active":
-			awake++
-		case "crashing", "failed":
-			failing++
-		case "idle":
-			dozing++
-		default:
-			if r.v.Kind != "task" {
-				asleep++
-			}
-		}
-		ram += r.v.RAM
-	}
-	left := st.Title.Render("doze")
-	if len(rs) == 0 {
-		return left + st.Dim.Render("  nothing declared")
-	}
-	parts := []string{fmt.Sprintf("%d awake", awake)}
-	if dozing > 0 {
-		parts = append(parts, fmt.Sprintf("%d dozing", dozing))
-	}
-	parts = append(parts, fmt.Sprintf("%d asleep", asleep))
-	right := st.Dim.Render(strings.Join(parts, " · ") + "   " + bytes(ram) + " resident")
-	if failing > 0 {
-		right = st.Bad.Render(fmt.Sprintf("%d failing", failing)) + st.Dim.Render(" · ") + right
-	}
-	gap := w - ansi.StringWidth(left) - ansi.StringWidth(right)
-	if gap < 1 {
-		gap = 1
-	}
-	return left + strings.Repeat(" ", gap) + right
-}
-
-func (m *Model) list(c *core.Context, rs []row, r layout.Rect) []string {
-	st := c.Styles
-	var out []string
-	lastGroup := -1
-	for _, row := range rs {
-		if row.group != lastGroup {
-			if lastGroup != -1 {
-				out = append(out, "")
-			}
-			count := 0
-			for _, o := range rs {
-				if o.group == row.group {
-					count++
-				}
-			}
-			out = append(out, st.Dim.Render(fmt.Sprintf("%s  %d", groups[row.group].title, count)))
-			lastGroup = row.group
-		}
-		line := m.row(c, row.v, r.W)
-		if row.v.Name == m.sel {
-			line = st.Selected.Render(pad(ansi.Strip(line), r.W))
-		}
-		m.lay.Add("row:"+row.v.Name, layout.Rect{X: r.X, Y: r.Y + len(out), W: r.W, H: 1})
-		out = append(out, line)
-	}
-	if m.notice != "" && len(out) < r.H {
-		style := st.Good
-		if m.noticeBad {
-			style = st.Bad
-		}
-		out = append(out, "", style.Render(ansi.Truncate(m.notice, r.W, "…")))
-	}
-	return out
-}
-
-// row draws one instance: glyph, name, what it is, its state, memory, a note.
-func (m *Model) row(c *core.Context, v control.InstanceView, w int) string {
-	st := c.Styles
-	word, gl, style := core.State(v, st)
-	if v.State == "crashing" && v.RestartMax > 0 {
-		word = fmt.Sprintf("crashing %d/%d", v.RestartCount, v.RestartMax)
-	}
-	kind := v.Engine
-	switch v.Kind {
-	case "app", "service", "task":
-		kind = v.Kind
-	}
-	mem := ""
-	if v.RAM > 0 {
-		mem = bytes(v.RAM)
-	}
-	note, bad := display.Note(v, c.Snap.IdleTimeout, c.Now)
-	if v.State == "crashing" && !v.NextRestart.IsZero() {
-		if left := v.NextRestart.Sub(c.Now).Round(time.Second); left > 0 {
-			note += " · trying again in " + left.String()
-		}
-	}
-	if v.Task != nil {
-		note = fmt.Sprintf("ran %s ago in %s", ago(c.Now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(time.Millisecond))
-		if v.Task.Why != "" {
-			note += " · " + v.Task.Why
-		}
-		if v.Task.Result == "failed" {
-			note, bad = "failed (exit "+fmt.Sprint(v.Task.ExitCode)+") · "+note, true
-		}
-	}
-	if v.Kind == "task" && v.Task == nil {
-		note = "never ran"
-	}
-	noteStyle := st.Dim
-	if bad {
-		noteStyle = st.Bad
-	}
-	line := "  " + style.Render(gl) + " " +
-		st.Text.Render(padR(v.Name, 14)) + " " +
-		st.Dim.Render(padR(kind, 10)) + " " +
-		style.Render(padR(word, 12)) + " " +
-		st.Dim.Render(padL(mem, 5)) + "  " +
-		noteStyle.Render(note)
-	return ansi.Truncate(line, w, "…")
-}
-
-func (m *Model) preview(c *core.Context, r layout.Rect) []string {
-	st := c.Styles
-	v, ok := m.selected(c)
-	if !ok {
-		return []string{" " + st.Dim.Render("nothing selected")}
-	}
-	word, gl, style := core.State(v, st)
-	var out []string
-	add := func(s string) { out = append(out, " "+s) }
-	kind := v.Engine
-	if v.Kind != "" && v.Kind != "module" {
-		kind = v.Kind
-	}
-	add(st.Title.Render(v.Name) + st.Dim.Render("  "+kind) + "  " + style.Render(gl+" "+word))
-	add("")
-	if v.Domain != "" {
-		add(st.Dim.Render("name     ") + st.Text.Render(v.Domain))
-	}
-	if v.Endpoint != "" {
-		add(st.Dim.Render("address  ") + st.Text.Render(v.Endpoint))
-	}
-	if v.Console != "" {
-		add(st.Dim.Render("console  ") + st.Text.Render(v.Console))
-	}
-	if v.RAM > 0 {
-		add(st.Dim.Render("memory   ") + st.Text.Render(fmt.Sprintf("%s · cpu %.0f%%", bytes(v.RAM), v.CPU)))
-	}
-	if v.LastError != "" && (v.State == "crashing" || v.State == "failed") {
-		add("")
-		add(st.Bad.Render("what went wrong"))
-		for i, l := range strings.Split(strings.TrimSpace(v.LastError), "\n") {
-			if i >= 4 {
-				break
-			}
-			add("  " + st.Text.Render(ansi.Truncate(l, r.W-4, "…")))
-		}
-		if v.State == "crashing" && v.RestartMax > 0 {
-			again := fmt.Sprintf("restart %d of %d", v.RestartCount, v.RestartMax)
-			if left := v.NextRestart.Sub(c.Now).Round(time.Second); !v.NextRestart.IsZero() && left > 0 {
-				again += " · trying again in " + left.String()
-			}
-			add("  " + st.Dim.Render(again))
-		}
-	}
-	if len(v.Holders) > 0 {
-		add("")
-		add(st.Dim.Render("awake because"))
-		for _, h := range v.Holders {
-			switch h.Kind {
-			case "dependant":
-				add("  " + st.Text.Render("held by "+h.Name))
-			case "connection":
-				add("  " + st.Text.Render(fmt.Sprintf("%d connection%s", h.Count, plural(h.Count))))
-			case "pin":
-				add("  " + st.Text.Render("pinned"))
-			default:
-				add("  " + st.Text.Render(h.Kind))
-			}
-		}
-	}
-	if lines := m.logs[v.Name]; len(lines) > 0 {
-		add("")
-		add(st.Dim.Render("last lines"))
-		for _, l := range lines {
-			add(" " + st.Dim.Render(ansi.Truncate(l.Line, r.W-4, "…")))
-		}
-	}
-	return out
 }
 
 // copyItem is one thing the copy menu offers.

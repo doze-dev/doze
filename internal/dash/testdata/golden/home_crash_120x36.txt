@@ -1,28 +1,26 @@
-doze                                                           1 failing · 3 awake · 1 dozing · 3 asleep   220M resident
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-Apps  3                                                                 │ worker  app  ↻ crashing
-  ● api            app        awake          42M                        │
-  ○ web            app        dozing         18M  sleeps in 3m12s       │
-  ↻ worker         app        crashing 2/5        exit status 1 · tryin…│ what went wrong
-                                                                        │   exit status 1
-Modules  4                                                              │   panic: connection refused: dial tcp 127.0.0…
-  · cache          valkey     asleep                                    │   goroutine 1 [running]:
-  ● cloud          aws        awake          64M  held by worker        │   main.main()
-  ● db             postgres   awake          96M  held by api, worker   │   restart 2 of 5 · trying again in 4s
-  · events         kafka      asleep                                    │
+  doze                        1 failing · 3 awake · 1 dozing · 3 asleep · 220M resident · sleeps after 5m0s · names on
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME      STATE         ADDRESS                CONNS  MEMORY        │  worker  app  ↻ crashing
+  Apps  3                                                               │
+  ● api       awake         api.shop.doze:8080            ███░░   42M   │  connect
+  ○ web       dozing        web.shop.doze:8090            █░░░░   18M   │    no address of its own
+  ↻ worker    crashing 2/5  -                                           │
+                                                                        │  what went wrong
+  Modules  4                                                            │    exit status 1
+  · cache     asleep        cache.shop.doze:6379                        │    panic: connection refused: dial tcp 127…
+  ● cloud     awake         127.0.0.16:4566               ████░   64M   │    goroutine 1 [running]:
+  ● db        awake         db.shop.doze:5432          5  █████   96M   │    main.main()
+  · events    asleep        events.shop.doze:9092                       │    restart 2 of 5 · trying again in 4s
                                                                         │
-Services  1                                                             │
-  · mailpit        service    asleep                                    │
+  Services  1                                                           │
+  · mailpit   asleep        127.0.0.17:1025                             │
                                                                         │
-Tasks  2                                                                │
-  ✓ migrate        task       done                ran 12m ago in 412ms …│
-  · seed           task       asleep              never ran             │
+  Tasks  2                                                              │
+  ✓ migrate   done          -                                           │
+  · seed      asleep        -                                           │
                                                                         │
-                                                                        │
-                                                                        │
-                                                                        │
-                                                                        │
-                                                                        │
+  Recent                                                                │
+  nothing yet                                                           │
                                                                         │
                                                                         │
                                                                         │
@@ -32,5 +30,7 @@ Tasks  2                                                                │
                                                                         │
                                                                         │
                                                                         │
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  : pal…
+                                                                        │
+                                                                        │
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  :…

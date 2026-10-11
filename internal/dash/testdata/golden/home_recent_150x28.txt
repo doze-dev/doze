@@ -1,0 +1,28 @@
+  doze                                                                  1 awake · 1 dozing · 1 asleep · 16M resident · sleeps after 5m0s · names off
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME      TYPE     STATE   ADDRESS          CONNS  MEMORY        CPU  NOTE                  │  web  service  ○ dozing
+  Services  3                                                                                   │
+  · docs      service  asleep  127.0.0.1:47812                                                  │  connect
+  ○ web       service  dozing  127.0.0.1:47811         █████   14M        sleeps in 20s         │  address  127.0.0.1:47811
+  ● worker    service  awake   -                       █░░░░    2M    1%                        │
+                                                                                                │  now
+  Tasks  1                                                                                      │  memory   14M · cpu 0%
+  ✓ migrate   task     done    -                                          ran 2m ago in 1.014s …│  up       3m
+                                                                                                │  sleeps   20s
+  Recent                                                                                        │  pid      4121
+  11:56:50  migrate   woke (web needed it)                                                      │
+  11:56:52  migrate   ready                                                                     │
+  11:57:00  web       woke (a connection)                                                       │
+  11:57:30  docs      went to sleep (idle)                                                      │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+                                                                                                │
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  : palette  ·  T theme  ·  q quit

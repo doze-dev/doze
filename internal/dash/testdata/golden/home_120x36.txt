@@ -1,28 +1,26 @@
-doze                                                                       4 awake · 1 dozing · 3 asleep   251M resident
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-Apps  3                                                                 │ api  app  ● awake
-  ● api            app        awake          42M                        │
-  ○ web            app        dozing         18M  sleeps in 3m12s       │ name     api.shop.doze
-  ● worker         app        awake          31M                        │ address  127.0.0.11:8080
-                                                                        │ memory   42M · cpu 3%
-Modules  4                                                              │
-  · cache          valkey     asleep                                    │ awake because
-  ● cloud          aws        awake          64M  held by worker        │   2 connections
-  ● db             postgres   awake          96M  held by api, worker   │
-  · events         kafka      asleep                                    │ last lines
-                                                                        │  listening on :8080
-Services  1                                                             │  GET /healthz 200 1ms
-  · mailpit        service    asleep                                    │  GET /orders 200 14ms
+  doze                                    4 awake · 1 dozing · 3 asleep · 251M resident · sleeps after 5m0s · names on
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME      STATE   ADDRESS                CONNS  MEMORY              │  api  app  ● awake
+  Apps  3                                                               │
+  ● api       awake   api.shop.doze:8080            ███░░   42M         │  connect
+  ○ web       dozing  web.shop.doze:8090            █░░░░   18M         │  name     api.shop.doze
+  ● worker    awake   -                             ██░░░   31M         │  address  api.shop.doze:8080
                                                                         │
-Tasks  2                                                                │
-  ✓ migrate        task       done                ran 12m ago in 412ms …│
-  · seed           task       asleep              never ran             │
+  Modules  4                                                            │  now
+  · cache     asleep  cache.shop.doze:6379                              │  memory   42M · cpu 3%
+  ● cloud     awake   127.0.0.16:4566               ████░   64M         │
+  ● db        awake   db.shop.doze:5432          5  █████   96M         │  awake because
+  · events    asleep  events.shop.doze:9092                             │    2 connections
                                                                         │
+  Services  1                                                           │  last lines
+  · mailpit   asleep  127.0.0.17:1025                                   │  listening on :8080
+                                                                        │  GET /healthz 200 1ms
+  Tasks  2                                                              │  GET /orders 200 14ms
+  ✓ migrate   done    -                                                 │
+  · seed      asleep  -                                                 │
                                                                         │
-                                                                        │
-                                                                        │
-                                                                        │
-                                                                        │
+  Recent                                                                │
+  nothing yet                                                           │
                                                                         │
                                                                         │
                                                                         │
@@ -32,5 +30,7 @@ Tasks  2                                                                │
                                                                         │
                                                                         │
                                                                         │
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  : pal…
+                                                                        │
+                                                                        │
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  :…

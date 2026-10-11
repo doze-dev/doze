@@ -19,8 +19,11 @@ terminal; without one, use `doze status`.
 
 Your stack, grouped by what each thing is: **apps** (your code), **modules**
 (databases, caches, queues), **services** (commands from outside the registry)
-and **tasks**. Each row has a glyph and a word for its state, its memory, and a
-note that says why:
+and **tasks**. Each row has a glyph and a word for its state, the address a client
+connects to (the name and port where there is a name), how many connections it
+has, its memory as a small bar and a figure, its CPU, and a note that says why.
+The header counts what is awake, dozing and asleep, the memory in total, how
+long things sleep for, and whether names are on:
 
 | | Meaning |
 |---|---|
@@ -32,9 +35,15 @@ note that says why:
 | `✕ failed` | Out of restarts, or a start that did not complete. |
 | `✓ done` | A task that ran, with when, how long and why. |
 
-On a wide terminal the right-hand pane previews the selected row: its name and
-address, why it is awake, and its last lines. On a narrow one (80 columns) the
-list stands alone, and `enter` opens the row.
+Under the table, **Recent** lists what just happened: what woke, what went to
+sleep, what crashed, with the time and why.
+
+On a wide terminal the right-hand pane is a card for the selected row: how to
+reach it (name, address, connection string, the environment variable it fills),
+what it costs now (memory, CPU, connections, how long it has been up, when it
+sleeps), how a task last ran, why it is awake, and its last lines. On a narrow
+one (80 columns) the list stands alone, losing columns from the right as it
+shrinks, and `enter` opens the row.
 
 | Key | Does |
 |---|---|

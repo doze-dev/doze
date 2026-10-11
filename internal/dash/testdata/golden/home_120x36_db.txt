@@ -1,28 +1,26 @@
-doze                                                                       4 awake · 1 dozing · 3 asleep   251M resident
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-Apps  3                                                                 │ cloud  aws  ● awake
-  ● api            app        awake          42M                        │
-  ○ web            app        dozing         18M  sleeps in 3m12s       │ address  127.0.0.16:4566
-  ● worker         app        awake          31M                        │ memory   64M · cpu 0%
+  doze                                    4 awake · 1 dozing · 3 asleep · 251M resident · sleeps after 5m0s · names on
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME      STATE   ADDRESS                CONNS  MEMORY              │  cloud  aws  ● awake
+  Apps  3                                                               │
+  ● api       awake   api.shop.doze:8080            ███░░   42M         │  connect
+  ○ web       dozing  web.shop.doze:8090            █░░░░   18M         │  address  127.0.0.16:4566
+  ● worker    awake   -                             ██░░░   31M         │
+                                                                        │  now
+  Modules  4                                                            │  memory   64M · cpu 0%
+  · cache     asleep  cache.shop.doze:6379                              │
+  ● cloud     awake   127.0.0.16:4566               ████░   64M         │  awake because
+  ● db        awake   db.shop.doze:5432          5  █████   96M         │    held by worker
+  · events    asleep  events.shop.doze:9092                             │
                                                                         │
-Modules  4                                                              │ awake because
-  · cache          valkey     asleep                                    │   held by worker
-  ● cloud          aws        awake          64M  held by worker        │
-  ● db             postgres   awake          96M  held by api, worker   │
-  · events         kafka      asleep                                    │
+  Services  1                                                           │
+  · mailpit   asleep  127.0.0.17:1025                                   │
                                                                         │
-Services  1                                                             │
-  · mailpit        service    asleep                                    │
+  Tasks  2                                                              │
+  ✓ migrate   done    -                                                 │
+  · seed      asleep  -                                                 │
                                                                         │
-Tasks  2                                                                │
-  ✓ migrate        task       done                ran 12m ago in 412ms …│
-  · seed           task       asleep              never ran             │
-                                                                        │
-                                                                        │
-                                                                        │
-                                                                        │
-                                                                        │
-                                                                        │
+  Recent                                                                │
+  nothing yet                                                           │
                                                                         │
                                                                         │
                                                                         │
@@ -32,5 +30,7 @@ Tasks  2                                                                │
                                                                         │
                                                                         │
                                                                         │
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  : pal…
+                                                                        │
+                                                                        │
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ↑↓ select  ·  enter open  ·  L all logs  ·  w wake  ·  s sleep  ·  r restart  ·  p pin  ·  c copy  ·  R reset  ·  :…
