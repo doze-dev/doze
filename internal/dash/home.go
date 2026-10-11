@@ -230,8 +230,9 @@ func mem(v control.InstanceView) string {
 
 // --- the screen ---
 
-// narrow is the width below which Home is one column (Narrow.dc.html).
-const narrow = 100
+// narrow is the width below which Home is the plain one-column list; from here
+// up it is the table, which drops columns as the width goes (Narrow.dc.html).
+const narrow = 60
 
 // View draws Home at w x h.
 func (m *Model) home(w, h int) []string {
@@ -595,6 +596,11 @@ func address(v control.InstanceView) string {
 // hint is the part of what a row says that is about its moment: that it waits
 // on something, that it sleeps soon, who woke it.
 func (m *Model) hint(v control.InstanceView) string {
+	for _, h := range v.Holders {
+		if h.Kind == "pin" {
+			return "pinned awake"
+		}
+	}
 	switch {
 	case v.State == "booting":
 		if n := m.firstUnmet(v); n != "" {

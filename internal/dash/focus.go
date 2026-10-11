@@ -373,10 +373,11 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			up += fmt.Sprintf(" · pid %d", v.PID)
 		}
 		run = append(run, label("up")+s.text.Render(up))
-		run = append(run, m.charts([]trace{
-			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
-		}, rw-4, 2)...)
+		// the column is narrow: a line of bars and the figure, not a chart
+		sw := rw - 4 - 6 - 8
+		run = append(run,
+			label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+" "+s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)),
+			label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+" "+s.text.Render(mb(v.RAM)))
 	}
 	if len(run) > 0 {
 		col = append(col, box(s.border, s.a.Bold(true).Render("this run"), "", run, rw, len(run)+2)...)
@@ -504,7 +505,11 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
 		if !m.metrics {
 			// a tile each: the figure, its trend, what it has been doing (V-A)
-			vit = append(vit, m.tiles(ts, w-4, 2)...)
+			rows := 2
+			if h >= 34 {
+				rows = 4 // a tall window has the room for a chart worth reading
+			}
+			vit = append(vit, m.tiles(ts, w-4, rows)...)
 		} else if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
 			vit = append(vit, m.charts(ts, w-4, r)...)
 		} else {

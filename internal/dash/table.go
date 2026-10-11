@@ -288,6 +288,9 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 	half := (w - 4) / 2
 	mc := min(half, 64)
+	if w < 100 {
+		mc = min(w-2, 64)
+	}
 	left := []string{
 		m.meter("mem", segMem, float64(max(budget, ram)), memVal, mc),
 		m.meter("cpu", segCPU, 100, fmt.Sprintf("%.1f%%", cpu), mc),
@@ -309,9 +312,14 @@ func (m *Model) homeTable(w, h int) []string {
 	if need > 0 {
 		rightCol[0] = s.a.Bold(true).Render("state") + " " + s.r.Render(fmt.Sprintf("%d needs you", need)) + "   " + state
 	}
-	for i := 0; i < 3; i++ {
-		l, r := left[i], rightCol[i]
-		out = append(out, l+strings.Repeat(" ", max(2+half-width(l), 2))+r)
+	if w < 100 {
+		// not room for two columns: the meters and one line of state
+		out = append(out, left[0], left[1], rightCol[0])
+	} else {
+		for i := 0; i < 3; i++ {
+			l, r := left[i], rightCol[i]
+			out = append(out, l+strings.Repeat(" ", max(2+half-width(l), 2))+r)
+		}
 	}
 	out = append(out, "")
 

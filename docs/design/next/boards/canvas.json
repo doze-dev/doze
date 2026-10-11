@@ -375,10 +375,28 @@
       "h": 900,
       "page": "directions",
       "radius": 12,
-      "title": "C · htop-style: header meters and one dense table, the selected instance's logs beneath",
+      "title": "C · Home as a table: meters, one row per instance, the selected one's logs (chosen)",
       "w": 1640,
       "x": 3440,
       "y": 0
+    },
+    "V-Focus.dc.html": {
+      "h": 900,
+      "page": "directions",
+      "radius": 12,
+      "title": "Focus overview · tiles with filled charts, m for the full charts",
+      "w": 1640,
+      "x": 0,
+      "y": 960
+    },
+    "V-Crash.dc.html": {
+      "h": 900,
+      "page": "directions",
+      "radius": 12,
+      "title": "Crash · in the table: the row says it, the strip under it says why",
+      "w": 1640,
+      "x": 1720,
+      "y": 960
     }
   },
   "createdOnFiles": {
@@ -560,7 +578,9 @@
     "W-Charts.dc.html",
     "V-A.dc.html",
     "V-B.dc.html",
-    "V-C.dc.html"
+    "V-C.dc.html",
+    "V-Focus.dc.html",
+    "V-Crash.dc.html"
   ],
   "pages": [
     {

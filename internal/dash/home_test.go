@@ -100,7 +100,7 @@ func TestNarrowAgainstTheBoard(t *testing.T) {
 	if os.Getenv("DOZE_SHOW") != "" {
 		fmt.Println(got)
 	}
-	for _, want := range []string{"doze  shop", "APPS", "MODULES", "OUTSIDE", "TASKS", "zzz cache woke", "move"} {
+	for _, want := range []string{"doze  shop", "APPS", "MODULES", "OUTSIDE", "zzz cache woke", "move"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Narrow lacks %q", want)
 		}

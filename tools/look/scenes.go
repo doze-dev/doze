@@ -49,9 +49,9 @@ func cat(parts ...[]string) []string {
 var scenes = []scene{
 	{name: "home", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "narrow", board: "Narrow", fixture: "shop", wpx: 716, hpx: 564, cols: 80, rows: 30},
-	{name: "crash", board: "Crash", fixture: "crash", wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "crash", board: "V-Crash", fixture: "crash", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "focus-api", board: "View-App", fixture: "shop", keys: []string{"enter"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
-	{name: "focus-db", board: "Focus", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-db", board: "V-Focus", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "focus-task", board: "View-Task", fixture: "shop", keys: cat(downs(10), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "focus-web", board: "View-Web", fixture: "shop", keys: cat(downs(7), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	// the data modules: cache=0 cloud=1 db=2 docs=3 events=4 flows=5 legacy=6
@@ -73,6 +73,7 @@ var scenes = []scene{
 	{name: "v-a", board: "V-A", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "v-b", board: "V-B", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "v-c", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
+	{name: "v-focus", board: "V-Focus", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
