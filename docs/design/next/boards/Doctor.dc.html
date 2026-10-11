@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze up with a port conflict</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px; gap: 0">
+
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze up</span></div>
+<div class="ln"> </div>
+<div style="--c: 2ch 9ch 14ch 1fr; padding: 0 1ch" class="col">
+<div class="tr"><span class="g">✓</span><span class="w">mongo</span><span class="d">outside</span><span class="d">ready</span></div>
+<div class="tr"><span class="r">✗</span><span class="w">db</span><span class="d">postgres 17</span><span class="r">127.0.0.1:5432 is taken</span></div>
+<div class="tr"><span class="d">◌</span><span>migrate</span><span class="d">task</span><span class="d">waiting on db</span></div>
+<div class="tr"><span class="d">◌</span><span>api</span><span class="d">app</span><span class="d">waiting on migrate</span></div>
+</div>
+<div class="ln"> </div>
+
+<div class="box bad" style="margin: 0 1ch; gap: 0">
+<div class="cap r b">db can't have port 5432</div>
+<div style="--c: 9ch 1fr" class="col">
+<div class="tr"><span class="d">held by</span><span><span class="w">postgres</span> pid 612 · Homebrew service <span class="w">postgresql@17</span></span></div>
+<div class="tr"><span class="d">not doze</span><span class="d">It was running before doze started. doze won't touch it without asking.</span></div>
+</div>
+<div class="ln"> </div>
+<div style="--c: 2ch 1fr 51ch" class="col">
+<div class="tr sel"><span class="a">▸</span><span>Give db its own address, keep 5432</span><span class="d">db.shop.doze:5432 · one-time setup, asks for sudo</span></div>
+<div class="tr"><span></span><span>Move db to 5433</span><span class="d">edits doze.hcl · references follow on their own</span></div>
+<div class="tr"><span></span><span>Stop the Homebrew postgres</span><span class="d">brew services stop postgresql@17</span></div>
+<div class="tr"><span></span><span>Use the Homebrew postgres as db</span><span class="d">rewrites db as a service that runs yours</span></div>
+<div class="tr"><span></span><span>Leave it</span><span class="d">everything not waiting on db stays up</span></div>
+</div>
+</div>
+
+<div class="ln"> </div>
+<div class="keys" style="padding: 0 1ch">
+<span><span class="k">↑↓</span>choose</span><span><span class="k">⏎</span>do it and carry on</span><span><span class="k">esc</span>leave it</span>
+</div>
+<div class="ln"> </div>
+<div class="hr"></div>
+<div class="ln"> </div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze doctor</span></div>
+<div class="ln"> </div>
+<div style="--c: 2ch 22ch 1fr; padding: 0 1ch" class="col">
+<div class="tr"><span class="g">✓</span><span>doze.hcl</span><span class="d">valid · 12 blocks</span></div>
+<div class="tr"><span class="g">✓</span><span>doze.lock</span><span class="d">matches · 4 modules, 1 download</span></div>
+<div class="tr"><span class="y">!</span><span>.doze names</span><span><span class="y">not set up</span> <span class="d">· services answer on 127.0.0.1 only · fix:</span> <span class="a">doze doctor --fix</span></span></div>
+<div class="tr"><span class="r">✗</span><span>port 5432</span><span><span class="r">taken</span> <span class="d">by Homebrew postgresql@17 · see above</span></span></div>
+<div class="tr"><span class="y">!</span><span>docker</span><span><span class="y">not running</span> <span class="d">· only</span> service "search" <span class="d">runs it</span></span></div>
+<div class="tr"><span class="g">✓</span><span>mailpit</span><span class="d">installed · /opt/homebrew/bin/mailpit</span></div>
+</div>
+<div class="grow"></div>
+<div class="ln d">  1 problem, 2 things worth knowing. Nothing here stops the 9 services that don't need them.</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

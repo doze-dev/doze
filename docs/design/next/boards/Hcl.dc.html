@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze.hcl</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 860px">
+
+<div class="row grow">
+
+<div class="code col" style="width: 560px">
+<div class="ln d i"># doze.hcl</div>
+<div class="ln">stack = <span class="y">"shop"</span></div>
+<div class="ln"> </div>
+<div class="ln d i"># modules · from the doze registry, the only one there is</div>
+<div class="ln"><span class="a b">module</span> <span class="w">postgres</span> <span class="g">"db"</span> {</div>
+<div class="ln">  version = <span class="y">17</span></div>
+<div class="ln">  <span class="a">role</span> <span class="g">"shop"</span> {}</div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">module</span> <span class="w">valkey</span> <span class="g">"cache"</span> {}</div>
+<div class="ln"><span class="a b">module</span> <span class="w">kafka</span> <span class="g">"events"</span> {</div>
+<div class="ln">  <span class="a">topic</span> <span class="g">"orders"</span> {}</div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">module</span> <span class="w">aws</span> <span class="g">"cloud"</span> {</div>
+<div class="ln">  <span class="a">bucket</span> <span class="g">"uploads"</span> {}</div>
+<div class="ln">  <span class="a">queue</span>  <span class="g">"orders"</span>  {}</div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d i"># outside · anything doze has no module for</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"mongo"</span> {</div>
+<div class="ln">  download = <span class="y">"https://…/mongodb-macos-arm64-8.0.4.tgz"</span></div>
+<div class="ln">  run      = <span class="y">"bin/mongod --dbpath <span class="c">$DATA</span> --port <span class="c">$PORT</span>"</span></div>
+<div class="ln">  port     = <span class="y">27017</span></div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"mailpit"</span> {               <span class="d i"># already installed</span></div>
+<div class="ln">  run     = <span class="y">"mailpit --smtp 127.0.0.1:<span class="c">$PORT</span>"</span></div>
+<div class="ln">  port    = <span class="y">1025</span></div>
+<div class="ln">  console = <span class="y">"http://127.0.0.1:8025"</span>     <span class="d i"># its own web UI</span></div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"search"</span> {         <span class="d i"># docker, podman, anything</span></div>
+<div class="ln">  run  = <span class="y">"docker run --rm -p <span class="c">$PORT</span>:7700 getmeili/meilisearch"</span></div>
+<div class="ln">  port = <span class="y">7700</span></div>
+<div class="ln">}</div>
+</div>
+
+<div class="code col grow">
+<div class="ln d i"># apps · your code</div>
+<div class="ln"><span class="a b">app</span> <span class="g">"api"</span> {</div>
+<div class="ln">  run   = <span class="y">"go run ./cmd/api"</span></div>
+<div class="ln">  port  = <span class="y">8080</span></div>
+<div class="ln">  watch = [<span class="y">"**/*.go"</span>]            <span class="d i"># restart on save</span></div>
+<div class="ln">  ready = <span class="c">http</span>(<span class="y">"/healthz"</span>)</div>
+<div class="ln">  after = [<span class="c">task.migrate</span>]</div>
+<div class="ln">  env = {                        <span class="d i"># a reference is a dependency</span></div>
+<div class="ln">    DATABASE_URL = <span class="c">module.db.url</span></div>
+<div class="ln">    REDIS_URL    = <span class="c">module.cache.url</span></div>
+<div class="ln">    MONGO_URL    = <span class="y">"mongodb://${<span class="c">service.mongo.address</span>}"</span></div>
+<div class="ln">    AWS_ENDPOINT = <span class="c">module.cloud.url</span></div>
+<div class="ln">  }</div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">app</span> <span class="g">"web"</span> {</div>
+<div class="ln">  dir = <span class="y">"web"</span></div>
+<div class="ln">  run = <span class="y">"pnpm dev --port <span class="c">$PORT</span>"</span></div>
+<div class="ln">  env = { VITE_API = <span class="c">app.api.url</span> }</div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">app</span> <span class="g">"worker"</span> {</div>
+<div class="ln">  run = <span class="y">"go run ./cmd/worker"</span></div>
+<div class="ln">  env = { KAFKA_BROKERS = <span class="c">module.events.url</span> }</div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d i"># tasks · run once, then get out of the way</div>
+<div class="ln"><span class="a b">task</span> <span class="g">"migrate"</span> {</div>
+<div class="ln">  run    = <span class="y">"go run ./cmd/migrate up"</span></div>
+<div class="ln">  inputs = [<span class="y">"migrations/*.sql"</span>]  <span class="d i"># re-runs when these change</span></div>
+<div class="ln">  env    = { DATABASE_URL = <span class="c">module.db.url</span> }</div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">task</span> <span class="g">"seed"</span> {</div>
+<div class="ln">  run    = <span class="y">"psql $DATABASE_URL -f seed.sql"</span></div>
+<div class="ln">  env    = { DATABASE_URL = <span class="c">module.db.url</span> }</div>
+<div class="ln">  manual = <span class="y">true</span>                  <span class="d i"># doze task seed</span></div>
+<div class="ln">}</div>
+</div>
+
+</div>
+
+<div class="row sb d">
+<span><span class="g">✓</span> doze.hcl is valid · 4 modules · 3 outside · 3 apps · 2 tasks</span>
+<span>doze.lock pins every module and download by hash</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze status, env and run</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px; gap: 0">
+
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze status</span></div>
+<div class="ln"> </div>
+<div style="--c: 2ch 9ch 13ch 8ch 26ch 8ch 1fr; padding: 0 1ch" class="col">
+<div class="tr d"><span></span><span>NAME</span><span>WHAT</span><span>STATE</span><span>ADDRESS</span><span class="ra">MEM</span><span>NOTE</span></div>
+<div class="tr"><span class="g">●</span><span class="w">api</span><span class="d">app</span><span class="g">awake</span><span>api.shop.doze</span><span class="ra">84 MB</span><span class="d">up 14m</span></div>
+<div class="tr"><span class="g">●</span><span class="w">web</span><span class="d">app</span><span class="g">awake</span><span>web.shop.doze</span><span class="ra">212 MB</span><span class="d">up 14m</span></div>
+<div class="tr"><span class="g">●</span><span class="w">worker</span><span class="d">app</span><span class="g">awake</span><span class="d">—</span><span class="ra">41 MB</span><span class="d">up 2m</span></div>
+<div class="tr"><span class="g">●</span><span class="w">db</span><span class="d">postgres 17</span><span class="g">awake</span><span>db.shop.doze:5432</span><span class="ra">96 MB</span><span class="d">held by api</span></div>
+<div class="tr"><span class="y">◐</span><span class="w">cache</span><span class="d">valkey 9</span><span class="y">dozing</span><span>cache.shop.doze:6379</span><span class="ra">11 MB</span><span class="d">sleeps in 3:12</span></div>
+<div class="tr"><span class="g">●</span><span class="w">events</span><span class="d">kafka</span><span class="g">awake</span><span>events.shop.doze:9092</span><span class="ra">188 MB</span><span class="d">held by worker</span></div>
+<div class="tr"><span class="d">·</span><span>cloud</span><span class="d">aws</span><span class="d">asleep</span><span class="d">cloud.shop.doze</span><span class="ra d">0</span><span></span></div>
+<div class="tr"><span class="g">●</span><span class="w">mongo</span><span class="d">outside</span><span class="g">awake</span><span>mongo.shop.doze:27017</span><span class="ra">148 MB</span><span class="d">held by api</span></div>
+<div class="tr"><span class="d">·</span><span>mailpit</span><span class="d">outside</span><span class="d">asleep</span><span class="d">mailpit.shop.doze:1025</span><span class="ra d">0</span><span></span></div>
+<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="d">task</span><span class="g">done</span><span class="d">—</span><span class="ra d">—</span><span class="d">14 applied · 16m ago</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln">  <span class="w b">780 MB</span> <span class="d">awake · 3 asleep · add</span> <span class="a">--json</span> <span class="d">for scripts,</span> <span class="a">-w</span> <span class="d">to keep watching</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze env api</span></div>
+<div class="ln"> </div>
+<div class="ln">  DATABASE_URL=<span class="y">postgres://shop@db.shop.doze:5432/shop</span></div>
+<div class="ln">  REDIS_URL=<span class="y">redis://cache.shop.doze:6379</span></div>
+<div class="ln">  MONGO_URL=<span class="y">mongodb://mongo.shop.doze:27017/catalog</span></div>
+<div class="ln">  AWS_ENDPOINT=<span class="y">http://cloud.shop.doze</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze run api -- go test ./orders/...</span></div>
+<div class="ln"> </div>
+<div class="ln">  <span class="a">zzz</span> <span class="d">using api's env · woke</span> cloud <span class="d">in 90 ms · db, cache, mongo were up</span></div>
+<div class="ln">  ok  	shop/orders	1.84s</div>
+<div class="ln">  <span class="a">zzz</span> <span class="d">nothing is holding</span> cloud <span class="d">now · it sleeps in 5:00</span></div>
+<div class="grow"></div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="a">▌</span></div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

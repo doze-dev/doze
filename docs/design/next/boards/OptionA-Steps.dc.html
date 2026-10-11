@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option A with several steps</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 700px">
+
+<div class="row grow">
+
+<div class="code col" style="width: 545px">
+<div class="ln d i"># Same block. Two more moments, each a list of commands.</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"mongo"</span> {</div>
+<div class="ln">  download = <span class="y">"https://…/mongodb-macos-arm64-8.0.4.tgz"</span></div>
+<div class="ln">  port     = <span class="y">27017</span></div>
+<div class="ln"> </div>
+<div class="ln">  <span class="w b">setup</span> = [</div>
+<div class="ln">    <span class="y">"mkdir -p <span class="c">$DATA</span>/db"</span>,</div>
+<div class="ln">    <span class="y">"cp dev/mongod.conf <span class="c">$DATA</span>/"</span>,</div>
+<div class="ln">  ]</div>
+<div class="ln"> </div>
+<div class="ln">  <span class="w b">run</span> = <span class="y">"bin/mongod -f <span class="c">$DATA</span>/mongod.conf --port <span class="c">$PORT</span>"</span></div>
+<div class="ln"> </div>
+<div class="ln">  <span class="w b">on_ready</span> = [</div>
+<div class="ln">    <span class="y">"bin/mongosh --port <span class="c">$PORT</span> dev/init-replica.js"</span>,</div>
+<div class="ln">  ]</div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d i"># Outgrown the file? Point at scripts. Same three moments.</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"erp"</span> {</div>
+<div class="ln">  setup = <span class="y">"./dev/erp/setup.sh"</span></div>
+<div class="ln">  run   = <span class="y">"./dev/erp/start.sh"</span></div>
+<div class="ln">  stop  = <span class="y">"./dev/erp/stop.sh"</span></div>
+<div class="ln">  port  = <span class="y">9000</span></div>
+<div class="ln">}</div>
+</div>
+
+<div class="col g14 grow">
+<div class="box">
+<div class="cap a b">when each one runs</div>
+<div style="--c: 9ch 1fr" class="col">
+<div class="tr"><span class="w b">setup</span><span>once, while <span class="c">$DATA</span> is new. Again after <span class="a">doze reset</span></span></div>
+<div class="tr"><span></span><span class="d">or when you edit the list.</span></div>
+<div class="tr"><span class="w b">run</span><span>every wake. The one command that keeps running.</span></div>
+<div class="tr"><span class="w b">on_ready</span><span>every wake, once the port answers. Callers wait</span></div>
+<div class="tr"><span></span><span class="d">for it, so keep it safe to repeat.</span></div>
+<div class="tr"><span class="w b">stop</span><span>on sleep, if a plain signal isn't enough.</span></div>
+</div>
+</div>
+
+<div class="box grow">
+<div class="cap d">first wake</div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze up mongo</span></div>
+<div class="ln"> </div>
+<div style="--c: 2ch 9ch 1fr 7ch" class="col">
+<div class="tr"><span class="g">✓</span><span class="d">download</span><span>8.0.4 · hash recorded</span><span class="ra d">6.1 s</span></div>
+<div class="tr"><span class="g">✓</span><span class="d">setup 1/2</span><span>mkdir -p $DATA/db</span><span class="ra d">8 ms</span></div>
+<div class="tr"><span class="g">✓</span><span class="d">setup 2/2</span><span>cp dev/mongod.conf $DATA/</span><span class="ra d">6 ms</span></div>
+<div class="tr"><span class="g">✓</span><span class="d">run</span><span>port 27017 answered</span><span class="ra d">410 ms</span></div>
+<div class="tr"><span class="r">✗</span><span class="d">on_ready</span><span class="r">bin/mongosh … init-replica.js · exit 1</span><span class="ra d">90 ms</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln r">  MongoServerError: already initialized</div>
+<div class="ln d">  mongo is running but not ready. Nothing waiting on it starts.</div>
+<div class="ln d">  Fix the step, then <span class="a">doze up mongo</span> reruns on_ready only.</div>
+</div>
+</div>
+
+</div>
+
+<div class="row sb d">
+<span>A string or a list. Every step gets <span class="w">$PORT</span> and <span class="w">$DATA</span>, and runs beside doze.hcl.</span>
+<span>two processes? two services</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":700}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

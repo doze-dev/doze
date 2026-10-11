@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>No doze.hcl yet</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze</span></div>
+
+<div class="col grow" style="padding: 40px 160px 0; gap: 22px">
+
+<div class="col">
+<div class="ln a b" style="font-size: 44px; line-height: 56px">doze <span class="d" style="font-size: 22px">z z z</span></div>
+<div class="ln">No doze.hcl in <span class="w">~/code/shop</span> yet.</div>
+</div>
+
+<div class="box on">
+<div class="cap a b">start here</div>
+<div style="--c: 2ch 30ch 1fr" class="col">
+<div class="tr sel"><span class="a">▸</span><span>Set it up from this repo</span><span>found go.mod, web/package.json, docker-compose.yml</span></div>
+<div class="tr"><span></span><span class="w">Add one thing</span><span class="d">pick from the registry, or bring your own</span></div>
+<div class="tr"><span></span><span class="w">Start with an empty file</span><span class="d">writes a 6-line doze.hcl with comments</span></div>
+</div>
+</div>
+
+<div class="box">
+<div class="cap a b">your other stacks</div>
+<div style="--c: 2ch 10ch 1fr 29ch" class="col">
+<div class="tr"><span class="g">●</span><span class="w">billing</span><span class="d">~/code/billing</span><span>2 awake · 310 MB</span></div>
+<div class="tr"><span class="d">·</span><span>blog</span><span class="d">~/code/blog</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>sandbox</span><span class="d">~/tmp/sandbox</span><span class="d">asleep · unused for 3 weeks</span></div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">↑↓</span>move</span><span><span class="k">⏎</span>choose</span><span><span class="k">tab</span>other stacks</span><span><span class="k">q</span>quit</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

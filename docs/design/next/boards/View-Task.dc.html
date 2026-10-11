@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Task view, last run first</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">migrate</span><span class="d">task</span><span class="pill g">done</span></div>
+<div class="row ce"><span class="pill on">last run</span><span class="d">history</span><span class="d">config</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+
+<div class="box grow">
+<div class="cap"><span class="d">ran</span> <span class="w">14:20:48</span> <span class="d">·</span> <span class="g">exit 0</span> <span class="d">· 1.1 s</span></div>
+<div class="ln a"><span class="d">14:20:48</span> zzz migrate started · migrations/0015_orders_index.sql is new</div>
+<div class="ln a"><span class="d">14:20:48</span> zzz db was already awake</div>
+<div class="ln"><span class="d">14:20:48</span> 14 migrations already applied</div>
+<div class="ln"><span class="d">14:20:48</span> applying 0015_orders_index.sql</div>
+<div class="ln"><span class="d">14:20:49</span>   CREATE INDEX orders_customer_idx ON orders (customer_id)</div>
+<div class="ln"><span class="d">14:20:49</span> <span class="g">ok</span> 0015_orders_index.sql (212 ms)</div>
+<div class="ln a"><span class="d">14:20:49</span> zzz migrate finished · exit 0</div>
+<div class="ln a"><span class="d">14:20:49</span> zzz api restarted · it runs after migrate</div>
+<div class="grow"></div>
+<div class="ln d">A failed task stops whatever runs after it. The error shows here too.</div>
+</div>
+
+<div class="col g14" style="width: 490px">
+<div class="box">
+<div class="cap a b">runs when</div>
+<div style="--c: 2ch 1fr" class="col">
+<div class="tr"><span class="g">✓</span><span>a file in <span class="w">migrations/*.sql</span> changes</span></div>
+<div class="tr"><span class="g">✓</span><span>something that needs it starts <span class="d">· api</span></span></div>
+<div class="tr"><span class="g">✓</span><span>you ask <span class="d">·</span> <span class="a">doze task migrate</span></span></div>
+</div>
+</div>
+<div class="box grow">
+<div class="cap a b">history</div>
+<div style="--c: 9ch 1fr 6ch 2ch" class="col">
+<div class="tr d"><span>when</span><span>why</span><span class="ra">took</span><span></span></div>
+<div class="tr sel"><span>14:20:48</span><span>0015_orders_index.sql is new</span><span class="ra">1.1 s</span><span class="g">✓</span></div>
+<div class="tr"><span class="d">13:50:02</span><span>doze up</span><span class="ra">1.2 s</span><span class="g">✓</span></div>
+<div class="tr"><span class="d">11:31:17</span><span>0014_carts.sql changed</span><span class="ra">0.4 s</span><span class="r">✗</span></div>
+<div class="tr"><span class="d">11:30:52</span><span>0014_carts.sql is new</span><span class="ra">0.4 s</span><span class="r">✗</span></div>
+<div class="tr"><span class="d">yesterday</span><span>doze up</span><span class="ra">0.9 s</span><span class="g">✓</span></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">r</span>run now</span><span><span class="k">↑↓</span>pick a run</span><span><span class="k">⏎</span>read that run</span><span><span class="k">c</span>copy mode</span><span><span class="k">e</span>edit block</span><span><span class="k">esc</span>back</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

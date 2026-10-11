@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dash with a crash-looping app</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="w b">shop</span><span class="d">~/code/shop</span></div>
+<div class="row ce"><span class="pill r">1 needs you</span><span><span class="g">●</span> 4 awake</span><span class="d">· 4 asleep</span><span><span class="w b">467 MB</span></span></div>
+</div>
+
+<div class="row grow">
+
+<div class="box" style="width: 440px">
+<div class="cap a b">stack</div>
+<div style="--c: 2ch 8ch 1fr 9ch" class="col">
+<div class="hd">APPS</div>
+<div class="tr sel"><span class="r">✗</span><span class="b">api</span><span>exit 1 · try 3 of 5</span><span class="r">crashing</span></div>
+<div class="tr"><span class="g">●</span><span class="w">web</span><span class="d">pnpm dev</span><span class="g">awake</span></div>
+<div class="tr"><span class="y">◐</span><span class="w">worker</span><span class="d">idle</span><span class="y">dozing</span></div>
+<div class="hd">MODULES</div>
+<div class="tr"><span class="g">●</span><span class="w">db</span><span class="d">postgres 17</span><span class="g">awake</span></div>
+<div class="tr"><span class="d">·</span><span>cache</span><span class="d">valkey 9</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>events</span><span class="d">kafka</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>cloud</span><span class="d">aws</span><span class="d">asleep</span></div>
+<div class="hd">OUTSIDE</div>
+<div class="tr"><span class="g">●</span><span class="w">mongo</span><span class="d">mongod 8.0</span><span class="g">awake</span></div>
+<div class="tr"><span class="d">·</span><span>mailpit</span><span class="d">on this machine</span><span class="d">asleep</span></div>
+<div class="hd">TASKS</div>
+<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="d">15 applied · now</span><span class="g">done</span></div>
+</div>
+</div>
+
+<div class="col g14 grow">
+<div class="box bad">
+<div class="cap"><span class="w b">api</span> <span class="pill r">crashing</span></div>
+<div class="cap rt d">next try in <span class="w">4 s</span> · backing off</div>
+<div class="ln"><span class="r b">panic: STRIPE_KEY is required</span></div>
+<div class="ln d">  main.loadConfig  cmd/api/config.go:41</div>
+<div class="ln"> </div>
+<div style="--c: 8ch 1fr" class="col">
+<div class="tr"><span class="d">why</span><span>The env doze gave api has no <span class="w">STRIPE_KEY</span>.</span></div>
+<div class="tr"><span class="d">where</span><span>Not in <span class="w">app "api" { env }</span>, not in <span class="w">.env</span>. It is in <span class="w">.env.example</span>.</span></div>
+<div class="tr"><span class="d">since</span><span>Started after you saved <span class="w">cmd/api/config.go</span> 40 s ago.</span></div>
+</div>
+<div class="ln"> </div>
+<div class="row" style="padding: 0 1ch"><span><span class="k">e</span>open .env at the right line</span><span><span class="k">r</span>retry now</span><span><span class="k">x</span>stop retrying</span></div>
+</div>
+
+<div class="box grow">
+<div class="cap d">logs · last 3 runs</div>
+<div class="ln a"><span class="d">14:21:07</span> zzz api restarted · cmd/api/config.go changed</div>
+<div class="ln"><span class="d">14:21:08</span> <span class="r">panic: STRIPE_KEY is required</span></div>
+<div class="ln r"><span class="d">14:21:08</span> zzz api exited 1 after 0.4 s · try 1 of 5</div>
+<div class="ln"><span class="d">14:21:09</span> <span class="r">panic: STRIPE_KEY is required</span></div>
+<div class="ln r"><span class="d">14:21:09</span> zzz api exited 1 after 0.4 s · try 2 of 5 · waiting 2 s</div>
+<div class="ln"><span class="d">14:21:12</span> <span class="r">panic: STRIPE_KEY is required</span></div>
+<div class="ln r"><span class="d">14:21:12</span> zzz api exited 1 after 0.4 s · try 3 of 5 · waiting 4 s</div>
+<div class="ln"> </div>
+<div class="ln d">web is still up and now gets 502 from api.shop.doze. doze answers</div>
+<div class="ln d">those with this same message, so the browser tells you too.</div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">e</span>fix</span><span><span class="k">r</span>retry</span><span><span class="k">x</span>stop retrying</span><span><span class="k">l</span>full logs</span><span><span class="k">↑↓</span>move</span><span><span class="k">:</span>command</span><span><span class="k">?</span>help</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

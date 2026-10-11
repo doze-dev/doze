@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stack logs</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">logs</span><span class="d">everything, in order</span></div>
+<div class="row ce"><span class="d">level</span><span class="pill on">info+</span><span class="d">time</span><span class="pill on">clock</span><span class="d">wrap off</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+
+<div class="box" style="width: 250px">
+<div class="cap a b">sources</div>
+<div style="--c: 4ch 8ch 1fr" class="col">
+<div class="tr"><span class="g">[✓]</span><span class="c">api</span><span class="ra d">412</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="y">web</span><span class="ra d">96</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="g">worker</span><span class="ra d">58</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="a">db</span><span class="ra d">44</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="w">mongo</span><span class="ra d">31</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="w">migrate</span><span class="ra d">8</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="a">zzz</span><span class="ra d">27</span></div>
+</div>
+<div class="hd">QUIET</div>
+<div style="--c: 4ch 8ch 1fr" class="col">
+<div class="tr"><span class="d">[!]</span><span class="d">events</span><span class="ra d">1,840</span></div>
+<div class="tr"><span class="d">[!]</span><span class="d">cloud</span><span class="ra d">212</span></div>
+<div class="tr"><span class="d">[!]</span><span class="d">search</span><span class="ra d">0</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln d" style="padding: 0 1ch">Quiet sources only</div>
+<div class="ln d" style="padding: 0 1ch">show errors here.</div>
+<div class="ln d" style="padding: 0 1ch">Things with a console</div>
+<div class="ln d" style="padding: 0 1ch">start out quiet.</div>
+</div>
+
+<div class="box grow">
+<div class="cap d">following</div>
+<div style="--c: 8ch 7ch 1fr" class="col">
+<div class="tr"><span class="d">14:22:02</span><span class="c">api</span><span><span class="c">INF</span> GET /cart <span class="g">200</span> 44ms</span></div>
+<div class="tr"><span class="d">14:22:02</span><span class="a">zzz</span><span class="a">woke cache for api · 38 ms</span></div>
+<div class="tr"><span class="d">14:22:05</span><span class="y">web</span><span>[vite] hmr update /src/pages/Cart.tsx</span></div>
+<div class="tr"><span class="d">14:22:10</span><span class="c">api</span><span><span class="c">INF</span> POST /<span class="hl">orders</span> <span class="g">201</span> 31ms</span></div>
+<div class="tr"><span class="d">14:22:10</span><span class="a">db</span><span>statement: INSERT INTO <span class="hl">orders</span> (id, cart_id, total) VALUES …</span></div>
+<div class="tr"><span class="d">14:22:10</span><span class="c">api</span><span><span class="c">INF</span> published topic=<span class="hl">orders</span> key=ord_1043</span></div>
+<div class="tr"><span class="d">14:22:10</span><span class="g">worker</span><span>picked up ord_1043 from <span class="hl">orders</span>/1@347</span></div>
+<div class="tr"><span class="d">14:22:11</span><span class="g">worker</span><span>sent receipt to c_88@example.com</span></div>
+<div class="tr"><span class="d">14:22:11</span><span class="a">zzz</span><span class="a">woke mailpit for worker · 61 ms</span></div>
+<div class="tr"><span class="d">14:22:18</span><span class="c">api</span><span><span class="y">WRN</span> slow query 212ms SELECT * FROM <span class="hl">orders</span> WHERE …</span></div>
+<div class="tr"><span class="d">14:22:18</span><span class="a">db</span><span><span class="y">LOG</span> duration: 212.4 ms statement: SELECT * FROM <span class="hl">orders</span> …</span></div>
+<div class="tr"><span class="d">14:22:25</span><span class="c">api</span><span><span class="r">ERR</span> upload failed bucket=uploads err="NoSuchBucket"</span></div>
+<div class="tr"><span class="d">14:22:25</span><span class="r">cloud</span><span class="r">S3 PutObject upload/receipts/1043.pdf 404 NoSuchBucket</span></div>
+<div class="tr"><span class="d">14:22:31</span><span class="c">api</span><span><span class="c">INF</span> GET /<span class="hl">orders</span>/ord_1043 <span class="g">200</span> 6ms</span></div>
+<div class="tr"><span class="d">14:22:40</span><span class="c">api</span><span><span class="c">INF</span> GET /healthz <span class="g">200</span> 0ms</span></div>
+</div>
+<div class="grow"></div>
+<div class="hr"></div>
+<div class="ln" style="padding-top: 6px"><span class="a b">/</span> <span class="w">orders</span><span class="a">▌</span>   <span class="d">7 matches ·</span> <span class="k">n</span><span class="d">next</span> <span class="k">N</span><span class="d">previous</span> <span class="k">⏎</span><span class="d">show only matches</span></div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">/</span>search</span><span><span class="k">f</span>level</span><span><span class="k">s</span>sources</span><span><span class="k">space</span>pause</span><span><span class="k">c</span>copy mode</span><span><span class="k">t</span>time format</span><span><span class="k">w</span>wrap</span><span><span class="k">⏎</span>open the source</span><span><span class="k">esc</span>back</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

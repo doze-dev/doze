@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option A, flat</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 700px">
+
+<div class="row grow">
+
+<div class="code col" style="width: 672px">
+<div class="ln d i"># Already installed (brew, apt, nix): the command and a port</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"mailpit"</span> {</div>
+<div class="ln">  run  = <span class="y">"mailpit --smtp 127.0.0.1:<span class="c">$PORT</span>"</span></div>
+<div class="ln">  port = <span class="y">1025</span></div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d i"># Not installed: add where to download it</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"mongo"</span> {</div>
+<div class="ln">  download = <span class="y">"https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz"</span></div>
+<div class="ln">  run      = <span class="y">"bin/mongod --dbpath <span class="c">$DATA</span> --port <span class="c">$PORT</span>"</span></div>
+<div class="ln">  port     = <span class="y">27017</span></div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d i"># In a container: still just your command</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"search"</span> {</div>
+<div class="ln">  run  = <span class="y">"docker run --rm -p <span class="c">$PORT</span>:7700 getmeili/meilisearch:v1"</span></div>
+<div class="ln">  port = <span class="y">7700</span></div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d i"># Using them: plain HCL, nothing to export first</div>
+<div class="ln"><span class="a b">app</span> <span class="g">"api"</span> {</div>
+<div class="ln">  run = <span class="y">"go run ./cmd/api"</span></div>
+<div class="ln">  env = {</div>
+<div class="ln">    MONGO_URL = <span class="y">"mongodb://${<span class="c">service.mongo.address</span>}/catalog"</span></div>
+<div class="ln">    SMTP_ADDR = <span class="c">service.mailpit.address</span></div>
+<div class="ln">    SEARCH    = <span class="y">"http://${<span class="c">service.search.address</span>}"</span></div>
+<div class="ln">  }</div>
+<div class="ln">}</div>
+</div>
+
+<div class="col g14 grow">
+<div class="box">
+<div class="cap a b">doze gives your command</div>
+<div style="--c: 7ch 1fr" class="col">
+<div class="tr"><span class="c">$PORT</span><span>the port to listen on</span></div>
+<div class="tr"><span class="c">$DATA</span><span>a folder that survives restarts</span></div>
+</div>
+</div>
+<div class="box">
+<div class="cap a b">you get back</div>
+<div style="--c: 9ch 1fr" class="col">
+<div class="tr"><span class="c">.address</span><span>mongo.shop.doze:27017</span></div>
+<div class="tr"><span class="c">.host</span><span>mongo.shop.doze</span></div>
+<div class="tr"><span class="c">.port</span><span>27017</span></div>
+</div>
+</div>
+<div class="box grow">
+<div class="cap a b">only when the defaults don't fit</div>
+<div class="ln d i"># ready when the port answers, unless you say</div>
+<div class="ln">ready = <span class="c">http</span>(<span class="y">"/health"</span>)</div>
+<div class="ln"> </div>
+<div class="ln d i"># sleeps after the stack's idle time, unless</div>
+<div class="ln">sleep = <span class="y">"never"</span></div>
+<div class="ln"> </div>
+<div class="ln d i"># a team on mixed machines</div>
+<div class="ln">download = {</div>
+<div class="ln">  mac   = <span class="y">"https://…-macos-arm64-8.0.4.tgz"</span></div>
+<div class="ln">  linux = <span class="y">"https://…-linux-x86_64-8.0.4.tgz"</span></div>
+<div class="ln">}</div>
+</div>
+</div>
+
+</div>
+
+<div class="row sb d">
+<span>One noun. <span class="w">run</span> is the only line you must write. <span class="w">download</span> fetches the program first.</span>
+<span>smallest case: 2 lines</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":700}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

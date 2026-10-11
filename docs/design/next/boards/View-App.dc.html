@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>App view, logs first</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">api</span><span class="d">app</span><span class="pill g">awake</span></div>
+<div class="row ce"><span class="pill on">logs</span><span class="d">env</span><span class="d">config</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+
+<div class="box grow">
+<div class="cap d">following · info and up</div>
+<div class="cap rt d">1,204 lines · this run</div>
+<div class="ln a"><span class="d">14:21:40</span> zzz api restarted · you saved cmd/api/orders.go</div>
+<div class="ln"><span class="d">14:21:41</span> <span class="c">INF</span> listening addr=:8080</div>
+<div class="ln"><span class="d">14:21:41</span> <span class="c">INF</span> postgres connected host=db.shop.doze pool=4</div>
+<div class="ln"><span class="d">14:21:41</span> <span class="c">INF</span> mongo connected host=mongo.shop.doze</div>
+<div class="ln"><span class="d">14:21:58</span> <span class="c">INF</span> GET /products <span class="g">200</span> 12ms</div>
+<div class="ln"><span class="d">14:22:02</span> <span class="c">INF</span> GET /cart <span class="g">200</span> 44ms</div>
+<div class="ln a"><span class="d">14:22:02</span> zzz woke cache for api · 38 ms</div>
+<div class="ln"><span class="d">14:22:10</span> <span class="c">INF</span> POST /orders <span class="g">201</span> 31ms</div>
+<div class="ln"><span class="d">14:22:10</span> <span class="c">INF</span> published topic=orders key=ord_1043</div>
+<div class="ln"><span class="d">14:22:18</span> <span class="y">WRN</span> slow query 212ms SELECT * FROM orders WHERE …</div>
+<div class="ln"><span class="d">14:22:25</span> <span class="r">ERR</span> upload failed bucket=uploads err="NoSuchBucket"</div>
+<div class="ln a"><span class="d">14:22:25</span> zzz cloud answered 404 to api · <span class="k">⏎</span>see it on the aws wire</div>
+<div class="ln"><span class="d">14:22:31</span> <span class="c">INF</span> GET /orders/ord_1043 <span class="g">200</span> 6ms</div>
+<div class="ln"><span class="d">14:22:40</span> <span class="c">INF</span> GET /healthz <span class="g">200</span> 0ms</div>
+<div class="ln"><span class="d">14:22:55</span> <span class="c">INF</span> GET /products?page=2 <span class="g">200</span> 9ms</div>
+<div class="ln"><span class="d">14:23:10</span> <span class="c">INF</span> GET /healthz <span class="g">200</span> 0ms</div>
+<div class="grow"></div>
+<div class="ln d">earlier runs: <span class="k">[</span>previous  <span class="k">]</span>next · 3 kept</div>
+</div>
+
+<div class="col g14" style="width: 340px">
+<div class="box">
+<div class="cap a b">needs</div>
+<div style="--c: 2ch 8ch 1fr" class="col">
+<div class="tr"><span class="g">✓</span><span class="w">db</span><span class="d">4 connections</span></div>
+<div class="tr"><span class="g">✓</span><span class="w">mongo</span><span class="d">1 connection</span></div>
+<div class="tr"><span class="y">◐</span><span class="w">cache</span><span class="d">dozing</span></div>
+<div class="tr"><span class="g">✓</span><span class="w">cloud</span><span class="d">woke 14:22:25</span></div>
+<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="d">ran first</span></div>
+</div>
+</div>
+<div class="box">
+<div class="cap a b">this run</div>
+<div style="--c: 6ch 1fr" class="col">
+<div class="tr"><span class="d">url</span><span class="w">api.shop.doze</span></div>
+<div class="tr"><span class="d">up</span><span>1m 30s · pid 49102</span></div>
+<div class="tr"><span class="d">cpu</span><span><span class="a">▁▂▁▃▂▁▁▂▅▃▂▁</span> 2.1%</span></div>
+<div class="tr"><span class="d">mem</span><span><span class="a">▃▃▄▄▄▄▄▅▅▅▅▅</span> 84 MB</span></div>
+<div class="tr"><span class="d">watch</span><span>**/*.go</span></div>
+</div>
+</div>
+<div class="box grow">
+<div class="cap a b">levels</div>
+<div style="--c: 4ch 1fr 5ch" class="col">
+<div class="tr"><span class="r">ERR</span><span class="r">▇</span><span class="ra">1</span></div>
+<div class="tr"><span class="y">WRN</span><span class="y">▇</span><span class="ra">1</span></div>
+<div class="tr"><span class="c">INF</span><span class="c">▇▇▇▇▇▇▇▇▇▇▇</span><span class="ra">11</span></div>
+<div class="tr"><span class="d">DBG</span><span class="d">hidden</span><span class="ra d">88</span></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">/</span>search</span><span><span class="k">f</span>level</span><span><span class="k">space</span>pause</span><span><span class="k">c</span>copy mode</span><span><span class="k">w</span>wrap</span><span><span class="k">r</span>restart</span><span><span class="k">tab</span>env</span><span><span class="k">esc</span>back</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

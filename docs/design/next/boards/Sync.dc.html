@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze sync and doze down</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px; gap: 0">
+
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze sync</span></div>
+<div class="ln"> </div>
+<div class="ln">  doze.hcl changed since the stack started. <span class="w">4 differences</span></div>
+<div class="ln"> </div>
+
+<div class="box on" style="margin: 0 1ch; gap: 0">
+<div class="cap a b">what applying it does</div>
+<div style="--c: 2ch 24ch 30ch 1fr" class="col">
+<div class="tr"><span class="g">+</span><span><span class="a">service</span> <span class="w">"search"</span></span><span>new</span><span class="d">nothing starts · it stays asleep until used</span></div>
+<div class="tr"><span class="y">~</span><span><span class="a">app</span> <span class="w">"api"</span></span><span>env <span class="g">+SEARCH</span></span><span><span class="y">restarts api</span> <span class="d">· about 1 s</span></span></div>
+<div class="tr"><span class="y">~</span><span><span class="a">module</span> valkey <span class="w">"cache"</span></span><span>idle 5m → 15m</span><span class="d">applies live · no restart</span></div>
+<div class="tr"><span class="r">−</span><span><span class="a">service</span> <span class="w">"mailpit"</span></span><span>removed</span><span><span class="d">stops it ·</span> its data is kept <span class="d">·</span> <span class="a">doze prune</span> <span class="d">deletes</span></span></div>
+</div>
+<div class="ln"> </div>
+<div class="row" style="padding: 0 1ch"><span class="pill">Apply</span><span class="pill q">Apply, restart nothing yet</span><span class="pill q">Show the file diff</span><span class="pill q">Cancel</span></div>
+</div>
+
+<div class="ln"> </div>
+<div class="ln d">  In the dash this is a banner on home: doze.hcl changed · 4 differences · <span class="k">S</span>review</div>
+<div class="ln d">  In CI: <span class="a">doze sync --yes</span>, or <span class="a">--check</span> to fail when anything differs.</div>
+<div class="ln"> </div>
+<div class="hr"></div>
+<div class="ln"> </div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze down</span></div>
+<div class="ln"> </div>
+<div style="--c: 2ch 9ch 1fr; padding: 0 1ch" class="col">
+<div class="tr"><span class="d">·</span><span>web</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>api</span><span class="d">asleep · waited for 1 request to finish</span></div>
+<div class="tr"><span class="d">·</span><span>worker</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>db</span><span class="d">asleep · checkpoint written</span></div>
+<div class="tr"><span class="d">·</span><span>mongo</span><span class="d">asleep</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln">  <span class="w b">shop is asleep</span> <span class="d">· 0 MB · all data kept · touching any address wakes it again</span></div>
+<div class="ln d">  doze never asks before this. Nothing is lost by sleeping.</div>
+<div class="grow"></div>
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="a">▌</span></div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

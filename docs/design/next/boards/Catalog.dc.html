@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze add catalog</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 860px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze add</span><span class="d">into</span><span class="w b">shop</span></div>
+<div class="d">8 modules · one registry · every release signed</div>
+</div>
+
+<div class="box on" style="padding: 8px 16px; margin-top: 2px">
+<div class="ln"><span class="a b">/</span> <span class="d">type to filter, or name anything else you want to run</span><span class="a">▌</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+
+<div class="box" style="width: 560px">
+<div class="cap a b">modules</div>
+<div style="--c: 2ch 9ch 1fr" class="col">
+<div class="tr sel"><span class="a">▸</span><span class="b">postgres</span><span>relational database</span></div>
+<div class="tr"><span></span><span class="w">mariadb</span><span class="d">MySQL-compatible database</span></div>
+<div class="tr"><span></span><span class="w">valkey</span><span class="d">Redis-compatible cache</span></div>
+<div class="tr"><span></span><span class="w">kvrocks</span><span class="d">Redis protocol, kept on disk</span></div>
+<div class="tr"><span></span><span class="w">ferret</span><span class="d">MongoDB wire protocol on postgres</span></div>
+<div class="tr"><span></span><span class="w">kafka</span><span class="d">single-node broker, no JVM</span></div>
+<div class="tr"><span></span><span class="w">temporal</span><span class="d">workflow engine</span></div>
+<div class="tr"><span></span><span class="w">aws</span><span class="d">14 AWS services, local</span></div>
+</div>
+<div class="hr" style="margin: 12px 0"></div>
+<div style="--c: 2ch 1fr" class="col">
+<div class="tr"><span class="a">+</span><span class="w">Something else</span></div>
+<div class="tr"><span></span><span class="d">A download, a binary you already have, or a</span></div>
+<div class="tr"><span></span><span class="d">docker or podman command. It sleeps like a module.</span></div>
+</div>
+<div class="grow"></div>
+<div class="hr" style="margin: 12px 0"></div>
+<div style="--c: 2ch 1fr" class="col">
+<div class="tr"><span class="a">+</span><span class="w">One of your apps</span></div>
+<div class="tr"><span></span><span class="d">Found 2 not in doze.hcl yet: cmd/admin, cmd/cron</span></div>
+</div>
+</div>
+
+<div class="col g14 grow">
+<div class="box">
+<div class="cap"><span class="w b">postgres</span> <span class="pill q">module</span></div>
+<div class="cap rt g">✓ signed by doze</div>
+<div style="--c: 9ch 1fr" class="col">
+<div class="tr"><span class="d">versions</span><span><span class="pill">17</span> <span class="d">16   </span><span class="k">v</span><span class="d">change</span></span></div>
+<div class="tr"><span class="d">name</span><span><span class="w">db</span><span class="a">▌</span> <span class="d">  </span><span class="k">tab</span><span class="d">rename</span></span></div>
+<div class="tr"><span class="d">inside</span><span>role · schema · grant</span></div>
+<div class="tr"><span class="d">gives you</span><span class="c">url · host · port · socket · env_var</span></div>
+<div class="tr"><span class="d">at rest</span><span>0 MB. Boots on the first connection.</span></div>
+</div>
+</div>
+
+<div class="box grow">
+<div class="cap d">this is what gets written to doze.hcl</div>
+<div class="ln g">+ module postgres "db" {</div>
+<div class="ln g">+   version = 17</div>
+<div class="ln g">+ }</div>
+<div class="ln"> </div>
+<div class="ln d">Wire it into an app by referencing it:</div>
+<div class="ln"> </div>
+<div class="ln d">  app "api" {</div>
+<div class="ln d">    env = {</div>
+<div class="ln g">+     DATABASE_URL = module.db.url</div>
+<div class="ln d">    }</div>
+<div class="ln d">  }</div>
+<div class="ln"> </div>
+<div class="ln"><span class="k">space</span><span class="d">also add that line to</span> <span class="pill q">api</span> <span class="pill q">worker</span> <span class="d">web</span></div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">↑↓</span>move</span><span><span class="k">⏎</span>add to doze.hcl</span><span><span class="k">/</span>filter</span><span><span class="k">v</span>version</span><span><span class="k">d</span>docs</span><span><span class="k">esc</span>cancel</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

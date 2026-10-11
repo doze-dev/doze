@@ -117,9 +117,12 @@ func rootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
-		// Bare `doze` is the status table while the dash is being rebuilt; it
-		// becomes the dash on a terminal again when there is one.
+		// Bare `doze`: the dash on a terminal, the status table anywhere else —
+		// so `doze | less`, a CI log and a Makefile all get something readable.
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+				return dashCmd().RunE(cmd, nil)
+			}
 			return treeCmd().RunE(cmd, nil)
 		},
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {

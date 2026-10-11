@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>What each kind opens on</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">help · views</span></div>
+<div class="d">Every row in the stack opens in the same frame. Only the first tab differs.</div>
+</div>
+
+<div class="box" style="margin-top: 6px">
+<div class="cap a b">what ⏎ opens</div>
+<div style="--c: 32ch 12ch 21ch 1fr" class="col">
+<div class="tr d"><span>kind</span><span>front tab</span><span>other tabs</span><span>because</span></div>
+<div class="tr"><span><span class="a b">app</span> <span class="d">api web worker</span></span><span class="w b">logs</span><span>env · config</span><span class="d">it's your code, and you read what it prints</span></div>
+<div class="tr"><span><span class="a b">task</span> <span class="d">migrate seed</span></span><span class="w b">last run</span><span>history · config</span><span class="d">you want to know whether it worked, and why it ran</span></div>
+<div class="tr"><span><span class="a b">module</span> <span class="d">postgres mariadb ferret</span></span><span class="w b">overview</span><span>logs · data · config</span><span class="d">you want the URL and who is holding it awake</span></div>
+<div class="tr"><span><span class="a b">module</span> <span class="d">valkey kvrocks</span></span><span class="w b">overview</span><span>logs · keys · config</span><span class="d">same</span></div>
+<div class="tr"><span><span class="a b">module</span> <span class="d">kafka</span></span><span class="w b">console</span><span>logs · config</span><span class="d">topics and lag say more than broker logs</span></div>
+<div class="tr"><span><span class="a b">module</span> <span class="d">aws</span></span><span class="w b">console</span><span>wire · logs · config</span><span class="d">you want the resources and the API calls</span></div>
+<div class="tr"><span><span class="a b">module</span> <span class="d">temporal</span></span><span class="w b">web console</span><span>logs · config</span><span class="d">it ships a good one, so doze opens it</span></div>
+<div class="tr"><span><span class="a b">service</span> <span class="d">mongo search</span></span><span class="w b">logs</span><span>config</span><span class="d">doze knows nothing about what's inside</span></div>
+<div class="tr"><span><span class="a b">service</span> <span class="d">with console =</span></span><span class="w b">web console</span><span>logs · config</span><span class="d">you told doze where its own UI is</span></div>
+</div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+<div class="box grow">
+<div class="cap a b">the same keys in every view</div>
+<div style="--c: 6ch 1fr" class="col">
+<div class="tr"><span><span class="k">tab</span></span><span>next tab <span class="d">· or its number</span></span></div>
+<div class="tr"><span><span class="k">l</span></span><span>logs, from anywhere <span class="d">· every kind has them</span></span></div>
+<div class="tr"><span><span class="k">o</span></span><span>open the web console in a browser <span class="d">· dim if none</span></span></div>
+<div class="tr"><span><span class="k">y</span></span><span>copy menu <span class="d">· address, env line, shell command</span></span></div>
+<div class="tr"><span><span class="k">e</span></span><span>edit this block in $EDITOR</span></div>
+<div class="tr"><span><span class="k">esc</span></span><span>back to the stack</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln d" style="padding: 0 1ch">Home's right-hand pane shows a small version of the front tab,</div>
+<div class="ln d" style="padding: 0 1ch">so moving down the list already answers most questions.</div>
+</div>
+
+<div class="box" style="width: 560px">
+<div class="cap a b">change it in doze.hcl · works on any block</div>
+<div class="ln"><span class="a b">module</span> <span class="w">kafka</span> <span class="g">"events"</span> {</div>
+<div class="ln">  front = <span class="y">"logs"</span>             <span class="d i"># open on a different tab</span></div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"mailpit"</span> {</div>
+<div class="ln">  console = <span class="y">"http://127.0.0.1:8025"</span>  <span class="d i"># it has a web UI</span></div>
+<div class="ln">}</div>
+<div class="ln"><span class="a b">service</span> <span class="g">"search"</span> {</div>
+<div class="ln">  logs = <span class="y">"quiet"</span>             <span class="d i"># errors only in stack logs</span></div>
+<div class="ln">}</div>
+<div class="ln"> </div>
+<div class="ln d">A module describes its console as tables, counters</div>
+<div class="ln d">and streams. doze draws them, so every console looks</div>
+<div class="ln d">and behaves like the rest of the dash.</div>
+</div>
+</div>
+
+<div class="keys">
+<span><span class="k">esc</span>close help</span><span><span class="k">?</span>all keys</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

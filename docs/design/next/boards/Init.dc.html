@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze init</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 860px; gap: 0">
+
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze init</span></div>
+<div class="ln"> </div>
+<div class="ln">  <span class="a b">doze</span> <span class="d">read this repo. Nothing is written until you say so.</span></div>
+<div class="ln"> </div>
+
+<div class="box on" style="margin: 0 2ch; gap: 0">
+<div class="cap a b">what I found</div>
+<div style="--c: 4ch 22ch 30ch 1fr" class="col">
+<div class="hd">APPS</div>
+<div class="tr"><span class="g">[✓]</span><span class="d">go.mod · cmd/api</span><span><span class="a">app</span> <span class="w">"api"</span></span><span class="d">go run ./cmd/api · :8080 from main.go</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">go.mod · cmd/worker</span><span><span class="a">app</span> <span class="w">"worker"</span></span><span class="d">go run ./cmd/worker</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">web/package.json</span><span><span class="a">app</span> <span class="w">"web"</span></span><span class="d">pnpm dev</span></div>
+<div class="tr"><span class="d">[ ]</span><span class="d">go.mod · cmd/admin</span><span class="d">app "admin"</span><span class="d">go run ./cmd/admin</span></div>
+<div class="hd">FROM docker-compose.yml</div>
+<div class="tr"><span class="g">[✓]</span><span class="d">postgres:17</span><span><span class="a">module</span> postgres <span class="w">"db"</span></span><span class="g">module</span></div>
+<div class="tr sel"><span class="g">[✓]</span><span>redis:7</span><span><span class="a">module</span> valkey <span class="w">"cache"</span></span><span><span class="g">module</span> · same protocol · <span class="k">o</span>keep real redis, outside</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">mongo:8</span><span><span class="a">service</span> <span class="w">"mongo"</span></span><span><span class="y">outside</span> <span class="d">· no module · download</span></span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">axllent/mailpit</span><span><span class="a">service</span> <span class="w">"mailpit"</span></span><span><span class="y">outside</span> <span class="d">· already on this machine</span></span></div>
+<div class="hd">TASKS</div>
+<div class="tr"><span class="g">[✓]</span><span class="d">Makefile · migrate</span><span><span class="a">task</span> <span class="w">"migrate"</span></span><span class="d">go run ./cmd/migrate up</span></div>
+<div class="tr"><span class="d">[ ]</span><span class="d">Makefile · seed</span><span class="d">task "seed"</span><span class="d">psql -f seed.sql · manual</span></div>
+<div class="hd">WIRING  <span class="d">from .env.example</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">DATABASE_URL</span><span class="c">module.db.url</span><span class="d">api, migrate</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">REDIS_URL</span><span class="c">module.cache.url</span><span class="d">api</span></div>
+<div class="tr"><span class="g">[✓]</span><span class="d">MONGO_URL</span><span class="c">service.mongo.address</span><span class="d">api</span></div>
+<div class="tr"><span class="y">[?]</span><span class="d">STRIPE_KEY</span><span class="y">stays in your .env</span><span class="d">a secret · doze passes it through, never stores it</span></div>
+</div>
+</div>
+
+<div class="ln"> </div>
+<div class="ln">  <span class="w">9 of 11 selected</span> <span class="d">· writes doze.hcl (41 lines) and doze.lock · docker-compose.yml is left alone</span></div>
+<div class="ln"> </div>
+<div class="row" style="padding: 0 2ch"><span class="pill">Write doze.hcl</span><span class="pill q">Preview the file</span><span class="pill q">Start empty</span></div>
+<div class="grow"></div>
+<div class="keys" style="padding: 0 2ch">
+<span><span class="k">↑↓</span>move</span><span><span class="k">space</span>toggle</span><span><span class="k">⏎</span>rename or edit</span><span><span class="k">o</span>module ⇄ outside</span><span><span class="k">tab</span>buttons</span><span><span class="k">esc</span>cancel</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

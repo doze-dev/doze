@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>aws console</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">cloud</span><span class="d">aws</span><span class="pill g">awake</span><span class="d">http://cloud.shop.doze</span></div>
+<div class="row ce"><span class="pill on">console</span><span class="d">wire</span><span class="d">logs</span><span class="d">config</span></div>
+</div>
+
+<div class="row ce" style="margin-top: 2px; padding: 0 1ch">
+<span class="d">in use</span><span class="pill on">S3 · 1</span><span class="pill on">SQS · 2</span><span class="d">idle</span><span class="d">SNS  DynamoDB  Lambda  SecretsManager  +8</span>
+</div>
+
+<div class="box on" style="margin-top: 6px">
+<div class="cap a b">resources</div>
+<div style="--c: 2ch 5ch 14ch 26ch 1fr" class="col">
+<div class="tr d"><span></span><span>type</span><span>name</span><span>now</span><span>from</span></div>
+<div class="tr sel"><span class="a">▸</span><span>S3</span><span>uploads</span><span>12 objects · 3.1 MB</span><span>doze.hcl</span></div>
+<div class="tr"><span></span><span class="d">SQS</span><span class="w">orders</span><span>0 waiting · 2 in flight</span><span class="d">doze.hcl</span></div>
+<div class="tr"><span></span><span class="d">SQS</span><span class="w">orders-dlq</span><span class="y">1 waiting</span><span class="y">made at runtime · <span class="k">k</span>keep in doze.hcl</span></div>
+</div>
+</div>
+
+<div class="box grow" style="margin-top: 6px">
+<div class="cap"><span class="a b">wire</span> <span class="d">· every API call, newest first</span></div>
+<div style="--c: 9ch 5ch 18ch 1fr 5ch 6ch 7ch" class="col">
+<div class="tr d"><span>time</span><span>svc</span><span>action</span><span>target</span><span class="ra">code</span><span class="ra">took</span><span>caller</span></div>
+<div class="tr"><span class="d">14:22:31</span><span>SQS</span><span class="w">ReceiveMessage</span><span>orders</span><span class="ra g">200</span><span class="ra">2 ms</span><span class="d">worker</span></div>
+<div class="tr"><span class="d">14:22:25</span><span>S3</span><span class="w">PutObject</span><span class="r">upload/receipts/1043.pdf</span><span class="ra r">404</span><span class="ra">1 ms</span><span class="d">api</span></div>
+<div class="tr"><span></span><span></span><span class="r">NoSuchBucket</span><span class="d">api asked for bucket "upload". You have "uploads".</span><span></span><span></span><span></span></div>
+<div class="tr"><span class="d">14:22:10</span><span>SQS</span><span class="w">SendMessage</span><span>orders</span><span class="ra g">200</span><span class="ra">3 ms</span><span class="d">api</span></div>
+<div class="tr"><span class="d">14:21:02</span><span>S3</span><span class="w">GetObject</span><span>uploads/receipts/1042.pdf</span><span class="ra g">200</span><span class="ra">2 ms</span><span class="d">api</span></div>
+<div class="tr"><span class="d">14:21:02</span><span>SQS</span><span class="w">SendMessage</span><span>orders</span><span class="ra g">200</span><span class="ra">2 ms</span><span class="d">api</span></div>
+<div class="tr"><span class="d">14:20:51</span><span>SQS</span><span class="w">DeleteMessage</span><span>orders</span><span class="ra g">200</span><span class="ra">1 ms</span><span class="d">worker</span></div>
+</div>
+<div class="grow"></div>
+<div class="ln d" style="padding: 0 1ch">The caller column comes from doze knowing which app opened the connection.</div>
+</div>
+
+<div class="keys">
+<span><span class="k">⏎</span>browse objects</span><span><span class="k">o</span>web console in browser</span><span><span class="k">k</span>keep in doze.hcl</span><span><span class="k">y</span>copy endpoint</span><span><span class="k">/</span>filter wire</span><span><span class="k">l</span>logs</span><span><span class="k">esc</span>back</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

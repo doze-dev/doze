@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dash wake trace</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill">doze</span><span class="d">shop ›</span><span class="w b">wake trace</span></div>
+<div class="row ce"><span class="d">what woke what, and what it cost you</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+
+<div class="box" style="width: 330px">
+<div class="cap a b">who needs whom</div>
+<div class="ln"><span class="w b">web</span></div>
+<div class="ln"><span class="d">└─</span> <span class="w b">api</span></div>
+<div class="ln"><span class="d">   ├─</span> db       <span class="d">postgres</span></div>
+<div class="ln"><span class="d">   ├─</span> cache    <span class="d">valkey</span></div>
+<div class="ln"><span class="d">   ├─</span> mongo    <span class="d">outside</span></div>
+<div class="ln"><span class="d">   ├─</span> cloud    <span class="d">aws</span></div>
+<div class="ln"><span class="d">   └─</span> migrate  <span class="d">task</span></div>
+<div class="ln"><span class="d">      └─</span> db</div>
+<div class="ln"> </div>
+<div class="ln"><span class="w b">worker</span></div>
+<div class="ln"><span class="d">├─</span> events   <span class="d">kafka</span></div>
+<div class="ln"><span class="d">└─</span> mailpit  <span class="d">outside</span></div>
+<div class="ln"> </div>
+<div class="ln d">Edges come from references</div>
+<div class="ln d">in doze.hcl. Nothing is</div>
+<div class="ln d">declared twice.</div>
+</div>
+
+<div class="col g14 grow">
+<div class="box on">
+<div class="cap"><span class="a b">14:03:52</span> <span class="w">POST api.shop.doze/orders</span></div>
+<div class="cap rt"><span class="w b">412 ms</span> <span class="d">cold ·</span> <span class="g">31 ms</span> <span class="d">warm</span></div>
+<div style="--c: 9ch 1fr 16ch" class="col g8">
+<div class="tr d"><span></span><div class="row sb"><span>0</span><span>100</span><span>200</span><span>300</span><span>400 ms</span></div><span></span></div>
+<div class="tr"><span class="w">api</span><div class="lane"><div style="left: 0%; width: 8%; background: #7EE787"></div><div style="left: 92%; width: 8%; background: #7EE787"></div></div><span class="d">already awake</span></div>
+<div class="tr"><span class="w">db</span><div class="lane"><div style="left: 2%; width: 5%; background: #7EE787"></div></div><span class="d">already awake</span></div>
+<div class="tr"><span class="w">cache</span><div class="lane"><div style="left: 3%; width: 9%; background: #82AAFF"></div><div style="left: 12%; width: 2%; background: #7EE787"></div></div><span><span class="c">woke</span> 38 ms</span></div>
+<div class="tr"><span class="w">events</span><div class="lane"><div style="left: 8%; width: 82%; background: #82AAFF"></div><div style="left: 90%; width: 3%; background: #7EE787"></div></div><span><span class="c">woke</span> 340 ms</span></div>
+<div class="tr"><span class="w">worker</span><div class="lane"><div style="left: 90%; width: 10%; background: #82AAFF"></div></div><span><span class="c">started</span> 44 ms</span></div>
+</div>
+<div class="row" style="padding: 8px 1ch 0"><span><span class="c">■</span> <span class="d">waking</span></span><span><span class="g">■</span> <span class="d">serving</span></span></div>
+</div>
+
+<div class="box grow">
+<div class="cap a b">earlier wakes</div>
+<div style="--c: 9ch 1fr 8ch 8ch 10ch" class="col">
+<div class="tr d"><span>when</span><span>trigger</span><span>woke</span><span class="ra">cold</span><span class="ra">warm</span></div>
+<div class="tr sel"><span>14:03:52</span><span>POST api.shop.doze/orders</span><span>3</span><span class="ra">412 ms</span><span class="ra">31 ms</span></div>
+<div class="tr"><span class="d">14:03:41</span><span>GET api.shop.doze/cart</span><span>1</span><span class="ra">44 ms</span><span class="ra">4 ms</span></div>
+<div class="tr"><span class="d">13:50:04</span><span>doze up</span><span>4</span><span class="ra">2.3 s</span><span class="ra d">—</span></div>
+<div class="tr"><span class="d">11:12:30</span><span>doze run -- go test ./...</span><span>2</span><span class="ra">590 ms</span><span class="ra d">—</span></div>
+<div class="tr"><span class="d">09:40:18</span><span>psql (you) → db.shop.doze</span><span>1</span><span class="ra">180 ms</span><span class="ra d">—</span></div>
+</div>
+<div class="ln d" style="padding: 8px 1ch 0">events is the slow riser. <span class="k">p</span>pin it awake while you work on orders, or leave it.</div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">↑↓</span>pick a wake</span><span><span class="k">⏎</span>jump to that moment in logs</span><span><span class="k">p</span>pin awake</span><span><span class="k">esc</span>back to stack</span><span><span class="k">:</span>command</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

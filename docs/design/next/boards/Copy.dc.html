@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Copy mode and copy menu</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px">
+
+<div class="row sb ce">
+<div class="row ce"><span class="pill y">COPY</span><span class="d">shop ›</span><span class="w b">api</span><span class="d">logs are paused while you select</span></div>
+<div class="row ce"><span class="w b">4 lines</span><span class="d">· 286 characters</span></div>
+</div>
+
+<div class="row grow" style="margin-top: 6px">
+
+<div class="box on grow">
+<div class="cap y b">select</div>
+<div class="ln d"><span class="d">14:22:02</span> INF GET /cart 200 44ms</div>
+<div class="ln d"><span class="d">14:22:10</span> INF POST /orders 201 31ms</div>
+<div class="ln d"><span class="d">14:22:10</span> INF published topic=orders key=ord_1043</div>
+<div class="ln pick"><span>14:22:18</span> WRN slow query 212ms SELECT * FROM orders WHERE …</div>
+<div class="ln pick"><span>14:22:25</span> ERR upload failed bucket=uploads err="NoSuchBucket"</div>
+<div class="ln pick"><span>14:22:25</span>     at uploadReceipt cmd/api/orders.go:118</div>
+<div class="ln pick"><span>14:22:25</span>     at createOrder cmd/api/orders.go:74<span class="y">▌</span></div>
+<div class="ln d"><span class="d">14:22:31</span> INF GET /orders/ord_1043 200 6ms</div>
+<div class="ln d"><span class="d">14:22:40</span> INF GET /healthz 200 0ms</div>
+<div class="grow"></div>
+<div style="--c: 4ch 1fr" class="col">
+<div class="tr"><span><span class="k">y</span></span><span>copy as shown</span></div>
+<div class="tr"><span><span class="k">Y</span></span><span>copy without timestamps <span class="d">· for pasting into an issue or a chat</span></span></div>
+<div class="tr"><span><span class="k">s</span></span><span>save to a file <span class="d">· ./api-1422.log</span></span></div>
+<div class="tr"><span><span class="k">a</span></span><span>select the whole run <span class="d">·</span> <span class="k">e</span>just the last error and its lines</span></div>
+</div>
+</div>
+
+<div class="col g14" style="width: 470px">
+<div class="box">
+<div class="cap"><span class="a b">y on a row</span> <span class="d">· copy what from</span> <span class="w">db</span><span class="d">?</span></div>
+<div style="--c: 2ch 13ch 1fr" class="col">
+<div class="tr sel"><span class="a">▸</span><span>url</span><span>postgres://shop@db.shop.doze…</span></div>
+<div class="tr"><span></span><span class="w">env line</span><span class="d">DATABASE_URL=postgres://…</span></div>
+<div class="tr"><span></span><span class="w">export</span><span class="d">export DATABASE_URL=…</span></div>
+<div class="tr"><span></span><span class="w">address</span><span class="d">db.shop.doze:5432</span></div>
+<div class="tr"><span></span><span class="w">shell</span><span class="d">doze sh db</span></div>
+<div class="tr"><span></span><span class="w">reference</span><span class="d">module.db.url</span></div>
+<div class="tr"><span></span><span class="w">block</span><span class="d">module postgres "db" { … }</span></div>
+</div>
+<div class="ln d" style="padding: 6px 1ch 0"><span class="k">y</span><span class="k">y</span>copies the first one without asking</div>
+</div>
+
+<div class="box ok">
+<div class="cap g b">after copying</div>
+<div class="ln"><span class="g">✓</span> copied 4 lines to the clipboard</div>
+<div class="ln d">Shown for two seconds in the bottom bar. Over</div>
+<div class="ln d">SSH it goes through the terminal's clipboard</div>
+<div class="ln d">escape, and says so if the terminal refuses.</div>
+</div>
+
+<div class="box grow">
+<div class="cap a b">mouse</div>
+<div class="ln d">Drag selects lines the same way. Hold</div>
+<div class="ln d">shift to get the terminal's own selection.</div>
+</div>
+</div>
+
+</div>
+
+<div class="keys">
+<span><span class="k">↑↓</span>move</span><span><span class="k">v</span>start or end selection</span><span><span class="k">/</span>find</span><span><span class="k">y</span>copy</span><span><span class="k">Y</span>copy clean</span><span><span class="k">s</span>save</span><span><span class="k">esc</span>leave copy mode</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

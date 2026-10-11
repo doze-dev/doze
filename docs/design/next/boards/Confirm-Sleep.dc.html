@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Confirm sleeping something in use</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 760px; position: relative">
+
+<div class="row sb ce dim">
+<div class="row ce"><span class="pill">doze</span><span class="w b">shop</span><span class="d">~/code/shop</span></div>
+<div class="row ce"><span>● 5 awake</span><span>◐ 1 dozing</span><span>· 3 asleep</span><span class="w b">551 MB</span></div>
+</div>
+
+<div class="row grow dim">
+<div class="box" style="width: 590px">
+<div class="cap a b">stack</div>
+<div style="--c: 2ch 8ch 1fr 7ch 7ch" class="col">
+<div class="hd">APPS</div>
+<div class="tr"><span>●</span><span>api</span><span>go run ./cmd/api</span><span>awake</span><span class="ra">84 MB</span></div>
+<div class="tr"><span>●</span><span>web</span><span>pnpm dev</span><span>awake</span><span class="ra">212 MB</span></div>
+<div class="hd">MODULES</div>
+<div class="tr sel"><span>●</span><span>db</span><span>postgres 17</span><span>awake</span><span class="ra">96 MB</span></div>
+<div class="tr"><span>◐</span><span>cache</span><span>valkey 9</span><span>dozing</span><span class="ra">11 MB</span></div>
+<div class="tr"><span>·</span><span>cloud</span><span>aws</span><span>asleep</span><span class="ra">0</span></div>
+</div>
+</div>
+<div class="box grow"><div class="cap">db</div></div>
+</div>
+
+<div class="box on modal" style="left: 200px; top: 190px; width: 800px">
+<div class="cap a b">sleep db?</div>
+<div class="ln"><span class="w">api</span> has 4 connections open to it right now.</div>
+<div class="ln"> </div>
+<div style="--c: 14ch 1fr" class="col">
+<div class="tr"><span class="d">what happens</span><span>Those connections drop. api's next query wakes db again,</span></div>
+<div class="tr"><span></span><span>so it will be back within seconds unless api sleeps too.</span></div>
+<div class="tr"><span class="d">data</span><span>Kept. Nothing is deleted.</span></div>
+</div>
+<div class="ln"> </div>
+<div class="row"><span class="pill">Sleep db and api</span><span class="pill q">Sleep db only</span><span class="pill q">Cancel</span></div>
+<div class="ln"> </div>
+<div class="hr"></div>
+<div class="ln d" style="padding-top: 6px">doze only asks when something else is affected. Sleeping an idle service never asks.</div>
+</div>
+
+<div class="keys dim">
+<span><span class="k">←→</span>choose</span><span><span class="k">⏎</span>confirm</span><span><span class="k">esc</span>cancel</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

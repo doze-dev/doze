@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze add mongo</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 860px; gap: 0">
+
+<div class="ln"><span class="d">~/code/shop</span> <span class="a b">❯</span> <span class="w">doze add mongo</span></div>
+<div class="ln"> </div>
+<div class="ln">  <span class="y">mongo</span> isn't a doze module, so it comes in as a <span class="w">service</span>. Where is it?</div>
+<div class="ln"> </div>
+<div style="--c: 2ch 26ch 1fr; padding: 0 2ch" class="col">
+<div class="tr"><span class="d">·</span><span>Already installed</span><span class="d">found mongod 8.0.4 at /opt/homebrew/bin/mongod</span></div>
+<div class="tr sel"><span class="a">▸</span><span>Download it</span><span>paste a URL · the team gets the same build</span></div>
+<div class="tr"><span class="d">·</span><span>In a container</span><span class="d">write your docker or podman command as run</span></div>
+<div class="tr"><span class="d">·</span><span>Use a module instead</span><span class="d">ferret speaks the MongoDB protocol on postgres</span></div>
+</div>
+<div class="ln"> </div>
+
+<div class="box on" style="margin: 0 2ch; gap: 0">
+<div class="cap a b">three answers</div>
+<div style="--c: 9ch 1fr 36ch" class="col">
+<div class="tr"><span class="d">download</span><span class="w">https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz</span><span class="g">✓ reachable · 71 MB</span></div>
+<div class="tr"><span class="d">run</span><span class="w">bin/mongod --dbpath $DATA --port $PORT</span><span class="d">found bin/mongod in the archive</span></div>
+<div class="tr sel"><span class="a">port</span><span>27017<span class="a">▌</span></span><span class="d">free</span></div>
+</div>
+<div class="ln"> </div>
+<div class="ln d" style="padding: 0 1ch">Optional, add any time: <span class="k">s</span>setup steps  <span class="k">r</span>on_ready steps  <span class="k">c</span>web console  <span class="k">m</span>more platforms</div>
+</div>
+
+<div class="ln"> </div>
+<div class="box" style="margin: 0 2ch; gap: 0">
+<div class="cap d">doze.hcl</div>
+<div class="ln g">+ service "mongo" {</div>
+<div class="ln g">+   download = "https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz"</div>
+<div class="ln g">+   run      = "bin/mongod --dbpath $DATA --port $PORT"</div>
+<div class="ln g">+   port     = 27017</div>
+<div class="ln g">+ }</div>
+</div>
+
+<div class="ln"> </div>
+<div class="box" style="margin: 0 2ch; gap: 0">
+<div class="cap d">use it from an app</div>
+<div class="ln d">  app "api" {</div>
+<div class="ln d">    env = {</div>
+<div class="ln g">+     MONGO_URL = "mongodb://${service.mongo.address}"</div>
+<div class="ln d">    }</div>
+<div class="ln d">  }</div>
+<div class="ln"> </div>
+<div class="ln"><span class="k">space</span><span class="d">add that line to</span> <span class="pill q">api</span> <span class="d">worker  web</span></div>
+</div>
+
+<div class="ln"> </div>
+<div class="ln">  <span class="d">On save: download once, record its hash in doze.lock, refuse it if it ever changes.</span></div>
+<div class="grow"></div>
+<div class="keys" style="padding: 0 2ch">
+<span><span class="k">tab</span>next field</span><span><span class="k">⏎</span>write it</span><span><span class="k">ctrl+t</span>write and try a boot</span><span><span class="k">ctrl+e</span>finish in $EDITOR</span><span><span class="k">esc</span>cancel</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
