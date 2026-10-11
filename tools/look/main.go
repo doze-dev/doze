@@ -99,7 +99,7 @@ func live(args []string) {
 	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
 		fatal(err)
 	}
-	if err := drawScreen(sess, *out, sc.wpx, sc.hpx); err != nil {
+	if err := drawScreen(sess, *out); err != nil {
 		fatal(err)
 	}
 	fmt.Println(*out)

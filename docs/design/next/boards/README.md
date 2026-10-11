@@ -18,9 +18,11 @@ go run .                       # all of them
 
 It runs the real dash in a pseudo-terminal against the shop fixture
 (`internal/dash/fixture`), presses the scene's real keys, reads the screen back
-through a terminal emulator, and writes `.look/<scene>.png`: the board on the left,
-the dash on the right, both drawn by the same Chrome at the board's size. Read that
-image. `go run . live -home /tmp/dz-try -dir ./project` does the same against a real
+through a terminal emulator, and draws it itself, with no browser: each cell is a
+rectangle and a glyph, and borders and bars are drawn as lines, as a terminal does.
+It writes `.look/<scene>.png` with the board on the left and the dash on the right.
+The boards are HTML, so Chrome draws them, once; the images are kept in
+`.look/boards` and drawn again only when a board changes. Read the image. `go run . live -home /tmp/dz-try -dir ./project` does the same against a real
 daemon, with no board.
 
 It cannot judge your terminal's fonts, how it draws odd glyphs, or colour on your
