@@ -520,3 +520,61 @@ func TestTheListScrollsToTheSelection(t *testing.T) {
 		}
 	}
 }
+
+// The header names the columns where the rows put them: the last column's
+// header starts where its cells do, and a right-aligned column ends together.
+func TestTableColumnsAlign(t *testing.T) {
+	m := board()
+	lines := strings.Split(frame(m, 150, 36), "\n")
+	var head string
+	for _, l := range lines {
+		if strings.Contains(l, "WHY AWAKE") {
+			head = l
+		}
+	}
+	if head == "" {
+		t.Fatal("no header row")
+	}
+	why := strings.Index(head, "WHY AWAKE")
+	up := strings.Index(head, "UP") + len("UP")
+	for _, l := range lines {
+		if i := strings.Index(l, "go run ./cmd/api"); i >= 0 && i != why && !strings.Contains(l, "│") {
+			t.Errorf("why cell starts at %d, header at %d:\n%s", i, why, l)
+		}
+		if i := strings.Index(l, " 14m "); i >= 0 && !strings.Contains(l, "│") && i+4 != up {
+			t.Errorf("up cell ends at %d, header at %d:\n%s", i+4, up, l)
+		}
+	}
+}
+
+// t shows what needs what, and / narrows the table to what matches.
+func TestTreeAndFilter(t *testing.T) {
+	m := board()
+	m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	out := frame(m, 150, 36)
+	if strings.Contains(out, "APPS") {
+		t.Error("the tree should have no group bands")
+	}
+	if !strings.Contains(out, "└ db") {
+		t.Errorf("api's needs are not under it:\n%s", out)
+	}
+	m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	m.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	for _, r := range "pg" {
+		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+	if out := frame(m, 150, 36); strings.Contains(out, "mailpit") {
+		t.Errorf("the filter left a row that does not match:\n%s", out)
+	}
+	m.filter = ""
+	for _, r := range "kafka" {
+		m.filter += string(r)
+	}
+	out = frame(m, 150, 36)
+	if !strings.Contains(out, "events") || strings.Contains(out, "mongo") {
+		t.Errorf("filter kafka:\n%s", out)
+	}
+	if m.sel != "events" {
+		t.Errorf("the selection stayed on a row the filter hid: %q", m.sel)
+	}
+}

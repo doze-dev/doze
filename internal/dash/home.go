@@ -511,11 +511,16 @@ func (m *Model) keys(w int) string {
 	s := m.st
 	var parts []string
 	for _, k := range []struct{ key, label string }{
-		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"o", "sort " + sortTitles[m.sortBy]}, {":", "command"}, {"q", "quit"},
+		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"o", "sort " + sortTitles[m.sortBy]}, {"t", "tree"}, {"/", "filter"}, {":", "command"}, {"q", "quit"},
 	} {
 		parts = append(parts, s.cap(k.key, k.label))
 	}
 	line := strings.Join(parts, "  ")
+	if m.filtering {
+		line = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + s.a.Render("▏")
+	} else if m.filter != "" {
+		line = s.cap("esc", "clear filter") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + "   " + line
+	}
 	if m.notice != "" {
 		line += "   " + s.y.Render(m.notice)
 	}

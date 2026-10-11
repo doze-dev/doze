@@ -47,6 +47,9 @@ type Model struct {
 	areaCharts   bool     // c: charts as filled areas of blocks, not a line of dots
 	sortBy       int      // o: how the table orders its rows within a group
 	metrics      bool     // m: Focus shows the full charts, not the tiles
+	tree         bool     // t: the table as a dependency tree
+	filter       string   // /: only the rows that match
+	filtering    bool     // the filter is being typed
 	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
 	clickName    string   // the last row clicked, and when: a second click opens it
 	clickAt      time.Time
@@ -70,7 +73,7 @@ type Model struct {
 
 // New builds the dash around a daemon. Init and Run start it listening.
 func New(d control.Daemon, o Options) *Model {
-	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo}
+	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo, areaCharts: true}
 	if m.nowf == nil {
 		m.nowf = time.Now
 	}
@@ -173,6 +176,33 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	if m.modal != nil {
 		return m, m.modalKey(k, text)
 	}
+	if m.filtering && m.page == pageHome {
+		switch k {
+		case "esc":
+			m.filter, m.filtering = "", false
+		case "enter":
+			m.filtering = false
+		case "backspace":
+			if r := []rune(m.filter); len(r) > 0 {
+				m.filter = string(r[:len(r)-1])
+			}
+		case "up", "down":
+			if k == "up" {
+				m.move(-1)
+			} else {
+				m.move(1)
+			}
+		default:
+			if text != "" && k != "ctrl+c" {
+				m.filter += text
+			}
+		}
+		return m, m.follow()
+	}
+	if m.page == pageHome && k == "esc" && m.filter != "" {
+		m.filter = ""
+		return m, m.follow()
+	}
 	if m.page == pageFocus {
 		if cmd, handled := m.focusKey(k); handled {
 			return m, cmd
@@ -183,6 +213,10 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		m.areaCharts = !m.areaCharts
 	case "o":
 		m.sortBy = (m.sortBy + 1) % sortModes
+	case "t":
+		m.tree = !m.tree
+	case "/":
+		m.filtering = true
 	case "enter", "l", "right":
 		m.open()
 	case "ctrl+c", "q":

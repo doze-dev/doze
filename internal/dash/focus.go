@@ -504,7 +504,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
 		if !m.metrics {
 			// a tile each: the figure, its trend, what it has been doing (V-A)
-			vit = append(vit, m.tiles(ts, w-4)...)
+			vit = append(vit, m.tiles(ts, w-4, 2)...)
 		} else if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
 			vit = append(vit, m.charts(ts, w-4, r)...)
 		} else {
@@ -526,7 +526,13 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	if gap == 1 {
 		out = append(out, "")
 	}
-	out = append(out, box(s.border, s.a.Bold(true).Render("vitals"), "", vit, w, len(vit)+2)...)
+	if awake(v) && !m.metrics {
+		// the tiles are boxes already: a heading and the data line, not a box in a box
+		out = append(out, " "+s.a.Bold(true).Render("vitals"))
+		out = append(out, vit...)
+	} else {
+		out = append(out, box(s.border, s.a.Bold(true).Render("vitals"), "", vit, w, len(vit)+2)...)
+	}
 	out = append(out, m.extensions("vitals", w)...)
 	if gap == 1 {
 		out = append(out, "")

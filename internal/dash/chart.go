@@ -370,11 +370,12 @@ func count(v float64) string {
 func bytesLabel(v float64) string { return mb(int64(v)) }
 
 // tiles draws the traces as one tile each: its name in the border, the figure
-// and a short trend, and a line saying what it has been doing. As many sit
-// across as can have tileMin cells, the rest under them (boards/V-A.dc.html).
+// and what it has been doing on one line, and under that a filled chart of it.
+// As many sit across as can have tileMin cells, the rest under them
+// (boards/V-A.dc.html).
 const tileMin = 30
 
-func (m *Model) tiles(ts []trace, w int) []string {
+func (m *Model) tiles(ts []trace, w, rows int) []string {
 	s := m.st
 	per := 1
 	for k := len(ts); k > 1; k-- {
@@ -384,6 +385,7 @@ func (m *Model) tiles(ts []trace, w int) []string {
 		}
 	}
 	tw := (w - (per - 1)) / per
+	th := rows + 3
 	var out []string
 	for g := 0; g < len(ts); g += per {
 		var boxes [][]string
@@ -393,14 +395,10 @@ func (m *Model) tiles(ts []trace, w int) []string {
 				vals = []float64{t.cur}
 			}
 			inner := tw - 4
-			fig := s.b.Render(t.now)
-			trend := s.a.Render(spark(vals, max(inner-width(t.now)-2, 4)))
-			if t.st.GetForeground() != nil && !m.st.plain {
-				trend = t.st.Render(spark(vals, max(inner-width(t.now)-2, 4)))
-			}
+			span := len(vals)
 			peak, mean := stats(vals)
 			sum := "peak " + t.unit(peak) + " · avg " + t.unit(mean)
-			if t.zoom && len(vals) > 1 {
+			if t.zoom && span > 1 {
 				d := vals[len(vals)-1] - vals[0]
 				arrow := "→"
 				switch {
@@ -409,12 +407,15 @@ func (m *Model) tiles(ts []trace, w int) []string {
 				case d < 0:
 					arrow, d = "↓", -d
 				}
-				sum = arrow + " " + t.unit(d) + " in " + ago(time.Duration(len(vals))*sampleEvery) + " · peak " + t.unit(peak)
+				sum = arrow + " " + t.unit(d) + " in " + ago(time.Duration(span)*sampleEvery)
 			}
-			lines := []string{fig + "  " + trend, s.d.Render(fit(sum, inner))}
-			boxes = append(boxes, box(s.border, s.d.Render(t.name), "", lines, tw, 4))
+			vals = squeeze(vals, inner) // a column to a cell, so the whole history fits
+			lo, hi := t.scale(vals)
+			head := s.b.Render(t.now) + "  " + s.d.Render(fit(sum, max(inner-width(t.now)-2, 4)))
+			lines := append([]string{head}, plot(vals, inner, rows, lo, hi, t.st, dimmed(t.st))...)
+			boxes = append(boxes, box(s.border, s.d.Render(t.name), "", lines, tw, th))
 		}
-		for l := 0; l < 4; l++ {
+		for l := 0; l < th; l++ {
 			var b strings.Builder
 			for i, bx := range boxes {
 				if i > 0 {

@@ -25,9 +25,77 @@ const (
 
 var sortTitles = [sortModes]string{"name", "mem", "state"}
 
+// matches says whether v is in what the filter asks for: every word of it is
+// in the name, kind, engine or state.
+func (m *Model) matches(v control.InstanceView) bool {
+	hay := strings.ToLower(strings.Join([]string{v.Name, v.Kind, v.Engine, v.Version, m.st.look(v).word}, " "))
+	for _, w := range strings.Fields(strings.ToLower(m.filter)) {
+		if !strings.Contains(hay, w) {
+			return false
+		}
+	}
+	return true
+}
+
+// tree orders rs as the dependency tree: what nothing needs is a root, and what
+// it needs is under it, once, at the first place it is needed. depth is how far
+// down each is.
+func treeOrder(rs []row) (out []row, depth map[string]int) {
+	byName := map[string]row{}
+	for _, r := range rs {
+		byName[r.v.Name] = r
+	}
+	needed := map[string]bool{}
+	for _, r := range rs {
+		for _, n := range r.v.Needs {
+			if _, ok := byName[n]; ok {
+				needed[n] = true
+			}
+		}
+	}
+	depth = map[string]int{}
+	seen := map[string]bool{}
+	var walk func(r row, d int)
+	walk = func(r row, d int) {
+		if seen[r.v.Name] {
+			return
+		}
+		seen[r.v.Name] = true
+		depth[r.v.Name] = d
+		out = append(out, r)
+		for _, n := range r.v.Needs {
+			if c, ok := byName[n]; ok {
+				walk(c, d+1)
+			}
+		}
+	}
+	for _, r := range rs {
+		if !needed[r.v.Name] {
+			walk(r, 0)
+		}
+	}
+	for _, r := range rs { // a cycle, or what only a cycle needs
+		walk(r, 0)
+	}
+	return out, depth
+}
+
 // ordered is rows, in the order the table shows them.
 func (m *Model) ordered() []row {
 	rs := rows(m.snap)
+	if m.filter != "" {
+		var keep []row
+		for _, r := range rs {
+			if m.matches(r.v) {
+				keep = append(keep, r)
+			}
+		}
+		rs = keep
+	}
+	if m.tree {
+		rs, _ = treeOrder(rs)
+		return rs
+	}
 	if m.sortBy == sortName {
 		return rs
 	}
@@ -110,12 +178,29 @@ func (m *Model) why(v control.InstanceView) string {
 		}
 	}
 	if awake(v) {
-		if by := inUse(v); by != "" && v.Kind == "module" {
-			return by + " " + "using it"
+		if v.Kind == "module" {
+			var by []string
+			for _, h := range v.Holders {
+				switch h.Kind {
+				case "dependant":
+					by = append(by, h.Name+" needs it")
+				case "connection":
+					by = append(by, fmt.Sprintf("%d connection%s", h.Count, plural(h.Count)))
+				case "pin":
+					by = append(by, "pinned awake")
+				}
+			}
+			if len(by) > 0 {
+				return strings.Join(by, " · ")
+			}
+			return "nothing holds it: it sleeps when idle"
 		}
 		if v.Kind == "app" || v.Kind == "service" {
 			return short(v.Run)
 		}
+	}
+	if v.Kind == "module" && !awake(v) && v.State != "booting" {
+		return "asleep: costs nothing until something connects"
 	}
 	return m.what(v)
 }
@@ -131,9 +216,22 @@ type tcol struct {
 func (m *Model) homeTable(w, h int) []string {
 	s := m.st
 	rs := m.ordered()
+	if len(rs) > 0 {
+		found := false
+		for _, r := range rs {
+			found = found || r.v.Name == m.sel
+		}
+		if !found {
+			m.sel = rs[0].v.Name // the filter took the selection away
+		}
+	}
+	var depth map[string]int
+	if m.tree {
+		_, depth = treeOrder(rs)
+	}
 
 	// --- header and meters ---
-	out := []string{m.header(w)}
+	var out []string
 	var awakeN, dozing, waking, asleep, need, done, ready, conns int
 	var segMem, segCPU []float64
 	var ram, budget int64
@@ -173,6 +271,20 @@ func (m *Model) homeTable(w, h int) []string {
 	memVal := mb(ram)
 	if budget > ram {
 		memVal += " of ~" + mb(budget)
+	}
+	{
+		l := s.pill.Render("doze")
+		if m.snap.Stack != "" {
+			l += " " + s.b.Render(m.snap.Stack)
+		}
+		if m.snap.Dir != "" && w > 60 {
+			l += " " + s.d.Render(tilde(m.snap.Dir))
+		}
+		r := s.b.Render(mb(ram)) + " " + s.d.Render("resident")
+		if need > 0 {
+			r = s.pillR.Render(fmt.Sprintf("%d needs you", need)) + "  " + r
+		}
+		out = append(out, l+strings.Repeat(" ", max(w-width(l)-width(r), 1))+r)
 	}
 	half := (w - 4) / 2
 	mc := min(half, 64)
@@ -236,8 +348,6 @@ func (m *Model) homeTable(w, h int) []string {
 			switch {
 			case awake(v) && !v.StartedAt.IsZero():
 				return ago(m.now.Sub(v.StartedAt))
-			case v.Task != nil && !v.Task.RanAt.IsZero():
-				return ago(m.now.Sub(v.Task.RanAt)) + " ago"
 			}
 			return ""
 		}},
@@ -273,7 +383,7 @@ func (m *Model) homeTable(w, h int) []string {
 	var body []line
 	last := -1
 	for _, r := range rs {
-		if r.group != last {
+		if r.group != last && !m.tree {
 			g := groups[r.group]
 			n, mbs := 0, int64(0)
 			for _, o := range rs {
@@ -304,6 +414,9 @@ func (m *Model) homeTable(w, h int) []string {
 		put(" ", lipgloss.NewStyle())
 		for i, c := range cols {
 			t := c.cell(v)
+			if c.title == "NAME" && m.tree && depth[v.Name] > 0 {
+				t = strings.Repeat("  ", depth[v.Name]-1) + "└ " + t
+			}
 			var cell string
 			if c.right {
 				cell = right(t, c.w)
@@ -421,6 +534,9 @@ func (m *Model) homeTable(w, h int) []string {
 		out = append(out, box(border, caption, "", lines, w, logsH)...)
 	} else {
 		out = append(out, box(s.border, s.d.Render("nothing selected"), "", nil, w, logsH)...)
+	}
+	if len(rs) == 0 {
+		out = append(out, s.d.Render(" nothing matches "+m.filter))
 	}
 	out = append(out, m.keys(w))
 	return out
