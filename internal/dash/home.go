@@ -13,6 +13,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // group is a heading on the stack box, and what belongs under it (Main.dc.html).
@@ -258,7 +259,17 @@ func (m *Model) home(w, h int) []string {
 		lw = w - rw - 1
 	}
 
-	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, bodyH-2, true, false), lw, bodyH)
+	// On a tall window the list is not given the whole column: under it is what
+	// the stack has been doing, from the journal (boards/W-Home.dc.html).
+	listH, actH := bodyH, 0
+	if bodyH >= 38 {
+		actH = min(max(bodyH/4, 9), 13)
+		listH = bodyH - actH
+	}
+	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, listH-2, true, false), lw, listH)
+	if actH > 0 {
+		left = append(left, box(s.border, s.d.Render("activity"), "", m.activity(lw-4, actH-2), lw, actH)...)
+	}
 	m.hitY0, m.hitX1 = 2, lw // under the header and the box's top border
 
 	v, ok := m.selected()
@@ -724,4 +735,27 @@ func (m *Model) click(at tea.Mouse) {
 		return
 	}
 	m.sel, m.clickName, m.clickAt = name, name, m.now
+}
+
+// activity is the newest of what doze did, newest first, in h lines of w cells:
+// the journal the dash already receives, as the logs tab reads it.
+func (m *Model) activity(w, h int) []string {
+	s := m.st
+	var out []string
+	for i := len(m.events) - 1; i >= 0 && len(out) < h; i-- {
+		e := m.events[i]
+		style := s.a
+		switch e.Kind {
+		case journal.Crash, journal.GiveUp, journal.Failed:
+			style = s.r
+		case journal.Sleep:
+			style = s.d
+		}
+		at := s.d.Render(e.Time.In(m.loc).Format("15:04:05"))
+		out = append(out, at+" "+style.Render(fit("zzz "+e.Instance+" "+display.Event(e), max(w-9, 4))))
+	}
+	if len(out) == 0 {
+		out = append(out, s.d.Render("nothing yet: the stack has not woken or slept anything"))
+	}
+	return out
 }

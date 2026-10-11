@@ -582,3 +582,15 @@ func TestTheListIsCappedOnAWideTerminal(t *testing.T) {
 		t.Errorf("the list ends at column %d on a 300 column terminal, want within %d", end, maxList)
 	}
 }
+
+// On a tall window the list shares its column with what the stack has been doing.
+func TestActivityUnderTheListOnATallWindow(t *testing.T) {
+	m := board()
+	if out := frame(m, 136, 32); strings.Contains(out, "activity") {
+		t.Error("a short window should give the list the whole column")
+	}
+	out := frame(m, 190, 44)
+	if !strings.Contains(out, "activity") || !strings.Contains(out, "zzz cache woke") {
+		t.Errorf("a tall window lacks the activity feed:\n%s", out)
+	}
+}
