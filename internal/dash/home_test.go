@@ -518,3 +518,67 @@ func TestClickingTheStack(t *testing.T) {
 		t.Error("a click on a heading moved the selection")
 	}
 }
+
+// The logs box does not move as the selection moves: the detail above it is one
+// height whichever instance is selected.
+func TestTheRightPaneKeepsItsHeight(t *testing.T) {
+	m := board()
+	at := -1
+	for _, r := range rows(m.snap) {
+		if troubled(r.v) {
+			continue
+		}
+		m.sel = r.v.Name
+		for i, l := range strings.Split(frame(m, 136, 40), "\n") {
+			if strings.Contains(l, "logs · following") {
+				if at >= 0 && i != at {
+					t.Fatalf("with %s selected the logs box starts on line %d, not %d", r.v.Name, i, at)
+				}
+				at = i
+			}
+		}
+	}
+	if at < 0 {
+		t.Fatal("no logs box found")
+	}
+}
+
+// More instances than rows: the list scrolls to keep the selection in view, and
+// a click lands on the row that is drawn there.
+func TestTheListScrollsToTheSelection(t *testing.T) {
+	m := board()
+	var many []control.InstanceView
+	for i := 0; i < 40; i++ {
+		many = append(many, control.InstanceView{Name: fmt.Sprintf("svc%02d", i), Kind: "service", Engine: "process", State: "reaped"})
+	}
+	m.snap.Instances = many
+	m.w, m.h = 136, 20
+	m.sel = "svc39"
+	out := frame(m, 136, 20)
+	if !strings.Contains(out, "svc39") {
+		t.Fatalf("the selected row is not drawn:\n%s", out)
+	}
+	m.sel = "svc00"
+	if out = frame(m, 136, 20); !strings.Contains(out, "svc00") {
+		t.Fatalf("scrolling back up lost the selection:\n%s", out)
+	}
+	// the hit map is for what is drawn
+	for i, n := range m.hit {
+		if n != "" && !strings.Contains(frame(m, 136, 20), n) {
+			t.Errorf("hit line %d names %s, which is not drawn", i, n)
+		}
+	}
+}
+
+// On a wide terminal the list stays as wide as a list needs.
+func TestTheListIsCappedOnAWideTerminal(t *testing.T) {
+	m := board()
+	line := strings.Split(frame(m, 300, 32), "\n")[1] // the boxes' top border
+	end := strings.Index(line, "╮")
+	if end >= 0 {
+		end = width(line[:end]) // cells, not bytes
+	}
+	if end < 0 || end > maxList+1 {
+		t.Errorf("the list ends at column %d on a 300 column terminal, want within %d", end, maxList)
+	}
+}

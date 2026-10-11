@@ -43,6 +43,7 @@ type Model struct {
 	sel          string
 	page         int      // pageHome or pageFocus
 	hit          []string // the instance on each line of the stack, "" for a heading
+	listTop      int      // the first line of the stack shown, when it is longer than its box
 	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
 	clickName    string   // the last row clicked, and when: a second click opens it
 	clickAt      time.Time

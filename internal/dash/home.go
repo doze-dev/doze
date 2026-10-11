@@ -233,6 +233,10 @@ func mem(v control.InstanceView) string {
 // narrow is the width below which Home is one column (Narrow.dc.html).
 const narrow = 100
 
+// maxList is the widest the stack is drawn: a name, a state and a size need no
+// more, and on a wide terminal the rest belongs to the instance on the right.
+const maxList = 56
+
 // View draws Home at w x h.
 func (m *Model) home(w, h int) []string {
 	if w < narrow {
@@ -244,7 +248,7 @@ func (m *Model) home(w, h int) []string {
 	bodyH := h - 2 // the header and the key bar
 	// a third for the list, which says what each is and how it is; the rest is
 	// for the one selected, which has the room for what it runs and how it is doing
-	lw := w / 3
+	lw := min(w/3, maxList)
 	if lw < 40 {
 		lw = 40
 	}
@@ -260,10 +264,14 @@ func (m *Model) home(w, h int) []string {
 	v, ok := m.selected()
 	var top, bottom []string
 	if ok {
-		topLines, caption, rcap, st := m.detail(v, rw-4, bodyH)
-		topH := len(topLines) + 2
-		if topH > bodyH-4 {
-			topH = bodyH - 4
+		// One height for the box whichever instance is selected, so the logs below
+		// do not move as the selection does; a crash is the exception.
+		topH := max(bodyH*55/100, 12)
+		topH = min(topH, bodyH-4)
+		topLines, caption, rcap, st := m.detail(v, rw-4, topH-2)
+		if troubled(v) {
+			// a crash is its own screen (Crash.dc.html): as tall as what went wrong
+			topH = min(len(topLines)+2, bodyH-4)
 		}
 		gap := 0
 		if bodyH-topH > 8 {
@@ -419,6 +427,26 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 		}
 		out, names = append(out, line), append(names, r.v.Name)
 	}
+	if len(out) > h && h > 0 {
+		// more rows than room: a window that keeps the selection in view and
+		// moves only when it must
+		at := 0
+		for i, n := range names {
+			if n == m.sel {
+				at = i
+			}
+		}
+		if at < m.listTop {
+			m.listTop = at
+		}
+		if at >= m.listTop+h {
+			m.listTop = at - h + 1
+		}
+		m.listTop = min(max(m.listTop, 0), len(out)-h)
+		out, names = out[m.listTop:m.listTop+h], names[m.listTop:m.listTop+h]
+	} else {
+		m.listTop = 0
+	}
 	m.hit = names
 	return out
 }
@@ -519,8 +547,9 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
 			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
 		}
-		// as tall as a little over half the pane allows: the logs have the rest
-		rows := min(max((h*55/100-11)/2, 2), 8)
+		// as tall as the box has room for after the lines above: two headings, a
+		// blank between, the axis, and the blank before them are 5 lines
+		rows := min(max((h-len(lines)-5)/2, 2), 10)
 		lines = append(lines, "")
 		lines = append(lines, m.charts(ts, w, rows)...)
 	} else if v.State != "booting" && !troubled(v) {
