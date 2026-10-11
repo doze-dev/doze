@@ -269,7 +269,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 	ks = append(ks, [2]string{":", "command"}, [2]string{"esc", "back to the stack"})
 	var parts []string
 	for _, k := range ks {
-		parts = append(parts, s.key.Render(k[0])+s.d.Render(k[1]))
+		parts = append(parts, s.cap(k[0], k[1]))
 	}
 	line := strings.Join(parts, "  ")
 	if m.notice != "" {
@@ -428,7 +428,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		idle = v.IdleAfter
 	}
 	if idle > 0 && awake(v) {
-		why = append(why, s.d.Render("sleeps "+clock(idle)+" after the last closes · ")+s.key.Render("p")+s.d.Render("pin awake"))
+		why = append(why, s.d.Render("sleeps "+clock(idle)+" after the last closes · ")+s.cap("p", "pin awake"))
 	}
 
 	lw := w * 55 / 100
@@ -448,9 +448,10 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		out = append(out, l[i]+" "+r[i])
 	}
 
-	sw := w - 4 - 7 - 2 - 10
-	if sw > 60 {
-		sw = 60
+	// the chart fills the box, newest at the right edge, the figure under the edge
+	sw := w - 4 - 8 - 2 - 8
+	if sw < 8 {
+		sw = 8
 	}
 	vit := []string{}
 	if awake(v) {
@@ -464,7 +465,17 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	if v.DataDir != "" {
 		vit = append(vit, label("data")+s.d.Render(tilde(v.DataDir)))
 	}
+	gap := 0
+	if h > len(out)+len(vit)+2+8 {
+		gap = 1 // air between the boxes, when there is room
+	}
+	if gap == 1 {
+		out = append(out, "")
+	}
 	out = append(out, box(s.border, s.a.Bold(true).Render("vitals"), "", vit, w, len(vit)+2)...)
+	if gap == 1 {
+		out = append(out, "")
+	}
 
 	rest := h - len(out)
 	if rest >= 3 {
@@ -509,7 +520,7 @@ func (m *Model) lastRun(v control.InstanceView, w, h int) []string {
 		}
 		lines = m.stream(v, h-2, lvDebug, run)
 	} else {
-		lines = []string{s.d.Render("it has not run yet · ") + s.key.Render("r") + s.d.Render("run now")}
+		lines = []string{s.d.Render("it has not run yet · ") + s.cap("r", "run now")}
 	}
 	left := box(s.border, caption, "", lines, lw, h)
 	if rw == 0 {

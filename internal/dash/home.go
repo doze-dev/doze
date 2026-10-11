@@ -242,8 +242,11 @@ func (m *Model) home(w, h int) []string {
 
 	bodyH := h - 2 // the header and the key bar
 	lw := w * 49 / 100
-	if lw < 56 {
-		lw = 56
+	if v, ok := m.selected(); ok && troubled(v) {
+		lw = w * 37 / 100 // Crash.dc.html: the list narrows to give the error room
+	}
+	if lw < 48 {
+		lw = 48
 	}
 	rw := w - lw - 1
 	if rw < 30 {
@@ -251,7 +254,7 @@ func (m *Model) home(w, h int) []string {
 		lw = w - rw - 1
 	}
 
-	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, bodyH-2, true), lw, bodyH)
+	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, bodyH-2, lw >= 60), lw, bodyH)
 
 	v, ok := m.selected()
 	var top, bottom []string
@@ -261,8 +264,15 @@ func (m *Model) home(w, h int) []string {
 		if topH > bodyH-4 {
 			topH = bodyH - 4
 		}
+		gap := 0
+		if bodyH-topH > 8 {
+			gap = 1 // air between the boxes, when there is room
+		}
 		top = box(st, caption, rcap, topLines, rw, topH)
-		bottom = box(s.border, s.d.Render("logs · following"), "", m.logLines(v, rw-4, bodyH-topH-2), rw, bodyH-topH)
+		if gap == 1 {
+			top = append(top, strings.Repeat(" ", rw))
+		}
+		bottom = box(s.border, s.d.Render("logs · following"), "", m.logLines(v, rw-4, bodyH-topH-gap-2), rw, bodyH-topH-gap)
 	} else {
 		top = box(s.border, s.d.Render("nothing selected"), "", nil, rw, bodyH)
 	}
@@ -349,8 +359,14 @@ func (m *Model) stack(w, h int, subtitles bool) []string {
 			stateW = n
 		}
 	}
-	const memW = 7
-	descW := w - 2 - 2 - nameW - 2 - 2 - stateW - 2 - memW - 2 // gaps, padding
+	memW := 7
+	if w < 60 {
+		memW = 0 // the board drops it when the list is narrow
+	}
+	descW := w - 2 - 2 - nameW - 2 - 2 - stateW - 2 - 2 // gaps, padding
+	if memW > 0 {
+		descW -= memW + 2
+	}
 	if descW < 8 {
 		descW = 8
 	}
@@ -374,7 +390,10 @@ func (m *Model) stack(w, h int, subtitles bool) []string {
 		name, what, state, memS := fit(r.v.Name, nameW), fit(m.what(r.v), descW), fit(lk.word, stateW), right(mem(r.v), memW)
 		var line string
 		if r.v.Name == m.sel {
-			line = s.sel.Render(" " + lk.glyph + "  " + s.plainBold(name) + "  " + what + "  " + state + "  " + memS + " ")
+			bg := s.on(lipgloss.NewStyle())
+			gap := bg.Render("  ")
+			line = bg.Render(" ") + s.on(lk.style).Render(lk.glyph) + gap + s.on(s.b).Render(name) + gap + s.on(s.text).Render(what) + gap +
+				s.on(lk.style).Render(state) + gap + s.on(s.w).Render(memS) + bg.Render(" ")
 		} else {
 			nameS := s.w.Render(name)
 			if r.v.State != "active" && r.v.State != "idle" && r.v.State != "booting" && r.v.Kind != "task" {
@@ -391,10 +410,6 @@ func (m *Model) stack(w, h int, subtitles bool) []string {
 	}
 	return out
 }
-
-// plainBold keeps a selected row's name bold without nesting colour codes in
-// the selection's background.
-func (s styles) plainBold(x string) string { return lipgloss.NewStyle().Bold(true).Render(x) }
 
 // detail is the right box's content for the selected instance: its caption,
 // right caption and border, and the rows between (Main.dc.html, api).
@@ -444,7 +459,7 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 				rcap = s.d.Render("next try in ") + s.w.Render(fmt.Sprintf("%d s", int(left.Seconds())))
 			}
 		}
-		lines = append(lines, "")
+		lines = append(lines, "", s.cap("r", "retry now")+"  "+s.cap("l", "full logs"))
 	}
 	if v.Kind == "task" {
 		if v.Task == nil {
@@ -461,6 +476,9 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 		return lines, caption, rcap, border
 	}
 
+	if troubled(v) && v.LastError != "" {
+		return lines, caption, rcap, border
+	}
 	if u := m.url(v); u != "" {
 		lines = append(lines, label("url")+u)
 	}
@@ -534,7 +552,7 @@ func (m *Model) keys(w int) string {
 	for _, k := range []struct{ key, label string }{
 		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {":", "command"}, {"q", "quit"},
 	} {
-		parts = append(parts, s.key.Render(k.key)+s.d.Render(k.label))
+		parts = append(parts, s.cap(k.key, k.label))
 	}
 	line := strings.Join(parts, "  ")
 	if m.notice != "" {

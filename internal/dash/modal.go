@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -40,6 +41,7 @@ type modal struct {
 // action is one row of the palette: a sentence, what to say beside it, the
 // command a shell would use to do the same, and what to do.
 type action struct {
+	rank  int // 0 the selected instance, 1 the whole stack, 2 another instance
 	label string
 	note  string
 	bad   bool // the note is a warning
@@ -51,12 +53,17 @@ type action struct {
 // Each has a command in the CLI: the right column is how a script does it.
 func (m *Model) actions() []action {
 	var out []action
-	add := func(a action) { out = append(out, a) }
+	rank := 2
+	add := func(a action) { a.rank = rank; out = append(out, a) }
 
 	forInstance := func(v control.InstanceView) {
 		n := v.Name
 		if v.Kind == "task" {
-			add(action{label: "run task " + n, cli: "doze task " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbTask, n) }})
+			verb := "run task "
+			if v.Task != nil {
+				verb = "rerun task "
+			}
+			add(action{label: verb + n, cli: "doze task " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbTask, n) }})
 		} else {
 			if !awake(v) {
 				add(action{label: "wake " + n, cli: "doze wake " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, n) }})
@@ -89,16 +96,21 @@ func (m *Model) actions() []action {
 	}
 
 	rs := rows(m.snap)
+	rank = 0
 	if v, ok := m.selected(); ok {
 		forInstance(v)
 	}
+	rank = 1
 	add(action{label: "wake everything", cli: "doze wake", run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, "") }})
 	add(action{label: "sleep everything that is awake", cli: "doze sleep", run: func(m *Model) tea.Cmd { return m.do(control.VerbSleep, "") }})
 	add(action{label: "bring the stack up", cli: "doze up", run: func(m *Model) tea.Cmd { return m.do(control.VerbUp, "") }})
 	add(action{label: "apply the changes in doze.hcl", cli: "doze sync", run: func(m *Model) tea.Cmd { return m.do(control.VerbSync, "") }})
-	for _, r := range rs {
-		if r.v.Name != m.sel {
-			forInstance(r.v)
+	rank = 2
+	for _, awakeFirst := range []bool{true, false} {
+		for _, r := range rs {
+			if r.v.Name != m.sel && awake(r.v) == awakeFirst {
+				forInstance(r.v)
+			}
 		}
 	}
 	return out
@@ -159,13 +171,32 @@ type hit struct {
 
 func (m *Model) hits() []hit {
 	var out []hit
+	seen := map[string]bool{}
 	for _, a := range m.actions() {
+		// A couple of letters match one verb on every instance; the first of
+		// each is enough until the person says which.
+		if verb, _, _ := strings.Cut(a.label, " "); a.rank == 2 && len(m.modal.input) < 3 {
+			if seen[verb] {
+				continue
+			}
+			seen[verb] = true
+		}
+		// With nothing typed the palette offers what is at hand: the selected
+		// instance and the stack. Typing reaches every instance.
+		if m.modal.input == "" && a.rank > 1 {
+			continue
+		}
 		if at, ok := match(m.modal.input, a.label); ok {
 			out = append(out, hit{a, at})
 		}
 	}
 	if m.modal.input != "" {
-		sort.SliceStable(out, func(i, j int) bool { return score(out[i].at) < score(out[j].at) })
+		sort.SliceStable(out, func(i, j int) bool {
+			if si, sj := score(out[i].at), score(out[j].at); si != sj {
+				return si < sj
+			}
+			return out[i].a.rank < out[j].a.rank
+		})
 	}
 	return out
 }
@@ -371,14 +402,27 @@ func (m *Model) withModal(base []string, w, h int) []string {
 	if x < 0 {
 		x = 0
 	}
-	y := 3
-	if y+len(box) > h {
-		y = h - len(box)
+	y := (h - len(box)) / 3
+	if m.modal.kind == modalPalette {
+		y = 4
+	}
+	if y+len(box) > h-1 {
+		y = h - 1 - len(box)
 	}
 	if y < 0 {
 		y = 0
 	}
-	return overlay(m.dim(base), box, x, y)
+	out := overlay(base, box, x, y)
+	// A confirmation's keys replace the page's in the bar along the bottom, dim,
+	// as on the boards.
+	if m.modal.kind != modalPalette && len(out) > 0 {
+		f := fadedStyles(m.st.plain)
+		out[len(out)-1] = f.cap("←→", "choose") + "  " + f.cap("⏎", "confirm") + "  " + f.cap("esc", "cancel")
+		if m.modal.kind == modalReset {
+			out[len(out)-1] = f.cap("tab", "buttons") + "  " + f.cap("⏎", "confirm") + "  " + f.cap("esc", "cancel")
+		}
+	}
+	return out
 }
 
 func (m *Model) paletteBox(w, h int) []string {
@@ -397,8 +441,8 @@ func (m *Model) paletteBox(w, h int) []string {
 		md.pick = 0
 	}
 	room := h - 10
-	if room > 14 {
-		room = 14
+	if room > 8 {
+		room = 8
 	}
 	if room < 3 {
 		room = 3
@@ -423,32 +467,36 @@ func (m *Model) paletteBox(w, h int) []string {
 	}
 	for i := first; i < len(hs) && i < first+room; i++ {
 		h := hs[i]
-		label := highlight(s, h.a.label, h.at)
+		picked := i == md.pick
+		paint := func(st lipgloss.Style) lipgloss.Style {
+			if picked {
+				return s.on(st)
+			}
+			return st
+		}
+		label := highlight(s, h.a.label, h.at, picked)
 		if h.a.note != "" {
 			ns := s.d
 			if h.a.bad {
 				ns = s.r
 			}
-			label += " " + ns.Render(h.a.note)
+			label += paint(lipgloss.NewStyle()).Render(" ") + paint(ns).Render(h.a.note)
 		}
-		cli := s.d.Render(fit(h.a.cli, cliW))
-		mark := "  "
-		if i == md.pick {
-			mark = s.a.Render("▸") + " "
+		cli := paint(s.d).Render(fit(h.a.cli, cliW))
+		mark := paint(lipgloss.NewStyle()).Render("  ")
+		if picked {
+			mark = s.on(s.a).Render("▸") + s.on(lipgloss.NewStyle()).Render(" ")
 		}
 		gap := inner - 2 - width(label) - cliW
 		if gap < 1 {
 			gap = 1
 		}
-		line := mark + label + strings.Repeat(" ", gap) + cli
-		if i == md.pick {
-			line = s.sel.Render(ansi.Strip(line))
-		}
+		line := mark + label + paint(lipgloss.NewStyle()).Render(strings.Repeat(" ", gap)) + cli
 		lines = append(lines, line)
 	}
 	lines = append(lines, s.border.Render(strings.Repeat("─", inner)))
 	foot := s.d.Render("Every row is a shell command. The right column shows it.")
-	keys := s.key.Render("⏎") + s.d.Render("run") + "  " + s.key.Render("tab") + s.d.Render("copy command")
+	keys := s.cap("⏎", "run") + "  " + s.cap("tab", "copy command")
 	gap := inner - width(foot) - width(keys)
 	if gap < 1 {
 		gap = 1
@@ -457,17 +505,21 @@ func (m *Model) paletteBox(w, h int) []string {
 	return box(s.borderOn, "", "", lines, bw, len(lines)+2)
 }
 
-func highlight(s styles, label string, at []int) string {
+func highlight(s styles, label string, at []int, picked bool) string {
 	set := map[int]bool{}
 	for _, p := range at {
 		set[p] = true
 	}
+	hit, rest := s.a.Bold(true), s.text
+	if picked {
+		hit, rest = s.on(hit), s.on(rest)
+	}
 	var b strings.Builder
 	for i, r := range []rune(label) {
 		if set[i] {
-			b.WriteString(s.a.Bold(true).Render(string(r)))
+			b.WriteString(hit.Render(string(r)))
 		} else {
-			b.WriteString(s.text.Render(string(r)))
+			b.WriteString(rest.Render(string(r)))
 		}
 	}
 	return b.String()
@@ -505,23 +557,23 @@ func (m *Model) sleepBox(w int) []string {
 	}
 	label := func(k string) string { return s.d.Render(fit(k, 13)) + " " }
 	var lines []string
-	var who []string
-	for _, d := range dependants(v) {
-		who = append(who, s.w.Render(d)+" is running and needs it")
-	}
 	conns := 0
 	for _, h := range v.Holders {
 		if h.Kind == "connection" {
 			conns = h.Count
 		}
 	}
-	if conns > 0 {
-		who = append(who, fmt.Sprintf("%s open to it right now", s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns)))))
+	deps := dependants(v)
+	var sentence string
+	switch {
+	case len(deps) > 0 && conns > 0:
+		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it, and " + s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " are open to it right now."
+	case len(deps) > 0:
+		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it."
+	default:
+		sentence = s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " open to it right now."
 	}
-	for _, l := range who {
-		lines = append(lines, s.text.Render(l))
-	}
-	lines = append(lines, "",
+	lines = append(lines, "", s.text.Render(sentence), "",
 		label("what happens")+s.text.Render("Connections drop. The next connection wakes it again,"),
 		label("")+s.text.Render("so it is back within seconds unless what uses it sleeps too."),
 		label("data")+s.text.Render("Kept. Nothing is deleted."),
@@ -530,7 +582,7 @@ func (m *Model) sleepBox(w int) []string {
 		"",
 		s.border.Render(strings.Repeat("─", bw-4)),
 		s.d.Render("doze only asks when something else is affected. Sleeping an idle service never asks."),
-		s.key.Render("←→")+s.d.Render("choose")+"  "+s.key.Render("⏎")+s.d.Render("confirm")+"  "+s.key.Render("esc")+s.d.Render("cancel"),
+		"",
 	)
 	return box(s.borderOn, s.a.Bold(true).Render("sleep "+v.Name+"?"), "", lines, bw, len(lines)+2)
 }

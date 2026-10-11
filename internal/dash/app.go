@@ -26,7 +26,7 @@ type Options struct {
 
 // samples is how many meter readings are kept per instance, for the
 // sparklines.
-const samples = 60
+const samples = 240
 
 // Model is the dash: the stack as the daemon last said it, what is selected,
 // and the page on top (only Home so far).
@@ -345,7 +345,14 @@ func (m *Model) Render(w, h int) string {
 	if m.page == pageFocus {
 		page = m.focus
 	}
-	lines := m.withModal(page(w, h), w, h)
+	base := page(w, h)
+	if m.modal != nil {
+		saved := m.st
+		m.st = fadedStyles(saved.plain)
+		base = page(w, h)
+		m.st = saved
+	}
+	lines := m.withModal(base, w, h)
 	for i, l := range lines {
 		if width(l) > w {
 			lines[i] = ansi.Truncate(l, w, "…")

@@ -306,7 +306,7 @@ func TestSleepInUseAsksFirst(t *testing.T) {
 	if os.Getenv("DOZE_SHOW") != "" {
 		fmt.Println(got)
 	}
-	for _, want := range []string{"sleep db?", "api is running and needs it", "4 connections open to it right now", "Kept. Nothing is deleted.",
+	for _, want := range []string{"sleep db?", "api is running and needs it, and 4 connections are open to it right now.", "Kept. Nothing is deleted.",
 		"Sleep db and api", "Sleep db only", "Cancel", "Sleeping an idle service never asks"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Confirm-Sleep lacks %q", want)
@@ -409,4 +409,52 @@ func TestEveryFrameIsExactlyTheWidthAsked(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestShots writes the coloured frame of each screen, for scripts/shot.ts to
+// draw. It does nothing unless DOZE_SHOT_DIR is set.
+func TestShots(t *testing.T) {
+	dir := os.Getenv("DOZE_SHOT_DIR")
+	if dir == "" {
+		t.Skip("DOZE_SHOT_DIR is not set")
+	}
+	write := func(name string, m *Model, w, h int) {
+		m.st = newStyles(false)
+		if err := os.WriteFile(dir+"/"+name+".ans", []byte(m.Render(w, h)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 136 x 42 cells is 1200 x 760 px at 14px type and a 17px line.
+	write("home", board(), 136, 42)
+	write("focus-db", focused("db"), 136, 42)
+	write("focus-api", focused("api"), 136, 42)
+	write("focus-task", focused("migrate"), 136, 42)
+	write("focus-web", focused("mailpit"), 136, 42)
+	cr := board()
+	for i := range cr.snap.Instances {
+		if cr.snap.Instances[i].Name == "api" {
+			v := &cr.snap.Instances[i]
+			v.State, v.RAM, v.PID = "crashing", 0, 0
+			v.LastError = "panic: STRIPE_KEY is required\n  main.loadConfig  cmd/api/config.go:41"
+			v.RestartCount, v.RestartMax, v.NextRestart = 3, 5, epoch.Add(4*time.Second)
+		}
+	}
+	write("crash", cr, 136, 42)
+	pal := board()
+	pal.key(":")
+	typeText(pal, "re")
+	write("palette", pal, 136, 42)
+	slp := board()
+	for i := range slp.snap.Instances {
+		if slp.snap.Instances[i].Name == "db" {
+			slp.snap.Instances[i].Holders = []control.HolderView{{Kind: "dependant", Name: "api"}, {Kind: "connection", Count: 4}}
+		}
+	}
+	slp.sel = "db"
+	slp.key("s")
+	write("sleep", slp, 136, 42)
+	rst := focused("db")
+	rst.modal = &modal{kind: modalReset, target: "db", btn: 1}
+	write("reset", rst, 136, 42)
+	write("narrow", board(), 80, 30)
 }

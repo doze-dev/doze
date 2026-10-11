@@ -8,6 +8,7 @@
 package dash
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -32,7 +33,8 @@ const (
 // styles are the board's classes: a g y c r d w are the colour classes, b is
 // bold bright, and the pills and key caps are their own.
 type styles struct {
-	plain bool
+	plain  bool
+	selHex string
 
 	text, a, g, y, c, r, d, w, b lipgloss.Style
 	border, borderOn, borderBad  lipgloss.Style
@@ -42,19 +44,39 @@ type styles struct {
 	key                          lipgloss.Style
 }
 
-func newStyles(plain bool) styles {
+func newStyles(plain bool) styles { return build(plain, func(h string) string { return h }) }
+
+// fadedStyles are the same colours at a third of their strength, for the page
+// behind a modal: the board dims it, it does not grey it out.
+func fadedStyles(plain bool) styles {
+	return build(plain, func(h string) string { return mix(h, hexBg, 0.32) })
+}
+
+// mix is fg at alpha over bg, as hex.
+func mix(fg, bg string, alpha float64) string {
+	var f, b [3]int
+	fmt.Sscanf(fg, "#%02x%02x%02x", &f[0], &f[1], &f[2])
+	fmt.Sscanf(bg, "#%02x%02x%02x", &b[0], &b[1], &b[2])
+	var o [3]int
+	for i := range o {
+		o[i] = int(float64(f[i])*alpha + float64(b[i])*(1-alpha))
+	}
+	return fmt.Sprintf("#%02x%02x%02x", o[0], o[1], o[2])
+}
+
+func build(plain bool, tint func(string) string) styles {
 	fg := func(hex string) lipgloss.Style {
 		if plain {
 			return lipgloss.NewStyle()
 		}
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(tint(hex)))
 	}
 	pill := func(bg, fgHex string) lipgloss.Style {
 		s := lipgloss.NewStyle().Bold(true).Padding(0, 1)
 		if plain {
 			return s.Reverse(true)
 		}
-		return s.Background(lipgloss.Color(bg)).Foreground(lipgloss.Color(fgHex))
+		return s.Background(lipgloss.Color(tint(bg))).Foreground(lipgloss.Color(tint(fgHex)))
 	}
 	s := styles{plain: plain}
 	s.text, s.a, s.g, s.y, s.c = fg(hexText), fg(hexAccent), fg(hexGood), fg(hexWarn), fg(hexCool)
@@ -67,10 +89,11 @@ func newStyles(plain bool) styles {
 	s.pillQ = lipgloss.NewStyle().Padding(0, 1)
 	s.pillOn = lipgloss.NewStyle().Bold(true).Padding(0, 1)
 	if !plain {
-		s.pillOn = s.pillOn.Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexAccent))
-		s.pillQ = s.pillQ.Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexText))
-		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexBright))
-		s.key = lipgloss.NewStyle().Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexBright)).Padding(0, 1)
+		s.pillOn = s.pillOn.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexAccent)))
+		s.pillQ = s.pillQ.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexText)))
+		s.selHex = tint(hexSel)
+		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(s.selHex)).Foreground(lipgloss.Color(tint(hexBright)))
+		s.key = lipgloss.NewStyle().Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexBright))).Padding(0, 1)
 	} else {
 		s.sel = lipgloss.NewStyle().Reverse(true)
 		s.key = lipgloss.NewStyle().Bold(true).Padding(0, 1)
@@ -149,6 +172,15 @@ func spark(vs []float64, w int) string {
 	if len(vs) > w {
 		vs = vs[len(vs)-w:]
 	}
+	// Fewer readings than cells: spread what there is across the width, as the
+	// boards draw a chart that fills its box.
+	if len(vs) < w {
+		filled := make([]float64, w)
+		for i := range filled {
+			filled[i] = vs[i*len(vs)/w]
+		}
+		vs = filled
+	}
 	blocks := []rune("▁▂▃▄▅▆▇█")
 	lo, hi := vs[0], vs[0]
 	for _, v := range vs {
@@ -167,5 +199,20 @@ func spark(vs []float64, w int) string {
 		}
 		b.WriteRune(blocks[i])
 	}
-	return b.String() + strings.Repeat(" ", w-len(vs))
+	return strings.Repeat(" ", w-len(vs)) + b.String()
+}
+
+// on draws st on the selection's background, so a selected row keeps each
+// part's colour across the whole row (a reset inside a styled string would
+// otherwise end the highlight there).
+func (s styles) on(st lipgloss.Style) lipgloss.Style {
+	if s.plain {
+		return st.Reverse(true)
+	}
+	return st.Background(lipgloss.Color(s.selHex))
+}
+
+// cap is a key cap and its label, a cell apart as on the boards.
+func (s styles) cap(k, label string) string {
+	return s.key.Render(k) + " " + s.d.Render(label)
 }
