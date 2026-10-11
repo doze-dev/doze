@@ -139,6 +139,20 @@ func specView(s engine.ConsoleSpec) *control.ConsoleSpec {
 		}
 		out.Panels = append(out.Panels, pv)
 	}
+	for _, t := range s.Tabs {
+		out.Tabs = append(out.Tabs, control.ConsoleTab{ID: t.ID, Title: t.Title, Body: nodeView(t.Body)})
+	}
+	for _, e := range s.Extend {
+		out.Extend = append(out.Extend, control.ConsoleExtension{After: e.After, Node: nodeView(e.Node)})
+	}
+	return out
+}
+
+func nodeView(n engine.Node) control.ConsoleNode {
+	out := control.ConsoleNode{Kind: n.Kind, ID: n.ID, Title: n.Title, Weight: n.Weight, Panel: n.Panel, From: n.From, Text: n.Text, Actions: n.Actions}
+	for _, c := range n.Children {
+		out.Children = append(out.Children, nodeView(c))
+	}
 	return out
 }
 

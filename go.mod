@@ -8,7 +8,7 @@ require (
 	github.com/agext/levenshtein v1.2.1
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.9
-	github.com/doze-dev/doze-sdk v0.7.1-0.20261010144935-0d68bd5db525
+	github.com/doze-dev/doze-sdk v0.7.1-0.20261011115308-2d4149e9cb38
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.10.2

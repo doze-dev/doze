@@ -35,3 +35,22 @@ func TestAModuleThatExposesItsUIIsOpenable(t *testing.T) {
 		t.Errorf("uiURL for a module with no attributes = %q, want none", got)
 	}
 }
+
+func TestAPublishedLayoutReachesTheDash(t *testing.T) {
+	in := engine.ConsoleSpec{
+		Panels: []engine.Panel{{ID: "sessions", Kind: "table"}},
+		Tabs: []engine.Tab{{ID: "activity", Title: "activity", Body: engine.Node{Kind: "row", Children: []engine.Node{
+			{Kind: "table", Panel: "sessions", Weight: 2},
+			{Kind: "detail", Panel: "sessions", From: "sessions"},
+		}}}},
+		Extend: []engine.Extension{{After: "vitals", Node: engine.Node{Kind: "table", Panel: "databases"}}},
+	}
+	out := specView(in)
+	if len(out.Tabs) != 1 || out.Tabs[0].ID != "activity" || len(out.Tabs[0].Body.Children) != 2 ||
+		out.Tabs[0].Body.Children[0].Weight != 2 || out.Tabs[0].Body.Children[1].From != "sessions" {
+		t.Errorf("tabs = %+v", out.Tabs)
+	}
+	if len(out.Extend) != 1 || out.Extend[0].After != "vitals" || out.Extend[0].Node.Panel != "databases" {
+		t.Errorf("extend = %+v", out.Extend)
+	}
+}
