@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/zclconf/go-cty/cty"
+
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
@@ -78,8 +80,8 @@ func (h *handler) snapshot() []control.InstanceView {
 		}
 		v.Task = h.taskView(decl)
 		h.hydrateDecl(&v, decl)
-		h.hydrateConsole(&v, decl)
 		h.hydrateEndpoint(&v, eps[decl.Name])
+		h.hydrateConsole(&v, decl)
 		v.DataDir = h.dataDir(decl.Name)
 		out = append(out, v)
 	}
@@ -102,10 +104,26 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 	}
 	v.Disabled = decl != nil && !decl.Enabled
 	v.Holders = h.holders(inst.Name)
-	h.hydrateConsole(&v, decl)
 	h.hydrateEndpoint(&v, eps[inst.Name])
+	h.hydrateConsole(&v, decl)
 	v.DataDir = h.dataDir(inst.Name)
 	return v
+}
+
+// uiURL is the address of a module's own web UI, for the modules that expose it as
+// the attribute ui_url (temporal does). A module that describes a console takes
+// precedence; this is the cheap way to say "it ships a good one, open it".
+func uiURL(drv engine.Driver, decl *config.InstanceDecl, endpoint string) string {
+	a, ok := drv.(engine.Attributer)
+	if !ok {
+		return ""
+	}
+	ep := engine.Endpoint{TCPAddr: endpoint}
+	inst := engine.Instance{Name: decl.Name, Type: decl.Type, Version: decl.Version, Endpoint: ep, Spec: decl.Spec}
+	if v, ok := a.Attributes(inst, ep)["ui_url"]; ok && v.IsKnown() && !v.IsNull() && v.Type() == cty.String {
+		return v.AsString()
+	}
+	return ""
 }
 
 // hydrateDecl adds what the declaration says: the command line, and what the
@@ -473,5 +491,8 @@ func (h *handler) hydrateConsole(v *control.InstanceView, decl *config.InstanceD
 			}
 			v.WebURL = strings.ReplaceAll(spec.WebURL, "{address}", addr)
 		}
+	}
+	if v.WebURL == "" && v.Console == "" {
+		v.WebURL = uiURL(drv, decl, v.Endpoint)
 	}
 }

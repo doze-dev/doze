@@ -101,3 +101,46 @@ func Crash(now time.Time) *fakedaemon.Fake {
 	}
 	return f
 }
+
+// Modules is a stack of one of each kind of database module, as the daemon
+// describes them: valkey, postgres, ferret (MongoDB wire), temporal (which
+// ships a web UI) and mariadb. The connection strings and variables are the
+// ones the modules produce.
+func Modules(now time.Time) *fakedaemon.Fake {
+	ago := func(d time.Duration) time.Time { return now.Add(-d) }
+	f := &fakedaemon.Fake{Hold: true}
+	f.Snap = control.Snapshot{Stack: "data", Dir: "~/code/data", IdleTimeout: 5 * time.Minute, Instances: []control.InstanceView{
+		{Name: "cache", Kind: "module", Engine: "valkey", Version: "9", State: "idle", RAM: 11 << 20, CPU: 0.2, PID: 701, Conns: 0,
+			StartedAt: ago(9 * time.Minute), IdleSince: ago(100 * time.Second), URL: "redis://cache.data.doze:6379/0", EnvVar: "REDIS_URL",
+			Domain: "cache.data.doze", Endpoint: "127.0.0.1:6379", Bind: "127.0.0.1:6379", DataDir: "~/.doze/data/cache"},
+		{Name: "db", Kind: "module", Engine: "postgres", Version: "17", State: "active", RAM: 96 << 20, CPU: 0.8, PID: 612, Conns: 3,
+			StartedAt: ago(9 * time.Minute), URL: "postgres://postgres@db.data.doze:5432/db?sslmode=disable", EnvVar: "DATABASE_URL",
+			Domain: "db.data.doze", Endpoint: "127.0.0.1:5432", Bind: "127.0.0.1:5432", DataDir: "~/.doze/data/db",
+			Holders: []control.HolderView{{Kind: "connection", Count: 3}}},
+		{Name: "docs", Kind: "module", Engine: "ferret", Version: "2", State: "reaped", URL: "mongodb://docs.data.doze:27017/", EnvVar: "MONGODB_URI",
+			Domain: "docs.data.doze", Endpoint: "127.0.0.1:27017", DataDir: "~/.doze/data/docs"},
+		{Name: "flows", Kind: "module", Engine: "temporal", Version: "1.1", State: "active", RAM: 148 << 20, CPU: 1.4, PID: 733, Conns: 1,
+			StartedAt: ago(4 * time.Minute), URL: "flows.data.doze:7233", EnvVar: "TEMPORAL_ADDRESS", Domain: "flows.data.doze",
+			Endpoint: "127.0.0.1:7233", Bind: "127.0.0.1:7233", WebURL: "http://127.0.0.1:8233", DataDir: "~/.doze/data/flows",
+			Holders: []control.HolderView{{Kind: "connection", Count: 1}}},
+		{Name: "legacy", Kind: "module", Engine: "mariadb", Version: "11.4", State: "reaped", URL: "mysql://root@legacy.data.doze:3306/legacy", EnvVar: "DATABASE_URL",
+			Domain: "legacy.data.doze", Endpoint: "127.0.0.1:3306", DataDir: "~/.doze/data/legacy"},
+	}}
+	for i := 0; i < 60; i++ {
+		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicStats, Stats: []control.StatView{
+			{Name: "db", PID: 612, RAM: int64(90+i/10) << 20, CPU: float64(1+i%4) / 2, Conns: 2 + i/30},
+			{Name: "cache", PID: 701, RAM: 11 << 20, CPU: float64(i%3) / 10},
+			{Name: "flows", PID: 733, RAM: int64(140+i/8) << 20, CPU: float64(1+i%3) / 2, Conns: 1},
+		}})
+	}
+	line := func(inst string, d time.Duration, s string) {
+		l := control.LogFrame{Instance: inst, Line: s, Time: ago(d), Run: 1}
+		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicLogs, Log: &l})
+	}
+	line("db", 9*time.Minute, "LOG: database system is ready to accept connections")
+	line("db", 2*time.Minute, "LOG: checkpoint complete: wrote 41 buffers")
+	line("cache", 9*time.Minute, "Ready to accept connections tcp")
+	line("flows", 4*time.Minute, "INFO Temporal server started address=127.0.0.1:7233")
+	line("flows", 4*time.Minute, "INFO Web UI listening on http://127.0.0.1:8233")
+	return f
+}

@@ -54,6 +54,11 @@ var scenes = []scene{
 	{name: "focus-db", board: "Focus", fixture: "shop", keys: cat(downs(5), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "focus-task", board: "View-Task", fixture: "shop", keys: cat(downs(10), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "focus-web", board: "View-Web", fixture: "shop", keys: cat(downs(7), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	// the data modules: cache=0 db=1 docs=2 flows=3 legacy=4
+	{name: "focus-valkey", board: "Focus", fixture: "modules", keys: []string{"enter"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-ferret", board: "Focus", fixture: "modules", keys: cat(downs(2), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-temporal", board: "View-Web", fixture: "modules", keys: cat(downs(3), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
+	{name: "focus-mariadb", board: "Focus", fixture: "modules", keys: cat(downs(4), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
@@ -87,6 +92,8 @@ func host(args []string) {
 	switch fixtureName {
 	case "crash":
 		d = fixture.Crash(epoch)
+	case "modules":
+		d = fixture.Modules(epoch)
 	default:
 		d = fixture.Shop(epoch)
 	}

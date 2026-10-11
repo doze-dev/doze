@@ -46,7 +46,9 @@ func tabs(v control.InstanceView) []tab {
 	switch {
 	case v.Kind == "task":
 		return []tab{{tabLastRun, "last run"}}
-	case hasWeb(v) && v.Kind != "module" && v.Kind != "":
+	case hasWeb(v):
+		// ViewMap.dc.html: a module that ships a good UI (temporal) and a service
+		// that was told where its own is both open on it.
 		return []tab{{tabWeb, "web console"}, {tabLogs, "logs"}}
 	case v.Kind == "module" || v.Kind == "":
 		return []tab{{tabOverview, "overview"}, {tabLogs, "logs"}}
@@ -568,8 +570,13 @@ func (m *Model) web(v control.InstanceView, w, h int) []string {
 	out := box(s.borderOn, s.a.Bold(true).Render(v.Name+" has its own console"), "", top, w, len(top)+2)
 
 	var facts []string
-	if a := address(v); a != "" {
+	if v.URL != "" {
+		facts = append(facts, label("connect")+s.w.Render(v.URL))
+	} else if a := address(v); a != "" {
 		facts = append(facts, label("address")+s.w.Render(a))
+	}
+	if v.EnvVar != "" {
+		facts = append(facts, label("env")+s.text.Render(v.EnvVar))
 	}
 	var users []string
 	for _, o := range m.snap.Instances {
