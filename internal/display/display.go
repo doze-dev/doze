@@ -117,7 +117,8 @@ func Event(e journal.Event) string {
 	switch e.Kind {
 	case journal.Wake:
 		s := "woke" + because
-		if e.Detail != "" {
+		// the detail is often the cause again ("asked for"): say it once
+		if e.Detail != "" && !strings.Contains(because, e.Detail) {
 			s += " — " + e.Detail
 		}
 		return s

@@ -9,6 +9,7 @@ package dash
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -270,3 +271,5 @@ func (s styles) on(st lipgloss.Style) lipgloss.Style {
 func (s styles) cap(k, label string) string {
 	return s.key.Render(k) + " " + s.d.Render(label)
 }
+
+func lipglossColor(hex string) color.Color { return lipgloss.Color(hex) }

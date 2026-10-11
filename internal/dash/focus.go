@@ -171,10 +171,7 @@ func (m *Model) stream(v control.InstanceView, h, min int, onlyRun int) []string
 	}
 	out := make([]string, 0, len(items))
 	for _, it := range items {
-		stamp := "        "
-		if !it.at.IsZero() {
-			stamp = it.at.In(m.loc).Format("15:04:05")
-		}
+		stamp := m.stamp(it.at)
 		out = append(out, s.d.Render(stamp)+" "+it.text)
 	}
 	return out
@@ -293,7 +290,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 		if m.searching {
 			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 		}
-		ks = append(ks, [2]string{"/", "search"})
+		ks = append(ks, [2]string{"/", "search"}, [2]string{"t", "time"})
 		if len(m.runIDs()) > 1 {
 			ks = append(ks, [2]string{"[ ]", "earlier runs"})
 		}
@@ -777,6 +774,11 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	case "f":
 		m.level = (m.level + 1) % len(levelNames)
 		return nil, true
+	case "t":
+		if ts[m.tab].id == tabLogs {
+			m.timeRel = !m.timeRel
+			return nil, true
+		}
 	case "o":
 		if hasWeb(v) {
 			return openURL(webURL(v)), true
@@ -978,4 +980,24 @@ func (m *Model) taskOf(name string) *control.TaskView {
 		return v.Task
 	}
 	return nil
+}
+
+// stamp is a log line's time, as the clock or as how long ago, in 8 cells.
+func (m *Model) stamp(at time.Time) string {
+	if at.IsZero() {
+		return "        "
+	}
+	if !m.timeRel {
+		return at.In(m.loc).Format("15:04:05")
+	}
+	d := m.now.Sub(at)
+	switch {
+	case d < 2*time.Second:
+		return right("now", 8)
+	case d < time.Minute:
+		return right(fmt.Sprintf("-%ds", int(d.Seconds())), 8)
+	case d < time.Hour:
+		return right(fmt.Sprintf("-%dm %02ds", int(d.Minutes()), int(d.Seconds())%60), 8)
+	}
+	return right("-"+ago(d), 8)
 }

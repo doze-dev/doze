@@ -52,6 +52,7 @@ type Model struct {
 	all          []control.LogFrame // the stack's lines, for the logs page
 	allCancel    context.CancelFunc
 	paused       bool   // the logs page holds still
+	timeRel      bool   // t: log times as how long ago, not the clock
 	searching    bool   // the search is being typed
 	runSel       int    // [ ]: the run of the logs tab, 0 for all of them
 	query        string // the search while the logs tab is drawing

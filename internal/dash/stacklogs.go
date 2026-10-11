@@ -67,6 +67,9 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 	case "f":
 		m.level = (m.level + 1) % len(levelNames)
 		return nil, true
+	case "t":
+		m.timeRel = !m.timeRel
+		return nil, true
 	case " ", "space":
 		m.paused = !m.paused
 		return nil, true
@@ -158,7 +161,7 @@ func (m *Model) stackLines(n int) []string {
 		if i, ok := names[it.inst]; ok && !s.plain {
 			src = m.segStyle(i).Render(fit(it.inst, nameW))
 		}
-		out = append(out, s.d.Render(it.at.In(m.loc).Format("15:04:05"))+" "+src+" "+it.text)
+		out = append(out, s.d.Render(m.stamp(it.at))+" "+src+" "+it.text)
 	}
 	return out
 }
@@ -199,7 +202,7 @@ func (m *Model) stackLogs(w, h int) []string {
 	if m.searching {
 		keys = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 	} else {
-		ks := [][2]string{{"/", "search"}, {"f", "level"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
+		ks := [][2]string{{"/", "search"}, {"f", "level"}, {"t", "time"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
 		var parts []string
 		for _, k := range ks {
 			parts = append(parts, s.cap(k[0], k[1]))
