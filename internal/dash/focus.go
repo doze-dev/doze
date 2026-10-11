@@ -283,6 +283,11 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 	if cur.id != tabLogs && v.Kind != "task" {
 		ks = append(ks, [2]string{"l", "logs"})
 	}
+	if cur.id == tabLogs {
+		ks = append(ks, [2]string{"y", "copy lines"})
+	} else if m.url(v) != "" {
+		ks = append(ks, [2]string{"y", "copy address"})
+	}
 	if cur.id == tabOverview && awake(v) {
 		if m.metrics {
 			ks = append(ks, [2]string{"m", "tiles"})
@@ -392,26 +397,18 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			run = append(run, "")
 		}
 	}
+	// the levels are a line, not a panel: what the filter (f) is choosing between
+	levels := s.d.Render("levels ") + s.r.Render(fmt.Sprintf("%d err", counts[lvError])) + s.d.Render(" · ") +
+		s.y.Render(fmt.Sprintf("%d warn", counts[lvWarn])) + s.d.Render(" · ") + s.c.Render(fmt.Sprintf("%d info", counts[lvInfo]))
+	if counts[lvDebug] > 0 {
+		levels += s.d.Render(fmt.Sprintf(" · %d debug hidden", counts[lvDebug]))
+	}
+	run = append(run, levels)
+	if untagged > 0 {
+		run = append(run, s.d.Render(fmt.Sprintf("%d lines carry no level", untagged)))
+	}
 	if len(run) > 0 {
 		col = append(col, box(s.border, s.a.Bold(true).Render("this run"), "", run, rw, len(run)+2)...)
-	}
-	rest := h - len(col)
-	if rest >= 3 {
-		bar := func(tag string, st func(...string) string, c int) string {
-			cells := c
-			if cells > rw-4-5-6 {
-				cells = rw - 4 - 5 - 6
-			}
-			return st(tag) + " " + st(strings.Repeat("▇", cells)) + strings.Repeat(" ", rw-4-4-cells-5) + right(s.d.Render(fmt.Sprint(c)), 5)
-		}
-		lv := []string{
-			bar("ERR", s.r.Render, counts[lvError]),
-			bar("WRN", s.y.Render, counts[lvWarn]),
-			bar("INF", s.c.Render, counts[lvInfo]),
-			s.d.Render("DBG") + " " + s.d.Render(fit("hidden", rw-4-4-5)) + right(s.d.Render(fmt.Sprint(counts[lvDebug])), 5),
-			s.d.Render(fit("no level in the line", rw-4-5)) + right(s.d.Render(fmt.Sprint(untagged)), 5),
-		}
-		col = append(col, box(s.border, s.a.Bold(true).Render("levels"), "", lv, rw, rest)...)
 	}
 	for len(col) < h {
 		col = append(col, strings.Repeat(" ", rw))
@@ -758,6 +755,11 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	case "m":
 		m.metrics = !m.metrics
 		return nil, true
+	case "y":
+		if ts[m.tab].id == tabLogs {
+			return m.yankLines(v), true
+		}
+		return m.yankURL(v), true
 	case "p":
 		if v.Kind == "module" || v.Kind == "" {
 			return m.verb(control.VerbPin), true

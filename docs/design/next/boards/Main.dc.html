@@ -9,7 +9,7 @@
 <body>
 <x-dc>
 <helmet>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&amp;display=swap" rel="stylesheet">
 <style>
 body{margin:0}
 </style>
@@ -27,25 +27,25 @@ body{margin:0}
 
 <div class="row grow">
 
-<div class="box on" style="width: 396px">
+<div class="box on" style="width: 590px">
 <div class="cap a b">stack</div>
-<div style="--c: 2ch 1fr 7ch 7ch" class="col">
+<div style="--c: 2ch 8ch 1fr 7ch 7ch" class="col">
 <div class="hd">APPS  <span class="d">your code</span></div>
-<div class="tr sel"><span class="g">●</span><span class="b">api</span><span class="g">awake</span><span class="ra">84 MB</span></div>
-<div class="tr"><span class="g">●</span><span class="w">web</span><span class="g">awake</span><span class="ra">212 MB</span></div>
-<div class="tr"><span class="c">◌</span><span class="w">worker</span><span class="c">waking</span><span class="ra d">—</span></div>
+<div class="tr sel"><span class="g">●</span><span class="b">api</span><span>go run ./cmd/api</span><span class="g">awake</span><span class="ra">84 MB</span></div>
+<div class="tr"><span class="g">●</span><span class="w">web</span><span class="d">pnpm dev</span><span class="g">awake</span><span class="ra">212 MB</span></div>
+<div class="tr"><span class="c">◌</span><span class="w">worker</span><span class="d">waiting on events</span><span class="c">waking</span><span class="ra d">—</span></div>
 <div class="hd">MODULES  <span class="d">from the doze registry</span></div>
-<div class="tr"><span class="g">●</span><span class="w">db</span><span class="g">awake</span><span class="ra">96 MB</span></div>
-<div class="tr"><span class="y">◐</span><span class="w">cache</span><span class="y">dozing</span><span class="ra">11 MB</span></div>
-<div class="tr"><span class="c">◌</span><span class="w">events</span><span class="c">waking</span><span class="ra d">—</span></div>
-<div class="tr"><span class="d">·</span><span>cloud</span><span class="d">asleep</span><span class="ra d">0</span></div>
+<div class="tr"><span class="g">●</span><span class="w">db</span><span class="d">postgres 17</span><span class="g">awake</span><span class="ra">96 MB</span></div>
+<div class="tr"><span class="y">◐</span><span class="w">cache</span><span class="d">valkey 9 · sleeps in 3:12</span><span class="y">dozing</span><span class="ra">11 MB</span></div>
+<div class="tr"><span class="c">◌</span><span class="w">events</span><span class="d">kafka · woken by worker</span><span class="c">waking</span><span class="ra d">—</span></div>
+<div class="tr"><span class="d">·</span><span>cloud</span><span class="d">aws · 1 bucket, 1 queue</span><span class="d">asleep</span><span class="ra d">0</span></div>
 <div class="hd">OUTSIDE  <span class="d">brought in by you</span></div>
-<div class="tr"><span class="g">●</span><span class="w">mongo</span><span class="g">awake</span><span class="ra">148 MB</span></div>
-<div class="tr"><span class="d">·</span><span>mailpit</span><span class="d">asleep</span><span class="ra d">0</span></div>
-<div class="tr"><span class="d">·</span><span>search</span><span class="d">asleep</span><span class="ra d">0</span></div>
+<div class="tr"><span class="g">●</span><span class="w">mongo</span><span class="d">mongod 8.0 · download</span><span class="g">awake</span><span class="ra">148 MB</span></div>
+<div class="tr"><span class="d">·</span><span>mailpit</span><span class="d">on this machine</span><span class="d">asleep</span><span class="ra d">0</span></div>
+<div class="tr"><span class="d">·</span><span>search</span><span class="d">docker run</span><span class="d">asleep</span><span class="ra d">0</span></div>
 <div class="hd">TASKS  <span class="d">run once, then out of the way</span></div>
-<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="g">done</span><span></span></div>
-<div class="tr"><span class="d">▸</span><span>seed</span><span class="d">ready</span><span></span></div>
+<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="d">14 applied · 2m ago</span><span class="g">done</span><span></span></div>
+<div class="tr"><span class="d">▸</span><span>seed</span><span class="d">manual</span><span class="d">ready</span><span></span></div>
 </div>
 </div>
 
@@ -56,19 +56,8 @@ body{margin:0}
 <div style="--c: 6ch 1fr" class="col">
 <div class="tr"><span class="d">url</span><span><span class="w">http://api.shop.doze</span> <span class="d">→ :8080</span></span></div>
 <div class="tr"><span class="d">needs</span><span><span class="g">✓</span> db  <span class="g">✓</span> mongo  <span class="y">◐</span> cache  <span class="g">✓</span> migrate</span></div>
-<div class="tr"><span class="d">runs</span><span>go run ./cmd/api</span></div>
-</div>
-<div style="--c: 8ch 1fr; margin-top: 10px" class="col">
-<div class="tr"><span class="w">cpu</span><span><span class="b">2.1%</span><span class="d">   peak 6% · avg 2%</span></span></div>
-<div class="tr ch"><span class="d ra">5%</span><span class="a">               ▃                                    ▂                 </span></div>
-<div class="tr ch"><span class="d ra"></span><span class="a">▅▆▆▆▅▃▁        █▂▄▅▅▅▄▃▂▂▁▁▁      ▁▂▄▅▇▇▇▆▅▃▁       █▁▂▃▃▃▃▂▂▁▁▁      </span></div>
-<div class="tr ch"><span class="d ra">0</span><span class="a">███████▇▅▄▃▃▃▄▆███████████████▇▇▇▇███████████▆▅▃▃▃▄▆█████████████▇▆▆▅▅</span></div>
-<div class="tr"><span></span><span></span></div>
-<div class="tr"><span class="w">mem</span><span><span class="b">84 MB</span><span class="d">   peak 84 MB · avg 83 MB</span></span></div>
-<div class="tr ch"><span class="d ra">168 MB</span><span class="a">                                                                      </span></div>
-<div class="tr ch"><span class="d ra"></span><span class="a">▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▄</span></div>
-<div class="tr ch"><span class="d ra">0</span><span class="a">██████████████████████████████████████████████████████████████████████</span></div>
-<div class="tr ch"><span></span><span class="d">4m ago ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ now</span></div>
+<div class="tr"><span class="d">cpu</span><span><span class="a">▁▁▂▁▁▃▂▁▁▂▅▃▂▁▁▂▁▁▂▃▂▁▁▁▂▁</span>  2.1%</span></div>
+<div class="tr"><span class="d">mem</span><span><span class="a">▃▃▃▃▄▄▄▄▄▄▄▄▄▄▄▅▅▅▅▅▅▅▅▅▅▅</span>  84 MB</span></div>
 </div>
 </div>
 
@@ -92,7 +81,7 @@ body{margin:0}
 </div>
 
 <div class="keys">
-<span><span class="k">↑↓</span>move</span><span><span class="k">⏎</span>focus</span><span><span class="k">w</span>wake</span><span><span class="k">s</span>sleep</span><span><span class="k">r</span>restart</span><span><span class="k">l</span>logs</span><span><span class="k">y</span>copy url</span><span><span class="k">a</span>add</span><span><span class="k">t</span>trace</span><span><span class="k">:</span>command</span><span><span class="k">?</span>help</span>
+<span><span class="k">↑↓</span>move</span><span><span class="k">⏎</span>focus</span><span><span class="k">w</span>wake</span><span><span class="k">s</span>sleep</span><span><span class="k">r</span>restart</span><span><span class="k">l</span>logs</span><span><span class="k">y</span>copy url</span><span><span class="k">a</span>add</span><span><span class="k">:</span>command</span><span><span class="k">?</span>help</span>
 </div>
 
 </div>

@@ -38,15 +38,6 @@
       "x": 0,
       "y": 1180
     },
-    "Copy.dc.html": {
-      "h": 760,
-      "page": "tools",
-      "radius": 12,
-      "title": "Copy mode and the copy menu",
-      "w": 1200,
-      "x": 1280,
-      "y": 0
-    },
     "Crash.dc.html": {
       "h": 760,
       "page": "cli",
@@ -223,24 +214,6 @@
       "page": "cli",
       "radius": 12,
       "title": "doze sync · doze down",
-      "w": 1200,
-      "x": 2560,
-      "y": 0
-    },
-    "Themes.dc.html": {
-      "h": 760,
-      "page": "tools",
-      "radius": 12,
-      "title": "Themes",
-      "w": 1200,
-      "x": 2560,
-      "y": 1180
-    },
-    "Trace.dc.html": {
-      "h": 760,
-      "page": "dash",
-      "radius": 12,
-      "title": "Wake trace",
       "w": 1200,
       "x": 2560,
       "y": 0
@@ -539,7 +512,6 @@
   "order": [
     "Main.dc.html",
     "Palette.dc.html",
-    "Trace.dc.html",
     "Empty.dc.html",
     "Narrow.dc.html",
     "ViewMap.dc.html",
@@ -550,10 +522,8 @@
     "View-Aws.dc.html",
     "View-Web.dc.html",
     "Logs.dc.html",
-    "Copy.dc.html",
     "Confirm-Sleep.dc.html",
     "Confirm-Reset.dc.html",
-    "Themes.dc.html",
     "Hcl.dc.html",
     "OptionA.dc.html",
     "OptionA-Steps.dc.html",

@@ -185,7 +185,7 @@ func TestFocusAppAgainstTheBoard(t *testing.T) {
 	if os.Getenv("DOZE_SHOW") != "" {
 		fmt.Println(got)
 	}
-	for _, want := range []string{"doze  shop › api app", "following · info and up", "lines · this run", "needs", "✓  db", "this run", "levels", "ERR", "INF", "DBG", "hidden", "zzz cache woke"} {
+	for _, want := range []string{"doze  shop › api app", "following · info and up", "lines · this run", "needs", "✓  db", "this run", "levels", "err", "warn", "info", "zzz cache woke"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Focus on an app lacks %q", want)
 		}
@@ -576,5 +576,23 @@ func TestTreeAndFilter(t *testing.T) {
 	}
 	if m.sel != "events" {
 		t.Errorf("the selection stayed on a row the filter hid: %q", m.sel)
+	}
+}
+
+// y copies: on Home the address of the selected instance, over OSC 52, and it
+// says what it copied; an instance with nothing to copy says so.
+func TestYankTheAddress(t *testing.T) {
+	m := board()
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if cmd == nil {
+		t.Fatalf("y did nothing; notice %q", m.notice)
+	}
+	if !strings.Contains(m.notice, "copied") || !strings.Contains(m.notice, "api.shop.doze") {
+		t.Errorf("notice = %q", m.notice)
+	}
+	m.sel = "seed" // a task: no address
+	_, cmd = m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if cmd != nil || !strings.Contains(m.notice, "no address") {
+		t.Errorf("a task has nothing to copy: cmd=%v notice=%q", cmd != nil, m.notice)
 	}
 }

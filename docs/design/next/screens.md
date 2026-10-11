@@ -26,11 +26,11 @@ private to its owner. Screen names below match the board titles.
 | | `zzz` lines in logs | daemon journal | new | should | 2, 5 |
 | Command palette | Fuzzy list of verbs | dash | have | core | 5 |
 | | The CLI form beside each row | dash, action registry | wire | core | 5 |
-| | "restore db from snapshot" | life | new | dream | none |
-| Wake trace | Who needs whom, as a tree | config | have | should | 5 |
-| | One wake as a timeline with durations | daemon journal | new | should | 2, 5 |
+| | "restore db from snapshot" | life | new | cut (D31) | |
+| Wake trace | Who needs whom, as a tree | config | have | cut (D33) | |
+| | One wake as a timeline with durations | daemon journal | new | cut (D33) | |
 | | Cold versus warm request time | cut (D16) | | | |
-| | Earlier wakes list | daemon journal | new | should | 5 |
+| | Earlier wakes list | daemon journal | new | cut (D33) | |
 | No doze.hcl here yet | Three ways to start | dash | new | should | 7 |
 | | "found go.mod, …" | detection | new | should | 7 |
 | | Other stacks, running or not | `<home>/projects`, `stacks.json` | wire | dream | 7 |
@@ -54,12 +54,12 @@ Changes from the canvas:
 | | Earlier runs | daemon logs | new | should | 2, 5 |
 | | Needs, with state | daemon holders | wire | core | 5 |
 | | "restarted, you saved orders.go" | life `watch`, journal | new | should | 4, 5 |
-| | Level counts | dash | new | should | 5 |
+| | Level counts | dash | new | cut (D32) | |
 | Database module | Address, shell command, reference | config, daemon | have | core | 5 |
 | | "awake because": holders and connection count | daemon holders | wire | core | 2, 5 |
 | | Connections per app | net caller identity | new | dream | none |
 | | Vitals: CPU, memory, connections, disk | daemon `stats` | wire | core | 5 |
-| | Snapshots | life | new | dream | none |
+| | Snapshots | life | new | cut (D31) | |
 | | Recent: journal and log lines merged | daemon | new | should | 5 |
 | Task | Last run output | daemon logs, life | new | should | 4, 5 |
 | | Runs when, history with reasons | life, journal | new | should | 4, 5 |
@@ -90,17 +90,17 @@ Changes from the canvas:
 | | Source toggles and quiet sources | config `logs`, dash | new | should | 5 |
 | | Search with highlighted matches | dash | new | core | 5 |
 | | Level filter | dash | new | should | 5 |
-| Copy mode | Line selection, copy, copy without timestamps | dash | wire | core | 5 |
-| | Save to file | dash | new | should | 5 |
+| Copy mode | Line selection, copy, copy without timestamps | dash | wire | cut (D34) | |
+| | Save to file | dash | new | cut (D34) | |
 | | Copy over SSH (OSC 52) | dash | new | core | 5 |
 | | Copy menu on a row | config, daemon | wire | core | 5 |
 | Confirm: in use | Who is affected, what happens next | daemon holders | wire | core | 5 |
 | | "Sleep db and api" | daemon verb | new | should | 5 |
 | Confirm: deletes data | Size on disk, what restarts | daemon | wire | core | 5 |
 | | Type the name to confirm | dash | new | core | 5 |
-| | Snapshot first | life | new | dream | none |
-| Themes | Five accents, live preview | dash | wire | core | 5 |
-| | Light variants for all five | dash | new | core | 5 |
+| | Snapshot first | life | new | cut (D31) | |
+| Themes | Five accents, live preview | dash | wire | cut (D30) | |
+| | Light variants for all five | dash | new | cut (D30) | |
 | | Follow terminal, plain ASCII, no colour | dash | wire | should | 5 |
 
 Changes from the canvas:

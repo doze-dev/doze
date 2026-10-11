@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
@@ -512,7 +513,7 @@ func (m *Model) keys(w int) string {
 	s := m.st
 	var parts []string
 	for _, k := range []struct{ key, label string }{
-		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"o", "sort " + sortTitles[m.sortBy]}, {"t", "tree"}, {"/", "filter"}, {":", "command"}, {"q", "quit"},
+		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"y", "copy"}, {"o", "sort " + sortTitles[m.sortBy]}, {"t", "tree"}, {"/", "filter"}, {":", "command"}, {"q", "quit"},
 	} {
 		parts = append(parts, s.cap(k.key, k.label))
 	}
@@ -638,4 +639,33 @@ func (m *Model) click(at tea.Mouse) {
 		return
 	}
 	m.sel, m.clickName, m.clickAt = name, name, m.now
+}
+
+// yankURL puts an instance's address on the clipboard, over OSC 52, so it
+// works across ssh. It says what it copied, or that there was nothing to.
+func (m *Model) yankURL(v control.InstanceView) tea.Cmd {
+	text := ansi.Strip(m.url(v))
+	if text == "" {
+		m.notice = v.Name + " has no address to copy"
+		return nil
+	}
+	m.notice = "copied " + text
+	return tea.SetClipboard(text)
+}
+
+// yankLines puts the lines the logs tab is showing on the clipboard.
+func (m *Model) yankLines(v control.InstanceView) tea.Cmd {
+	lines := m.stream(v, 500, m.level, 0)
+	var out []string
+	for _, l := range lines {
+		if t := strings.TrimRight(ansi.Strip(l), " "); t != "" {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		m.notice = "nothing to copy yet"
+		return nil
+	}
+	m.notice = fmt.Sprintf("copied %d lines", len(out))
+	return tea.SetClipboard(strings.Join(out, "\n"))
 }

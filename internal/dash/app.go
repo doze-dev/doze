@@ -213,6 +213,10 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		m.areaCharts = !m.areaCharts
 	case "o":
 		m.sortBy = (m.sortBy + 1) % sortModes
+	case "y":
+		if v, ok := m.selected(); ok {
+			return m, m.yankURL(v)
+		}
 	case "t":
 		m.tree = !m.tree
 	case "/":
