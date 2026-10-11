@@ -70,6 +70,8 @@ var scenes = []scene{
 	{name: "w-activity", board: "W-Activity", fixture: "modules", keys: cat(downs(2), []string{"enter", "tab"}), wpx: 1640, hpx: 800, cols: 190, rows: 34},
 	{name: "w-task", board: "W-Task", fixture: "shop", keys: cat(downs(10), []string{"enter"}), wpx: 1640, hpx: 760, cols: 190, rows: 32},
 	{name: "w-charts", board: "W-Charts", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
+	{name: "v-a", board: "V-A", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
+	{name: "v-b", board: "V-B", fixture: "shop", wpx: 1640, hpx: 900, cols: 190, rows: 40},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
