@@ -460,3 +460,20 @@ func TestTheListIsAThirdAndTheRightSaysWhatItIs(t *testing.T) {
 		}
 	}
 }
+
+// The palette is drawn for the board's ground, so the dash asks the terminal
+// for it rather than taking the theme's, unless colour is off.
+func TestTheDashAsksForItsGround(t *testing.T) {
+	m := board()
+	m.st = newStyles(false) // the board fixture is plain, for the text tests
+	m.w, m.h = 136, 32
+	if m.View().BackgroundColor == nil || m.View().ForegroundColor == nil {
+		t.Error("the dash does not set the terminal's ground")
+	}
+	p := board()
+	p.st = newStyles(true)
+	p.w, p.h = 136, 32
+	if p.View().BackgroundColor != nil {
+		t.Error("plain output must leave the terminal's colours alone")
+	}
+}

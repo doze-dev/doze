@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -338,6 +339,13 @@ func push(vs []float64, v float64) []float64 {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.Render(m.w, m.h))
 	v.AltScreen = true
+	if !m.st.plain {
+		// The palette is drawn for this ground. Without it the dash is the board's
+		// colours on whatever the terminal's theme is, and the faint and the
+		// selection read wrongly.
+		v.BackgroundColor = lipgloss.Color(hexBg)
+		v.ForegroundColor = lipgloss.Color(hexText)
+	}
 	return v
 }
 
