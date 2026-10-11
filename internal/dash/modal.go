@@ -134,22 +134,39 @@ func (m *Model) askSleep(target string) tea.Cmd {
 	return m.do(control.VerbSleep, target)
 }
 
-// match is a fuzzy match of query against s: whether every letter of query
-// appears in order, and which positions of s they are.
+// match is how the palette filters: each word typed must begin a word of s, in
+// order. "re" finds restart, reset and rerun and not "wake worker", whose letters
+// are there but nowhere a word starts; "reset d" finds reset db. It returns the
+// positions in s of the letters matched.
 func match(query, s string) ([]int, bool) {
-	if query == "" {
+	terms := strings.Fields(strings.ToLower(query))
+	if len(terms) == 0 {
 		return nil, true
 	}
-	q := []rune(strings.ToLower(query))
+	rs := []rune(strings.ToLower(s))
 	var at []int
-	i := 0
-	for p, r := range []rune(strings.ToLower(s)) {
-		if i < len(q) && r == q[i] {
-			at = append(at, p)
-			i++
+	pos, t := 0, 0
+	for t < len(terms) {
+		found := false
+		for p := pos; p < len(rs); p++ {
+			if p > 0 && rs[p-1] != ' ' {
+				continue
+			}
+			term := []rune(terms[t])
+			if p+len(term) <= len(rs) && string(rs[p:p+len(term)]) == terms[t] {
+				for i := range term {
+					at = append(at, p+i)
+				}
+				pos, found = p+len(term), true
+				break
+			}
 		}
+		if !found {
+			return nil, false
+		}
+		t++
 	}
-	return at, i == len(q)
+	return at, true
 }
 
 // score ranks matches: letters together, and near the front, first.

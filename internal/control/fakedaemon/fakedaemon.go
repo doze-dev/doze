@@ -59,6 +59,11 @@ func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(
 		if !want[fr.Topic] {
 			continue
 		}
+		// A subscriber that named instances is sent the lines of those, as the
+		// daemon does.
+		if fr.Log != nil && len(sub.Names) > 0 && !contains(sub.Names, fr.Log.Instance) {
+			continue
+		}
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -70,6 +75,15 @@ func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(
 		<-ctx.Done()
 	}
 	return nil
+}
+
+func contains(ss []string, s string) bool {
+	for _, x := range ss {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 // Do records the verb and returns the error scripted for it, if any.

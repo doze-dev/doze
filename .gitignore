@@ -12,4 +12,4 @@
 # goreleaser run artifacts (make dist)
 /state.json
 /telemetry.json
-.look/
+/.look/
