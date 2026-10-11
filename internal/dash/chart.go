@@ -227,67 +227,135 @@ func dimmed(st lipgloss.Style) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(mix(hex(fg), hexBg, 0.38)))
 }
 
-// chartH is how many rows each chart can have when n of them and a time axis
-// must fit in room lines: 0 when they cannot be drawn as charts at all.
-func chartH(room, n int) int {
+// squeeze fits vs into w columns by merging neighbours by their highest, from
+// the newest back, so the whole of the history is drawn and a spike is never
+// lost to the width. Shorter than w it is returned as it is.
+func squeeze(vs []float64, w int) []float64 {
+	n := len(vs)
+	if n <= w || w < 1 {
+		return vs
+	}
+	per := (n + w - 1) / w
+	cols := (n + per - 1) / per
+	out := make([]float64, cols)
+	for i := cols - 1; i >= 0; i-- {
+		end := n - per*(cols-1-i)
+		start := max(end-per, 0)
+		m := vs[start]
+		for _, v := range vs[start:end] {
+			m = max(m, v)
+		}
+		out[i] = m
+	}
+	return out
+}
+
+// A chart is never drawn wider than maxChart cells, which is as wide as a
+// line gets before it only grows thinner, and never narrower than minChart.
+const (
+	maxChart = 60
+	minChart = 28
+	chartGap = 3 // blank cells between charts that sit side by side
+)
+
+// chartsAcross is how many of n charts sit side by side in w cells: as many as
+// can have minChart cells each, and one per row when not even two can. This is
+// the rule of boards/W-Charts.dc.html.
+func chartsAcross(w, n int) int {
+	for k := n; k > 1; k-- {
+		if (w-(k-1)*chartGap)/k-gutter-1 >= minChart {
+			return k
+		}
+	}
+	return 1
+}
+
+// chartGroups is how many rows of charts n of them make in w cells.
+func chartGroups(w, n int) int {
+	per := chartsAcross(w, n)
+	return (n + per - 1) / per
+}
+
+// chartH is how many rows each chart can have when groups rows of charts must
+// fit in room lines: 0 when they cannot be drawn as charts at all. A group is a
+// heading, the rows and the axis, with a blank line between groups.
+func chartH(room, groups int) int {
 	for r := 8; r >= 2; r-- {
-		if n*(r+1)+(n-1)+1 <= room { // each a heading and r rows, a blank between, one axis
+		if groups*(r+2)+(groups-1) <= room {
 			return r
 		}
 	}
 	return 0
 }
 
-// charts draws the traces w cells wide, each rows high, with one age axis
-// under the last.
+// charts draws the traces in w cells, each rows high: side by side where they
+// fit, and the rest under them.
 func (m *Model) charts(ts []trace, w, rows int) []string {
-	s := m.st
-	cw := w - gutter - 1
+	per := chartsAcross(w, len(ts))
+	cw := min(maxChart, (w-(per-1)*chartGap)/per-gutter-1)
+	one := gutter + 1 + cw
 	var out []string
-	n := 0
-	for i, t := range ts {
-		if i > 0 {
+	for g := 0; g < len(ts); g += per {
+		if g > 0 {
 			out = append(out, "")
 		}
-		peak, mean := stats(t.vals)
-		head := s.w.Render(t.name) + "  " + s.b.Render(t.now)
-		if len(t.vals) > 1 {
-			head += s.d.Render("   peak " + t.unit(peak) + " · avg " + t.unit(mean))
+		var cols [][]string
+		for _, t := range ts[g:min(g+per, len(ts))] {
+			cols = append(cols, m.chart(t, cw, rows))
 		}
-		out = append(out, head)
-		vals := t.vals
-		if len(vals) == 0 {
-			vals = []float64{t.cur} // nothing sampled yet: the figure it has now
-		}
-		if len(vals) > 2*cw {
-			vals = vals[len(vals)-2*cw:]
-		}
-		n = max(n, len(vals))
-		lo, hi := t.scale(vals)
-		dim := dimmed(t.st)
-		var lines []string
-		if m.areaCharts {
-			lines = plot(vals, cw, rows, lo, hi, t.st, dim)
-		} else {
-			lines = plotLine(vals, cw, rows, lo, hi, t.st, dim)
-		}
-		for j, l := range lines {
-			g := ""
-			switch j {
-			case 0:
-				g = t.unit(hi)
-			case len(lines) - 1:
-				g = t.unit(lo)
+		for l := 0; l < len(cols[0]); l++ {
+			var b strings.Builder
+			for c, col := range cols {
+				if c > 0 {
+					b.WriteString(strings.Repeat(" ", chartGap))
+				}
+				b.WriteString(fit(col[l], one))
 			}
-			out = append(out, s.d.Render(right(g, gutter))+" "+l)
+			out = append(out, strings.TrimRight(b.String(), " "))
 		}
 	}
+	return out
+}
+
+// chart is one trace: its name and figure, the plot with its scale at the left,
+// and the age of its oldest reading under it. Every line is at most one wide.
+func (m *Model) chart(t trace, cw, rows int) []string {
+	s := m.st
+	peak, mean := stats(t.vals)
+	head := s.w.Render(t.name) + "  " + s.b.Render(t.now)
+	if len(t.vals) > 1 {
+		head += s.d.Render("   peak " + t.unit(peak) + " · avg " + t.unit(mean))
+	}
+	vals := t.vals
+	if len(vals) == 0 {
+		vals = []float64{t.cur} // nothing sampled yet: the figure it has now
+	}
+	span := len(vals) // readings the chart stands for, however many dots they come to
+	vals = squeeze(vals, 2*cw)
+	lo, hi := t.scale(vals)
+	dim := dimmed(t.st)
+	var lines []string
+	if m.areaCharts {
+		lines = plot(vals, cw, rows, lo, hi, t.st, dim)
+	} else {
+		lines = plotLine(vals, cw, rows, lo, hi, t.st, dim)
+	}
+	out := []string{head}
+	for j, l := range lines {
+		g := ""
+		switch j {
+		case 0:
+			g = t.unit(hi)
+		case len(lines) - 1:
+			g = t.unit(lo)
+		}
+		out = append(out, s.d.Render(right(g, gutter))+" "+l)
+	}
 	// the age of the oldest reading, under where the line begins
-	span := time.Duration(max(n, 1)) * sampleEvery
-	left := ago(span) + " ago"
+	left := ago(time.Duration(max(span, 1))*sampleEvery) + " ago"
 	indent := 0
-	if n < cw {
-		indent = cw - n
+	if n := (len(vals) + 1) / 2; n < cw {
+		indent = cw - n // a dot column is half a cell
 	}
 	fill := max(cw-indent-width(left)-5, 0)
 	out = append(out, s.d.Render(strings.Repeat(" ", gutter+1+indent)+left+" "+strings.Repeat("┈", fill)+" now"))

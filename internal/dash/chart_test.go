@@ -132,3 +132,75 @@ func TestPlotLine(t *testing.T) {
 		t.Error("the flat reading is not drawn on the bottom row")
 	}
 }
+
+// Charts sit side by side while each can have minChart cells, and stack when
+// they cannot: the rule of boards/W-Charts.dc.html.
+func TestChartsAcrossWhenThereIsRoom(t *testing.T) {
+	for _, c := range []struct{ w, n, want int }{
+		{180, 3, 3}, // three across
+		{120, 3, 3},
+		{100, 3, 2}, // two across, the third under
+		{80, 3, 2},
+		{70, 3, 1}, // stacked
+		{40, 2, 1},
+		{100, 1, 1},
+	} {
+		if got := chartsAcross(c.w, c.n); got != c.want {
+			t.Errorf("chartsAcross(%d, %d) = %d, want %d", c.w, c.n, got, c.want)
+		}
+	}
+	if g := chartGroups(100, 3); g != 2 {
+		t.Errorf("100 cells, 3 charts: %d groups, want 2", g)
+	}
+}
+
+// Side by side is side by side on the screen: the three headings share a line,
+// and no line is wider than the space it was given.
+func TestChartsDrawnAcross(t *testing.T) {
+	m := board()
+	st := lipgloss.NewStyle()
+	ts := []trace{
+		{"cpu", []float64{1, 2, 3}, 5, false, pct, "1%", 1, st},
+		{"mem", []float64{1, 2, 3}, 0, true, bytesLabel, "84 MB", 1, st},
+		{"conns", []float64{1, 2, 3}, 8, false, count, "4", 1, st},
+	}
+	out := plain(m.charts(ts, 180, 3))
+	if !strings.Contains(out[0], "cpu") || !strings.Contains(out[0], "mem") || !strings.Contains(out[0], "conns") {
+		t.Errorf("headings are not on one line: %q", out[0])
+	}
+	for i, l := range out {
+		if width(l) > 180 {
+			t.Errorf("line %d is %d cells, over 180", i, width(l))
+		}
+	}
+	stacked := plain(m.charts(ts, 70, 3))
+	if strings.Contains(stacked[0], "mem") {
+		t.Errorf("70 cells should stack, got %q", stacked[0])
+	}
+}
+
+// The whole of the history is drawn, whatever the width: readings are merged by
+// their highest, from the newest back, so a spike survives and the right edge
+// is now.
+func TestSqueezeKeepsTheSpikeAndTheNewest(t *testing.T) {
+	vs := make([]float64, 240)
+	vs[100] = 9
+	vs[239] = 5
+	out := squeeze(vs, 60)
+	if len(out) > 60 {
+		t.Fatalf("%d columns, want at most 60", len(out))
+	}
+	hi := 0.0
+	for _, v := range out {
+		hi = max(hi, v)
+	}
+	if hi != 9 {
+		t.Errorf("the spike was lost: highest is %v", hi)
+	}
+	if out[len(out)-1] != 5 {
+		t.Errorf("the newest reading is not at the right edge: %v", out[len(out)-1])
+	}
+	if got := squeeze([]float64{1, 2, 3}, 60); len(got) != 3 {
+		t.Errorf("a short series was changed: %v", got)
+	}
+}

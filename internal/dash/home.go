@@ -547,9 +547,11 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
 			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
 		}
-		// as tall as the box has room for after the lines above: two headings, a
-		// blank between, the axis, and the blank before them are 5 lines
-		rows := min(max((h-len(lines)-5)/2, 2), 10)
+		// side by side where there is room (chartsAcross), each as tall as the box
+		// has left after the lines above: a heading and an axis to a group, and a
+		// blank between groups and before them
+		groups := chartGroups(w, len(ts))
+		rows := min(max((h-len(lines)-1-(groups-1))/groups-2, 2), 8)
 		lines = append(lines, "")
 		lines = append(lines, m.charts(ts, w, rows)...)
 	} else if v.State != "booting" && !troubled(v) {

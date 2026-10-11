@@ -495,7 +495,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
-		if r := chartH(room, len(ts)); r > 0 {
+		if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
 			vit = append(vit, m.charts(ts, w-4, r)...)
 		} else {
 			vit = append(vit,

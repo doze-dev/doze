@@ -1,346 +1,485 @@
 {
   "v": 3,
-  "createdOnFiles": {
-    "v": 1,
-    "at": "2026-10-10T12:00:00Z"
-  },
-  "title": "Doze Dream Design Canvas",
-  "launch": {
-    "view": "canvas",
-    "page": "dash"
-  },
-  "pages": [
-    {
-      "id": "dash",
-      "name": "1 · The dash"
-    },
-    {
-      "id": "views",
-      "name": "2 · A view for each kind"
-    },
-    {
-      "id": "tools",
-      "name": "3 · Logs, copy, confirm, themes"
-    },
-    {
-      "id": "config",
-      "name": "4 · doze.hcl and adding"
-    },
-    {
-      "id": "cli",
-      "name": "5 · CLI and bad days"
-    },
-    {
-      "id": "blocks",
-      "name": "6 · Blocks for module consoles"
-    }
-  ],
+  "attachments": {},
   "boards": {
-    "Main.dc.html": {
+    "Blocks.dc.html": {
+      "h": 760,
+      "page": "blocks",
+      "radius": 12,
+      "title": "Blocks · the seven a module composes from",
+      "w": 1200,
       "x": 0,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Home",
-      "radius": 12,
-      "page": "dash"
-    },
-    "Palette.dc.html": {
-      "x": 1280,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Command palette",
-      "radius": 12,
-      "page": "dash"
-    },
-    "Trace.dc.html": {
-      "x": 2560,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Wake trace",
-      "radius": 12,
-      "page": "dash"
-    },
-    "Empty.dc.html": {
-      "x": 0,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "No doze.hcl here yet",
-      "radius": 12,
-      "page": "dash"
-    },
-    "Narrow.dc.html": {
-      "x": 1280,
-      "y": 1180,
-      "w": 716,
-      "h": 564,
-      "title": "Home at 80 × 24",
-      "radius": 12,
-      "page": "dash"
-    },
-    "ViewMap.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "The rule · what each kind opens on",
-      "radius": 12,
-      "page": "views"
-    },
-    "View-App.dc.html": {
-      "x": 1280,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "App · opens on logs",
-      "radius": 12,
-      "page": "views"
-    },
-    "Focus.dc.html": {
-      "x": 2560,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Database module · opens on overview",
-      "radius": 12,
-      "page": "views"
-    },
-    "View-Task.dc.html": {
-      "x": 3840,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Task · opens on its last run",
-      "radius": 12,
-      "page": "views"
-    },
-    "View-Kafka.dc.html": {
-      "x": 0,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "kafka · console drawn by doze",
-      "radius": 12,
-      "page": "views"
-    },
-    "View-Aws.dc.html": {
-      "x": 1280,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "aws · console drawn by doze",
-      "radius": 12,
-      "page": "views"
-    },
-    "View-Web.dc.html": {
-      "x": 2560,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "Outside service with its own web console",
-      "radius": 12,
-      "page": "views"
-    },
-    "Logs.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Logs for the whole stack",
-      "radius": 12,
-      "page": "tools"
-    },
-    "Copy.dc.html": {
-      "x": 1280,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Copy mode and the copy menu",
-      "radius": 12,
-      "page": "tools"
-    },
-    "Confirm-Sleep.dc.html": {
-      "x": 0,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "Confirm · something else is using it",
-      "radius": 12,
-      "page": "tools"
-    },
-    "Confirm-Reset.dc.html": {
-      "x": 1280,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "Confirm · this deletes data",
-      "radius": 12,
-      "page": "tools"
-    },
-    "Themes.dc.html": {
-      "x": 2560,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "Themes",
-      "radius": 12,
-      "page": "tools"
-    },
-    "Hcl.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1200,
-      "h": 860,
-      "title": "doze.hcl · four nouns",
-      "radius": 12,
-      "page": "config"
-    },
-    "OptionA.dc.html": {
-      "x": 1280,
-      "y": 0,
-      "w": 1200,
-      "h": 700,
-      "title": "Outside services · the service block",
-      "radius": 12,
-      "page": "config"
-    },
-    "OptionA-Steps.dc.html": {
-      "x": 2560,
-      "y": 0,
-      "w": 1200,
-      "h": 700,
-      "title": "Outside services · more than one command",
-      "radius": 12,
-      "page": "config"
+      "y": 0
     },
     "Catalog.dc.html": {
-      "x": 0,
-      "y": 1280,
-      "w": 1200,
       "h": 860,
+      "page": "config",
+      "radius": 12,
       "title": "doze add · the one registry",
-      "radius": 12,
-      "page": "config"
-    },
-    "Outside.dc.html": {
-      "x": 1280,
-      "y": 1280,
       "w": 1200,
-      "h": 860,
-      "title": "doze add mongo · not a module",
-      "radius": 12,
-      "page": "config"
-    },
-    "Init.dc.html": {
-      "x": 2560,
-      "y": 1280,
-      "w": 1200,
-      "h": 860,
-      "title": "doze init · in an existing repo",
-      "radius": 12,
-      "page": "config"
-    },
-    "Up.dc.html": {
       "x": 0,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "doze up",
-      "radius": 12,
-      "page": "cli"
+      "y": 1280
     },
-    "Status.dc.html": {
+    "Confirm-Reset.dc.html": {
+      "h": 760,
+      "page": "tools",
+      "radius": 12,
+      "title": "Confirm · this deletes data",
+      "w": 1200,
       "x": 1280,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "doze status · env · run",
-      "radius": 12,
-      "page": "cli"
+      "y": 1180
     },
-    "Sync.dc.html": {
-      "x": 2560,
-      "y": 0,
-      "w": 1200,
+    "Confirm-Sleep.dc.html": {
       "h": 760,
-      "title": "doze sync · doze down",
+      "page": "tools",
       "radius": 12,
-      "page": "cli"
+      "title": "Confirm · something else is using it",
+      "w": 1200,
+      "x": 0,
+      "y": 1180
+    },
+    "Copy.dc.html": {
+      "h": 760,
+      "page": "tools",
+      "radius": 12,
+      "title": "Copy mode and the copy menu",
+      "w": 1200,
+      "x": 1280,
+      "y": 0
     },
     "Crash.dc.html": {
-      "x": 0,
-      "y": 1180,
-      "w": 1200,
       "h": 760,
-      "title": "An app is crash-looping",
+      "page": "cli",
       "radius": 12,
-      "page": "cli"
+      "title": "An app is crash-looping",
+      "w": 1200,
+      "x": 0,
+      "y": 1180
     },
     "Doctor.dc.html": {
-      "x": 1280,
-      "y": 1180,
-      "w": 1200,
       "h": 760,
+      "page": "cli",
+      "radius": 12,
       "title": "The port is taken",
-      "radius": 12,
-      "page": "cli"
-    },
-    "Blocks.dc.html": {
-      "x": 0,
-      "y": 0,
       "w": 1200,
-      "h": 760,
-      "title": "Blocks · the seven a module composes from",
-      "radius": 12,
-      "page": "blocks"
-    },
-    "Layout.dc.html": {
       "x": 1280,
-      "y": 0,
-      "w": 1200,
-      "h": 760,
-      "title": "Layout · rows, columns, tabs, and slots on the generic screen",
-      "radius": 12,
-      "page": "blocks"
+      "y": 1180
     },
-    "Internals.dc.html": {
-      "x": 2560,
-      "y": 0,
-      "w": 1200,
+    "Empty.dc.html": {
       "h": 760,
-      "title": "kafka and aws · the same blocks, no special code",
+      "page": "dash",
       "radius": 12,
-      "page": "blocks"
-    },
-    "Pg-Overview.dc.html": {
+      "title": "No doze.hcl here yet",
+      "w": 1200,
       "x": 0,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "postgres · the generic overview plus its databases",
-      "radius": 12,
-      "page": "blocks"
-    },
-    "Pg-Activity.dc.html": {
-      "x": 1280,
-      "y": 1180,
-      "w": 1200,
-      "h": 760,
-      "title": "postgres · an activity tab, from blocks",
-      "radius": 12,
-      "page": "blocks"
+      "y": 1180
     },
     "Ferret.dc.html": {
-      "x": 2560,
-      "y": 1180,
-      "w": 1200,
       "h": 760,
-      "title": "DocumentDB · collections, from blocks",
+      "page": "blocks",
       "radius": 12,
-      "page": "blocks"
+      "title": "DocumentDB · collections, from blocks",
+      "w": 1200,
+      "x": 2560,
+      "y": 1180
+    },
+    "Focus.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "Database module · opens on overview",
+      "w": 1200,
+      "x": 2560,
+      "y": 0
+    },
+    "Hcl.dc.html": {
+      "h": 860,
+      "page": "config",
+      "radius": 12,
+      "title": "doze.hcl · four nouns",
+      "w": 1200,
+      "x": 0,
+      "y": 0
+    },
+    "Init.dc.html": {
+      "h": 860,
+      "page": "config",
+      "radius": 12,
+      "title": "doze init · in an existing repo",
+      "w": 1200,
+      "x": 2560,
+      "y": 1280
+    },
+    "Internals.dc.html": {
+      "h": 760,
+      "page": "blocks",
+      "radius": 12,
+      "title": "kafka and aws · the same blocks, no special code",
+      "w": 1200,
+      "x": 2560,
+      "y": 0
+    },
+    "Layout.dc.html": {
+      "h": 760,
+      "page": "blocks",
+      "radius": 12,
+      "title": "Layout · rows, columns, tabs, and slots on the generic screen",
+      "w": 1200,
+      "x": 1280,
+      "y": 0
+    },
+    "Logs.dc.html": {
+      "h": 760,
+      "page": "tools",
+      "radius": 12,
+      "title": "Logs for the whole stack",
+      "w": 1200,
+      "x": 0,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 760,
+      "page": "dash",
+      "radius": 12,
+      "title": "Home",
+      "w": 1200,
+      "x": 0,
+      "y": 0
+    },
+    "Narrow.dc.html": {
+      "h": 564,
+      "page": "dash",
+      "radius": 12,
+      "title": "Home at 80 × 24",
+      "w": 716,
+      "x": 1280,
+      "y": 1180
+    },
+    "OptionA-Steps.dc.html": {
+      "h": 700,
+      "page": "config",
+      "radius": 12,
+      "title": "Outside services · more than one command",
+      "w": 1200,
+      "x": 2560,
+      "y": 0
+    },
+    "OptionA.dc.html": {
+      "h": 700,
+      "page": "config",
+      "radius": 12,
+      "title": "Outside services · the service block",
+      "w": 1200,
+      "x": 1280,
+      "y": 0
+    },
+    "Outside.dc.html": {
+      "h": 860,
+      "page": "config",
+      "radius": 12,
+      "title": "doze add mongo · not a module",
+      "w": 1200,
+      "x": 1280,
+      "y": 1280
+    },
+    "Palette.dc.html": {
+      "h": 760,
+      "page": "dash",
+      "radius": 12,
+      "title": "Command palette",
+      "w": 1200,
+      "x": 1280,
+      "y": 0
+    },
+    "Pg-Activity.dc.html": {
+      "h": 760,
+      "page": "blocks",
+      "radius": 12,
+      "title": "postgres · an activity tab, from blocks",
+      "w": 1200,
+      "x": 1280,
+      "y": 1180
+    },
+    "Pg-Overview.dc.html": {
+      "h": 760,
+      "page": "blocks",
+      "radius": 12,
+      "title": "postgres · the generic overview plus its databases",
+      "w": 1200,
+      "x": 0,
+      "y": 1180
+    },
+    "Status.dc.html": {
+      "h": 760,
+      "page": "cli",
+      "radius": 12,
+      "title": "doze status · env · run",
+      "w": 1200,
+      "x": 1280,
+      "y": 0
+    },
+    "Sync.dc.html": {
+      "h": 760,
+      "page": "cli",
+      "radius": 12,
+      "title": "doze sync · doze down",
+      "w": 1200,
+      "x": 2560,
+      "y": 0
+    },
+    "Themes.dc.html": {
+      "h": 760,
+      "page": "tools",
+      "radius": 12,
+      "title": "Themes",
+      "w": 1200,
+      "x": 2560,
+      "y": 1180
+    },
+    "Trace.dc.html": {
+      "h": 760,
+      "page": "dash",
+      "radius": 12,
+      "title": "Wake trace",
+      "w": 1200,
+      "x": 2560,
+      "y": 0
+    },
+    "Up.dc.html": {
+      "h": 760,
+      "page": "cli",
+      "radius": 12,
+      "title": "doze up",
+      "w": 1200,
+      "x": 0,
+      "y": 0
+    },
+    "View-App.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "App · opens on logs",
+      "w": 1200,
+      "x": 1280,
+      "y": 0
+    },
+    "View-Aws.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "aws · console drawn by doze",
+      "w": 1200,
+      "x": 1280,
+      "y": 1180
+    },
+    "View-Kafka.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "kafka · console drawn by doze",
+      "w": 1200,
+      "x": 0,
+      "y": 1180
+    },
+    "View-Task.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "Task · opens on its last run",
+      "w": 1200,
+      "x": 3840,
+      "y": 0
+    },
+    "View-Web.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "Outside service with its own web console",
+      "w": 1200,
+      "x": 2560,
+      "y": 1180
+    },
+    "ViewMap.dc.html": {
+      "h": 760,
+      "page": "views",
+      "radius": 12,
+      "title": "The rule · what each kind opens on",
+      "w": 1200,
+      "x": 0,
+      "y": 0
+    },
+    "W-Home.dc.html": {
+      "h": 1010,
+      "page": "wide",
+      "radius": 12,
+      "title": "Home · a wide window: the list a third, charts side by side, activity under the list",
+      "w": 1640,
+      "x": 0,
+      "y": 0
+    },
+    "W-Overview.dc.html": {
+      "h": 1010,
+      "page": "wide",
+      "radius": 12,
+      "title": "Module overview · connect, awake because, snapshots; vitals as three charts across",
+      "w": 1640,
+      "x": 1720,
+      "y": 0
+    },
+    "W-Activity.dc.html": {
+      "h": 800,
+      "page": "wide",
+      "radius": 12,
+      "title": "Postgres activity · the table as tall as its rows, the query and actions under it",
+      "w": 1640,
+      "x": 0,
+      "y": 1090
+    },
+    "W-Task.dc.html": {
+      "h": 760,
+      "page": "wide",
+      "radius": 12,
+      "title": "Task · the last run, what runs it, and the runs before it",
+      "w": 1640,
+      "x": 1720,
+      "y": 1090
+    },
+    "W-Charts.dc.html": {
+      "h": 900,
+      "page": "wide",
+      "radius": 12,
+      "title": "Charts · across when there is room, stacked when there is not",
+      "w": 1640,
+      "x": 0,
+      "y": 1970
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-10T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "page": "dash",
+    "view": "canvas"
+  },
+  "notes": {
+    "b1": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "blocks",
+      "text": "Blocks — what a module's console is made of",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "b2": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "blocks",
+      "text": "Composed: postgres and DocumentDB",
+      "w": 240,
+      "x": 0,
+      "y": 880
+    },
+    "c1": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "config",
+      "text": "doze.hcl — four nouns",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "c2": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "config",
+      "text": "Adding things",
+      "w": 240,
+      "x": 0,
+      "y": 980
+    },
+    "d1": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "dash",
+      "text": "The dash — what bare `doze` opens",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "d2": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "dash",
+      "text": "First run and small terminals",
+      "w": 240,
+      "x": 0,
+      "y": 880
+    },
+    "k1": {
+      "kind": "title1",
+      "maxW": 2480,
+      "page": "tools",
+      "text": "Logs and copying",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "k2": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "tools",
+      "text": "Confirmations and themes",
+      "w": 240,
+      "x": 0,
+      "y": 880
+    },
+    "l1": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "cli",
+      "text": "Everyday commands",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "l2": {
+      "kind": "title1",
+      "maxW": 2480,
+      "page": "cli",
+      "text": "Bad days",
+      "w": 240,
+      "x": 0,
+      "y": 880
+    },
+    "v1": {
+      "kind": "title1",
+      "maxW": 5040,
+      "page": "views",
+      "text": "One frame, a different front for each kind",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "v2": {
+      "kind": "title1",
+      "maxW": 3760,
+      "page": "views",
+      "text": "Consoles — when logs aren't the point",
+      "w": 240,
+      "x": 0,
+      "y": 880
+    },
+    "w1": {
+      "kind": "title1",
+      "maxW": 3400,
+      "page": "wide",
+      "text": "The dash at a wide window — the dream, to build to",
+      "w": 240,
+      "x": 0,
+      "y": -300
     }
   },
   "order": [
@@ -377,105 +516,42 @@
     "Internals.dc.html",
     "Pg-Overview.dc.html",
     "Pg-Activity.dc.html",
-    "Ferret.dc.html"
+    "Ferret.dc.html",
+    "W-Home.dc.html",
+    "W-Overview.dc.html",
+    "W-Activity.dc.html",
+    "W-Task.dc.html",
+    "W-Charts.dc.html"
   ],
-  "notes": {
-    "d1": {
-      "x": 0,
-      "y": -300,
-      "text": "The dash — what bare `doze` opens",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "dash"
+  "pages": [
+    {
+      "id": "dash",
+      "name": "1 · The dash"
     },
-    "d2": {
-      "x": 0,
-      "y": 880,
-      "text": "First run and small terminals",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "dash"
+    {
+      "id": "views",
+      "name": "2 · A view for each kind"
     },
-    "v1": {
-      "x": 0,
-      "y": -300,
-      "text": "One frame, a different front for each kind",
-      "kind": "title1",
-      "maxW": 5040,
-      "page": "views"
+    {
+      "id": "tools",
+      "name": "3 · Logs, copy, confirm, themes"
     },
-    "v2": {
-      "x": 0,
-      "y": 880,
-      "text": "Consoles — when logs aren't the point",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "views"
+    {
+      "id": "config",
+      "name": "4 · doze.hcl and adding"
     },
-    "k1": {
-      "x": 0,
-      "y": -300,
-      "text": "Logs and copying",
-      "kind": "title1",
-      "maxW": 2480,
-      "page": "tools"
+    {
+      "id": "cli",
+      "name": "5 · CLI and bad days"
     },
-    "k2": {
-      "x": 0,
-      "y": 880,
-      "text": "Confirmations and themes",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "tools"
+    {
+      "id": "blocks",
+      "name": "6 · Blocks for module consoles"
     },
-    "c1": {
-      "x": 0,
-      "y": -300,
-      "text": "doze.hcl — four nouns",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "config"
-    },
-    "c2": {
-      "x": 0,
-      "y": 980,
-      "text": "Adding things",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "config"
-    },
-    "l1": {
-      "x": 0,
-      "y": -300,
-      "text": "Everyday commands",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "cli"
-    },
-    "l2": {
-      "x": 0,
-      "y": 880,
-      "text": "Bad days",
-      "kind": "title1",
-      "maxW": 2480,
-      "page": "cli"
-    },
-    "b1": {
-      "x": 0,
-      "y": -300,
-      "text": "Blocks — what a module's console is made of",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "blocks"
-    },
-    "b2": {
-      "x": 0,
-      "y": 880,
-      "text": "Composed: postgres and DocumentDB",
-      "kind": "title1",
-      "maxW": 3760,
-      "page": "blocks"
+    {
+      "id": "wide",
+      "name": "7 · The dash at a wide window"
     }
-  },
-  "designSystems": []
+  ],
+  "title": "Doze Dream Design Canvas"
 }
