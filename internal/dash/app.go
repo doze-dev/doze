@@ -44,6 +44,7 @@ type Model struct {
 	page         int      // pageHome or pageFocus
 	hit          []string // the instance on each line of the stack, "" for a heading
 	listTop      int      // the first line of the stack shown, when it is longer than its box
+	areaCharts   bool     // c: charts as filled areas of blocks, not a line of dots
 	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
 	clickName    string   // the last row clicked, and when: a second click opens it
 	clickAt      time.Time
@@ -176,6 +177,8 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		}
 	}
 	switch k {
+	case "c":
+		m.areaCharts = !m.areaCharts
 	case "enter", "l", "right":
 		m.open()
 	case "ctrl+c", "q":

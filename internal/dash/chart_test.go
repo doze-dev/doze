@@ -89,6 +89,7 @@ func TestZoomShowsDriftAndSitsFlatInTheMiddle(t *testing.T) {
 // ends at the right edge and is not stretched across the width.
 func TestChartsWithLittleOrNoHistory(t *testing.T) {
 	m := board()
+	m.areaCharts = true // blocks, where an empty chart is plainly empty
 	empty := plain(m.charts([]trace{{name: "mem", unit: bytesLabel, now: "148 MB", cur: 148 << 20, zoom: true, st: lipgloss.NewStyle()}}, 60, 3))
 	if !strings.Contains(strings.Join(empty, "\n"), "█") && !strings.ContainsAny(strings.Join(empty, ""), "▁▂▃▄▅▆▇") {
 		t.Errorf("no history drew an empty chart:\n%s", strings.Join(empty, "\n"))
@@ -101,5 +102,33 @@ func TestChartsWithLittleOrNoHistory(t *testing.T) {
 		if strings.TrimSpace(row[len(row)-3:]) == "" && row == short[len(short)-1] {
 			t.Errorf("a three-reading history does not end at the right edge: %q", row)
 		}
+	}
+}
+
+// The line chart is rows tall and cells wide, ends at the right edge, joins a
+// jump into a stroke, and keeps its scale marks out of the line's colour.
+func TestPlotLine(t *testing.T) {
+	st := lipgloss.NewStyle()
+	vs := make([]float64, 40)
+	vs[20] = 10 // a spike in a flat line
+	rows := plain(plotLine(vs, 20, 3, 0, 10, st, st))
+	if len(rows) != 3 {
+		t.Fatalf("rows = %d", len(rows))
+	}
+	for i, r := range rows {
+		if n := width(r); n != 20 {
+			t.Errorf("row %d is %d cells", i, n)
+		}
+	}
+	// the spike reaches the top row and the stroke is drawn down its column
+	col := 20 / 2
+	for i, r := range rows {
+		if []rune(r)[col] == ' ' {
+			t.Errorf("row %d has no dot in the spike's column: %q", i, r)
+		}
+	}
+	// the flat part is on the bottom row only (apart from the scale's rules)
+	if !strings.ContainsAny(rows[2], "⣀⡀⢀⠀") && strings.TrimSpace(rows[2]) == "" {
+		t.Error("the flat reading is not drawn on the bottom row")
 	}
 }

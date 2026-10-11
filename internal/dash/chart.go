@@ -139,6 +139,80 @@ func plot(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.St
 	return out
 }
 
+// braille bits for a cell's two dot columns, top row first.
+var (
+	dotsL = [4]rune{0x01, 0x02, 0x04, 0x40}
+	dotsR = [4]rune{0x08, 0x10, 0x20, 0x80}
+)
+
+// plotLine draws vs as a single line of braille dots: two readings to a cell
+// across and four levels to a row down, each reading joined to the one before it
+// so a spike is a stroke and not a dot. A faint dotted rule marks the top and
+// the middle of the scale. Returns the rows top first.
+func plotLine(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.Style) []string {
+	if cells < 1 || rows < 1 {
+		return nil
+	}
+	w, h := cells*2, rows*4
+	if len(vs) > w {
+		vs = vs[len(vs)-w:]
+	}
+	on := make([][]bool, h) // [y from the bottom][x]
+	for i := range on {
+		on[i] = make([]bool, w)
+	}
+	line := make([][]bool, h)
+	for i := range line {
+		line[i] = make([]bool, w)
+	}
+	// the scale's rules, every fourth dot
+	for x := 0; x < w; x += 4 {
+		on[h-1][x] = true
+		on[h/2][x] = true
+	}
+	prev := -1
+	for i, v := range vs {
+		x := w - len(vs) + i // ends at the right edge
+		y := int((v-lo)/(hi-lo)*float64(h-1) + 0.5)
+		y = min(max(y, 0), h-1)
+		a, b := y, y
+		if prev >= 0 {
+			a, b = min(prev, y), max(prev, y)
+		}
+		for yy := a; yy <= b; yy++ {
+			on[yy][x], line[yy][x] = true, true
+		}
+		prev = y
+	}
+	out := make([]string, rows)
+	for r := rows - 1; r >= 0; r-- {
+		var b strings.Builder
+		for c := 0; c < cells; c++ {
+			g, ink := rune(0x2800), false
+			for j := 0; j < 4; j++ { // j up from the cell's bottom
+				y := r*4 + j
+				if on[y][2*c] {
+					g |= dotsL[3-j]
+				}
+				if on[y][2*c+1] {
+					g |= dotsR[3-j]
+				}
+				ink = ink || line[y][2*c] || line[y][2*c+1]
+			}
+			switch {
+			case g == 0x2800:
+				b.WriteByte(' ')
+			case ink:
+				b.WriteString(bright.Render(string(g)))
+			default:
+				b.WriteString(dim.Render(string(g)))
+			}
+		}
+		out[rows-1-r] = b.String()
+	}
+	return out
+}
+
 // dimmed is st's colour a good part of the way to the ground, for the body of a
 // chart under its line. A plain style has no colour to dim.
 func dimmed(st lipgloss.Style) lipgloss.Style {
@@ -190,7 +264,13 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 		}
 		n = max(n, len(vals))
 		lo, hi := t.scale(vals)
-		lines := plot(vals, cw, rows, lo, hi, t.st, dimmed(t.st))
+		dim := dimmed(t.st)
+		var lines []string
+		if m.areaCharts {
+			lines = plot(vals, cw, rows, lo, hi, t.st, dim)
+		} else {
+			lines = plotLine(vals, cw, rows, lo, hi, t.st, dim)
+		}
 		for j, l := range lines {
 			g := ""
 			switch j {
