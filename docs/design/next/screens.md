@@ -33,7 +33,7 @@ private to its owner. Screen names below match the board titles.
 | | Earlier wakes list | daemon journal | new | cut (D33) | |
 | No doze.hcl here yet | Three ways to start | dash | new | should | 7 |
 | | "found go.mod, …" | detection | new | should | 7 |
-| | Other stacks, running or not | `<home>/projects`, `stacks.json` | wire | dream | 7 |
+| | Other stacks, running or not | `<home>/projects`, `stacks.json` | wire | deferred (D37) | |
 | Home at 80 × 24 | Single-column home | dash | new | should | 5 |
 
 Changes from the canvas:
@@ -87,7 +87,7 @@ Changes from the canvas:
 | Screen | Element | Contract | Status | Tier | Phase |
 |---|---|---|---|---|---|
 | Stack logs | Merged, time-ordered, source-coloured | daemon logs | new | core | 2, 5 |
-| | Source toggles and quiet sources | config `logs`, dash | new | should | 5 |
+| | Source toggles and quiet sources | config `logs`, dash | new | cut (D36) | |
 | | Search with highlighted matches | dash | new | core | 5 |
 | | Level filter | dash | new | should | 5 |
 | Copy mode | Line selection, copy, copy without timestamps | dash | wire | cut (D34) | |

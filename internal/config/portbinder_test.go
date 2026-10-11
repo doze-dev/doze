@@ -149,3 +149,60 @@ module fakeproc "b" { port = 8080 }
 		t.Errorf("error should name the conflict + both instances, got:\n%s", err)
 	}
 }
+
+// valkeyDriver stands in for a registry module whose kind of server has a
+// well-known port, so a block that says none still has an address.
+type valkeyDriver struct{ fakeDriver }
+
+func (valkeyDriver) Type() string { return "valkey" }
+
+func init() { engine.Register(valkeyDriver{}) }
+
+func TestAModuleWithoutAPortTakesItsWellKnownOne(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "doze.hcl", `
+module valkey "cache" { version = 9 }
+module fakeproc "worker" {}
+`)
+	cfg, err := Load(dir+"/doze.hcl", nil)
+	if err != nil {
+		t.Fatalf("a valkey without a port should load: %v", err)
+	}
+	var cache *InstanceDecl
+	for _, d := range cfg.Instances {
+		if d.Name == "cache" {
+			cache = d
+		}
+	}
+	if cache == nil || cache.Port != 6379 {
+		t.Fatalf("cache port = %v, want 6379", cache)
+	}
+	if addr, _ := cfg.InstanceAddr(cache); addr != "127.0.0.1:6379" {
+		t.Errorf("address = %q", addr)
+	}
+	// a reference to its address now resolves, which was the failure that said
+	// "no attribute named address"
+	writeFile(t, dir, "doze.hcl", `
+module valkey "cache" { version = 9 }
+module fake "api" {
+  version = 1
+  port    = 7000
+  ref     = module.cache.address
+}
+`)
+	if _, err := Load(dir+"/doze.hcl", nil); err != nil {
+		t.Errorf("referencing module.cache.address: %v", err)
+	}
+}
+
+func TestTwoModulesOfAKindStillSayWhichPortToChange(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "doze.hcl", `
+module valkey "a" { version = 9 }
+module valkey "b" { version = 9 }
+`)
+	_, err := Load(dir+"/doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "port conflict") {
+		t.Fatalf("two valkeys on the one default port should be a port conflict, got %v", err)
+	}
+}

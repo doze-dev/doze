@@ -85,6 +85,10 @@ Decided, by the project owner, during design:
 | D32 | Levels are one line on the app's logs tab: counts of err, warn and info, and the lines that carry no level. The filter (`f`) does the work. Decided 2026-10-12. |
 | D33 | The wake trace screen is cut. Its cause is in the table row ("woken by worker") and in the journal lines under it. `t` on Home is the dependency tree. Decided 2026-10-12. |
 | D34 | Copy mode is cut. `y` copies the selected instance's address on Home and Focus, and the lines shown on a logs tab, over OSC 52. Selecting text is the terminal's (shift-drag while the dash holds the mouse). Decided 2026-10-12. |
+| D35 | Wrap is cut. A long log line ends in an ellipsis, and `y` copies it whole; `w` stays wake. Decided 2026-10-12. |
+| D36 | Per-source toggles and "quiet sources" on the stack's logs are cut. Search and the level filter do the work, and config has no per-source quiet setting. Decided 2026-10-12. |
+| D37 | The empty screen lists no other stacks yet. The data is under `<home>/projects`, but the daemon does not serve it, so listing them is a daemon change first. It is a menu of the three ways to start. Decided 2026-10-12. |
+| D38 | A module that declares no port takes the well-known one for its kind of server (postgres 5432, valkey 6379, kafka 9092, aws 4566, mariadb 3306, kvrocks 6380, ferret 27017). Ports are still never invented: temporal, an app and a service say their own, and two of a kind on one port are a reported conflict unless domains are on. Decided 2026-10-12. |
 | D15 | "N MB of ~M if nothing slept" stays, using each service's memory from the last time it ran. Services that have never run are left out. Tier: should. Decided 2026-10-10. |
 | D16 | Cold versus warm request timing is cut. The wake timeline stays. Decided 2026-10-10. |
 | D17 | Per-app connection counts and the aws caller column are deferred. "Held by" ships from dependency holds. A two-day experiment after phase 3 decides keep or cut. Decided 2026-10-10. |

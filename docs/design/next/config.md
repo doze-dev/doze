@@ -41,6 +41,12 @@ task "migrate" {
 | Block | Labels | Meaning |
 |---|---|---|
 | `module <type> "<name>"` | type, name | An engine from the doze registry. The body belongs to the module. |
+
+A module that sets no `port` takes the one its kind of server is known by: postgres
+5432, valkey 6379, kvrocks 6380, kafka 9092, aws 4566, mariadb 3306, ferret 27017
+(D38). Name a `port` to use another, and when two of a kind share the default
+and `domains` is off, lint says which to change.
+
 | `service "<name>"` | name | A long-running command from outside. Asleep until used. |
 | `app "<name>"` | name | A long-running command that is your code. Starts with `doze up`. |
 | `task "<name>"` | name | A command that runs to completion. |

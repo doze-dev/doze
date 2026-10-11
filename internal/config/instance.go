@@ -12,6 +12,8 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/doze-dev/doze-sdk/engine"
+
+	"github.com/doze-dev/doze/internal/detect"
 )
 
 // expandInstanceBlock turns one module or app block into one or more pending
@@ -126,6 +128,14 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 		return nil, posErr(parser, block.DefRange,
 			fmt.Sprintf("%s: port %d is out of range", what, c.Port),
 			"a port must be between 1 and 65535")
+	}
+	// A module that says no port takes the one its kind of server is known by,
+	// so `module valkey "cache" { version = 9 }` is complete: an address is there
+	// to reference. It is still never invented: a kind with no well-known port
+	// (and an app, or a service) must say its own, and two that want the same one
+	// are reported by validatePorts.
+	if c.Port == 0 && c.Listen == "" && head.kind == KindModule && head.etype != "temporal" {
+		c.Port = detect.ConventionalPort(head.etype)
 	}
 	inst := &InstanceDecl{
 		Kind:    head.kind,
