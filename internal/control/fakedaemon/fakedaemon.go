@@ -168,3 +168,12 @@ func (f *Fake) Done() []control.Verb {
 	defer f.mu.Unlock()
 	return append([]control.Verb{}, f.done...)
 }
+
+// Mutate changes the snapshot the way a verb would. The instances are copied
+// first, so a snapshot already handed out is not altered under its reader.
+func (f *Fake) Mutate(fn func(*control.Snapshot)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Snap.Instances = append([]control.InstanceView(nil), f.Snap.Instances...)
+	fn(&f.Snap)
+}

@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/control/fakedaemon"
 	"github.com/doze-dev/doze/internal/dash"
 	"github.com/doze-dev/doze/internal/dash/fixture"
@@ -112,6 +113,53 @@ func host(args []string) {
 	default:
 		d = fixture.Shop(epoch)
 	}
+	// The fixture's daemon only records a verb. Under the look tool, and for a
+	// person trying the dash with "look host", a verb should be seen to do what it
+	// says: wake an instance and it is awake, sleep it and it is not.
+	d.OnDo = func(v control.Verb) {
+		d.Mutate(func(snap *control.Snapshot) {
+			for i := range snap.Instances {
+				in := &snap.Instances[i]
+				if v.Target != "" && in.Name != v.Target {
+					continue
+				}
+				switch v.Name {
+				case control.VerbWake, control.VerbRestart, control.VerbUp:
+					if in.Kind == "task" || in.Disabled {
+						continue
+					}
+					in.State, in.StartedAt, in.PID, in.LastError = "active", epoch, 40000+i, ""
+					if in.RAM == 0 {
+						in.RAM = int64(40+i*7) << 20
+					}
+				case control.VerbSleep, control.VerbReset:
+					if in.Kind == "task" || (v.Target == "" && !awakeState(in.State)) {
+						continue
+					}
+					in.State, in.RAM, in.CPU, in.PID, in.Conns, in.StartedAt, in.LastError = "reaped", 0, 0, 0, 0, time.Time{}, ""
+					in.Holders = nil
+				case control.VerbPin:
+					pinned := false
+					var keep []control.HolderView
+					for _, h := range in.Holders {
+						if h.Kind == "pin" {
+							pinned = true
+							continue
+						}
+						keep = append(keep, h)
+					}
+					if !pinned {
+						keep = append(keep, control.HolderView{Kind: "pin"})
+					}
+					in.Holders = keep
+				case control.VerbTask:
+					if in.Kind == "task" {
+						in.Task = &control.TaskView{Result: "done", TookMS: 900, RanAt: epoch, Why: "you ran it"}
+					}
+				}
+			}
+		})
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	if err := dash.Run(ctx, d, dash.Options{Now: func() time.Time { return epoch }, Loc: time.UTC}); err != nil {
@@ -119,3 +167,5 @@ func host(args []string) {
 		os.Exit(1)
 	}
 }
+
+func awakeState(s string) bool { return s == "active" || s == "idle" }

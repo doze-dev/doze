@@ -373,11 +373,24 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			up += fmt.Sprintf(" · pid %d", v.PID)
 		}
 		run = append(run, label("up")+s.text.Render(up))
-		// the column is narrow: a line of bars and the figure, not a chart
-		sw := rw - 4 - 6 - 8
-		run = append(run,
-			label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+" "+s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)),
-			label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+" "+s.text.Render(mb(v.RAM)))
+		// the column is narrow: each metric a line of figures over two rows of
+		// bars, with a blank between so the two do not run into each other
+		for i, t := range []trace{
+			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+		} {
+			if i == 0 {
+				run = append(run, "")
+			}
+			vals := squeeze(t.vals, rw-4)
+			if len(vals) == 0 {
+				vals = []float64{t.cur}
+			}
+			lo, hi := t.scale(vals)
+			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now))
+			run = append(run, plot(vals, rw-4, 2, lo, hi, t.st, dimmed(t.st))...)
+			run = append(run, "")
+		}
 	}
 	if len(run) > 0 {
 		col = append(col, box(s.border, s.a.Bold(true).Render("this run"), "", run, rw, len(run)+2)...)

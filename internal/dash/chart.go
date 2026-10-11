@@ -373,18 +373,21 @@ func bytesLabel(v float64) string { return mb(int64(v)) }
 // and what it has been doing on one line, and under that a filled chart of it.
 // As many sit across as can have tileMin cells, the rest under them
 // (boards/V-A.dc.html).
-const tileMin = 30
+const (
+	tileMin = 30
+	tileGap = 2 // blank cells between tiles, so one does not run into the next
+)
 
 func (m *Model) tiles(ts []trace, w, rows int) []string {
 	s := m.st
 	per := 1
 	for k := len(ts); k > 1; k-- {
-		if (w-(k-1))/k >= tileMin {
+		if (w-(k-1)*tileGap)/k >= tileMin {
 			per = k
 			break
 		}
 	}
-	tw := (w - (per - 1)) / per
+	tw := (w - (per-1)*tileGap) / per
 	th := rows + 3
 	var out []string
 	for g := 0; g < len(ts); g += per {
@@ -419,7 +422,7 @@ func (m *Model) tiles(ts []trace, w, rows int) []string {
 			var b strings.Builder
 			for i, bx := range boxes {
 				if i > 0 {
-					b.WriteString(" ")
+					b.WriteString(strings.Repeat(" ", tileGap))
 				}
 				b.WriteString(bx[l])
 			}
