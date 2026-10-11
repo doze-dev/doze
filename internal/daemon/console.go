@@ -31,7 +31,7 @@ func (h *handler) subConsole(ctx context.Context, names []string, panel, selecto
 		return send(control.Frame{Topic: control.TopicConsole, Console: &f}) == nil
 	}
 
-	adm, inst, err := h.d.rt.AdminFor(name)
+	adm, inst, err := h.adminFor(ctx, name)
 	if err != nil {
 		emit(control.ConsoleFrame{Error: err.Error()})
 		return

@@ -407,7 +407,7 @@ func (h *handler) eventView(inst registry.Instance) control.InstanceView {
 // a live status line, plus the data actions its engine offers. Empty (no error)
 // when the engine has no admin capability; an error when it isn't running.
 func (h *handler) Resources(ctx context.Context, name string) ([]control.ResourceView, []control.ActionView, error) {
-	adm, inst, err := h.d.rt.AdminFor(name)
+	adm, inst, err := h.adminFor(ctx, name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -437,7 +437,7 @@ func (h *handler) Resources(ctx context.Context, name string) ([]control.Resourc
 
 // Admin runs a builtin data action (purge/empty/publish/…) on a named resource.
 func (h *handler) Admin(ctx context.Context, name, action, resource, input string) (string, error) {
-	adm, inst, err := h.d.rt.AdminFor(name)
+	adm, inst, err := h.adminFor(ctx, name)
 	if err != nil {
 		return "", err
 	}
@@ -495,4 +495,21 @@ func (h *handler) hydrateConsole(v *control.InstanceView, decl *config.InstanceD
 	if v.WebURL == "" && v.Console == "" {
 		v.WebURL = uiURL(drv, decl, v.Endpoint)
 	}
+}
+
+// adminFor is the runtime's Admin and the instance to call it with. A running
+// instance has its resolved toolchain attached, so a module reads its data with
+// the tools it was converged with and needs no client of its own. A sleeping
+// one is not woken or fetched for: it has no toolchain here.
+func (h *handler) adminFor(ctx context.Context, name string) (engine.Admin, engine.Instance, error) {
+	adm, inst, err := h.d.rt.AdminFor(name)
+	if err != nil || adm == nil {
+		return adm, inst, err
+	}
+	if h.d.rt.Backend(name) != nil {
+		if tc, terr := h.d.rt.ResolveToolchain(ctx, name); terr == nil {
+			inst.Toolchain = tc
+		}
+	}
+	return adm, inst, nil
 }
