@@ -23,23 +23,23 @@ body{margin:0}
 
 <div class="row grow">
 
-<div class="box" style="width: 440px">
+<div class="box" style="width: 396px">
 <div class="cap a b">stack</div>
-<div style="--c: 2ch 8ch 1fr 9ch" class="col">
+<div style="--c: 2ch 1fr 9ch" class="col">
 <div class="hd">APPS</div>
-<div class="tr sel"><span class="r">✗</span><span class="b">api</span><span>exit 1 · try 3 of 5</span><span class="r">crashing</span></div>
-<div class="tr"><span class="g">●</span><span class="w">web</span><span class="d">pnpm dev</span><span class="g">awake</span></div>
-<div class="tr"><span class="y">◐</span><span class="w">worker</span><span class="d">idle</span><span class="y">dozing</span></div>
+<div class="tr sel"><span class="r">✗</span><span class="b">api</span><span class="r">crashing</span></div>
+<div class="tr"><span class="g">●</span><span class="w">web</span><span class="g">awake</span></div>
+<div class="tr"><span class="y">◐</span><span class="w">worker</span><span class="y">dozing</span></div>
 <div class="hd">MODULES</div>
-<div class="tr"><span class="g">●</span><span class="w">db</span><span class="d">postgres 17</span><span class="g">awake</span></div>
-<div class="tr"><span class="d">·</span><span>cache</span><span class="d">valkey 9</span><span class="d">asleep</span></div>
-<div class="tr"><span class="d">·</span><span>events</span><span class="d">kafka</span><span class="d">asleep</span></div>
-<div class="tr"><span class="d">·</span><span>cloud</span><span class="d">aws</span><span class="d">asleep</span></div>
+<div class="tr"><span class="g">●</span><span class="w">db</span><span class="g">awake</span></div>
+<div class="tr"><span class="d">·</span><span>cache</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>events</span><span class="d">asleep</span></div>
+<div class="tr"><span class="d">·</span><span>cloud</span><span class="d">asleep</span></div>
 <div class="hd">OUTSIDE</div>
-<div class="tr"><span class="g">●</span><span class="w">mongo</span><span class="d">mongod 8.0</span><span class="g">awake</span></div>
-<div class="tr"><span class="d">·</span><span>mailpit</span><span class="d">on this machine</span><span class="d">asleep</span></div>
+<div class="tr"><span class="g">●</span><span class="w">mongo</span><span class="g">awake</span></div>
+<div class="tr"><span class="d">·</span><span>mailpit</span><span class="d">asleep</span></div>
 <div class="hd">TASKS</div>
-<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="d">15 applied · now</span><span class="g">done</span></div>
+<div class="tr"><span class="g">✓</span><span class="w">migrate</span><span class="g">done</span></div>
 </div>
 </div>
 
@@ -51,6 +51,7 @@ body{margin:0}
 <div class="ln d">  main.loadConfig  cmd/api/config.go:41</div>
 <div class="ln"> </div>
 <div style="--c: 8ch 1fr" class="col">
+<div class="tr"><span class="d">try</span><span>3 of 5 · exit 1</span></div>
 <div class="tr"><span class="d">why</span><span>The env doze gave api has no <span class="w">STRIPE_KEY</span>.</span></div>
 <div class="tr"><span class="d">where</span><span>Not in <span class="w">app "api" { env }</span>, not in <span class="w">.env</span>. It is in <span class="w">.env.example</span>.</span></div>
 <div class="tr"><span class="d">since</span><span>Started after you saved <span class="w">cmd/api/config.go</span> 40 s ago.</span></div>

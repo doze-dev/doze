@@ -49,3 +49,4 @@
 .lane>div{position:absolute;top:0;height:14px;border-radius:3px}
 .dim{opacity:.32}
 .code{background:#1b1826;border-radius:6px;padding:10px 14px}
+.tr.ch{min-height:18px;line-height:18px;white-space:pre}
