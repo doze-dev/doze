@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -130,5 +131,127 @@ func TestCrashAgainstTheBoard(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("Crash lacks %q", want)
 		}
+	}
+}
+
+// focused opens name in the frame, with what the board's stack knows of it.
+func focused(name string) *Model {
+	m := board()
+	for i := range m.snap.Instances {
+		v := &m.snap.Instances[i]
+		switch v.Name {
+		case "db":
+			v.URL, v.Domain, v.Endpoint, v.Bind = "postgres://shop@db.shop.doze:5432/shop", "db.shop.doze", "127.0.0.1:5432", "127.0.0.1:5432"
+			v.EnvVar, v.Conns, v.DataDir, v.PID, v.CPU = "DATABASE_URL", 4, homeDir()+"/.doze/shop/db", 612, 0.8
+			v.StartedAt = epoch.Add(-14 * time.Minute)
+			v.Holders = []control.HolderView{{Kind: "dependant", Name: "api"}, {Kind: "connection", Count: 4}}
+		case "mailpit":
+			v.Console, v.Domain, v.Endpoint = "http://mailpit.shop.doze:8025", "mailpit.shop.doze", "127.0.0.1:1025"
+		}
+	}
+	for i := 0; i < 40; i++ {
+		m.cpu["db"] = append(m.cpu["db"], float64(1+i%4))
+		m.ram["db"] = append(m.ram["db"], float64((90+i/10)<<20))
+		m.conns["db"] = append(m.conns["db"], float64(2+i/12))
+	}
+	m.sel = name
+	m.open()
+	return m
+}
+
+// Focus.dc.html: a database module opens on its overview.
+func TestFocusDatabaseAgainstTheBoard(t *testing.T) {
+	m := focused("db")
+	m.logs = []control.LogFrame{
+		{Instance: "db", Line: "LOG: database system is ready to accept connections", Time: epoch.Add(-14 * time.Minute)},
+		{Instance: "db", Line: "LOG: checkpoint complete: wrote 41 buffers", Time: epoch.Add(-20 * time.Second)},
+	}
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{"doze  shop › db postgres 17", "awake", "overview", "logs", "connect", "postgres://shop@db.shop.doze:5432/shop",
+		"module.db.url in doze.hcl", "awake because", "api", "4 connections", "sleeps 5:00 after the last closes", "vitals", "cpu", "conns", "recent"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Focus on a module lacks %q", want)
+		}
+	}
+}
+
+// View-App.dc.html: an app opens on its logs.
+func TestFocusAppAgainstTheBoard(t *testing.T) {
+	m := focused("api")
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{"doze  shop › api app", "following · info and up", "lines · this run", "needs", "✓  db", "this run", "levels", "ERR", "INF", "DBG", "hidden", "zzz cache woke"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Focus on an app lacks %q", want)
+		}
+	}
+}
+
+// View-Task.dc.html: a task opens on its last run.
+func TestFocusTaskAgainstTheBoard(t *testing.T) {
+	m := focused("migrate")
+	m.logs = []control.LogFrame{
+		{Instance: "migrate", Line: "14 migrations already applied", Time: epoch.Add(-2 * time.Minute), Run: 1},
+		{Instance: "migrate", Line: "ok 0015_orders_index.sql (212 ms)", Time: epoch.Add(-2*time.Minute + time.Second), Run: 1},
+	}
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{"migrate task", "last run", "exit 0", "14 migrations already applied", "runs when", "doze task migrate"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Focus on a task lacks %q", want)
+		}
+	}
+}
+
+// View-Web.dc.html: an outside service with a console of its own.
+func TestFocusWebConsoleAgainstTheBoard(t *testing.T) {
+	m := focused("mailpit")
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{"mailpit service", "web console", "mailpit has its own console", "http://mailpit.shop.doze:8025", "Opening the console wakes it first", "Open in browser", "what doze can still tell you"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Focus on a web console lacks %q", want)
+		}
+	}
+}
+
+// Enter opens the frame on the front tab, tab moves along, esc comes back.
+func TestEnterOpensTheFrameAndEscComesBack(t *testing.T) {
+	m := board()
+	m.sel = "db"
+	if got := frame(m, 136, 32); !strings.Contains(got, "stack") {
+		t.Fatalf("not on home:\n%s", got)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.page != pageFocus || !strings.Contains(frame(m, 136, 32), "connect") {
+		t.Fatalf("enter did not open db on its overview (page %d)", m.page)
+	}
+	m.key("tab")
+	if got := frame(m, 136, 32); !strings.Contains(got, "following · info and up") {
+		t.Fatalf("tab did not move to logs:\n%s", got)
+	}
+	m.key("f")
+	if got := frame(m, 136, 32); !strings.Contains(got, "warnings and up") {
+		t.Fatalf("f did not raise the level:\n%s", got)
+	}
+	m.key("esc")
+	if m.page != pageHome {
+		t.Fatalf("esc did not go back (page %d)", m.page)
+	}
+	// a task has one tab; tab does not wander off it
+	m.sel = "migrate"
+	m.key("enter")
+	m.key("tab")
+	if !strings.Contains(frame(m, 136, 32), "last run") {
+		t.Fatalf("a task left its last run tab")
 	}
 }

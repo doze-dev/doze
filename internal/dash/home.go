@@ -12,7 +12,6 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
-	"github.com/doze-dev/doze/internal/journal"
 )
 
 // group is a heading on the stack box, and what belongs under it (Main.dc.html).
@@ -522,77 +521,6 @@ func (m *Model) needs(v control.InstanceView) string {
 
 var levelWord = regexp.MustCompile(`(?i)^(level=)?(info|inf|warn|warning|wrn|error|err|debug|dbg)\b[:\s]*`)
 
-// logLines is the bottom box: what the instance printed, with what doze did
-// about it in the accent colour, newest last.
-func (m *Model) logLines(v control.InstanceView, w, h int) []string {
-	s := m.st
-	type item struct {
-		at   time.Time
-		text string
-		seq  int
-	}
-	var items []item
-	loc := m.loc
-	for i, l := range m.logs {
-		text := l.Line
-		tag := ""
-		switch display.Level(text) {
-		case "error":
-			tag = s.r.Render("ERR")
-		case "warn":
-			tag = s.y.Render("WRN")
-		case "info":
-			tag = s.c.Render("INF")
-		case "debug":
-			tag = s.d.Render("DBG")
-		}
-		if tag != "" {
-			text = levelWord.ReplaceAllString(text, "")
-			text = tag + " " + s.text.Render(text)
-		} else {
-			text = s.text.Render(text)
-		}
-		items = append(items, item{l.Time, text, i})
-	}
-	for i, e := range m.events {
-		if e.Instance != v.Name && e.Cause.By != v.Name {
-			continue
-		}
-		style := s.a
-		if e.Kind == journal.Crash || e.Kind == journal.GiveUp || e.Kind == journal.Failed {
-			style = s.r
-		}
-		items = append(items, item{e.Time, style.Render("zzz " + e.Instance + " " + display.Event(e)), 1<<20 + i})
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].at.Equal(items[j].at) {
-			return items[i].seq < items[j].seq
-		}
-		return items[i].at.Before(items[j].at)
-	})
-	if len(items) == 0 {
-		switch {
-		case awake(v):
-			return []string{s.d.Render("nothing printed yet")}
-		case v.Kind == "task":
-			return []string{s.d.Render("it has not run")}
-		}
-		return []string{s.d.Render("asleep: its output is kept; connecting to it wakes it")}
-	}
-	if len(items) > h {
-		items = items[len(items)-h:]
-	}
-	var out []string
-	for _, it := range items {
-		stamp := "        "
-		if !it.at.IsZero() {
-			stamp = it.at.In(loc).Format("15:04:05")
-		}
-		out = append(out, s.d.Render(stamp)+" "+it.text)
-	}
-	return out
-}
-
 // keys is the bar along the bottom: the keys that do something.
 func (m *Model) keys(w int) string {
 	s := m.st
@@ -656,4 +584,19 @@ func tilde(dir string) string {
 		return "~" + strings.TrimPrefix(dir, h)
 	}
 	return dir
+}
+
+// address is where a client connects: the name and port where there is a name,
+// else the address itself. "" when there is nothing to connect to.
+func address(v control.InstanceView) string {
+	if v.Endpoint == "" {
+		return ""
+	}
+	if v.Domain != "" {
+		if _, port, ok := strings.Cut(v.Endpoint, ":"); ok && !strings.HasPrefix(v.Endpoint, "unix:") {
+			return v.Domain + ":" + port
+		}
+		return v.Domain
+	}
+	return strings.TrimPrefix(v.Endpoint, "http://")
 }

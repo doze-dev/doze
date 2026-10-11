@@ -37,13 +37,17 @@ type Model struct {
 	nowf func() time.Time
 	loc  *time.Location
 
-	w, h int
-	sel  string
+	w, h  int
+	sel   string
+	page  int // pageHome or pageFocus
+	tab   int // the focused instance's tab
+	level int // the logs tab's minimum level
 
 	logs   []control.LogFrame // the selected instance's, oldest first
 	events []journal.Event    // the journal, newest last
 	ram    map[string][]float64
 	cpu    map[string][]float64
+	conns  map[string][]float64
 	notice string
 
 	send     func(tea.Msg)
@@ -53,7 +57,7 @@ type Model struct {
 
 // New builds the dash around a daemon. Init and Run start it listening.
 func New(d control.Daemon, o Options) *Model {
-	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}}
+	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo}
 	if m.nowf == nil {
 		m.nowf = time.Now
 	}
@@ -117,6 +121,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.logs = m.logs[len(m.logs)-400:]
 			}
 		}
+	case noticeMsg:
+		m.notice = string(msg)
 	case doneMsg:
 		if msg.err != nil {
 			m.notice = fmt.Sprintf("%s %s: %v", msg.verb, msg.target, msg.err)
@@ -133,7 +139,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // key handles one key on Home.
 func (m *Model) key(k string) (tea.Model, tea.Cmd) {
 	m.notice = ""
+	if m.page == pageFocus {
+		if cmd, handled := m.focusKey(k); handled {
+			return m, cmd
+		}
+	}
 	switch k {
+	case "enter", "l", "right":
+		m.open()
 	case "ctrl+c", "q":
 		if m.cancel != nil {
 			m.cancel()
@@ -293,6 +306,7 @@ func (m *Model) apply(f control.Frame) {
 			}
 			m.ram[s.Name] = push(m.ram[s.Name], float64(s.RAM))
 			m.cpu[s.Name] = push(m.cpu[s.Name], s.CPU)
+			m.conns[s.Name] = push(m.conns[s.Name], float64(s.Conns))
 		}
 	case control.TopicJournal:
 		if f.Event != nil {
@@ -323,6 +337,9 @@ func (m *Model) View() tea.View {
 func (m *Model) Render(w, h int) string {
 	if w <= 0 || h <= 0 {
 		return ""
+	}
+	if m.page == pageFocus {
+		return strings.Join(m.focus(w, h), "\n")
 	}
 	return strings.Join(m.home(w, h), "\n")
 }

@@ -38,7 +38,7 @@ type styles struct {
 	border, borderOn, borderBad  lipgloss.Style
 	sel                          lipgloss.Style
 	pill, pillG, pillY, pillR    lipgloss.Style
-	pillC, pillQ                 lipgloss.Style
+	pillC, pillQ, pillOn         lipgloss.Style
 	key                          lipgloss.Style
 }
 
@@ -65,7 +65,9 @@ func newStyles(plain bool) styles {
 	s.pillG, s.pillY, s.pillR = pill(hexGood, hexBg), pill(hexWarn, hexBg), pill(hexBad, hexBg)
 	s.pillC = pill(hexCool, hexBg)
 	s.pillQ = lipgloss.NewStyle().Padding(0, 1)
+	s.pillOn = lipgloss.NewStyle().Bold(true).Padding(0, 1)
 	if !plain {
+		s.pillOn = s.pillOn.Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexAccent))
 		s.pillQ = s.pillQ.Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexText))
 		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexBright))
 		s.key = lipgloss.NewStyle().Background(lipgloss.Color(hexSel)).Foreground(lipgloss.Color(hexBright)).Padding(0, 1)
