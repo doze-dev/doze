@@ -5,6 +5,7 @@
 //	go run ./tools/look                       every scene
 //	go run ./tools/look palette crash         some
 //	go run ./tools/look -out /tmp/look home   where the images go
+//	go run ./tools/look -size 190x56 home     at a big window's size
 //	go run ./tools/look live -doze ./doze -home /tmp/dz-try -dir ./project -keys "down enter"
 //
 // For a scene it writes <out>/<scene>.png: the board on the left, the dash on
@@ -36,6 +37,7 @@ func main() {
 	}
 	fs := flag.NewFlagSet("look", flag.ExitOnError)
 	out := fs.String("out", "", "where the images go (default .look at the repository root)")
+	size := fs.String("size", "", "draw at COLSxROWS, e.g. 190x56, instead of the board's size (the board beside it will not match)")
 	_ = fs.Parse(os.Args[1:])
 
 	names := fs.Args()
@@ -60,6 +62,13 @@ func main() {
 		s, ok := find(n)
 		if !ok {
 			fatal(fmt.Errorf("no scene %q; known: %s", n, strings.Join(sceneNames(), ", ")))
+		}
+		if *size != "" {
+			var c, r int
+			if _, err := fmt.Sscanf(*size, "%dx%d", &c, &r); err != nil || c < 40 || r < 10 {
+				fatal(fmt.Errorf("-size wants COLSxROWS, got %q", *size))
+			}
+			s.cols, s.rows = c, r
 		}
 		img, err := run(s, abs)
 		if err != nil {
