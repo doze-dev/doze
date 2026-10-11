@@ -113,9 +113,9 @@ func box(border lipgloss.Style, left, rt string, lines []string, w, h int) []str
 		return nil
 	}
 	inner := w - 4
-	top := border.Render("╭─") + " " + left
+	top, sep := border.Render("╭─")+" "+left, " "
 	if left == "" {
-		top = border.Render("╭─")
+		top, sep = border.Render("╭"), ""
 	}
 	used := width(top)
 	tail := ""
@@ -128,7 +128,7 @@ func box(border lipgloss.Style, left, rt string, lines []string, w, h int) []str
 	if fill < 0 {
 		fill = 0
 	}
-	out := []string{top + " " + border.Render(strings.Repeat("─", fill)) + tail}
+	out := []string{top + sep + border.Render(strings.Repeat("─", fill)) + tail}
 	for i := 0; i < h-2; i++ {
 		l := ""
 		if i < len(lines) {

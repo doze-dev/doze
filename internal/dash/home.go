@@ -526,7 +526,7 @@ func (m *Model) keys(w int) string {
 	s := m.st
 	var parts []string
 	for _, k := range []struct{ key, label string }{
-		{"↑↓", "move"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {"q", "quit"},
+		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"r", "restart"}, {":", "command"}, {"q", "quit"},
 	} {
 		parts = append(parts, s.key.Render(k.key)+s.d.Render(k.label))
 	}

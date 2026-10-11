@@ -1,0 +1,584 @@
+package dash
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+	"unicode"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/doze-dev/doze/internal/control"
+)
+
+// A modal sits over the dimmed page: the command palette (Palette.dc.html) and
+// the two confirmations (Confirm-Sleep.dc.html, Confirm-Reset.dc.html).
+
+type modalKind int
+
+const (
+	modalNone modalKind = iota
+	modalPalette
+	modalSleep
+	modalReset
+)
+
+type modal struct {
+	kind   modalKind
+	target string // the instance a confirmation is about
+
+	// the palette
+	input string
+	pick  int
+
+	// a confirmation
+	btn   int
+	typed string
+}
+
+// action is one row of the palette: a sentence, what to say beside it, the
+// command a shell would use to do the same, and what to do.
+type action struct {
+	label string
+	note  string
+	bad   bool // the note is a warning
+	cli   string
+	run   func(m *Model) tea.Cmd
+}
+
+// actions lists everything the palette can do, the selected instance's first.
+// Each has a command in the CLI: the right column is how a script does it.
+func (m *Model) actions() []action {
+	var out []action
+	add := func(a action) { out = append(out, a) }
+
+	forInstance := func(v control.InstanceView) {
+		n := v.Name
+		if v.Kind == "task" {
+			add(action{label: "run task " + n, cli: "doze task " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbTask, n) }})
+		} else {
+			if !awake(v) {
+				add(action{label: "wake " + n, cli: "doze wake " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, n) }})
+			}
+			if awake(v) {
+				add(action{label: "sleep " + n, cli: "doze sleep " + n, run: func(m *Model) tea.Cmd { return m.askSleep(n) }})
+				add(action{label: "restart " + n, cli: "doze restart " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbRestart, n) }})
+			}
+			pin := "pin " + n + " awake"
+			if v.KeepAwake {
+				pin = "unpin " + n
+			}
+			add(action{label: pin, cli: "doze pin " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbPin, n) }})
+			add(action{label: "reset " + n, note: "wipes its data · asks first", bad: true, cli: "doze reset " + n,
+				run: func(m *Model) tea.Cmd { m.modal = &modal{kind: modalReset, target: n, btn: 1}; return nil }})
+		}
+		add(action{label: "show the logs of " + n, cli: "doze logs " + n, run: func(m *Model) tea.Cmd {
+			m.sel = n
+			m.page = pageFocus
+			for i, t := range tabs(v) {
+				if t.id == tabLogs || t.id == tabLastRun {
+					m.tab = i
+				}
+			}
+			return nil
+		}})
+		if line := orStr(v.URL, v.Endpoint); line != "" && v.Kind != "task" {
+			add(action{label: "copy the connect line of " + n, cli: "doze url " + n, run: func(*Model) tea.Cmd { return tea.SetClipboard(line) }})
+		}
+	}
+
+	rs := rows(m.snap)
+	if v, ok := m.selected(); ok {
+		forInstance(v)
+	}
+	add(action{label: "wake everything", cli: "doze wake", run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, "") }})
+	add(action{label: "sleep everything that is awake", cli: "doze sleep", run: func(m *Model) tea.Cmd { return m.do(control.VerbSleep, "") }})
+	add(action{label: "bring the stack up", cli: "doze up", run: func(m *Model) tea.Cmd { return m.do(control.VerbUp, "") }})
+	add(action{label: "apply the changes in doze.hcl", cli: "doze sync", run: func(m *Model) tea.Cmd { return m.do(control.VerbSync, "") }})
+	for _, r := range rs {
+		if r.v.Name != m.sel {
+			forInstance(r.v)
+		}
+	}
+	return out
+}
+
+// do runs a verb on target ("" is the whole stack) and refreshes.
+func (m *Model) do(verb, target string) tea.Cmd {
+	d := m.d
+	return func() tea.Msg {
+		return doneMsg{verb, target, d.Do(contextBackground(), control.Verb{Name: verb, Target: target})}
+	}
+}
+
+// askSleep sleeps target, asking first when something is using it.
+func (m *Model) askSleep(target string) tea.Cmd {
+	v, ok := m.find(target)
+	if ok && inUse(v) != "" {
+		m.modal = &modal{kind: modalSleep, target: target}
+		return nil
+	}
+	return m.do(control.VerbSleep, target)
+}
+
+// match is a fuzzy match of query against s: whether every letter of query
+// appears in order, and which positions of s they are.
+func match(query, s string) ([]int, bool) {
+	if query == "" {
+		return nil, true
+	}
+	q := []rune(strings.ToLower(query))
+	var at []int
+	i := 0
+	for p, r := range []rune(strings.ToLower(s)) {
+		if i < len(q) && r == q[i] {
+			at = append(at, p)
+			i++
+		}
+	}
+	return at, i == len(q)
+}
+
+// score ranks matches: letters together, and near the front, first.
+func score(at []int) int {
+	if len(at) == 0 {
+		return 0
+	}
+	n := at[0]
+	for i := 1; i < len(at); i++ {
+		n += at[i] - at[i-1] - 1
+	}
+	return n
+}
+
+type hit struct {
+	a  action
+	at []int
+}
+
+func (m *Model) hits() []hit {
+	var out []hit
+	for _, a := range m.actions() {
+		if at, ok := match(m.modal.input, a.label); ok {
+			out = append(out, hit{a, at})
+		}
+	}
+	if m.modal.input != "" {
+		sort.SliceStable(out, func(i, j int) bool { return score(out[i].at) < score(out[j].at) })
+	}
+	return out
+}
+
+// --- keys ---
+
+func (m *Model) modalKey(k, text string) tea.Cmd {
+	switch m.modal.kind {
+	case modalPalette:
+		return m.paletteKey(k, text)
+	case modalSleep:
+		return m.sleepKey(k)
+	case modalReset:
+		return m.resetKey(k, text)
+	}
+	return nil
+}
+
+func (m *Model) paletteKey(k, text string) tea.Cmd {
+	md := m.modal
+	hs := m.hits()
+	switch k {
+	case "esc", "ctrl+c":
+		m.modal = nil
+	case "up", "ctrl+p":
+		if md.pick > 0 {
+			md.pick--
+		}
+	case "down", "ctrl+n":
+		if md.pick < len(hs)-1 {
+			md.pick++
+		}
+	case "backspace":
+		if r := []rune(md.input); len(r) > 0 {
+			md.input = string(r[:len(r)-1])
+			md.pick = 0
+		}
+	case "ctrl+u":
+		md.input, md.pick = "", 0
+	case "enter":
+		if md.pick < len(hs) {
+			a := hs[md.pick].a
+			m.modal = nil
+			return a.run(m)
+		}
+	case "tab":
+		if md.pick < len(hs) {
+			m.notice = "copied: " + hs[md.pick].a.cli
+			return tea.SetClipboard(hs[md.pick].a.cli)
+		}
+	case "space":
+		md.input += " "
+		md.pick = 0
+	default:
+		if text != "" && unicode.IsPrint([]rune(text)[0]) {
+			md.input += text
+			md.pick = 0
+		}
+	}
+	return nil
+}
+
+// sleepButtons are the choices of Confirm-Sleep: with what depends on it, or
+// without.
+func (m *Model) sleepButtons(v control.InstanceView) []string {
+	if deps := dependants(v); len(deps) > 0 {
+		return []string{"Sleep " + v.Name + " and " + strings.Join(deps, ", "), "Sleep " + v.Name + " only", "Cancel"}
+	}
+	return []string{"Sleep " + v.Name, "Cancel"}
+}
+
+func dependants(v control.InstanceView) []string {
+	var out []string
+	for _, h := range v.Holders {
+		if h.Kind == "dependant" {
+			out = append(out, h.Name)
+		}
+	}
+	return out
+}
+
+func (m *Model) sleepKey(k string) tea.Cmd {
+	md := m.modal
+	v, ok := m.find(md.target)
+	if !ok {
+		m.modal = nil
+		return nil
+	}
+	btns := m.sleepButtons(v)
+	switch k {
+	case "esc":
+		m.modal = nil
+	case "left", "shift+tab", "h":
+		if md.btn > 0 {
+			md.btn--
+		}
+	case "right", "tab", "l":
+		md.btn = (md.btn + 1) % len(btns)
+	case "enter":
+		m.modal = nil
+		deps := dependants(v)
+		switch {
+		case btns[md.btn] == "Cancel":
+			return nil
+		case len(deps) > 0 && md.btn == 0:
+			// what depends on it first, then it
+			d, target := m.d, v.Name
+			return func() tea.Msg {
+				var err error
+				for _, n := range deps {
+					if err = d.Do(contextBackground(), control.Verb{Name: control.VerbSleep, Target: n}); err != nil {
+						break
+					}
+				}
+				if err == nil {
+					err = d.Do(contextBackground(), control.Verb{Name: control.VerbSleep, Target: target})
+				}
+				return doneMsg{control.VerbSleep, target, err}
+			}
+		default:
+			return m.do(control.VerbSleep, v.Name)
+		}
+	}
+	return nil
+}
+
+func (m *Model) resetKey(k, text string) tea.Cmd {
+	md := m.modal
+	confirmed := md.typed == md.target
+	switch k {
+	case "esc":
+		m.modal = nil
+	case "tab":
+		md.btn = (md.btn + 1) % 2
+	case "backspace":
+		if r := []rune(md.typed); len(r) > 0 {
+			md.typed = string(r[:len(r)-1])
+		}
+	case "enter":
+		switch {
+		case md.btn == 1:
+			m.modal = nil
+		case confirmed:
+			m.modal = nil
+			return m.do(control.VerbReset, md.target)
+		}
+	default:
+		if text != "" && unicode.IsPrint([]rune(text)[0]) {
+			md.typed += text
+			md.btn = 0
+		}
+	}
+	return nil
+}
+
+// --- drawing ---
+
+// overlay puts modal over base, x cells in and y lines down.
+func overlay(base, modal []string, x, y int) []string {
+	out := append([]string(nil), base...)
+	for i, ml := range modal {
+		j := y + i
+		if j < 0 || j >= len(out) {
+			continue
+		}
+		mw := width(ml)
+		left := ansi.Truncate(out[j], x, "")
+		if n := x - width(left); n > 0 {
+			left += strings.Repeat(" ", n)
+		}
+		out[j] = left + ml + ansi.TruncateLeft(out[j], x+mw, "")
+	}
+	return out
+}
+
+// dim draws a page as the board dims it behind a modal: colour gone.
+func (m *Model) dim(lines []string) []string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = m.st.d.Render(ansi.Strip(l))
+	}
+	return out
+}
+
+// withModal draws the open modal over the page lines.
+func (m *Model) withModal(base []string, w, h int) []string {
+	if m.modal == nil {
+		return base
+	}
+	var box []string
+	switch m.modal.kind {
+	case modalPalette:
+		box = m.paletteBox(w, h)
+	case modalSleep:
+		box = m.sleepBox(w)
+	case modalReset:
+		box = m.resetBox(w)
+	}
+	if len(box) == 0 {
+		return base
+	}
+	x := (w - width(box[0])) / 2
+	if x < 0 {
+		x = 0
+	}
+	y := 3
+	if y+len(box) > h {
+		y = h - len(box)
+	}
+	if y < 0 {
+		y = 0
+	}
+	return overlay(m.dim(base), box, x, y)
+}
+
+func (m *Model) paletteBox(w, h int) []string {
+	s := m.st
+	bw := w * 69 / 100
+	if bw > 110 {
+		bw = 110
+	}
+	if bw < 50 {
+		bw = w
+	}
+	inner := bw - 4
+	hs := m.hits()
+	md := m.modal
+	if md.pick >= len(hs) {
+		md.pick = 0
+	}
+	room := h - 10
+	if room > 14 {
+		room = 14
+	}
+	if room < 3 {
+		room = 3
+	}
+	first := 0
+	if md.pick >= room {
+		first = md.pick - room + 1
+	}
+
+	lines := []string{s.a.Bold(true).Render(":") + " " + s.w.Render(md.input) + s.a.Render("▌"), s.border.Render(strings.Repeat("─", inner))}
+	cliW := 0
+	for _, h := range hs {
+		if n := width(h.a.cli); n > cliW {
+			cliW = n
+		}
+	}
+	if cliW > inner/2 {
+		cliW = inner / 2
+	}
+	if len(hs) == 0 {
+		lines = append(lines, s.d.Render("nothing does that"))
+	}
+	for i := first; i < len(hs) && i < first+room; i++ {
+		h := hs[i]
+		label := highlight(s, h.a.label, h.at)
+		if h.a.note != "" {
+			ns := s.d
+			if h.a.bad {
+				ns = s.r
+			}
+			label += " " + ns.Render(h.a.note)
+		}
+		cli := s.d.Render(fit(h.a.cli, cliW))
+		mark := "  "
+		if i == md.pick {
+			mark = s.a.Render("▸") + " "
+		}
+		gap := inner - 2 - width(label) - cliW
+		if gap < 1 {
+			gap = 1
+		}
+		line := mark + label + strings.Repeat(" ", gap) + cli
+		if i == md.pick {
+			line = s.sel.Render(ansi.Strip(line))
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, s.border.Render(strings.Repeat("─", inner)))
+	foot := s.d.Render("Every row is a shell command. The right column shows it.")
+	keys := s.key.Render("⏎") + s.d.Render("run") + "  " + s.key.Render("tab") + s.d.Render("copy command")
+	gap := inner - width(foot) - width(keys)
+	if gap < 1 {
+		gap = 1
+	}
+	lines = append(lines, foot+strings.Repeat(" ", gap)+keys)
+	return box(s.borderOn, "", "", lines, bw, len(lines)+2)
+}
+
+func highlight(s styles, label string, at []int) string {
+	set := map[int]bool{}
+	for _, p := range at {
+		set[p] = true
+	}
+	var b strings.Builder
+	for i, r := range []rune(label) {
+		if set[i] {
+			b.WriteString(s.a.Bold(true).Render(string(r)))
+		} else {
+			b.WriteString(s.text.Render(string(r)))
+		}
+	}
+	return b.String()
+}
+
+func (m *Model) buttons(names []string, cur int, off int) string {
+	s := m.st
+	var parts []string
+	for i, n := range names {
+		switch {
+		case i == off:
+			parts = append(parts, s.pillQ.Foreground(s.d.GetForeground()).Render(n))
+		case i == cur:
+			parts = append(parts, s.pill.Render(n))
+		default:
+			parts = append(parts, s.pillQ.Render(n))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// sleepBox is Confirm-Sleep.dc.html.
+func (m *Model) sleepBox(w int) []string {
+	s := m.st
+	v, ok := m.find(m.modal.target)
+	if !ok {
+		return nil
+	}
+	bw := w * 66 / 100
+	if bw > 100 {
+		bw = 100
+	}
+	if bw < 56 {
+		bw = w
+	}
+	label := func(k string) string { return s.d.Render(fit(k, 13)) + " " }
+	var lines []string
+	var who []string
+	for _, d := range dependants(v) {
+		who = append(who, s.w.Render(d)+" is running and needs it")
+	}
+	conns := 0
+	for _, h := range v.Holders {
+		if h.Kind == "connection" {
+			conns = h.Count
+		}
+	}
+	if conns > 0 {
+		who = append(who, fmt.Sprintf("%s open to it right now", s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns)))))
+	}
+	for _, l := range who {
+		lines = append(lines, s.text.Render(l))
+	}
+	lines = append(lines, "",
+		label("what happens")+s.text.Render("Connections drop. The next connection wakes it again,"),
+		label("")+s.text.Render("so it is back within seconds unless what uses it sleeps too."),
+		label("data")+s.text.Render("Kept. Nothing is deleted."),
+		"",
+		m.buttons(m.sleepButtons(v), m.modal.btn, -1),
+		"",
+		s.border.Render(strings.Repeat("─", bw-4)),
+		s.d.Render("doze only asks when something else is affected. Sleeping an idle service never asks."),
+		s.key.Render("←→")+s.d.Render("choose")+"  "+s.key.Render("⏎")+s.d.Render("confirm")+"  "+s.key.Render("esc")+s.d.Render("cancel"),
+	)
+	return box(s.borderOn, s.a.Bold(true).Render("sleep "+v.Name+"?"), "", lines, bw, len(lines)+2)
+}
+
+// resetBox is Confirm-Reset.dc.html.
+func (m *Model) resetBox(w int) []string {
+	s := m.st
+	v, ok := m.find(m.modal.target)
+	if !ok {
+		return nil
+	}
+	bw := w * 66 / 100
+	if bw > 100 {
+		bw = 100
+	}
+	if bw < 56 {
+		bw = w
+	}
+	label := func(k string) string { return s.d.Render(fit(k, 9)) + " " }
+	folder := tilde(v.DataDir)
+	if folder == "" {
+		folder = "its data folder"
+	}
+	lines := []string{
+		label("deletes") + s.w.Render("everything in "+folder),
+		label("stops") + s.text.Render(v.Name+" if it is awake"),
+		label("then") + s.text.Render(v.Name+" starts empty on its next wake, and its setup runs again"),
+		label("way back") + s.y.Render("none. There is no snapshot."),
+		"",
+		s.text.Render("Type ") + s.b.Render(v.Name) + s.text.Render(" to confirm"),
+	}
+	typed := s.w.Render(m.modal.typed)
+	if m.modal.typed == v.Name {
+		typed = s.g.Render(m.modal.typed)
+	}
+	cursor := s.r.Render("▌")
+	lines = append(lines, box(s.border, "", "", []string{typed + cursor}, 30, 3)...)
+	reset := "Reset " + v.Name
+	btns := []string{reset, "Cancel"}
+	cur, off := m.modal.btn, -1
+	if m.modal.typed != v.Name {
+		off = 0
+		cur = 1
+	}
+	lines = append(lines, "", m.buttons(btns, cur, off), "",
+		s.border.Render(strings.Repeat("─", bw-4)),
+		s.d.Render("Typing the name is only asked when data is deleted. Cancel is the default button."),
+		s.d.Render("From a script: ")+s.a.Render("doze reset "+v.Name+" --yes"),
+	)
+	return box(s.borderBad, s.r.Bold(true).Render("reset "+v.Name+" · this deletes data"), "", lines, bw, len(lines)+2)
+}

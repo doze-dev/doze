@@ -39,9 +39,10 @@ type Model struct {
 
 	w, h  int
 	sel   string
-	page  int // pageHome or pageFocus
-	tab   int // the focused instance's tab
-	level int // the logs tab's minimum level
+	page  int    // pageHome or pageFocus
+	modal *modal // the palette or a confirmation, over the page
+	tab   int    // the focused instance's tab
+	level int    // the logs tab's minimum level
 
 	logs   []control.LogFrame // the selected instance's, oldest first
 	events []journal.Event    // the journal, newest last
@@ -131,14 +132,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.snapshot()
 	case tea.KeyPressMsg:
-		return m.key(msg.String())
+		return m.keyText(msg.String(), msg.Text)
 	}
 	return m, m.follow()
 }
 
 // key handles one key on Home.
-func (m *Model) key(k string) (tea.Model, tea.Cmd) {
+func (m *Model) key(k string) (tea.Model, tea.Cmd) { return m.keyText(k, "") }
+
+// keyText handles a key; text is what it types, for the palette and the reset
+// confirmation.
+func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	m.notice = ""
+	if m.modal != nil {
+		return m, m.modalKey(k, text)
+	}
 	if m.page == pageFocus {
 		if cmd, handled := m.focusKey(k); handled {
 			return m, cmd
@@ -169,17 +177,11 @@ func (m *Model) key(k string) (tea.Model, tea.Cmd) {
 	case "r":
 		return m, m.verb(control.VerbRestart)
 	case "s":
-		v, ok := m.selected()
-		if !ok {
-			break
+		if v, ok := m.selected(); ok {
+			return m, m.askSleep(v.Name)
 		}
-		if users := inUse(v); users != "" {
-			// The confirm screen (Confirm-Sleep.dc.html) is not built yet; until it
-			// is, nothing is slept out from under what is using it.
-			m.notice = v.Name + " is in use by " + users + ": the confirm screen is not built yet"
-			break
-		}
-		return m, m.verb(control.VerbSleep)
+	case ":":
+		m.modal = &modal{kind: modalPalette}
 	}
 	return m, m.follow()
 }
@@ -338,10 +340,11 @@ func (m *Model) Render(w, h int) string {
 	if w <= 0 || h <= 0 {
 		return ""
 	}
+	page := m.home
 	if m.page == pageFocus {
-		return strings.Join(m.focus(w, h), "\n")
+		page = m.focus
 	}
-	return strings.Join(m.home(w, h), "\n")
+	return strings.Join(m.withModal(page(w, h), w, h), "\n")
 }
 
 // Run opens the dash on a terminal and returns when it is closed.
@@ -368,3 +371,5 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 
 // Plain says colour should be off, from the environment.
 func Plain() bool { return os.Getenv("NO_COLOR") != "" }
+
+func contextBackground() context.Context { return context.Background() }

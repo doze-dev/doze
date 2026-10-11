@@ -255,3 +255,129 @@ func TestEnterOpensTheFrameAndEscComesBack(t *testing.T) {
 		t.Fatalf("a task left its last run tab")
 	}
 }
+
+// typing feeds the palette the way the terminal does: a key and its text.
+func typeText(m *Model, s string) {
+	for _, r := range s {
+		m.keyText(string(r), string(r))
+	}
+}
+
+// Palette.dc.html: ":" opens it over the dimmed stack, typing narrows it, and
+// every row has its command beside it.
+func TestPaletteAgainstTheBoard(t *testing.T) {
+	m := board()
+	m.sel = "api"
+	m.key(":")
+	typeText(m, "re")
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{": re", "restart api", "doze restart api", "reset api", "wipes its data · asks first", "doze reset api",
+		"Every row is a shell command", "run", "copy command"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Palette lacks %q", want)
+		}
+	}
+	if strings.Contains(got, "wake cache") {
+		t.Errorf("Palette shows a row that does not match \"re\"")
+	}
+	// enter runs the first row: restart api
+	fd := m.d.(*fakedaemon.Fake)
+	_, cmd := m.key("enter")
+	if m.modal != nil || cmd == nil {
+		t.Fatalf("enter did not close the palette and run (modal %v)", m.modal)
+	}
+	cmd()
+	if done := fd.Done(); len(done) != 1 || done[0].Name != control.VerbRestart || done[0].Target != "api" {
+		t.Errorf("verbs run = %+v, want restart api", done)
+	}
+}
+
+// Confirm-Sleep.dc.html: sleeping what something uses asks first.
+func TestSleepInUseAsksFirst(t *testing.T) {
+	m := focusedDB()
+	m.key("s")
+	if m.modal == nil || m.modal.kind != modalSleep {
+		t.Fatalf("s on something in use did not ask")
+	}
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{"sleep db?", "api is running and needs it", "4 connections open to it right now", "Kept. Nothing is deleted.",
+		"Sleep db and api", "Sleep db only", "Cancel", "Sleeping an idle service never asks"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Confirm-Sleep lacks %q", want)
+		}
+	}
+	fd := m.d.(*fakedaemon.Fake)
+	m.key("right") // db only
+	_, cmd := m.key("enter")
+	cmd()
+	if done := fd.Done(); len(done) != 1 || done[0].Target != "db" || done[0].Name != control.VerbSleep {
+		t.Errorf("verbs run = %+v, want sleep db only", done)
+	}
+}
+
+// An idle thing is slept without asking.
+func TestSleepIdleNeverAsks(t *testing.T) {
+	m := board()
+	m.sel = "web"
+	_, cmd := m.key("s")
+	if m.modal != nil || cmd == nil {
+		t.Fatalf("sleeping an idle service asked")
+	}
+}
+
+// Confirm-Reset.dc.html: reset needs the name typed.
+func TestResetNeedsTheName(t *testing.T) {
+	m := focusedDB()
+	m.key(":")
+	typeText(m, "reset db")
+	_, _ = m.key("enter")
+	if m.modal == nil || m.modal.kind != modalReset {
+		t.Fatalf("reset did not ask")
+	}
+	got := frame(m, 136, 32)
+	if os.Getenv("DOZE_SHOW") != "" {
+		fmt.Println(got)
+	}
+	for _, want := range []string{"reset db · this deletes data", "everything in ~/.doze/shop/db", "none. There is no snapshot.", "Type db to confirm", "Cancel is the default button", "doze reset db --yes"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Confirm-Reset lacks %q", want)
+		}
+	}
+	fd := m.d.(*fakedaemon.Fake)
+	typeText(m, "d")
+	m.key("enter") // typed "d": not the name
+	if m.modal == nil || len(fd.Done()) != 0 {
+		t.Fatalf("reset ran without the name")
+	}
+	m.key("backspace")
+	typeText(m, "db")
+	_, cmd := m.key("enter")
+	if m.modal != nil || cmd == nil {
+		t.Fatalf("typing the name and enter did not reset")
+	}
+	cmd()
+	if done := fd.Done(); len(done) != 1 || done[0].Name != control.VerbReset || done[0].Target != "db" {
+		t.Errorf("verbs run = %+v, want reset db", done)
+	}
+	// esc cancels
+	m = focusedDB()
+	m.key(":")
+	typeText(m, "reset db")
+	m.key("enter")
+	m.key("esc")
+	if m.modal != nil {
+		t.Errorf("esc did not cancel the confirmation")
+	}
+}
+
+// focusedDB is the db of the Focus board, opened.
+func focusedDB() *Model {
+	m := focused("db")
+	return m
+}

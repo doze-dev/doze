@@ -266,7 +266,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 			ks = append(ks, [2]string{"p", "pin awake"})
 		}
 	}
-	ks = append(ks, [2]string{"esc", "back to the stack"})
+	ks = append(ks, [2]string{":", "command"}, [2]string{"esc", "back to the stack"})
 	var parts []string
 	for _, k := range ks {
 		parts = append(parts, s.key.Render(k[0])+s.d.Render(k[1]))
