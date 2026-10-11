@@ -144,24 +144,72 @@ func Event(e journal.Event) string {
 	return e.Kind
 }
 
-// Level reads a log line's severity from what the program wrote: a level word
-// near the front, or level=… as logfmt has it. It returns "error", "warn",
-// "info", "debug", or "" when the line says nothing.
+// Level reads a log line's severity from what the program wrote, and says
+// nothing when it cannot tell: programs print what they like, so this is a
+// reading of the common shapes and not a promise. It knows a level word near
+// the front ("[warn]", "ERROR:", "| info |", the "LOG:" postgres puts after its
+// prefix), logfmt (level=warn, lvl=, severity=), and the JSON loggers write
+// ({"level":"error"}, "severity":"WARNING", and pino's numbers, 30 for info).
+// It returns "error", "warn", "info", "debug", or "" for a line that says
+// nothing.
 func Level(line string) string {
 	head := strings.ToLower(line)
+	if len(head) > 120 {
+		head = head[:120]
+	}
+	// JSON and logfmt carry the level under a key, wherever it falls
+	for _, key := range []string{"level", "lvl", "severity", "loglevel"} {
+		for _, pre := range []string{"\"" + key + "\":", "\"" + key + "\": ", key + "="} {
+			at := strings.Index(head, pre)
+			if at < 0 {
+				continue
+			}
+			val := strings.TrimLeft(head[at+len(pre):], "\" ")
+			end := strings.IndexAny(val, "\", }")
+			if end < 0 {
+				end = len(val)
+			}
+			if l := levelWord(val[:end]); l != "" {
+				return l
+			}
+		}
+	}
 	if len(head) > 60 {
 		head = head[:60]
 	}
-	for _, w := range []struct{ word, level string }{
-		{"fatal", "error"}, {"panic", "error"}, {"error", "error"}, {"err", "error"},
-		{"warning", "warn"}, {"warn", "warn"}, {"info", "info"}, {"debug", "debug"}, {"trace", "debug"},
-	} {
-		for _, pat := range []string{"[" + w.word + "]", "level=" + w.word, " " + w.word + " ", "|" + w.word + "|"} {
+	for _, w := range levelWords {
+		for _, pat := range []string{"[" + w.word + "]", " " + w.word + " ", "|" + w.word + "|", " " + w.word + ":"} {
 			if strings.Contains(head, pat) {
 				return w.level
 			}
 		}
 		if strings.HasPrefix(head, w.word+" ") || strings.HasPrefix(head, w.word+":") {
+			return w.level
+		}
+	}
+	return ""
+}
+
+var levelWords = []struct{ word, level string }{
+	{"fatal", "error"}, {"panic", "error"}, {"critical", "error"}, {"error", "error"}, {"err", "error"},
+	{"warning", "warn"}, {"warn", "warn"}, {"wrn", "warn"}, {"info", "info"}, {"inf", "info"}, {"notice", "info"}, {"log", "info"},
+	{"debug", "debug"}, {"dbg", "debug"}, {"trace", "debug"}, {"trc", "debug"},
+}
+
+// levelWord maps a value found under a level key: a name, or pino's numbers.
+func levelWord(v string) string {
+	switch v {
+	case "10", "20":
+		return "debug"
+	case "30":
+		return "info"
+	case "40":
+		return "warn"
+	case "50", "60":
+		return "error"
+	}
+	for _, w := range levelWords {
+		if v == w.word {
 			return w.level
 		}
 	}

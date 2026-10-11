@@ -3,6 +3,7 @@ package dash
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"strings"
 	"time"
 
@@ -32,7 +33,8 @@ type trace struct {
 	floor float64 // the smallest top of the scale, so a quiet series is not stretched
 	zoom  bool    // scale from just under the lowest reading, not from zero
 	unit  func(float64) string
-	now   string // the current figure, as the box would say it
+	now   string  // the current figure, as the box would say it
+	cur   float64 // and as a number, for a series with no history yet
 	st    lipgloss.Style
 }
 
@@ -86,9 +88,12 @@ func plot(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.St
 			col[i] = lo
 		}
 	case n <= cells:
+		// a history that has only just begun is drawn as it is, at a reading to a
+		// cell and ending at the right edge, not stretched into wide steps
 		for i := range col {
-			col[i] = vs[i*n/cells]
+			col[i] = math.NaN()
 		}
+		copy(col[cells-n:], vs)
 	default:
 		// two readings to a cell, counted from the newest so the right edge is now
 		for i := cells - 1; i >= 0; i-- {
@@ -104,6 +109,9 @@ func plot(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.St
 	levels := rows * 8
 	level := make([]int, cells)
 	for i, v := range col {
+		if math.IsNaN(v) {
+			continue // before the history began
+		}
 		l := int((v-lo)/(hi-lo)*float64(levels) + 0.5)
 		if v > lo && l == 0 {
 			l = 1 // a reading is never invisible
@@ -148,7 +156,7 @@ func dimmed(st lipgloss.Style) lipgloss.Style {
 // chartH is how many rows each chart can have when n of them and a time axis
 // must fit in room lines: 0 when they cannot be drawn as charts at all.
 func chartH(room, n int) int {
-	for r := 6; r >= 2; r-- {
+	for r := 8; r >= 2; r-- {
 		if n*(r+1)+(n-1)+1 <= room { // each a heading and r rows, a blank between, one axis
 			return r
 		}
@@ -174,6 +182,9 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 		}
 		out = append(out, head)
 		vals := t.vals
+		if len(vals) == 0 {
+			vals = []float64{t.cur} // nothing sampled yet: the figure it has now
+		}
 		if len(vals) > 2*cw {
 			vals = vals[len(vals)-2*cw:]
 		}
@@ -191,10 +202,15 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 			out = append(out, s.d.Render(right(g, gutter))+" "+l)
 		}
 	}
+	// the age of the oldest reading, under where the line begins
 	span := time.Duration(max(n, 1)) * sampleEvery
 	left := ago(span) + " ago"
-	fill := max(cw-width(left)-5, 0)
-	out = append(out, s.d.Render(strings.Repeat(" ", gutter)+" "+left+" "+strings.Repeat("┈", fill)+" now"))
+	indent := 0
+	if n < cw {
+		indent = cw - n
+	}
+	fill := max(cw-indent-width(left)-5, 0)
+	out = append(out, s.d.Render(strings.Repeat(" ", gutter+1+indent)+left+" "+strings.Repeat("┈", fill)+" now"))
 	return out
 }
 

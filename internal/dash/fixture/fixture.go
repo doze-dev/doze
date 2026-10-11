@@ -5,6 +5,7 @@
 package fixture
 
 import (
+	"math"
 	"time"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -41,11 +42,14 @@ func Shop(now time.Time) *fakedaemon.Fake {
 	}}
 
 	// the meters, a minute of them, for the charts
-	for i := 0; i < 60; i++ {
+	// four minutes of them at a second each, as a daemon holds: a wave with the
+	// odd spike for cpu, a slow climb with a collection now and then for memory
+	// (mongo, an outside process, has none, so the empty chart is seen too)
+	for i := 0; i < 240; i++ {
 		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicStats, Stats: []control.StatView{
-			{Name: "api", PID: 48211, RAM: int64(80+i/12) << 20, CPU: float64(1 + i%5), Conns: 2},
-			{Name: "db", PID: 612, RAM: int64(90+i/10) << 20, CPU: float64(1+i%4) / 2, Conns: 2 + i/20},
-			{Name: "web", PID: 48230, RAM: 212 << 20, CPU: 0.4},
+			{Name: "api", PID: 48211, RAM: climb(i, 70, 84, 55), CPU: wave(i, 2.2, 1.6, 17, 41, 9), Conns: 2},
+			{Name: "db", PID: 612, RAM: climb(i, 88, 96, 80), CPU: wave(i, 1.2, 0.9, 23, 59, 6), Conns: 2 + i/80},
+			{Name: "web", PID: 48230, RAM: climb(i, 205, 214, 70), CPU: wave(i, 0.6, 0.4, 13, 0, 0)},
 		}})
 	}
 
@@ -132,11 +136,11 @@ func Modules(now time.Time) *fakedaemon.Fake {
 			StartedAt: ago(9 * time.Minute), URL: "http://cloud.data.doze", EnvVar: "AWS_ENDPOINT_URL", Domain: "cloud.data.doze",
 			Endpoint: "127.0.0.1:4566", Bind: "127.0.0.1:4566", DataDir: "~/.doze/data/cloud", HasConsole: true, ConsoleFront: "console"},
 	}}
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 240; i++ {
 		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicStats, Stats: []control.StatView{
-			{Name: "db", PID: 612, RAM: int64(90+i/10) << 20, CPU: float64(1+i%4) / 2, Conns: 2 + i/30},
-			{Name: "cache", PID: 701, RAM: 11 << 20, CPU: float64(i%3) / 10},
-			{Name: "flows", PID: 733, RAM: int64(140+i/8) << 20, CPU: float64(1+i%3) / 2, Conns: 1},
+			{Name: "db", PID: 612, RAM: climb(i, 88, 96, 80), CPU: wave(i, 1.2, 0.9, 23, 59, 6), Conns: 2 + i/120},
+			{Name: "cache", PID: 701, RAM: climb(i, 10, 11, 120), CPU: wave(i, 0.1, 0.1, 19, 0, 0)},
+			{Name: "flows", PID: 733, RAM: climb(i, 130, 148, 90), CPU: wave(i, 0.8, 0.5, 29, 71, 3), Conns: 1},
 		}})
 	}
 	pgSpec, pgActions := PostgresConsole()
@@ -292,4 +296,22 @@ func AwsConsole() (control.ConsoleSpec, []control.ActionView) {
 			{Key: "code", Title: "code", Align: "right", Role: "state"}, {Key: "target", Title: "target"}}},
 	}}
 	return spec, []control.ActionView{{ID: "keep", Label: "Keep in doze.hcl", Kind: "resource"}}
+}
+
+// wave is a cpu reading at second i: base plus a swing of amp over period
+// seconds, and a spike of spike every spikeEvery seconds (0 for none).
+func wave(i int, base, amp float64, period, spikeEvery int, spike float64) float64 {
+	v := base + amp*math.Sin(float64(i)*2*math.Pi/float64(period))*math.Cos(float64(i)/11)
+	if spikeEvery > 0 && i%spikeEvery == 0 {
+		v += spike
+	}
+	return math.Max(v, 0)
+}
+
+// climb is a resident size in bytes at second i: it rises from lo to hi MB over
+// the run, and drops back by a tenth of that span every collect seconds.
+func climb(i int, lo, hi float64, collect int) int64 {
+	span := hi - lo
+	v := lo + span*float64(i)/240 - span*0.1*float64(i/collect%2)
+	return int64(v * (1 << 20))
 }

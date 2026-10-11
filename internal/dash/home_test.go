@@ -477,3 +477,44 @@ func TestTheDashAsksForItsGround(t *testing.T) {
 		t.Error("plain output must leave the terminal's colours alone")
 	}
 }
+
+// Rows of the stack can be clicked: one click selects, a second opens.
+func TestClickingTheStack(t *testing.T) {
+	m := board()
+	m.w, m.h = 136, 32
+	m.Render(m.w, m.h) // lays out the stack, which records where each row is
+	lineOf := func(name string) int {
+		for i, n := range m.hit {
+			if n == name {
+				return m.hitY0 + i
+			}
+		}
+		t.Fatalf("no row for %s", name)
+		return 0
+	}
+	click := func(name string, x int) {
+		m.Update(tea.MouseClickMsg(tea.Mouse{X: x, Y: lineOf(name), Button: tea.MouseLeft}))
+		m.Render(m.w, m.h)
+	}
+	click("db", 10)
+	if m.sel != "db" || m.page != pageHome {
+		t.Fatalf("one click: sel=%q page=%d", m.sel, m.page)
+	}
+	click("db", 10)
+	if m.page != pageFocus {
+		t.Errorf("a second click on the same row did not open it")
+	}
+
+	m = board()
+	m.w, m.h = 136, 32
+	m.Render(m.w, m.h)
+	before := m.sel
+	m.Update(tea.MouseClickMsg(tea.Mouse{X: 100, Y: m.hitY0, Button: tea.MouseLeft})) // on the right pane
+	if m.sel != before {
+		t.Error("a click outside the stack moved the selection")
+	}
+	m.Update(tea.MouseClickMsg(tea.Mouse{X: 5, Y: m.hitY0, Button: tea.MouseLeft})) // a group heading
+	if m.sel != before {
+		t.Error("a click on a heading moved the selection")
+	}
+}

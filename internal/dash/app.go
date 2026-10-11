@@ -41,7 +41,11 @@ type Model struct {
 
 	w, h         int
 	sel          string
-	page         int           // pageHome or pageFocus
+	page         int      // pageHome or pageFocus
+	hit          []string // the instance on each line of the stack, "" for a heading
+	hitY0, hitX1 int      // where the stack's lines begin, and the column it ends at
+	clickName    string   // the last row clicked, and when: a second click opens it
+	clickAt      time.Time
 	modal        *modal        // the palette or a confirmation, over the page
 	con          *consoleState // the focused instance's console, when it has one
 	currentTabID string        // the tab being drawn, for blocks that look up another
@@ -140,6 +144,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.snapshot()
 	case tea.KeyPressMsg:
 		return m.keyText(msg.String(), msg.Text)
+	case tea.MouseClickMsg:
+		m.click(tea.Mouse(msg))
+	case tea.MouseWheelMsg:
+		if m.page == pageHome && m.modal == nil {
+			switch tea.Mouse(msg).Button {
+			case tea.MouseWheelUp:
+				m.move(-1)
+			case tea.MouseWheelDown:
+				m.move(1)
+			}
+		}
 	}
 	return m, m.follow()
 }
@@ -339,6 +354,7 @@ func push(vs []float64, v float64) []float64 {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.Render(m.w, m.h))
 	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
 	if !m.st.plain {
 		// The palette is drawn for this ground. Without it the dash is the board's
 		// colours on whatever the terminal's theme is, and the faint and the

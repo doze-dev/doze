@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -254,11 +255,12 @@ func (m *Model) home(w, h int) []string {
 	}
 
 	left := box(s.borderOn, s.a.Bold(true).Render("stack"), "", m.stack(lw-4, bodyH-2, true, false), lw, bodyH)
+	m.hitY0, m.hitX1 = 2, lw // under the header and the box's top border
 
 	v, ok := m.selected()
 	var top, bottom []string
 	if ok {
-		topLines, caption, rcap, st := m.detail(v, rw-4)
+		topLines, caption, rcap, st := m.detail(v, rw-4, bodyH)
 		topH := len(topLines) + 2
 		if topH > bodyH-4 {
 			topH = bodyH - 4
@@ -372,19 +374,19 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 		nameW = min(nameW, 24)
 	}
 
-	var out []string
+	var out, names []string // names: which instance each line is, for the mouse
 	last := -1
 	for _, r := range rs {
 		if r.group != last {
 			if last != -1 && len(rs)+len(groups)*2 < h {
-				out = append(out, "")
+				out, names = append(out, ""), append(names, "")
 			}
 			g := groups[r.group]
 			hd := s.a.Bold(true).Render(g.title)
 			if subtitles {
 				hd += "  " + s.d.Render(g.what)
 			}
-			out = append(out, " "+hd)
+			out, names = append(out, " "+hd), append(names, "")
 			last = r.group
 		}
 		lk := s.look(r.v)
@@ -415,14 +417,15 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 			}
 			line = " " + lk.style.Render(lk.glyph) + "  " + nameS + "  " + desc + lk.style.Render(state) + "  " + memStyled + " "
 		}
-		out = append(out, line)
+		out, names = append(out, line), append(names, r.v.Name)
 	}
+	m.hit = names
 	return out
 }
 
 // detail is the right box's content for the selected instance: its caption,
 // right caption and border, and the rows between (Main.dc.html, api).
-func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, rcap string, border lipgloss.Style) {
+func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, caption, rcap string, border lipgloss.Style) {
 	s := m.st
 	lk := s.look(v)
 	border = s.border
@@ -513,11 +516,13 @@ func (m *Model) detail(v control.InstanceView, w int) (lines []string, caption, 
 	}
 	if awake(v) {
 		ts := []trace{
-			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), s.a},
+			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
 		}
+		// as tall as a little over half the pane allows: the logs have the rest
+		rows := min(max((h*55/100-11)/2, 2), 8)
 		lines = append(lines, "")
-		lines = append(lines, m.charts(ts, w, 3)...)
+		lines = append(lines, m.charts(ts, w, rows)...)
 	} else if v.State != "booting" && !troubled(v) {
 		lines = append(lines, label("")+s.d.Render("asleep: it costs nothing until something connects"))
 	}
@@ -610,6 +615,7 @@ func (m *Model) homeNarrow(w, h int) []string {
 	}
 	out := []string{l + strings.Repeat(" ", gap) + r, ""}
 	body := m.stack(w-2, h-4, false, true)
+	m.hitY0, m.hitX1 = 2, w
 	out = append(out, body...)
 	for len(out) < h-2 {
 		out = append(out, "")
@@ -668,4 +674,23 @@ func (m *Model) hint(v control.InstanceView) string {
 		}
 	}
 	return ""
+}
+
+// click handles a left click on Home: on a row of the stack it selects that
+// row, and a second click on the same row soon after opens it, as enter does.
+func (m *Model) click(at tea.Mouse) {
+	if at.Button != tea.MouseLeft || m.page != pageHome || m.modal != nil || at.X >= m.hitX1 {
+		return
+	}
+	i := at.Y - m.hitY0
+	if i < 0 || i >= len(m.hit) || m.hit[i] == "" {
+		return
+	}
+	name := m.hit[i]
+	if name == m.sel && name == m.clickName && m.now.Sub(m.clickAt) < 700*time.Millisecond {
+		m.open()
+		m.clickName = ""
+		return
+	}
+	m.sel, m.clickName, m.clickAt = name, name, m.now
 }

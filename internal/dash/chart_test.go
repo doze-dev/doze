@@ -83,3 +83,23 @@ func TestZoomShowsDriftAndSitsFlatInTheMiddle(t *testing.T) {
 		t.Errorf("a quiet cpu is %v..%v, want 0..5", lo, hi)
 	}
 }
+
+// A process with no history yet, an outside one the daemon has not sampled, is
+// drawn from the figure it has now rather than as an empty box; a short history
+// ends at the right edge and is not stretched across the width.
+func TestChartsWithLittleOrNoHistory(t *testing.T) {
+	m := board()
+	empty := plain(m.charts([]trace{{name: "mem", unit: bytesLabel, now: "148 MB", cur: 148 << 20, zoom: true, st: lipgloss.NewStyle()}}, 60, 3))
+	if !strings.Contains(strings.Join(empty, "\n"), "█") && !strings.ContainsAny(strings.Join(empty, ""), "▁▂▃▄▅▆▇") {
+		t.Errorf("no history drew an empty chart:\n%s", strings.Join(empty, "\n"))
+	}
+	short := plain(plot([]float64{1, 2, 3}, 20, 2, 0, 3, lipgloss.NewStyle(), lipgloss.NewStyle()))
+	for _, row := range short {
+		if strings.TrimSpace(row[:2]) != "" {
+			t.Errorf("a three-reading history reaches the left edge: %q", row)
+		}
+		if strings.TrimSpace(row[len(row)-3:]) == "" && row == short[len(short)-1] {
+			t.Errorf("a three-reading history does not end at the right edge: %q", row)
+		}
+	}
+}

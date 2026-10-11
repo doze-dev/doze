@@ -318,10 +318,14 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		lw = w - rw - 1
 	}
 	var counts [4]int
-	n := 0
+	untagged, n := 0, 0
 	for _, l := range m.logs {
-		r, _ := rank(l.Line)
-		counts[r]++
+		if display.Level(l.Line) == "" {
+			untagged++ // the program did not say; not counted as info
+		} else {
+			r, _ := rank(l.Line)
+			counts[r]++
+		}
 		n++
 	}
 	lines := m.stream(v, h-2, m.level, 0)
@@ -362,10 +366,10 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			up += fmt.Sprintf(" · pid %d", v.PID)
 		}
 		run = append(run, label("up")+s.text.Render(up))
-		sw := rw - 4 - 6 - 8
-		run = append(run,
-			label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+" "+s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)),
-			label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+" "+s.text.Render(mb(v.RAM)))
+		run = append(run, m.charts([]trace{
+			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+		}, rw-4, 2)...)
 	}
 	if len(run) > 0 {
 		col = append(col, box(s.border, s.a.Bold(true).Render("this run"), "", run, rw, len(run)+2)...)
@@ -384,6 +388,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			bar("WRN", s.y.Render, counts[lvWarn]),
 			bar("INF", s.c.Render, counts[lvInfo]),
 			s.d.Render("DBG") + " " + s.d.Render(fit("hidden", rw-4-4-5)) + right(s.d.Render(fmt.Sprint(counts[lvDebug])), 5),
+			s.d.Render(fit("no level in the line", rw-4-5)) + right(s.d.Render(fmt.Sprint(untagged)), 5),
 		}
 		col = append(col, box(s.border, s.a.Bold(true).Render("levels"), "", lv, rw, rest)...)
 	}
@@ -485,9 +490,9 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	vit := []string{}
 	if awake(v) {
 		ts := []trace{
-			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), s.a},
-			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), s.g},
+			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
 		if r := chartH(room, len(ts)); r > 0 {
