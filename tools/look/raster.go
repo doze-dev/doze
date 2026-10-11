@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"image"
 	"image/color"
 	"image/draw"
@@ -31,6 +32,15 @@ var (
 	rgbFg = color.RGBA{0xcf, 0xcb, 0xe3, 0xff}
 )
 
+// JetBrains Mono is the boards' font (docs/design/next/boards/term.css). It is
+// embedded, so the images match the boards letter for letter on any machine.
+//
+//go:embed fonts/JetBrainsMono-Regular.ttf
+var jbRegular []byte
+
+//go:embed fonts/JetBrainsMono-Bold.ttf
+var jbBold []byte
+
 // family is one font in the fallback chain: a regular and a bold face.
 type family struct {
 	reg, bold *sfnt.Font
@@ -44,9 +54,9 @@ func (f *family) has(r rune) bool {
 	return err == nil && i != 0
 }
 
-// fonts is the chain a glyph is looked up in: the system's monospace font and
-// its symbol fonts, then Go Mono, which every machine has because it is linked
-// in.
+// fonts is the chain a glyph is looked up in: JetBrains Mono, then the system's
+// monospace and symbol fonts for what it lacks, then Go Mono, which every machine
+// has because it is linked in.
 func fonts() []*family {
 	var out []*family
 	add := func(reg, bold []byte) {
@@ -64,6 +74,7 @@ func fonts() []*family {
 		}
 		out = append(out, fam)
 	}
+	add(jbRegular, jbBold)
 	if data, err := os.ReadFile("/System/Library/Fonts/Menlo.ttc"); err == nil {
 		if c, err := opentype.ParseCollection(data); err == nil {
 			fam := &family{}
