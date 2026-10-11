@@ -111,7 +111,7 @@ func run(sc scene, outDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sess, err := start(self, []string{"host", sc.fixture}, nil, root, sc.cols, sc.rows)
+	sess, err := start(self, []string{"host", sc.fixture, "frozen"}, nil, root, sc.cols, sc.rows)
 	if err != nil {
 		return "", err
 	}

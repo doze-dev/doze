@@ -74,3 +74,33 @@ func TestLogsHonourTheQuery(t *testing.T) {
 		t.Fatal("an undeclared instance is an error")
 	}
 }
+
+// A held subscription is sent what is pushed after the script is over: the
+// frames of a daemon that has something more to say.
+func TestPushReachesAHeldSubscriber(t *testing.T) {
+	f := &Fake{Hold: true}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	got := make(chan control.Frame, 4)
+	go func() {
+		_ = f.Subscribe(ctx, control.Subscription{Topics: []string{control.TopicStats}}, func(fr control.Frame) error {
+			got <- fr
+			return nil
+		})
+	}()
+	deadline := time.After(2 * time.Second)
+	for {
+		f.Push(control.Frame{Topic: control.TopicLogs, Log: &control.LogFrame{Instance: "x", Line: "not asked for"}})
+		f.Push(control.Frame{Topic: control.TopicStats, Stats: []control.StatView{{Name: "api", RAM: 5}}})
+		select {
+		case fr := <-got:
+			if fr.Topic != control.TopicStats || len(fr.Stats) != 1 || fr.Stats[0].RAM != 5 {
+				t.Fatalf("got %+v", fr)
+			}
+			return
+		case <-time.After(20 * time.Millisecond):
+		case <-deadline:
+			t.Fatal("a pushed frame never arrived")
+		}
+	}
+}

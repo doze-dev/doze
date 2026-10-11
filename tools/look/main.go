@@ -31,6 +31,10 @@ func main() {
 		host(os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "watch" {
+		watch(os.Args[2:])
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "live" {
 		live(os.Args[2:])
 		return
@@ -90,6 +94,7 @@ func live(args []string) {
 	cols := fs.Int("cols", 136, "columns")
 	rows := fs.Int("rows", 42, "rows")
 	wait := fs.Duration("wait", 2*time.Second, "how long to let it start")
+	gap := fs.Duration("again", 0, "draw a second image this long after the first, to see that it moves")
 	_ = fs.Parse(args)
 	if *home == "" {
 		fatal(fmt.Errorf("-home is required: the live dash must never be pointed at your own daemon by accident"))
@@ -112,9 +117,57 @@ func live(args []string) {
 		fatal(err)
 	}
 	fmt.Println(*out)
+	if *gap > 0 {
+		time.Sleep(*gap)
+		sess.settle(time.Second)
+		second := strings.TrimSuffix(*out, ".png") + "-later.png"
+		if err := drawScreen(sess, second); err != nil {
+			fatal(err)
+		}
+		fmt.Println(second)
+	}
 }
 
 func fatal(err error) {
 	fmt.Fprintln(os.Stderr, "look:", err)
 	os.Exit(1)
+}
+
+// watch runs the fixture un-frozen, as a person would, and draws it twice a few
+// seconds apart, to see that it moves on its own:
+//
+//	look watch shop 4s
+func watch(args []string) {
+	fixture, gap := "shop", 4*time.Second
+	if len(args) > 0 {
+		fixture = args[0]
+	}
+	if len(args) > 1 {
+		if d, err := time.ParseDuration(args[1]); err == nil {
+			gap = d
+		}
+	}
+	root, err := repoRoot()
+	if err != nil {
+		fatal(err)
+	}
+	self, _ := os.Executable()
+	sess, err := start(self, []string{"host", fixture}, nil, root, 150, 40)
+	if err != nil {
+		fatal(err)
+	}
+	defer sess.close()
+	sess.settle(3 * time.Second)
+	dir := filepath.Join(root, ".look")
+	_ = os.MkdirAll(dir, 0o755)
+	for i, name := range []string{"watch-a.png", "watch-b.png"} {
+		if i > 0 {
+			time.Sleep(gap)
+			sess.settle(time.Second)
+		}
+		if err := drawScreen(sess, filepath.Join(dir, name)); err != nil {
+			fatal(err)
+		}
+		fmt.Println(filepath.Join(dir, name))
+	}
 }

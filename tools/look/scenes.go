@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"time"
@@ -111,6 +113,9 @@ func host(args []string) {
 	if len(args) > 0 {
 		fixtureName = args[0]
 	}
+	// A person trying the dash sees it move; the scenes freeze it, so a screen is
+	// the same image every run.
+	frozen := len(args) > 1 && args[1] == "frozen"
 	var d *fakedaemon.Fake
 	switch fixtureName {
 	case "crash":
@@ -171,10 +176,63 @@ func host(args []string) {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	if err := dash.Run(ctx, d, dash.Options{Now: func() time.Time { return epoch }, Loc: time.UTC}); err != nil {
+	now := func() time.Time { return epoch }
+	if !frozen {
+		start := time.Now()
+		now = func() time.Time { return epoch.Add(time.Since(start)) }
+		go drive(ctx, d, now)
+	}
+	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC}); err != nil {
 		os.Stderr.WriteString("look host: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }
 
 func awakeState(s string) bool { return s == "active" || s == "idle" }
+
+// drive makes the fixture's daemon behave like one: every second each awake
+// instance's memory drifts and its cpu moves, now and then it spikes, and apps
+// print a line. The dash must follow all of it without being asked.
+func drive(ctx context.Context, d *fakedaemon.Fake, now func() time.Time) {
+	rng := rand.New(rand.NewSource(7))
+	msgs := []string{"INF GET /products 200 %dms", "INF GET /cart 200 %dms", "INF POST /orders 201 %dms", "INF GET /healthz 200 %dms", "WRN slow query %dms SELECT * FROM orders"}
+	tk := time.NewTicker(time.Second)
+	defer tk.Stop()
+	for tick := 0; ; tick++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tk.C:
+		}
+		var stats []control.StatView
+		var apps []string
+		d.Mutate(func(snap *control.Snapshot) {
+			for i := range snap.Instances {
+				in := &snap.Instances[i]
+				if in.State != "active" && in.State != "idle" {
+					continue
+				}
+				// a walk that stays near where it began, and a spike now and then
+				in.RAM += int64(rng.Intn(5)-2) << 20
+				in.RAM = max(in.RAM, 4<<20)
+				in.CPU = 0.3 + rng.Float64()*2.2
+				if rng.Intn(14) == 0 {
+					in.CPU += 8 + rng.Float64()*12
+				}
+				if in.Kind == "module" && rng.Intn(6) == 0 {
+					in.Conns = max(0, in.Conns+rng.Intn(3)-1)
+				}
+				stats = append(stats, control.StatView{Name: in.Name, PID: in.PID, RAM: in.RAM, CPU: in.CPU, Conns: in.Conns})
+				if in.Kind == "app" || in.Kind == "service" {
+					apps = append(apps, in.Name)
+				}
+			}
+		})
+		d.Push(control.Frame{Topic: control.TopicStats, Stats: stats})
+		for _, name := range apps {
+			if rng.Intn(2) == 0 {
+				d.PushLog(control.LogFrame{Instance: name, Line: fmt.Sprintf(msgs[rng.Intn(len(msgs))], 2+rng.Intn(60)), Time: now(), Run: 1})
+			}
+		}
+	}
+}

@@ -38,6 +38,47 @@ type Fake struct {
 	mu      sync.Mutex
 	done    []control.Verb
 	actions []Action
+	live    []*liveSub
+}
+
+// liveSub is a subscriber that is held open and is sent what Push is given.
+type liveSub struct {
+	ch   chan control.Frame
+	want map[string]bool
+	sub  control.Subscription
+}
+
+// Push sends a frame to every subscriber that is held open and asked for its
+// topic, as a daemon does when something happens after the script is over. A
+// subscriber that cannot keep up misses it, which the dash must stand anyway.
+func (f *Fake) Push(fr control.Frame) {
+	f.mu.Lock()
+	subs := append([]*liveSub(nil), f.live...)
+	f.mu.Unlock()
+	for _, s := range subs {
+		if !s.want[fr.Topic] {
+			continue
+		}
+		if fr.Log != nil && len(s.sub.Names) > 0 && !contains(s.sub.Names, fr.Log.Instance) {
+			continue
+		}
+		select {
+		case s.ch <- fr:
+		default:
+		}
+	}
+}
+
+// PushLog records a line an instance printed, for those that ask for its logs
+// later, and sends it to those following now.
+func (f *Fake) PushLog(l control.LogFrame) {
+	f.mu.Lock()
+	if f.Lines == nil {
+		f.Lines = map[string][]control.LogFrame{}
+	}
+	f.Lines[l.Instance] = append(f.Lines[l.Instance], l)
+	f.mu.Unlock()
+	f.Push(control.Frame{Topic: control.TopicLogs, Log: &l})
 }
 
 var _ control.Daemon = (*Fake)(nil)
@@ -88,7 +129,30 @@ func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(
 		}
 	}
 	if f.Hold {
-		<-ctx.Done()
+		ls := &liveSub{ch: make(chan control.Frame, 256), want: want, sub: sub}
+		f.mu.Lock()
+		f.live = append(f.live, ls)
+		f.mu.Unlock()
+		defer func() {
+			f.mu.Lock()
+			for i, x := range f.live {
+				if x == ls {
+					f.live = append(f.live[:i], f.live[i+1:]...)
+					break
+				}
+			}
+			f.mu.Unlock()
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case fr := <-ls.ch:
+				if err := on(fr); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
