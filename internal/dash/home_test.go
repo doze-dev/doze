@@ -381,3 +381,32 @@ func focusedDB() *Model {
 	m := focused("db")
 	return m
 }
+
+// Every line of every screen is exactly the width asked for: a border that is
+// a cell off shows as a ragged edge in a terminal.
+func TestEveryFrameIsExactlyTheWidthAsked(t *testing.T) {
+	cases := map[string]*Model{}
+	cases["home"] = board()
+	cases["focus-db"] = focused("db")
+	cases["focus-api"] = focused("api")
+	cases["focus-task"] = focused("migrate")
+	cases["focus-web"] = focused("mailpit")
+	pal := board()
+	pal.key(":")
+	cases["palette"] = pal
+	slp := focused("db")
+	slp.key("s")
+	cases["sleep"] = slp
+	rst := focused("db")
+	rst.modal = &modal{kind: modalReset, target: "db", btn: 1}
+	cases["reset"] = rst
+	for name, m := range cases {
+		for _, sz := range [][2]int{{136, 32}, {100, 30}, {80, 24}} {
+			for i, l := range strings.Split(m.Render(sz[0], sz[1]), "\n") {
+				if got := width(l); got != sz[0] && width(ansi.Strip(l)) != 0 && got > sz[0] {
+					t.Errorf("%s at %dx%d: line %d is %d cells wide", name, sz[0], sz[1], i, got)
+				}
+			}
+		}
+	}
+}

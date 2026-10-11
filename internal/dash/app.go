@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/journal"
@@ -344,7 +345,13 @@ func (m *Model) Render(w, h int) string {
 	if m.page == pageFocus {
 		page = m.focus
 	}
-	return strings.Join(m.withModal(page(w, h), w, h), "\n")
+	lines := m.withModal(page(w, h), w, h)
+	for i, l := range lines {
+		if width(l) > w {
+			lines[i] = ansi.Truncate(l, w, "…")
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Run opens the dash on a terminal and returns when it is closed.

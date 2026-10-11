@@ -124,7 +124,7 @@ func box(border lipgloss.Style, left, rt string, lines []string, w, h int) []str
 	} else {
 		tail = border.Render("─╮")
 	}
-	fill := w - used - width(tail) - 1
+	fill := w - used - width(sep) - width(tail)
 	if fill < 0 {
 		fill = 0
 	}

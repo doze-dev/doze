@@ -317,6 +317,12 @@ func (m *Model) header(w int) string {
 	parts = append(parts, s.d.Render(fmt.Sprintf("· %d asleep", asleep)))
 	parts = append(parts, s.b.Render(mb(ram))+" "+s.d.Render("resident"))
 	r := strings.Join(parts, "  ")
+	if width(l)+width(r)+2 > w && m.snap.Dir != "" {
+		l = s.pill.Render("doze")
+		if m.snap.Stack != "" {
+			l += " " + s.b.Render(m.snap.Stack)
+		}
+	}
 	gap := w - width(l) - width(r)
 	if gap < 1 {
 		gap = 1
