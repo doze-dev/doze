@@ -121,12 +121,17 @@ type InstanceView struct {
 	Kind string `json:"kind,omitempty"`
 	// Task is how a task last ran; nil for anything else, and for a task that
 	// has not run.
-	Task    *TaskView `json:"task,omitempty"`
-	Engine  string    `json:"engine"`
-	State   string    `json:"state"`
-	Version string    `json:"version"`
-	PID     int       `json:"pid"`
-	Conns   int       `json:"conns"`
+	Task *TaskView `json:"task,omitempty"`
+	// Run is the command line of an app, service or task; empty for the rest.
+	Run string `json:"run,omitempty"`
+	// Needs names the instances this one boots first, in the order it declared
+	// them.
+	Needs   []string `json:"needs,omitempty"`
+	Engine  string   `json:"engine"`
+	State   string   `json:"state"`
+	Version string   `json:"version"`
+	PID     int      `json:"pid"`
+	Conns   int      `json:"conns"`
 	// Holders is why the instance is awake. Conns counts every hold, including
 	// the ones dependants take; the "connection" holder counts clients only.
 	Holders   []HolderView `json:"holders,omitempty"`
@@ -197,6 +202,8 @@ type Response struct {
 	Error       string         `json:"error,omitempty"`
 	Listen      string         `json:"listen,omitempty"`
 	IdleTimeout time.Duration  `json:"idle_timeout,omitempty"` // reap window, for the countdown
+	Stack       string         `json:"stack,omitempty"`        // the stack's name
+	Dir         string         `json:"dir,omitempty"`          // the folder doze.hcl is in
 	Instances   []InstanceView `json:"instances,omitempty"`
 	Lines       []string       `json:"lines,omitempty"`
 	Log         []LogFrame     `json:"log,omitempty"`       // the same lines with their time, stream and run

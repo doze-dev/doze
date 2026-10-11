@@ -436,3 +436,7 @@ func (c *Config) ForwardPort() int {
 // IngressEnabled reports whether this app is forwarded through the shared
 // ingress.
 func (c *Config) IngressEnabled() bool { return c.ForwardPort() > 0 }
+
+// RunLine is the command line the instance runs; the dash shows it beside the
+// name.
+func (c Config) RunLine() string { return c.Run }

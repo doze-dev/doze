@@ -25,7 +25,10 @@ type handler struct{ d *Daemon }
 // Status is the snapshot plus each running instance's meters. It runs ps, so
 // it is for a one-off look; a client that watches subscribes instead.
 func (h *handler) Status() control.Response {
-	resp := control.Response{Listen: h.d.cfg.Listen, IdleTimeout: h.d.cfg.Defaults.IdleTimeout}
+	resp := control.Response{Listen: h.d.cfg.Listen, IdleTimeout: h.d.cfg.Defaults.IdleTimeout, Stack: h.d.cfg.StackName}
+	if p := h.d.cfg.Path(); p != "" {
+		resp.Dir = filepath.Dir(p)
+	}
 	resp.Instances = h.snapshot()
 	var pids []int
 	for _, v := range resp.Instances {
@@ -74,6 +77,7 @@ func (h *handler) snapshot() []control.InstanceView {
 			Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
 		}
 		v.Task = h.taskView(decl)
+		h.hydrateDecl(&v, decl)
 		h.hydrateConsole(&v, decl)
 		h.hydrateEndpoint(&v, eps[decl.Name])
 		v.DataDir = h.dataDir(decl.Name)
@@ -94,6 +98,7 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 	if decl != nil {
 		v.Kind = decl.Kind
 		v.Task = h.taskView(decl)
+		h.hydrateDecl(&v, decl)
 	}
 	v.Disabled = decl != nil && !decl.Enabled
 	v.Holders = h.holders(inst.Name)
@@ -101,6 +106,20 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 	h.hydrateEndpoint(&v, eps[inst.Name])
 	v.DataDir = h.dataDir(inst.Name)
 	return v
+}
+
+// hydrateDecl adds what the declaration says: the command line, and what the
+// instance needs booted first.
+func (h *handler) hydrateDecl(v *control.InstanceView, decl *config.InstanceDecl) {
+	if decl == nil {
+		return
+	}
+	for _, d := range decl.Deps {
+		v.Needs = append(v.Needs, d.Name)
+	}
+	if r, ok := decl.Spec.(interface{ RunLine() string }); ok {
+		v.Run = r.RunLine()
+	}
 }
 
 // holders renders why an instance is awake for the wire.
