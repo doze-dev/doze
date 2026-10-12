@@ -284,89 +284,15 @@ func (m *Model) focus(w, h int) []string {
 
 func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab, w int) string {
 	s := m.st
-	var ks [][2]string
-	if len(ts) > 1 {
-		ks = append(ks, [2]string{"tab", "next tab"})
-	}
-	if cur.id == tabLogs {
-		ks = append(ks, [2]string{"f", "level"})
-	}
-	if strings.HasPrefix(cur.id, "console:") && m.con != nil {
-		ks = append(ks, [2]string{"↑↓", "select"})
-		for _, a := range m.con.actions {
-			ks = append(ks, [2]string{actionKey(a), strings.ToLower(a.Label)})
-		}
-	}
-	if cur.id == tabWeb {
-		ks = append(ks, [2]string{"⏎", "open in browser"})
-	} else if hasWeb(v) {
-		ks = append(ks, [2]string{"o", "open console"})
-	}
-	if cur.id != tabLogs && v.Kind != "task" {
-		ks = append(ks, [2]string{"l", "logs"})
-	}
 	if cur.id == tabLogs {
 		if m.selecting {
-			return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
+			return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("Y", "file") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
 		}
 		if m.searching {
 			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 		}
-		ks = append(ks, [2]string{"↑↓", "scroll"}, [2]string{"/", "search"}, [2]string{"t", "time"}, [2]string{"v", "select"})
-		if len(m.runIDs()) > 1 {
-			ks = append(ks, [2]string{"[ ]", "earlier runs"})
-		}
-		ks = append(ks, [2]string{"y", "copy lines"})
-	} else if m.url(v) != "" {
-		ks = append(ks, [2]string{"y", "copy address"})
 	}
-	if v.Kind == "task" {
-		ks = append(ks, [2]string{"r", "run now"})
-	} else {
-		ks = append(ks, [2]string{"w", "wake"}, [2]string{"s", "sleep"}, [2]string{"r", "restart"})
-		if v.Kind == "module" || v.Kind == "" {
-			ks = append(ks, [2]string{"p", "pin awake"})
-		}
-	}
-	ks = append(ks, [2]string{":", "command"}, [2]string{"esc", "back to the stack"})
-	extra := ""
-	if m.notice != "" {
-		extra = "   " + s.y.Render(m.notice)
-	}
-	// What is wanted most stays when the line is wider than the window: the way
-	// back, the command line, and what acts on this instance go last.
-	rank := func(key string) int {
-		switch key {
-		case "esc":
-			return 0
-		case ":":
-			return 1
-		case "w", "s", "r", "↑↓", "/", "tab":
-			return 2
-		case "f", "y", "v", "t", "l", "p", "[ ]":
-			return 4
-		}
-		return 3
-	}
-	build := func() string {
-		var parts []string
-		for _, k := range ks {
-			parts = append(parts, s.cap(k[0], k[1]))
-		}
-		return strings.Join(parts, "  ")
-	}
-	line := build()
-	for len(ks) > 2 && width(line)+width(extra) > w {
-		worst := -1
-		for i, k := range ks {
-			if worst < 0 || rank(k[0]) >= rank(ks[worst][0]) {
-				worst = i
-			}
-		}
-		ks = append(ks[:worst], ks[worst+1:]...)
-		line = build()
-	}
-	return line + extra
+	return m.bar(m.focusHints(v, ts, cur), w, m.noticeText())
 }
 
 // --- tabs ---

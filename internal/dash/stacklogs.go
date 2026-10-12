@@ -75,6 +75,9 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 	case ":":
 		m.modal = &modal{kind: modalPalette}
 		return nil, true
+	case "?":
+		m.modal = &modal{kind: modalHelp}
+		return nil, true
 	}
 	return nil, true // the page has no cursor: the other keys do nothing here
 }
@@ -199,15 +202,7 @@ func (m *Model) stackLogs(w, h int) []string {
 	} else if m.searching {
 		keys = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 	} else {
-		ks := [][2]string{{"↑↓", "scroll"}, {"/", "search"}, {"f", "level"}, {"t", "time"}, {"v", "select"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
-		var parts []string
-		for _, k := range ks {
-			parts = append(parts, s.cap(k[0], k[1]))
-		}
-		keys = strings.Join(parts, "  ")
-		if m.notice != "" {
-			keys += "   " + s.y.Render(m.notice)
-		}
+		keys = m.bar(m.logsPageHints(), w, m.noticeText())
 	}
 	return append(out, keys)
 }

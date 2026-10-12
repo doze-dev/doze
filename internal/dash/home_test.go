@@ -667,7 +667,7 @@ func TestTaskHistory(t *testing.T) {
 // The page of the whole stack's logs: l opens it, / narrows it, esc goes back.
 func TestStackLogsPage(t *testing.T) {
 	m := board()
-	m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	m.Update(tea.KeyPressMsg{Code: 'L', Text: "L"})
 	if m.page != pageLogs {
 		t.Fatalf("l did not open the logs page: page=%d", m.page)
 	}

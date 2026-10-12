@@ -455,7 +455,7 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 				rcap = s.d.Render("next try in ") + s.w.Render(fmt.Sprintf("%d s", int(left.Seconds())))
 			}
 		}
-		lines = append(lines, "", s.cap("r", "retry now")+"  "+s.cap("l", "full logs"))
+		lines = append(lines, "", s.cap("r", "retry now")+"  "+s.cap("l", "logs"))
 	}
 	if v.Kind == "task" {
 		if v.Task == nil {
@@ -521,45 +521,14 @@ var levelWord = regexp.MustCompile(`(?i)^(level=)?(info|inf|warn|warning|wrn|err
 // keys is the bar along the bottom: the keys that do something.
 func (m *Model) keys(w int) string {
 	s := m.st
-	// most wanted first: when the line is wider than the window, the last go
-	type hint struct{ key, label string }
-	all := []hint{
-		{"↑↓", "move"}, {"⏎", "focus"}, {"w", "wake"}, {"s", "sleep"}, {"q", "quit"}, {":", "command"}, {"r", "restart"},
-		{"l", "logs"}, {"/", "filter"}, {"y", "copy"}, {"o", "sort " + sortTitles[m.sortBy]}, {"t", "tree"},
+	extra := m.noticeText()
+	switch {
+	case m.filtering:
+		return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + s.a.Render("▏")
+	case m.filter != "":
+		return s.cap("esc", "clear filter") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + "   " + m.bar(m.homeHints(), w-width(m.filter)-24, extra)
 	}
-	// what is shown is in the order of the line, not the order of wanting
-	order := []string{"↑↓", "⏎", "w", "s", "r", "l", "y", "o", "t", "/", ":", "q"}
-	extra := ""
-	if m.notice != "" {
-		extra = "   " + s.y.Render(m.notice)
-	}
-	build := func(n int) string {
-		keep := map[string]bool{}
-		for _, h := range all[:n] {
-			keep[h.key] = true
-		}
-		var parts []string
-		for _, k := range order {
-			for _, h := range all {
-				if h.key == k && keep[k] {
-					parts = append(parts, s.cap(h.key, h.label))
-				}
-			}
-		}
-		return strings.Join(parts, "  ")
-	}
-	n := len(all)
-	line := build(n)
-	for n > 6 && width(line)+width(extra) > w {
-		n--
-		line = build(n)
-	}
-	if m.filtering {
-		line = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + s.a.Render("▏")
-	} else if m.filter != "" {
-		line = s.cap("esc", "clear filter") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + "   " + line
-	}
-	return line + extra
+	return m.bar(m.homeHints(), w, extra)
 }
 
 // homeNarrow is Home at 80 x 24 (Narrow.dc.html): one column, no boxes.

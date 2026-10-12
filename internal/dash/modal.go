@@ -26,6 +26,7 @@ const (
 	modalReset
 	modalInput // a module's action that takes some text
 	modalText  // some lines read whole, wrapped, with nothing cut off
+	modalHelp  // every key of the page, and what the meters mean
 	modalAsk   // a module's action that deletes something
 )
 
@@ -250,6 +251,8 @@ func (m *Model) modalKey(k, text string) tea.Cmd {
 		return m.askKey(k, text)
 	case modalText:
 		return m.textKey(k)
+	case modalHelp:
+		return m.helpKey(k)
 	}
 	return nil
 }
@@ -438,6 +441,8 @@ func (m *Model) withModal(base []string, w, h int) []string {
 		box = m.askBox(w)
 	case modalText:
 		box = m.textBox(w, h)
+	case modalHelp:
+		box = m.helpBox(w, h)
 	}
 	if len(box) == 0 {
 		return base
@@ -467,6 +472,9 @@ func (m *Model) withModal(base []string, w, h int) []string {
 		}
 		if m.modal.kind == modalText {
 			out[len(out)-1] = f.cap("↑↓", "read") + "  " + f.cap("y", "copy") + "  " + f.cap("esc", "close")
+		}
+		if m.modal.kind == modalHelp {
+			out[len(out)-1] = f.cap("↑↓", "read") + "  " + f.cap("esc", "close")
 		}
 	}
 	return out
@@ -811,6 +819,66 @@ func (m *Model) restartKey(k string) tea.Cmd {
 		if md.btn == 0 || k == "y" {
 			return m.do(control.VerbRestart, v.Name)
 		}
+	}
+	return nil
+}
+
+// openInstanceLogs goes to the selected instance's logs: its logs tab, or what a
+// task has instead.
+func (m *Model) openInstanceLogs() {
+	v, ok := m.selected()
+	if !ok {
+		return
+	}
+	m.open()
+	for i, t := range m.tabs(v) {
+		if t.id == tabLogs || t.id == tabLastRun {
+			m.tab = i
+		}
+	}
+}
+
+func (m *Model) helpBox(w, h int) []string {
+	s := m.st
+	md := m.modal
+	bw := min(w-4, 104)
+	if bw < 24 {
+		bw = max(w, 4)
+	}
+	lines := m.helpLines(bw - 4)
+	room := max(h-6, 3)
+	md.off = min(max(md.off, 0), max(len(lines)-room, 0))
+	end := min(md.off+room, len(lines))
+	shown := make([]string, 0, room)
+	for _, l := range lines[md.off:end] {
+		shown = append(shown, fit(l, bw-4))
+	}
+	rcap := ""
+	if len(lines) > room {
+		rcap = s.d.Render(fmt.Sprintf("%d–%d of %d", md.off+1, end, len(lines)))
+	}
+	return box(s.borderOn, s.a.Bold(true).Render("keys"), rcap, shown, bw, len(shown)+2)
+}
+
+func (m *Model) helpKey(k string) tea.Cmd {
+	md := m.modal
+	switch k {
+	case "esc", "?", "q", "enter":
+		m.modal = nil
+	case "up", "k":
+		md.off--
+	case "down", "j":
+		md.off++
+	case "pgup", "ctrl+u":
+		md.off -= 8
+	case "pgdown", "ctrl+d", " ":
+		md.off += 8
+	case "g", "home":
+		md.off = 0
+	case "G", "end":
+		md.off = 1 << 20
+	case "ctrl+c":
+		return tea.Quit
 	}
 	return nil
 }

@@ -347,7 +347,11 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	case "enter", "right":
 		m.open()
 	case "l":
+		m.openInstanceLogs()
+	case "L":
 		m.openLogs()
+	case "?":
+		m.modal = &modal{kind: modalHelp}
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "up", "k":
