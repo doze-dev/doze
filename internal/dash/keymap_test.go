@@ -288,3 +288,59 @@ func TestTheTopOfTheLogsIsMarked(t *testing.T) {
 		t.Errorf("top of the logs not marked:\n%s", out)
 	}
 }
+
+// Sorted by memory the order holds for a few seconds after a key, so a click
+// lands on the row that was seen; then it follows the numbers again.
+func TestSortByMemoryHoldsStillAfterAKey(t *testing.T) {
+	m := board()
+	m.sortBy = sortMem
+	names := func() string {
+		var out []string
+		for _, r := range m.ordered() {
+			out = append(out, r.v.Name)
+		}
+		return strings.Join(out, ",")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	before := names()
+	for i := range m.snap.Instances {
+		m.snap.Instances[i].RAM = int64(len(m.snap.Instances)-i) << 20 // the reverse of any order it had
+	}
+	if names() != before {
+		t.Fatalf("the order moved under the cursor:\n%s\n%s", before, names())
+	}
+	later := m.now.Add(holdFor + time.Second)
+	m.nowf = func() time.Time { return later }
+	m.Update(tickMsg(later))
+	if names() == before {
+		t.Error("the order should follow the numbers again once the hold is over")
+	}
+}
+
+// An instance added while the dash is open has its logs asked for.
+func TestANewInstanceGetsItsLogs(t *testing.T) {
+	m := board()
+	asked := 0
+	m.resubLogs = func() { asked++ }
+	m.known = nil
+	m.apply(control.Frame{Topic: control.TopicInstances, Snapshot: true, Instances: m.snap.Instances})
+	if asked != 0 {
+		t.Fatal("the first set is the baseline")
+	}
+	m.apply(control.Frame{Topic: control.TopicInstances, Snapshot: true, Instances: m.snap.Instances})
+	if asked != 0 {
+		t.Fatal("nothing new")
+	}
+	added := append(append([]control.InstanceView(nil), m.snap.Instances...), control.InstanceView{Name: "fresh", Kind: "app", State: "active"})
+	m.apply(control.Frame{Topic: control.TopicInstances, Snapshot: true, Instances: added})
+	if asked != 1 {
+		t.Errorf("asked %d times for a new instance", asked)
+	}
+}
+
+func TestTheTotalSaysItIsAnEstimate(t *testing.T) {
+	out := stripAnsi(frame(board(), 150, 40))
+	if !strings.Contains(out, "≈ ") || !strings.Contains(out, "resident") {
+		t.Errorf("header:\n%s", out)
+	}
+}

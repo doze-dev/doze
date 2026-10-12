@@ -128,3 +128,22 @@ func (m *Model) seenLine(name string, f control.LogFrame) bool {
 	}
 	return false
 }
+
+// noteNew asks for the logs again when an instance appears that the dash had
+// not seen. The first set is the baseline: the subscription was opened for it.
+func (m *Model) noteNew() {
+	fresh := false
+	baseline := m.known == nil
+	if baseline {
+		m.known = map[string]bool{}
+	}
+	for _, v := range m.snap.Instances {
+		if !m.known[v.Name] {
+			m.known[v.Name] = true
+			fresh = fresh || !baseline
+		}
+	}
+	if fresh && m.resubLogs != nil {
+		m.resubLogs()
+	}
+}

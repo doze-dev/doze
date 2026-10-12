@@ -114,6 +114,31 @@ func (m *Model) ordered() []row {
 		}
 		return 4
 	}
+	if m.sortBy != sortName && m.now.Before(m.holdUntil) && m.heldBy == m.sortBy && len(m.held) > 0 {
+		at := map[string]int{}
+		for i, n := range m.held {
+			at[n] = i
+		}
+		pos := func(r row) int {
+			if i, ok := at[r.v.Name]; ok {
+				return i
+			}
+			return len(at)
+		}
+		sort.SliceStable(rs, func(i, j int) bool {
+			if rs[i].group != rs[j].group {
+				return rs[i].group < rs[j].group
+			}
+			return pos(rs[i]) < pos(rs[j])
+		})
+		return rs
+	}
+	defer func() {
+		m.held, m.heldBy = m.held[:0], m.sortBy
+		for _, r := range rs {
+			m.held = append(m.held, r.v.Name)
+		}
+	}()
 	sort.SliceStable(rs, func(i, j int) bool {
 		a, b := rs[i], rs[j]
 		if a.group != b.group {
@@ -323,7 +348,7 @@ func (m *Model) homeTable(w, h int) []string {
 		if m.snap.Stack != "" {
 			l += " " + s.b.Render(m.snap.Stack)
 		}
-		r := s.b.Render(mb(ram)) + " " + s.d.Render("resident")
+		r := s.b.Render("≈ "+mb(ram)) + " " + s.d.Render("resident")
 		if need > 0 {
 			r = s.pillR.Render(fmt.Sprintf("%d needs you", need)) + "  " + r
 		}

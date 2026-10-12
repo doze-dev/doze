@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -35,6 +36,9 @@ const samples = 240
 // logsKept is how many lines of each instance the dash holds, and how many it
 // asks the daemon for when it opens.
 const logsKept = 400
+
+// holdFor is how long Home's order stays still after a key or a click.
+const holdFor = 3 * time.Second
 
 // Model is the dash: the stack as the daemon last said it, what is selected,
 // and the page on top (only Home so far).
@@ -90,6 +94,18 @@ type Model struct {
 	notice    string
 	noticeBad bool
 	glyphs    glyphSet
+
+	// holdUntil keeps Home's order still for a moment after the person acted, so
+	// a row sorted by memory does not move out from under a click; held is the
+	// order it was in, and heldBy the sort it was made for.
+	holdUntil time.Time
+	held      []string
+	heldBy    int
+
+	// known are the instances the dash has seen, so one added while it is open
+	// can have its logs asked for; resubLogs asks again.
+	known     map[string]bool
+	resubLogs func()
 	atTop     bool // the logs are scrolled to the oldest line the dash holds
 	mouseTold bool // the shift-drag hint has been said
 	noticeAt  time.Time
@@ -229,6 +245,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m.keyText(msg.String(), msg.Text)
 	case tea.MouseClickMsg:
+		m.holdUntil = m.now.Add(holdFor)
 		m.tellMouse()
 		if cmd, ok := m.logMouse(msg); ok {
 			return m, cmd
@@ -263,6 +280,7 @@ func (m *Model) key(k string) (tea.Model, tea.Cmd) { return m.keyText(k, "") }
 // keyText handles a key; text is what it types, for the palette and the reset
 // confirmation.
 func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
+	m.holdUntil = m.now.Add(holdFor)
 	if m.noticeBad {
 		if k == "esc" && m.modal == nil {
 			m.clearNotice()
@@ -499,6 +517,7 @@ func (m *Model) apply(f control.Frame) {
 				}
 			}
 		}
+		m.noteNew()
 		for _, name := range f.Removed {
 			out := m.snap.Instances[:0]
 			for _, v := range m.snap.Instances {
@@ -649,13 +668,28 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 	// Every instance's lines, once, for as long as the dash is open: moving from
 	// one instance to another and back finds what it left, and the stack's logs
 	// are these same lines merged.
-	go keepSubscribed(sctx, d, func() control.Subscription {
-		return control.Subscription{Topics: []string{control.TopicLogs}, Backlog: logsKept}
-	}, p.Send, func(f control.Frame) {
-		if f.Log != nil {
-			p.Send(logMsg{f.Log.Instance, *f.Log})
+	// The daemon names the instances when a logs subscription opens, so one added
+	// later needs it opened again; what is replayed is dropped as already held.
+	var logMu sync.Mutex
+	var stopLogs context.CancelFunc
+	startLogs := func() {
+		logMu.Lock()
+		defer logMu.Unlock()
+		if stopLogs != nil {
+			stopLogs()
 		}
-	}, false)
+		var lctx context.Context
+		lctx, stopLogs = context.WithCancel(sctx)
+		go keepSubscribed(lctx, d, func() control.Subscription {
+			return control.Subscription{Topics: []string{control.TopicLogs}, Backlog: logsKept}
+		}, p.Send, func(f control.Frame) {
+			if f.Log != nil {
+				p.Send(logMsg{f.Log.Instance, *f.Log})
+			}
+		}, false)
+	}
+	m.resubLogs = startLogs
+	startLogs()
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("the dash: %w", err)
 	}
