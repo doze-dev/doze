@@ -89,10 +89,9 @@ func TestZoomShowsDriftAndSitsFlatInTheMiddle(t *testing.T) {
 // ends at the right edge and is not stretched across the width.
 func TestChartsWithLittleOrNoHistory(t *testing.T) {
 	m := board()
-	m.areaCharts = true // blocks, where an empty chart is plainly empty
 	empty := plain(m.charts([]trace{{name: "mem", unit: bytesLabel, now: "148 MB", cur: 148 << 20, zoom: true, st: lipgloss.NewStyle()}}, 60, 3))
-	if !strings.Contains(strings.Join(empty, "\n"), "█") && !strings.ContainsAny(strings.Join(empty, ""), "▁▂▃▄▅▆▇") {
-		t.Errorf("no history drew an empty chart:\n%s", strings.Join(empty, "\n"))
+	if j := strings.Join(empty, "\n"); !strings.Contains(j, "148 MB") || !strings.Contains(j, "now") {
+		t.Errorf("no history should still say its figure and end at now:\n%s", j)
 	}
 	short := plain(plot([]float64{1, 2, 3}, 20, 2, 0, 3, lipgloss.NewStyle(), lipgloss.NewStyle()))
 	for _, row := range short {
@@ -102,34 +101,6 @@ func TestChartsWithLittleOrNoHistory(t *testing.T) {
 		if strings.TrimSpace(row[len(row)-3:]) == "" && row == short[len(short)-1] {
 			t.Errorf("a three-reading history does not end at the right edge: %q", row)
 		}
-	}
-}
-
-// The line chart is rows tall and cells wide, ends at the right edge, joins a
-// jump into a stroke, and keeps its scale marks out of the line's colour.
-func TestPlotLine(t *testing.T) {
-	st := lipgloss.NewStyle()
-	vs := make([]float64, 40)
-	vs[20] = 10 // a spike in a flat line
-	rows := plain(plotLine(vs, 20, 3, 0, 10, st, st))
-	if len(rows) != 3 {
-		t.Fatalf("rows = %d", len(rows))
-	}
-	for i, r := range rows {
-		if n := width(r); n != 20 {
-			t.Errorf("row %d is %d cells", i, n)
-		}
-	}
-	// the spike reaches the top row and the stroke is drawn down its column
-	col := 20 / 2
-	for i, r := range rows {
-		if []rune(r)[col] == ' ' {
-			t.Errorf("row %d has no dot in the spike's column: %q", i, r)
-		}
-	}
-	// the flat part is on the bottom row only (apart from the scale's rules)
-	if !strings.ContainsAny(rows[2], "⣀⡀⢀⠀") && strings.TrimSpace(rows[2]) == "" {
-		t.Error("the flat reading is not drawn on the bottom row")
 	}
 }
 
@@ -209,7 +180,6 @@ func TestSqueezeKeepsTheSpikeAndTheNewest(t *testing.T) {
 // ending at now, and every line the width asked for.
 func TestNTChartHasAxesAndTheWidthAsked(t *testing.T) {
 	m := board()
-	m.ntCharts = true
 	vals := make([]float64, 240)
 	for i := range vals {
 		vals[i] = 80 + float64(i%9)
@@ -218,7 +188,7 @@ func TestNTChartHasAxesAndTheWidthAsked(t *testing.T) {
 	for i := range tr.vals {
 		tr.vals[i] *= 1 << 20
 	}
-	lines := m.ntChart(tr, 50, 5)
+	lines := m.chart(tr, 50, 5)
 	if len(lines) != 5+2+1 {
 		t.Fatalf("%d lines, want head + plot + axis + labels = 8", len(lines))
 	}
@@ -232,9 +202,5 @@ func TestNTChartHasAxesAndTheWidthAsked(t *testing.T) {
 		if width(l) != gutter+1+50 {
 			t.Errorf("line %d is %d cells, want %d", i, width(l), gutter+1+50)
 		}
-	}
-	m.cycleCharts()
-	if m.ntCharts || !m.areaCharts {
-		t.Errorf("c from ntcharts should go to the filled area: nt=%v area=%v", m.ntCharts, m.areaCharts)
 	}
 }

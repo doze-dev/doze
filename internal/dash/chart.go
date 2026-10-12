@@ -139,80 +139,6 @@ func plot(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.St
 	return out
 }
 
-// braille bits for a cell's two dot columns, top row first.
-var (
-	dotsL = [4]rune{0x01, 0x02, 0x04, 0x40}
-	dotsR = [4]rune{0x08, 0x10, 0x20, 0x80}
-)
-
-// plotLine draws vs as a single line of braille dots: two readings to a cell
-// across and four levels to a row down, each reading joined to the one before it
-// so a spike is a stroke and not a dot. A faint dotted rule marks the top and
-// the middle of the scale. Returns the rows top first.
-func plotLine(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.Style) []string {
-	if cells < 1 || rows < 1 {
-		return nil
-	}
-	w, h := cells*2, rows*4
-	if len(vs) > w {
-		vs = vs[len(vs)-w:]
-	}
-	on := make([][]bool, h) // [y from the bottom][x]
-	for i := range on {
-		on[i] = make([]bool, w)
-	}
-	line := make([][]bool, h)
-	for i := range line {
-		line[i] = make([]bool, w)
-	}
-	// the scale's rules, every fourth dot
-	for x := 0; x < w; x += 4 {
-		on[h-1][x] = true
-		on[h/2][x] = true
-	}
-	prev := -1
-	for i, v := range vs {
-		x := w - len(vs) + i // ends at the right edge
-		y := int((v-lo)/(hi-lo)*float64(h-1) + 0.5)
-		y = min(max(y, 0), h-1)
-		a, b := y, y
-		if prev >= 0 {
-			a, b = min(prev, y), max(prev, y)
-		}
-		for yy := a; yy <= b; yy++ {
-			on[yy][x], line[yy][x] = true, true
-		}
-		prev = y
-	}
-	out := make([]string, rows)
-	for r := rows - 1; r >= 0; r-- {
-		var b strings.Builder
-		for c := 0; c < cells; c++ {
-			g, ink := rune(0x2800), false
-			for j := 0; j < 4; j++ { // j up from the cell's bottom
-				y := r*4 + j
-				if on[y][2*c] {
-					g |= dotsL[3-j]
-				}
-				if on[y][2*c+1] {
-					g |= dotsR[3-j]
-				}
-				ink = ink || line[y][2*c] || line[y][2*c+1]
-			}
-			switch {
-			case g == 0x2800:
-				b.WriteByte(' ')
-			case ink:
-				b.WriteString(bright.Render(string(g)))
-			default:
-				b.WriteString(dim.Render(string(g)))
-			}
-		}
-		out[rows-1-r] = b.String()
-	}
-	return out
-}
-
 // dimmed is st's colour a good part of the way to the ground, for the body of a
 // chart under its line. A plain style has no colour to dim.
 func dimmed(st lipgloss.Style) lipgloss.Style {
@@ -278,10 +204,11 @@ func chartGroups(w, n int) int {
 
 // chartH is how many rows each chart can have when groups rows of charts must
 // fit in room lines: 0 when they cannot be drawn as charts at all. A group is a
-// heading, the rows and the axis, with a blank line between groups.
+// heading, the rows, the time axis and its labels, with a blank line between
+// groups.
 func chartH(room, groups int) int {
 	for r := 8; r >= 2; r-- {
-		if groups*(r+2)+(groups-1) <= room {
+		if groups*(r+3)+(groups-1) <= room {
 			return r
 		}
 	}
@@ -317,54 +244,6 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 	return out
 }
 
-// chart is one trace: its name and figure, the plot with its scale at the left,
-// and the age of its oldest reading under it. Every line is at most one wide.
-func (m *Model) chart(t trace, cw, rows int) []string {
-	if m.ntCharts {
-		return m.ntChart(t, cw, rows)
-	}
-	s := m.st
-	peak, mean := stats(t.vals)
-	head := s.w.Render(t.name) + "  " + s.b.Render(t.now)
-	if len(t.vals) > 1 {
-		head += s.d.Render("   peak " + t.unit(peak) + " · avg " + t.unit(mean))
-	}
-	vals := t.vals
-	if len(vals) == 0 {
-		vals = []float64{t.cur} // nothing sampled yet: the figure it has now
-	}
-	span := len(vals) // readings the chart stands for, however many dots they come to
-	vals = squeeze(vals, 2*cw)
-	lo, hi := t.scale(vals)
-	dim := dimmed(t.st)
-	var lines []string
-	if m.areaCharts {
-		lines = plot(vals, cw, rows, lo, hi, t.st, dim)
-	} else {
-		lines = plotLine(vals, cw, rows, lo, hi, t.st, dim)
-	}
-	out := []string{head}
-	for j, l := range lines {
-		g := ""
-		switch j {
-		case 0:
-			g = t.unit(hi)
-		case len(lines) - 1:
-			g = t.unit(lo)
-		}
-		out = append(out, s.d.Render(right(g, gutter))+" "+l)
-	}
-	// the age of the oldest reading, under where the line begins
-	left := ago(time.Duration(max(span, 1))*sampleEvery) + " ago"
-	indent := 0
-	if n := (len(vals) + 1) / 2; n < cw {
-		indent = cw - n // a dot column is half a cell
-	}
-	fill := max(cw-indent-width(left)-5, 0)
-	out = append(out, s.d.Render(strings.Repeat(" ", gutter+1+indent)+left+" "+strings.Repeat("┈", fill)+" now"))
-	return out
-}
-
 // spanWord is how long n readings cover, in the words of the axis.
 func spanWord(n int) string {
 	d := time.Duration(max(n, 1)) * sampleEvery
@@ -380,68 +259,3 @@ func count(v float64) string {
 	return fmt.Sprintf("%.0f", v)
 }
 func bytesLabel(v float64) string { return mb(int64(v)) }
-
-// tiles draws the traces as one tile each: its name in the border, the figure
-// and what it has been doing on one line, and under that a filled chart of it.
-// As many sit across as can have tileMin cells, the rest under them
-// (boards/V-A.dc.html).
-const (
-	tileMin = 30
-	tileGap = 2 // blank cells between tiles, so one does not run into the next
-)
-
-func (m *Model) tiles(ts []trace, w, rows int) []string {
-	s := m.st
-	per := 1
-	for k := len(ts); k > 1; k-- {
-		if (w-(k-1)*tileGap)/k >= tileMin {
-			per = k
-			break
-		}
-	}
-	tw := (w - (per-1)*tileGap) / per
-	th := rows + 3
-	var out []string
-	for g := 0; g < len(ts); g += per {
-		var boxes [][]string
-		for _, t := range ts[g:min(g+per, len(ts))] {
-			vals := t.vals
-			if len(vals) == 0 {
-				vals = []float64{t.cur}
-			}
-			inner := tw - 4
-			span := len(vals)
-			peak, mean := stats(vals)
-			sum := "peak " + t.unit(peak) + " · avg " + t.unit(mean)
-			if t.zoom && span > 1 {
-				d := vals[len(vals)-1] - vals[0]
-				arrow := "→"
-				switch {
-				case d > 0:
-					arrow = "↑"
-				case d < 0:
-					arrow, d = "↓", -d
-				}
-				sum = arrow + " " + t.unit(d) + " in " + ago(time.Duration(span)*sampleEvery)
-			}
-			vals = squeeze(vals, inner) // a column to a cell, so the whole history fits
-			lo, hi := t.scale(vals)
-			head := s.b.Render(t.now) + "  " + s.d.Render(fit(sum, max(inner-width(t.now)-2, 4)))
-			lines := append([]string{head}, plot(vals, inner, rows, lo, hi, t.st, dimmed(t.st))...)
-			// what the chart covers is in its border: a reading is a second, so the
-			// span is how many it holds
-			boxes = append(boxes, box(s.border, s.d.Render(t.name)+s.d.Render(" · last "+spanWord(span)), "", lines, tw, th))
-		}
-		for l := 0; l < th; l++ {
-			var b strings.Builder
-			for i, bx := range boxes {
-				if i > 0 {
-					b.WriteString(strings.Repeat(" ", tileGap))
-				}
-				b.WriteString(bx[l])
-			}
-			out = append(out, b.String())
-		}
-	}
-	return out
-}

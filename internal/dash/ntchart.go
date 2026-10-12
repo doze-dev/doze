@@ -9,14 +9,14 @@ import (
 	"github.com/NimbleMarkets/ntcharts/v2/linechart/timeserieslinechart"
 )
 
-// A chart drawn by ntcharts' time-series line chart, for comparison with the
-// dash's own (chart.go): braille dots on a canvas with a real time axis and a
-// value axis, each reading stamped with the time it was taken. It is what the
-// metrics view (m) uses; c cycles between this and the dash's own two.
+// A chart is ntcharts' time-series line chart: braille dots on a canvas with a
+// value axis in the metric's own units and a time axis ending at now, each
+// reading stamped with the time it was taken. Tiles and sparklines, which are
+// too small for axes, are the dash's own (style.go, spark).
 
-// ntChart draws t in cw+gutter+1 cells and rows+2 lines (the plot, the axis and
+// chart draws t in cw+gutter+1 cells and rows+2 lines (the plot, the axis and
 // its labels), and returns the lines.
-func (m *Model) ntChart(t trace, cw, rows int) []string {
+func (m *Model) chart(t trace, cw, rows int) []string {
 	s := m.st
 	vals := t.vals
 	if len(vals) == 0 {
@@ -40,8 +40,12 @@ func (m *Model) ntChart(t trace, cw, rows int) []string {
 			return "now"
 		}
 		// whole units, so neighbouring labels do not run together
-		if ago >= 90*time.Second {
+		switch {
+		case ago >= 2*time.Minute:
 			return fmt.Sprintf("-%dm", int((ago+30*time.Second)/time.Minute))
+		case ago >= time.Minute:
+			secs := int(ago.Round(5*time.Second) / time.Second)
+			return fmt.Sprintf("-%dm%02ds", secs/60, secs%60)
 		}
 		return fmt.Sprintf("-%ds", int(ago.Round(5*time.Second)/time.Second))
 	}
@@ -71,17 +75,4 @@ func (m *Model) ntChart(t trace, cw, rows int) []string {
 		head += s.d.Render(fmt.Sprintf("   peak %s · avg %s", t.unit(peak), t.unit(mean)))
 	}
 	return append([]string{head}, strings.Split(c.View(), "\n")...)
-}
-
-// cycleCharts moves through the three ways a chart is drawn: the dash's filled
-// area, the dash's dots, and ntcharts.
-func (m *Model) cycleCharts() {
-	switch {
-	case m.ntCharts:
-		m.ntCharts, m.areaCharts = false, true
-	case m.areaCharts:
-		m.areaCharts = false
-	default:
-		m.ntCharts = true
-	}
 }

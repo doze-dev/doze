@@ -301,13 +301,6 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 	} else if m.url(v) != "" {
 		ks = append(ks, [2]string{"y", "copy address"})
 	}
-	if cur.id == tabOverview && awake(v) {
-		if m.metrics {
-			ks = append(ks, [2]string{"m", "tiles"})
-		} else {
-			ks = append(ks, [2]string{"m", "metrics"})
-		}
-	}
 	if v.Kind == "task" {
 		ks = append(ks, [2]string{"r", "run now"})
 	} else {
@@ -550,14 +543,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
-		if !m.metrics {
-			// a tile each: the figure, its trend, what it has been doing (V-A)
-			rows := 2
-			if h >= 34 {
-				rows = 4 // a tall window has the room for a chart worth reading
-			}
-			vit = append(vit, m.tiles(ts, w-4, rows)...)
-		} else if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
+		if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
 			vit = append(vit, m.charts(ts, w-4, r)...)
 		} else {
 			vit = append(vit,
@@ -578,13 +564,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	if gap == 1 {
 		out = append(out, "")
 	}
-	if awake(v) && !m.metrics {
-		// the tiles are boxes already: a heading and the data line, not a box in a box
-		out = append(out, " "+s.a.Bold(true).Render("vitals"))
-		out = append(out, vit...)
-	} else {
-		out = append(out, box(s.border, s.a.Bold(true).Render("vitals"), "", vit, w, len(vit)+2)...)
-	}
+	out = append(out, box(s.border, s.a.Bold(true).Render("vitals"), "", vit, w, len(vit)+2)...)
 	out = append(out, m.extensions("vitals", w)...)
 	if gap == 1 {
 		out = append(out, "")
@@ -797,13 +777,6 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		if ts[m.tab].id == tabWeb {
 			return openURL(webURL(v)), true
 		}
-		return nil, true
-	case "m":
-		m.metrics = !m.metrics
-		m.ntCharts = m.metrics // the metrics view is ntcharts' to start with; c changes it
-		return nil, true
-	case "c":
-		m.cycleCharts()
 		return nil, true
 	case "/":
 		if ts[m.tab].id == tabLogs {

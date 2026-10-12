@@ -353,15 +353,6 @@
       "x": 3440,
       "y": 0
     },
-    "V-Focus.dc.html": {
-      "h": 900,
-      "page": "directions",
-      "radius": 12,
-      "title": "Focus overview · tiles with filled charts, m for the full charts",
-      "w": 1640,
-      "x": 0,
-      "y": 960
-    },
     "V-Crash.dc.html": {
       "h": 900,
       "page": "directions",
@@ -549,7 +540,6 @@
     "V-A.dc.html",
     "V-B.dc.html",
     "V-C.dc.html",
-    "V-Focus.dc.html",
     "V-Crash.dc.html"
   ],
   "pages": [

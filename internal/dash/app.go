@@ -44,11 +44,8 @@ type Model struct {
 	page         int                // pageHome or pageFocus
 	hit          []string           // the instance on each line of the stack, "" for a heading
 	listTop      int                // the first line of the stack shown, when it is longer than its box
-	areaCharts   bool               // c: charts as filled areas of blocks, not a line of dots
 	sortBy       int                // o: how the table orders its rows within a group
-	metrics      bool               // m: Focus shows the full charts, not the tiles
 	tree         bool               // t: the table as a dependency tree
-	ntCharts     bool               // charts drawn by ntcharts (c cycles it with the dash's own two)
 	search       string             // /: on a logs tab, only the lines that hold it
 	all          []control.LogFrame // the stack's lines, for the logs page
 	allCancel    context.CancelFunc
@@ -87,7 +84,7 @@ type Model struct {
 
 // New builds the dash around a daemon. Init and Run start it listening.
 func New(d control.Daemon, o Options) *Model {
-	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo, areaCharts: true}
+	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo}
 	if m.nowf == nil {
 		m.nowf = time.Now
 	}
@@ -285,8 +282,6 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		}
 	}
 	switch k {
-	case "c":
-		m.cycleCharts()
 	case "o":
 		m.sortBy = (m.sortBy + 1) % sortModes
 	case "y":

@@ -715,7 +715,7 @@ func (m *Model) drawChart(n control.ConsoleNode, w, h int) []string {
 			}
 		}
 	}
-	if rows := h - 2 - 2; rows >= 2 {
+	if rows := h - 2 - 3; rows >= 2 { // the border, then a heading and the axis' two lines
 		last := 0.0
 		if len(vals) > 0 {
 			last = vals[len(vals)-1]
