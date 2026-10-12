@@ -259,3 +259,25 @@ func count(v float64) string {
 	return fmt.Sprintf("%.0f", v)
 }
 func bytesLabel(v float64) string { return mb(int64(v)) }
+
+// squeezeTimed is squeeze for readings that carry the time they were taken: the
+// merged column keeps the newest of the times it covers.
+func squeezeTimed(vs []float64, at []time.Time, w int) ([]float64, []time.Time) {
+	n := len(vs)
+	if n <= w || w < 1 || len(at) != n {
+		return vs, at
+	}
+	per := (n + w - 1) / w
+	cols := (n + per - 1) / per
+	outV, outT := make([]float64, cols), make([]time.Time, cols)
+	for i := cols - 1; i >= 0; i-- {
+		end := n - per*(cols-1-i)
+		start := max(end-per, 0)
+		m := vs[start]
+		for _, v := range vs[start:end] {
+			m = max(m, v)
+		}
+		outV[i], outT[i] = m, at[end-1]
+	}
+	return outV, outT
+}

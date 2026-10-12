@@ -250,7 +250,7 @@ func drive(ctx context.Context, d *fakedaemon.Fake, now func() time.Time) {
 				}
 			}
 		})
-		d.Push(control.Frame{Topic: control.TopicStats, Stats: stats})
+		d.Push(control.Frame{Topic: control.TopicStats, At: now(), Stats: stats})
 		for _, name := range apps {
 			if rng.Intn(2) == 0 {
 				pool := says[name]

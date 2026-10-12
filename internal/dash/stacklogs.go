@@ -24,7 +24,7 @@ const allKept = 800
 func (m *Model) openLogs() {
 	m.page = pageLogs
 	m.search, m.searching, m.paused = "", false, false
-	m.all = nil
+	m.all, m.pinned = nil, false
 	for _, lines := range m.cache {
 		m.all = append(m.all, lines...)
 	}
@@ -45,8 +45,12 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 	case "/":
 		m.searching = true
 		return nil, true
+	case "up", "k", "down", "j", "pgup", "pgdown", "ctrl+u", "ctrl+d", "g", "home", "G", "end":
+		m.scrollKey(k)
+		return nil, true
 	case "f":
 		m.level = (m.level + 1) % len(levelNames)
+		m.pinned = false
 		return nil, true
 	case "t":
 		m.timeRel = !m.timeRel
@@ -136,7 +140,7 @@ func (m *Model) stackLines(n int) []string {
 		}
 		return items[i].at.Before(items[j].at)
 	})
-	if len(items) > n {
+	if n > 0 && len(items) > n {
 		items = items[len(items)-n:]
 	}
 	out := make([]string, 0, len(items))
@@ -164,15 +168,18 @@ func (m *Model) stackLogs(w, h int) []string {
 	r := state + s.d.Render(" · "+levelNames[m.level])
 	out := []string{l + strings.Repeat(" ", max(w-width(l)-width(r), 1)) + r}
 
+	lines, newer := m.window(m.stackLines(0), h-4)
 	cap := "every instance, merged"
+	if newer > 0 {
+		cap = fmt.Sprintf("scrolled back · %d newer lines · G to follow", newer)
+	}
 	if m.search != "" || m.searching {
 		cursor := ""
 		if m.searching {
 			cursor = s.a.Render("▏")
 		}
-		cap = "search " + s.w.Render(m.search) + cursor
+		cap = "search " + s.w.Render(m.search) + cursor + s.d.Render(" · "+cap)
 	}
-	lines := m.stackLines(h - 4)
 	if m.selecting {
 		lines = m.decorate()
 	} else {
@@ -193,7 +200,7 @@ func (m *Model) stackLogs(w, h int) []string {
 	} else if m.searching {
 		keys = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 	} else {
-		ks := [][2]string{{"/", "search"}, {"f", "level"}, {"t", "time"}, {"v", "select"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
+		ks := [][2]string{{"↑↓", "scroll"}, {"/", "search"}, {"f", "level"}, {"t", "time"}, {"v", "select"}, {"space", "pause"}, {"y", "copy"}, {":", "command"}, {"esc", "back"}}
 		var parts []string
 		for _, k := range ks {
 			parts = append(parts, s.cap(k[0], k[1]))

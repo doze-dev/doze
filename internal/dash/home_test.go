@@ -785,3 +785,44 @@ func TestLogsAreKeptWhenYouLookAway(t *testing.T) {
 		t.Errorf("the stack's logs are not the kept lines in time order: %+v", m.all)
 	}
 }
+
+// Older lines can be scrolled to: up and the wheel move back through what was
+// kept, the page holds still while new lines come, and G follows again.
+func TestScrollBackThroughTheLogs(t *testing.T) {
+	m := focused("api")
+	m.followed = "api"
+	m.w, m.h = 140, 20
+	m.logs = nil
+	for i := 1; i <= 100; i++ {
+		m.logs = append(m.logs, control.LogFrame{Instance: "api", Line: fmt.Sprintf("INFO line %03d", i), Time: epoch.Add(time.Duration(i-200) * time.Second), Run: 1})
+	}
+	m.cache = map[string][]control.LogFrame{"api": m.logs}
+	out := frame(m, 140, 20)
+	if !strings.Contains(out, "line 100") || strings.Contains(out, "line 001") {
+		t.Fatalf("following should show the newest:\n%s", out)
+	}
+	for i := 0; i < 30; i++ {
+		m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	}
+	out = frame(m, 140, 20)
+	if strings.Contains(out, "line 100") || !strings.Contains(out, "scrolled back") || !strings.Contains(out, "newer lines") {
+		t.Errorf("30 up should be scrolled back:\n%s", out)
+	}
+	before := out
+	// a new line arrives: the page does not move
+	m.Update(logMsg{"api", control.LogFrame{Instance: "api", Line: "INFO line 101", Time: epoch, Run: 1}})
+	if after := frame(m, 140, 20); strings.Contains(after, "line 101") && !strings.Contains(before, "line 101") {
+		t.Errorf("a scrolled page should hold still, but moved:\n%s", after)
+	}
+	// the wheel moves it too
+	m.Update(tea.MouseWheelMsg(tea.Mouse{X: 5, Y: 5, Button: tea.MouseWheelUp}))
+	// to the top, then back to following
+	m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
+	if out := frame(m, 140, 20); !strings.Contains(out, "line 001") {
+		t.Errorf("g should show the oldest:\n%s", out)
+	}
+	m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
+	if out := frame(m, 140, 20); !strings.Contains(out, "line 101") || strings.Contains(out, "scrolled back") {
+		t.Errorf("G should follow again:\n%s", out)
+	}
+}

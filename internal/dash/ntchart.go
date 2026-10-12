@@ -18,20 +18,32 @@ import (
 // its labels), and returns the lines.
 func (m *Model) chart(t trace, cw, rows int) []string {
 	s := m.st
-	vals := t.vals
-	if len(vals) == 0 {
-		vals = []float64{t.cur}
-	}
-	vals = squeeze(vals, 2*cw)
-	lo, hi := t.scale(vals)
-	// readings are a second apart and the newest is now, so a reading's time is
-	// known without the daemon stamping it
-	span := time.Duration(max(len(t.vals), 1)) * sampleEvery
 	now := m.now
 	if now.IsZero() {
 		now = time.Now()
 	}
-	start := now.Add(-span)
+	vals := t.vals
+	if len(vals) == 0 {
+		vals = []float64{t.cur}
+	}
+	// when each reading was taken: what the daemon said, or, with nothing said,
+	// a second apart and the newest now
+	at := make([]time.Time, len(vals))
+	if st := m.statAt[m.chartInst]; m.chartInst != "" && len(t.vals) > 0 && len(st) >= len(t.vals) {
+		copy(at, st[len(st)-len(t.vals):])
+	} else {
+		for i := range at {
+			at[i] = now.Add(-time.Duration(len(at)-1-i) * sampleEvery)
+		}
+	}
+	vals, at = squeezeTimed(vals, at, 2*cw)
+	lo, hi := t.scale(vals)
+	start := at[0]
+	span := now.Sub(start)
+	if span < sampleEvery {
+		span = sampleEvery
+		start = now.Add(-span)
+	}
 	epoch := func(t time.Time) float64 { return float64(t.UnixMilli()) / 1e3 }
 
 	xfmt := func(_ int, v float64) string {
@@ -62,10 +74,9 @@ func (m *Model) chart(t trace, cw, rows int) []string {
 		timeserieslinechart.WithLineChart(&lc),
 		timeserieslinechart.WithStyle(t.st),
 	)
-	// the readings, oldest first, spread over the span they cover
-	step := span / time.Duration(max(len(vals), 1))
+	// each reading where it was taken
 	for i, v := range vals {
-		c.Push(timeserieslinechart.TimePoint{Time: start.Add(time.Duration(i+1) * step), Value: v})
+		c.Push(timeserieslinechart.TimePoint{Time: at[i], Value: v})
 	}
 	c.DrawBraille()
 

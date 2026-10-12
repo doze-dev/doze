@@ -73,6 +73,7 @@ func (m *Model) open() {
 	if v, ok := m.selected(); ok {
 		m.page, m.tab = pageFocus, 0
 		m.search, m.searching, m.runSel = "", false, 0
+		m.pinned = false
 		if v.HasConsole {
 			m.startConsole(v.Name)
 		}
@@ -106,6 +107,17 @@ func rank(line string) (int, string) {
 // stream is what the instance printed and what doze did about it, newest
 // last, at min level and up. Untagged lines count as info.
 func (m *Model) stream(v control.InstanceView, h, min int, onlyRun int) []string {
+	all := m.streamAll(v, min, onlyRun)
+	if len(all) > h {
+		all = all[len(all)-h:]
+	}
+	return all
+}
+
+// streamAll is every line kept of an instance that passes the level and the
+// search, oldest first, drawn: what stream takes the end of and a scrolled page
+// takes a window of.
+func (m *Model) streamAll(v control.InstanceView, min int, onlyRun int) []string {
 	s := m.st
 	type item struct {
 		at   time.Time
@@ -165,9 +177,6 @@ func (m *Model) stream(v control.InstanceView, h, min int, onlyRun int) []string
 			return []string{s.d.Render("it has not run")}
 		}
 		return []string{s.d.Render("asleep: its output is kept; connecting to it wakes it")}
-	}
-	if len(items) > h {
-		items = items[len(items)-h:]
 	}
 	out := make([]string, 0, len(items))
 	for _, it := range items {
@@ -303,7 +312,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 		if m.searching {
 			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 		}
-		ks = append(ks, [2]string{"/", "search"}, [2]string{"t", "time"}, [2]string{"v", "select"})
+		ks = append(ks, [2]string{"↑↓", "scroll"}, [2]string{"/", "search"}, [2]string{"t", "time"}, [2]string{"v", "select"})
 		if len(m.runIDs()) > 1 {
 			ks = append(ks, [2]string{"[ ]", "earlier runs"})
 		}
@@ -361,14 +370,18 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		m.runSel = 0
 	}
 	m.query = m.search
-	lines := m.stream(v, h-2, m.level, m.runSel)
+	all := m.streamAll(v, m.level, m.runSel)
 	m.query = ""
+	lines, newer := m.window(all, h-2)
 	if m.selecting {
 		lines = m.decorate()
 	} else {
 		m.shown = lines
 	}
 	cap := "following · " + levelNames[m.level]
+	if newer > 0 {
+		cap = fmt.Sprintf("scrolled back · %d newer lines · G to follow", newer)
+	}
 	rcap := fmt.Sprintf("%d lines · this run", n)
 	if m.runSel > 0 {
 		cap = "not following · " + levelNames[m.level]
@@ -435,7 +448,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 				vals = []float64{t.cur}
 			}
 			lo, hi := t.scale(vals)
-			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now)+s.d.Render("  last "+spanWord(max(len(t.vals), 1))))
+			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now)+s.d.Render("  last "+spanWord(m.spanSeconds(v.Name, len(t.vals)))))
 			run = append(run, plot(vals, rw-4, 2, lo, hi, t.st, dimmed(t.st))...)
 			run = append(run, "")
 		}
@@ -557,7 +570,9 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
 		if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
+			m.chartInst = v.Name
 			vit = append(vit, m.charts(ts, w-4, r)...)
+			m.chartInst = ""
 		} else {
 			vit = append(vit,
 				label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)), 8),
@@ -774,6 +789,7 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		return nil, true
 	case "f":
 		m.level = (m.level + 1) % len(levelNames)
+		m.pinned = false
 		return nil, true
 	case "t":
 		if ts[m.tab].id == tabLogs {
@@ -820,8 +836,13 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		if v.Kind == "task" {
 			return m.verb(control.VerbTask), true
 		}
-	case "up", "down", "j", "k", "home", "end", "g", "G", "right":
-		return nil, true // the frame is one instance; the list is behind esc
+	case "up", "down", "j", "k", "home", "end", "g", "G", "right", "pgup", "pgdown", "ctrl+u", "ctrl+d":
+		// the frame is one instance and the list is behind esc; on a page of logs
+		// the same keys move through the lines
+		if ts[m.tab].id == tabLogs && k != "right" {
+			m.scrollKey(k)
+		}
+		return nil, true
 	}
 	return nil, false
 }
@@ -1018,8 +1039,22 @@ func (m *Model) vitalsStrip(v control.InstanceView, w, maxH int) []string {
 	groups := chartGroups(w-4, len(ts))
 	for r := 5; r >= 2; r-- {
 		if h := 2 + groups*(r+3) + (groups - 1); h <= maxH {
-			return box(s.border, s.a.Bold(true).Render("vitals"), "", m.charts(ts, w-4, r), w, h)
+			m.chartInst = v.Name
+			lines := m.charts(ts, w-4, r)
+			m.chartInst = ""
+			return box(s.border, s.a.Bold(true).Render("vitals"), "", lines, w, h)
 		}
 	}
 	return nil
+}
+
+// spanSeconds is how many seconds the last n readings of an instance cover:
+// from the times the daemon stamped them with, or a second each.
+func (m *Model) spanSeconds(name string, n int) int {
+	if st := m.statAt[name]; n > 0 && len(st) >= n {
+		if d := m.now.Sub(st[len(st)-n]); d > 0 {
+			return int(d / time.Second)
+		}
+	}
+	return max(n, 1)
 }

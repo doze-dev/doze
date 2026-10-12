@@ -51,6 +51,9 @@ type Model struct {
 	sortBy       int                // o: how the table orders its rows within a group
 	tree         bool               // t: the table as a dependency tree
 	vitalsOn     bool               // the vitals are drawn across the top of this page
+	pinned       bool               // the logs are scrolled back and hold still
+	pinTop       int                // the first line shown, when pinned
+	page1        int                // how many lines the logs showed last, for paging
 	search       string             // /: on a logs tab, only the lines that hold it
 	all          []control.LogFrame // the stack's lines, for the logs page
 	allCancel    context.CancelFunc
@@ -82,10 +85,12 @@ type Model struct {
 	conns  map[string][]float64
 	notice string
 
-	send     func(tea.Msg)
-	followed string
-	cache    map[string][]control.LogFrame // every instance's kept lines, by name
-	cancel   context.CancelFunc
+	send      func(tea.Msg)
+	followed  string
+	statAt    map[string][]time.Time        // when each instance's readings were taken, when the daemon said
+	chartInst string                        // whose readings the charts being drawn are, to find their times
+	cache     map[string][]control.LogFrame // every instance's kept lines, by name
+	cancel    context.CancelFunc
 }
 
 // New builds the dash around a daemon. Init and Run start it listening.
@@ -189,12 +194,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case tea.MouseWheelMsg:
-		if m.page == pageHome && m.modal == nil {
-			switch tea.Mouse(msg).Button {
-			case tea.MouseWheelUp:
+		if m.modal == nil {
+			btn := tea.Mouse(msg).Button
+			switch {
+			case m.page == pageHome && btn == tea.MouseWheelUp:
 				m.move(-1)
-			case tea.MouseWheelDown:
+			case m.page == pageHome && btn == tea.MouseWheelDown:
 				m.move(1)
+			case m.scrollable() && btn == tea.MouseWheelUp:
+				m.scrollBy(-3)
+			case m.scrollable() && btn == tea.MouseWheelDown:
+				m.scrollBy(3)
 			}
 		}
 	}
@@ -438,6 +448,18 @@ func (m *Model) apply(f control.Frame) {
 				if m.snap.Instances[i].Name == s.Name {
 					m.snap.Instances[i].RAM, m.snap.Instances[i].CPU, m.snap.Instances[i].Conns = s.RAM, s.CPU, s.Conns
 				}
+			}
+			if f.At.IsZero() {
+				delete(m.statAt, s.Name) // not stamped: the charts assume a second apart
+			} else {
+				if m.statAt == nil {
+					m.statAt = map[string][]time.Time{}
+				}
+				at := append(m.statAt[s.Name], f.At)
+				if len(at) > samples {
+					at = at[len(at)-samples:]
+				}
+				m.statAt[s.Name] = at
 			}
 			m.ram[s.Name] = push(m.ram[s.Name], float64(s.RAM))
 			m.cpu[s.Name] = push(m.cpu[s.Name], s.CPU)
