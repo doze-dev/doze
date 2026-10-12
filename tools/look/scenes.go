@@ -12,6 +12,7 @@ import (
 	"github.com/doze-dev/doze/internal/control/fakedaemon"
 	"github.com/doze-dev/doze/internal/dash"
 	"github.com/doze-dev/doze/internal/dash/fixture"
+	"github.com/doze-dev/doze/internal/journal"
 )
 
 // epoch is the moment every scene is drawn at, so "up 14m" is the same each run.
@@ -199,12 +200,14 @@ func drive(ctx context.Context, d *fakedaemon.Fake, now func() time.Time) {
 	msgs := []string{"INF GET /products 200 %dms", "INF GET /cart 200 %dms", "INF POST /orders 201 %dms", "INF GET /healthz 200 %dms", "WRN slow query %dms SELECT * FROM orders"}
 	tk := time.NewTicker(time.Second)
 	defer tk.Stop()
+	life := &lifecycle{booted: map[string]int{}}
 	for tick := 0; ; tick++ {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tk.C:
 		}
+		life.step(d, now(), tick)
 		var stats []control.StatView
 		var apps []string
 		d.Mutate(func(snap *control.Snapshot) {
@@ -235,5 +238,98 @@ func drive(ctx context.Context, d *fakedaemon.Fake, now func() time.Time) {
 				d.PushLog(control.LogFrame{Instance: name, Line: fmt.Sprintf(msgs[rng.Intn(len(msgs))], 2+rng.Intn(60)), Time: now(), Run: 1})
 			}
 		}
+	}
+}
+
+// lifecycle moves the fixture's instances through what a daemon moves them
+// through: a booting one becomes awake once what it needs is awake, an idle one
+// goes to sleep when its timer is spent, and now and then a connection wakes a
+// sleeping module. Each change is told to the dash as an instances frame and a
+// journal event, as the daemon does.
+type lifecycle struct {
+	booted map[string]int // the tick an instance began booting
+	wakeAt int            // the next tick a sleeping module is woken by a connection
+}
+
+func (l *lifecycle) step(d *fakedaemon.Fake, now time.Time, tick int) {
+	var changed []control.InstanceView
+	var events []journal.Event
+	ev := func(kind, inst string, c journal.Cause, took time.Duration) {
+		events = append(events, journal.Event{Time: now, Kind: kind, Instance: inst, Cause: c, Took: took})
+	}
+	d.Mutate(func(snap *control.Snapshot) {
+		up := func(name string) bool {
+			for _, o := range snap.Instances {
+				if o.Name == name {
+					return o.State == "active" || o.State == "idle"
+				}
+			}
+			return true
+		}
+		// a sleeping module is woken by a connection every so often
+		if l.wakeAt == 0 {
+			l.wakeAt = tick + 20
+		}
+		if tick >= l.wakeAt {
+			l.wakeAt = tick + 45
+			for i := range snap.Instances {
+				in := &snap.Instances[i]
+				if in.Kind == "module" && in.State == "reaped" && !in.Disabled {
+					in.State, in.Holders = "booting", []control.HolderView{{Kind: "connection", Count: 1}}
+					ev(journal.Wake, in.Name, journal.Cause{Kind: journal.ByConnection}, 0)
+					changed = append(changed, *in)
+					break
+				}
+			}
+		}
+		for i := range snap.Instances {
+			in := &snap.Instances[i]
+			switch in.State {
+			case "booting":
+				if _, ok := l.booted[in.Name]; !ok {
+					l.booted[in.Name] = tick
+				}
+				ready := true
+				for _, n := range in.Needs {
+					ready = ready && up(n)
+				}
+				// a module takes a couple of seconds; what waits on one, a moment after
+				if ready && tick-l.booted[in.Name] >= 3 {
+					in.State, in.StartedAt, in.PID = "active", now, 41000+i
+					in.RAM = int64(30+i*9) << 20
+					in.IdleSince = time.Time{}
+					took := time.Duration(tick-l.booted[in.Name]) * time.Second
+					delete(l.booted, in.Name)
+					ev(journal.Ready, in.Name, journal.Cause{}, took)
+					changed = append(changed, *in)
+				}
+			case "active":
+				// a module nothing holds goes idle, with its timer set
+				if in.Kind == "module" && in.Conns == 0 && len(in.Holders) == 0 && rand.Intn(25) == 0 {
+					in.State, in.IdleSince = "idle", now
+					changed = append(changed, *in)
+				}
+			case "idle":
+				after := snap.IdleTimeout
+				if in.IdleAfter > 0 {
+					after = in.IdleAfter
+				}
+				if in.IdleSince.IsZero() {
+					in.IdleSince = now
+				}
+				if now.Sub(in.IdleSince) >= after {
+					in.State, in.RAM, in.CPU, in.PID, in.StartedAt, in.IdleSince = "reaped", 0, 0, 0, time.Time{}, time.Time{}
+					ev(journal.Sleep, in.Name, journal.Cause{Kind: journal.ByIdle}, 0)
+					changed = append(changed, *in)
+				}
+			}
+		}
+	})
+	if len(changed) > 0 {
+		d.Push(control.Frame{Topic: control.TopicInstances, Instances: changed})
+	}
+	for _, e := range events {
+		e := e
+		d.Push(control.Frame{Topic: control.TopicJournal, Event: &e})
 	}
 }
