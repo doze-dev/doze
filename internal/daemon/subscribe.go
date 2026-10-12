@@ -7,10 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/logstore"
-	"github.com/doze-dev/doze/internal/ui"
 )
 
 const (
@@ -117,34 +115,19 @@ func (h *handler) subStats(ctx context.Context, gap time.Duration, send func(con
 	if gap < minStatsGap {
 		gap = minStatsGap
 	}
+	h.d.meters.watch(1)
+	defer h.d.meters.watch(-1)
+	// what the last few minutes looked like, before what is happening now
+	for _, f := range h.d.meters.history() {
+		if send(f) != nil {
+			return
+		}
+	}
 	ticker := time.NewTicker(gap)
 	defer ticker.Stop()
 	for {
-		var pids []int
-		running := h.d.rt.Registry().Snapshot()
-		for _, inst := range running {
-			if inst.PID != 0 {
-				pids = append(pids, inst.PID)
-			}
-		}
-		frame := control.Frame{Topic: control.TopicStats}
-		if len(pids) > 0 {
-			stats := ui.ProcStats(pids)
-			tree := ui.ProcTree(pids)
-			for _, inst := range running {
-				if inst.PID == 0 {
-					continue
-				}
-				st := stats[inst.PID]
-				sv := control.StatView{Name: inst.Name, PID: inst.PID, RAM: st.RSS, CPU: st.CPU, Conns: inst.Conns}
-				if decl := h.d.cfg.Lookup(inst.Name); decl != nil && decl.Type == config.AppEngine {
-					for _, n := range tree[inst.PID] {
-						sv.Children = append(sv.Children, control.ProcView{PID: n.PID, RSS: n.RSS, CPU: n.CPU, Cmd: n.Cmd, Depth: n.Depth})
-					}
-				}
-				frame.Stats = append(frame.Stats, sv)
-			}
-		}
+		frame := h.d.sampleStats()
+		h.d.meters.record(frame)
 		if send(frame) != nil {
 			return
 		}

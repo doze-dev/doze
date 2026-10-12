@@ -50,9 +50,11 @@ func LogFilePath(cfg *config.Config) string {
 
 // Daemon bundles the running components.
 type Daemon struct {
-	cfg  *config.Config
-	rt   *runtime.Runtime
-	logf func(format string, args ...any)
+	// meters is the last few minutes of every running instance's meters.
+	meters meterRing
+	cfg    *config.Config
+	rt     *runtime.Runtime
+	logf   func(format string, args ...any)
 	// zone is this daemon's handle on the shared .doze registry — shared with
 	// doze-aws and doze-kafka, not doze's own. Nil until setupDomains runs, and
 	// nil for the whole run when domains are off.
@@ -127,6 +129,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := d.rt.EnsureDataRoot(); err != nil {
 		return err
 	}
+	go d.runMeters(ctx)
 	// The journal is the record screens read. Without it the daemon still runs.
 	if j, err := journal.Open(filepath.Join(d.cfg.RunDir(), "journal.jsonl"), 0); err != nil {
 		d.logf("journal: %v (nothing will be recorded)", err)

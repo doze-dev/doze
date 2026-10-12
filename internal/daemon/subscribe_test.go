@@ -263,3 +263,45 @@ func TestStatsTopicAndUnknownTopic(t *testing.T) {
 		t.Fatalf("unknown topic: %v", err)
 	}
 }
+
+// A screen that subscribes to stats is first sent the recent readings, each
+// with the time it was taken, and then what is happening now.
+func TestStatsHistoryIsSentFirst(t *testing.T) {
+	d, h := testDaemon(t)
+	now := time.Now()
+	for i := 5; i >= 1; i-- {
+		d.meters.record(control.Frame{Topic: control.TopicStats, At: now.Add(-time.Duration(i) * 10 * time.Second),
+			Stats: []control.StatView{{Name: "api", PID: 9, RAM: int64(i) << 20, Children: []control.ProcView{{PID: 10}}}}})
+	}
+	// two readings of the one moment are one reading
+	d.meters.record(control.Frame{Topic: control.TopicStats, At: now.Add(-10*time.Second + 100*time.Millisecond), Stats: []control.StatView{{Name: "api", PID: 9, RAM: 1}}})
+	out := subscribe(t, h, control.Subscription{Topics: []string{control.TopicStats}, Interval: 250 * time.Millisecond})
+	got := out.until(t, "the history and one more", func(fs []control.Frame) bool { return len(fs) >= 6 })
+	for i := 0; i < 5; i++ {
+		f := got[i]
+		if f.At.IsZero() || len(f.Stats) != 1 || f.Stats[0].RAM != int64(5-i)<<20 {
+			t.Fatalf("frame %d of the history = %+v", i, f)
+		}
+		if len(f.Stats[0].Children) != 0 {
+			t.Errorf("the history carries processes: %+v", f.Stats[0])
+		}
+		if i > 0 && !f.At.After(got[i-1].At) {
+			t.Errorf("history is not oldest first at %d", i)
+		}
+	}
+	if len(d.meters.history()) < 5 {
+		t.Errorf("ring lost readings: %d", len(d.meters.history()))
+	}
+}
+
+func TestTheRingKeepsTheLastFewMinutes(t *testing.T) {
+	var r meterRing
+	base := time.Now()
+	for i := 0; i < meterKept+50; i++ {
+		r.record(control.Frame{At: base.Add(time.Duration(i) * time.Second), Stats: []control.StatView{{Name: "x", RAM: int64(i)}}})
+	}
+	h := r.history()
+	if len(h) != meterKept || h[len(h)-1].Stats[0].RAM != int64(meterKept+49) || h[0].Stats[0].RAM != 50 {
+		t.Errorf("ring = %d frames, first %d last %d", len(h), h[0].Stats[0].RAM, h[len(h)-1].Stats[0].RAM)
+	}
+}

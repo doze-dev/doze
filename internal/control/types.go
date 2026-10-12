@@ -343,6 +343,9 @@ type Frame struct {
 	Error string `json:"error,omitempty"`
 
 	Topic string `json:"topic,omitempty"`
+	// At is when a stats frame's readings were taken. A screen that opens is sent
+	// the recent ones first, and they are not a second apart.
+	At time.Time `json:"at,omitempty"`
 	// Snapshot marks an instances frame that carries every instance: the first
 	// one, and any sent because a subscriber fell behind. Other instances
 	// frames carry only what changed.
