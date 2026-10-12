@@ -6,8 +6,39 @@ of each part what happens on the worst day, not the demo.
 
 Everything here is marked **measured** (I ran it and saw it), **read** (I read the
 code and it follows), or **inferred** (a risk I could not reproduce from here).
-A finding says what is wrong, what the worst case is, and what to do. Nothing in
-this file has been fixed yet; it is the list to fix from.
+A finding says what is wrong, what the worst case is, and what to do. The
+findings below are as they were found; **Status** says what was done about each.
+
+## Status (2026-10-12)
+
+All twenty are dealt with, in nine commits on `main`. The "after" screens are
+`ux-audit/after-*.png`, drawn by the same scenes as the "before" ones.
+
+| | finding | commit | what changed |
+|---|---|---|---|
+| A1 | dead daemon looks alive | de0b25d | connection state, reconnect with backoff, faded page, banner, verbs refused |
+| B1 | empty before first snapshot | de0b25d | `connecting to the daemon…` until the first frame |
+| A2 | `r` restarts with no question | ae95553 | asks when something holds the instance, says how many connections |
+| A3 | "copied" unverified | 9927d62 | `sent … to the clipboard`, the way out named when the terminal is not known to honour OSC 52, `Y` writes a file |
+| B3 | label and key disagree | 3595936 | `l` is this instance's logs everywhere, `L` the stack's |
+| B4 | no help, bar loses keys | 3595936 | one key table feeds the bar and `?` |
+| B2 | failures last until a key | a156dcc | red, stay until esc or 12 s, kept in `:` recent messages |
+| B5 | two colours fail contrast | 36507cf | border `#6b6396`, dim lifted on the selection, a WCAG test |
+| C1 | too small is not said | d4998a3 | under 60×16 one centred line |
+| C2 | mouse takes selection | d4998a3 | said once on the first mouse event |
+| C4 | top of logs unmarked | d4998a3 | caption says the oldest held and `doze logs <name>` |
+| C6 | quit says nothing runs | d4998a3 | `stack still running · doze down to stop it` |
+| B6, B7 | ambiguous width, non-UTF-8 | 0fbc9d9 | `narrow` and `ascii` sets by locale, `TERM`, `DOZE_ASCII`; layout is kept cell for cell |
+| C3 | meters read as facts | f0766a9 | `≈` on the totals; `?` says what they are |
+| C5 | rows move under the cursor | f0766a9 | order held 3 s after a key or click |
+| C7 | new instance has no logs | f0766a9 | logs asked for again when one appears |
+| C8 | scale unmeasured | f0766a9 | measured: 500 × 400 lines is 44 MB, 93 ms, a frame in 9 ms; no change needed |
+
+Not done, and why: the Low items. Time zone on log lines is still unshown; the
+screen-reader note is not yet in the docs; very fast logging is still a guess.
+The look tool does not pass `DOZE_ASCII` to the dash it hosts, so the glyph sets
+are tested by unit tests (every shape, three sizes, byte-checked and
+column-checked) and have no screenshot.
 
 ## How it was done
 
