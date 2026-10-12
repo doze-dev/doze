@@ -174,6 +174,9 @@ func (m *Model) stackLogs(w, h int) []string {
 	cap := "every instance, merged"
 	if newer > 0 {
 		cap = fmt.Sprintf("scrolled back · %d newer lines · G to follow", newer)
+		if m.atTop {
+			cap = fmt.Sprintf("the oldest the dash holds · older: doze logs <name> · %d newer", newer)
+		}
 	}
 	if m.search != "" || m.searching {
 		cursor := ""

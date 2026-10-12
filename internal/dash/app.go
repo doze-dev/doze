@@ -86,6 +86,8 @@ type Model struct {
 	conns     map[string][]float64
 	notice    string
 	noticeBad bool
+	atTop     bool // the logs are scrolled to the oldest line the dash holds
+	mouseTold bool // the shift-drag hint has been said
 	noticeAt  time.Time
 	history   []message
 
@@ -223,6 +225,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m.keyText(msg.String(), msg.Text)
 	case tea.MouseClickMsg:
+		m.tellMouse()
 		if cmd, ok := m.logMouse(msg); ok {
 			return m, cmd
 		}
@@ -232,6 +235,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case tea.MouseWheelMsg:
+		m.tellMouse()
 		if m.modal == nil {
 			btn := tea.Mouse(msg).Button
 			switch {
@@ -570,6 +574,9 @@ func (m *Model) Render(w, h int) string {
 		page = m.focus
 	case pageLogs:
 		page = m.stackLogs
+	}
+	if w < minW || h < minH {
+		return tooSmall(m.st, w, h)
 	}
 	base := page(w, h)
 	if m.modal != nil {

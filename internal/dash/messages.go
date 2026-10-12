@@ -80,3 +80,35 @@ func (m *Model) recentMessages() {
 	}
 	m.modal = &modal{kind: modalText, lines: lines, title: "recent messages"}
 }
+
+// tellMouse says once that the dash holds the mouse, and how to get it back for
+// the terminal's own selection.
+func (m *Model) tellMouse() {
+	if m.mouseTold {
+		return
+	}
+	m.mouseTold = true
+	m.say("shift-drag selects text in the terminal; drag over logs here copies them")
+}
+
+// Under this the pages have nothing left to use.
+const (
+	minW = 60
+	minH = 16
+)
+
+// tooSmall is the whole screen when the window is under minW x minH: one line,
+// centred, that says what to do. Keys still work.
+func tooSmall(s styles, w, h int) string {
+	msg := fmt.Sprintf("make the window larger · %d×%d or more", minW, minH)
+	if width(msg) > w {
+		msg = fmt.Sprintf("larger: %d×%d", minW, minH)
+	}
+	if width(msg) > w {
+		msg = ansiTruncate(msg, w)
+	}
+	pad := max((w-width(msg))/2, 0)
+	rows := make([]string, h)
+	rows[h/2] = strings.Repeat(" ", pad) + s.d.Render(msg)
+	return strings.Join(rows, "\n")
+}

@@ -234,3 +234,57 @@ func TestALongMessageNeverWidensTheBar(t *testing.T) {
 		}
 	}
 }
+
+func TestTooSmallSaysSoAndKeysStillWork(t *testing.T) {
+	m := board()
+	for _, sz := range [][2]int{{59, 30}, {120, 15}, {24, 8}, {5, 3}} {
+		out := stripAnsi(m.Render(sz[0], sz[1]))
+		lines := strings.Split(out, "\n")
+		if len(lines) > sz[1] {
+			t.Errorf("%v: %d lines", sz, len(lines))
+		}
+		for _, l := range lines {
+			if width(l) > sz[0] {
+				t.Errorf("%v: line %q is %d wide", sz, l, width(l))
+			}
+		}
+		if sz[0] >= 24 && !strings.Contains(out, "larger") {
+			t.Errorf("%v: no message:\n%s", sz, out)
+		}
+	}
+	if out := stripAnsi(m.Render(60, 16)); strings.Contains(out, "make the window larger") {
+		t.Error("60x16 is big enough")
+	}
+	sel := m.sel
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.sel == sel {
+		t.Error("keys should still move the selection")
+	}
+}
+
+func TestTheMouseHintIsSaidOnce(t *testing.T) {
+	m := board()
+	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	if !strings.Contains(m.notice, "shift-drag") {
+		t.Fatalf("notice = %q", m.notice)
+	}
+	m.clearNotice()
+	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	if m.notice != "" {
+		t.Errorf("said again: %q", m.notice)
+	}
+}
+
+func TestTheTopOfTheLogsIsMarked(t *testing.T) {
+	m := focused("api")
+	m.followed = "api"
+	for i := 0; i < 80; i++ {
+		m.logs = append(m.logs, control.LogFrame{Instance: "api", Line: fmt.Sprintf("INFO l%d", i), Time: epoch.Add(time.Duration(i) * time.Second), Run: 1})
+	}
+	m.cache = map[string][]control.LogFrame{"api": m.logs}
+	frame(m, 140, 40)
+	m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
+	if out := frame(m, 140, 40); !strings.Contains(out, "older: doze logs api") {
+		t.Errorf("top of the logs not marked:\n%s", out)
+	}
+}

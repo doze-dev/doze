@@ -15,7 +15,7 @@ func (m *Model) window(all []string, h int) (lines []string, newer int) {
 	if h < 1 {
 		return nil, 0
 	}
-	m.page1 = h
+	m.page1, m.atTop = h, false
 	if len(all) <= h {
 		m.pinned = false
 		return all, 0
@@ -25,6 +25,7 @@ func (m *Model) window(all []string, h int) (lines []string, newer int) {
 	}
 	top := min(max(m.pinTop, 0), len(all)-h)
 	m.pinTop = top
+	m.atTop = top == 0
 	return all[top : top+h], len(all) - (top + h)
 }
 

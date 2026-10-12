@@ -336,6 +336,9 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 	cap := "following · " + levelNames[m.level]
 	if newer > 0 {
 		cap = fmt.Sprintf("scrolled back · %d newer lines · G to follow", newer)
+		if m.atTop {
+			cap = fmt.Sprintf("the oldest the dash holds · older: doze logs %s · %d newer", v.Name, newer)
+		}
 	}
 	rcap := fmt.Sprintf("%d lines · this run", n)
 	if m.runSel > 0 {
