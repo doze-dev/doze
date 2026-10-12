@@ -27,7 +27,8 @@ const (
 	hexBad    = "#FF7A93"
 	hexDim    = "#8a85a8"
 	hexBright = "#f4f1ff"
-	hexBorder = "#5f5886" // clear of the page on a dim display, which #37324b was not
+	hexBorder = "#6b6396" // 3.0 and over on the page and the panel (WCAG 1.4.11); #5f5886 was 2.8
+	hexDimOn  = "#b0abcb" // dim, lifted to read on the selection and the pick (4.5 and over)
 	hexPanel  = "#1b1927" // the inside of a box: a step lighter than the page
 	hexSel    = "#2b2542"
 	hexPick   = "#3a3170" // the selected row of a table
@@ -36,8 +37,9 @@ const (
 // styles are the board's classes: a g y c r d w are the colour classes, b is
 // bold bright, and the pills and key caps are their own.
 type styles struct {
-	plain           bool
-	selHex, pickHex string
+	plain            bool
+	selHex, pickHex  string
+	dimHex, dimOnHex string // dim, and dim as it is drawn on a selection
 
 	text, a, g, y, c, r, d, w, b lipgloss.Style
 	hl                           lipgloss.Style // a search match
@@ -106,6 +108,7 @@ func build(plain bool, tint func(string) string) styles {
 		s.pillQ = s.pillQ.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexText)))
 		s.selHex = tint(hexSel)
 		s.pickHex = tint(hexPick)
+		s.dimHex, s.dimOnHex = tint(hexDim), tint(hexDimOn)
 		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(s.selHex)).Foreground(lipgloss.Color(tint(hexBright)))
 		s.key = lipgloss.NewStyle().Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexBright))).Padding(0, 1)
 	} else {
@@ -257,14 +260,27 @@ func (s styles) onPick(st lipgloss.Style) lipgloss.Style {
 	if s.plain {
 		return st.Reverse(true)
 	}
-	return st.Background(lipgloss.Color(s.pickHex))
+	return s.lift(st).Background(lipgloss.Color(s.pickHex))
 }
 
 func (s styles) on(st lipgloss.Style) lipgloss.Style {
 	if s.plain {
 		return st.Reverse(true)
 	}
-	return st.Background(lipgloss.Color(s.selHex))
+	return s.lift(st).Background(lipgloss.Color(s.selHex))
+}
+
+// lift swaps the dim colour for the lighter one that reads on a selection: dim
+// was tuned against the page, and on the selection it is 3.2.
+func (s styles) lift(st lipgloss.Style) lipgloss.Style {
+	if fg, ok := st.GetForeground().(color.Color); ok && s.dimHex != "" {
+		r1, g1, b1, _ := fg.RGBA()
+		r2, g2, b2, _ := lipgloss.Color(s.dimHex).RGBA()
+		if r1 == r2 && g1 == g2 && b1 == b2 {
+			return st.Foreground(lipgloss.Color(s.dimOnHex))
+		}
+	}
+	return st
 }
 
 // cap is a key cap and its label, a cell apart as on the boards.
