@@ -86,6 +86,7 @@ var scenes = []scene{
 	{name: "mess-task", board: "View-Task", fixture: "mess", keys: cat(downs(20), []string{"enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 40},
 	{name: "logs-all", board: "Logs", fixture: "mess", keys: []string{"l"}, wpx: 1200, hpx: 760, cols: 136, rows: 40},
 	{name: "logs-select", board: "View-App", fixture: "shop", keys: []string{"enter", "v", "up", "up"}, wpx: 1200, hpx: 760, cols: 136, rows: 40},
+	{name: "home-mongo", board: "V-C", fixture: "shop", keys: downs(8), wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
@@ -207,7 +208,15 @@ func awakeState(s string) bool { return s == "active" || s == "idle" }
 // print a line. The dash must follow all of it without being asked.
 func drive(ctx context.Context, d *fakedaemon.Fake, now func() time.Time) {
 	rng := rand.New(rand.NewSource(7))
-	msgs := []string{"INF GET /products 200 %dms", "INF GET /cart 200 %dms", "INF POST /orders 201 %dms", "INF GET /healthz 200 %dms", "WRN slow query %dms SELECT * FROM orders"}
+	// what each kind of thing says: a web server, a job runner, a database that
+	// is run as an outside service. %d is a number that varies.
+	says := map[string][]string{
+		"api":    {"INF GET /products 200 %dms", "INF GET /cart 200 %dms", "INF POST /orders 201 %dms", "INF GET /healthz 200 %dms", "WRN slow query %dms SELECT * FROM orders"},
+		"web":    {"[vite] hmr update /src/pages/Cart.tsx (%d ms)", "[vite] page reload src/App.tsx", "INF GET /assets/app.%dkb.js 200", "WRN deprecated prop `onClick` on <Link>"},
+		"worker": {"INF picked up job ord_%d from orders/1", "INF sent receipt to c_%d@example.com", "INF job done in %dms", "WRN retrying job ord_%d (attempt 2 of 5)"},
+		"mongo":  {"{\"t\":{\"$date\":\"now\"},\"s\":\"I\",\"c\":\"NETWORK\",\"msg\":\"Connection accepted\",\"attr\":{\"connectionCount\":%d}}", "{\"s\":\"I\",\"c\":\"STORAGE\",\"msg\":\"WiredTiger checkpoint\",\"attr\":{\"ms\":%d}}", "{\"s\":\"I\",\"c\":\"COMMAND\",\"msg\":\"Slow query\",\"attr\":{\"ns\":\"shop.orders\",\"durationMillis\":%d}}"},
+	}
+	generic := []string{"INF handled request in %dms", "INF heartbeat ok (%d)"}
 	tk := time.NewTicker(time.Second)
 	defer tk.Stop()
 	life := &lifecycle{booted: map[string]int{}}
@@ -245,7 +254,11 @@ func drive(ctx context.Context, d *fakedaemon.Fake, now func() time.Time) {
 		d.Push(control.Frame{Topic: control.TopicStats, Stats: stats})
 		for _, name := range apps {
 			if rng.Intn(2) == 0 {
-				d.PushLog(control.LogFrame{Instance: name, Line: fmt.Sprintf(msgs[rng.Intn(len(msgs))], 2+rng.Intn(60)), Time: now(), Run: 1})
+				pool := says[name]
+				if pool == nil {
+					pool = generic
+				}
+				d.PushLog(control.LogFrame{Instance: name, Line: fmt.Sprintf(pool[rng.Intn(len(pool))], 2+rng.Intn(60)), Time: now(), Run: 1})
 			}
 		}
 	}
