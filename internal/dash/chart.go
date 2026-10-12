@@ -362,6 +362,15 @@ func (m *Model) chart(t trace, cw, rows int) []string {
 	return out
 }
 
+// spanWord is how long n readings cover, in the words of the axis.
+func spanWord(n int) string {
+	d := time.Duration(max(n, 1)) * sampleEvery
+	if d >= time.Minute && d%time.Minute != 0 && d < 10*time.Minute {
+		return fmt.Sprintf("%dm %02ds", int(d.Minutes()), int(d.Seconds())%60)
+	}
+	return ago(d)
+}
+
 // pct and count are the scales' labels.
 func pct(v float64) string { return fmt.Sprintf("%.0f%%", v) }
 func count(v float64) string {
@@ -416,7 +425,9 @@ func (m *Model) tiles(ts []trace, w, rows int) []string {
 			lo, hi := t.scale(vals)
 			head := s.b.Render(t.now) + "  " + s.d.Render(fit(sum, max(inner-width(t.now)-2, 4)))
 			lines := append([]string{head}, plot(vals, inner, rows, lo, hi, t.st, dimmed(t.st))...)
-			boxes = append(boxes, box(s.border, s.d.Render(t.name), "", lines, tw, th))
+			// what the chart covers is in its border: a reading is a second, so the
+			// span is how many it holds
+			boxes = append(boxes, box(s.border, s.d.Render(t.name)+s.d.Render(" · last "+spanWord(span)), "", lines, tw, th))
 		}
 		for l := 0; l < th; l++ {
 			var b strings.Builder

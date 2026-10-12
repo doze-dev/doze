@@ -525,8 +525,9 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 	defer stop()
 	go func() {
 		_ = d.Subscribe(sctx, control.Subscription{
-			Topics: []string{control.TopicInstances, control.TopicStats, control.TopicJournal},
-			Since:  control.JournalFromStart,
+			Topics:   []string{control.TopicInstances, control.TopicStats, control.TopicJournal},
+			Interval: time.Second, // a reading a second: the charts' time axis is built on it
+			Since:    control.JournalFromStart,
 		}, func(f control.Frame) error {
 			p.Send(frameMsg(f))
 			return nil

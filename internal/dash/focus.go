@@ -429,7 +429,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 				vals = []float64{t.cur}
 			}
 			lo, hi := t.scale(vals)
-			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now))
+			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now)+s.d.Render("  last "+spanWord(max(len(t.vals), 1))))
 			run = append(run, plot(vals, rw-4, 2, lo, hi, t.st, dimmed(t.st))...)
 			run = append(run, "")
 		}
