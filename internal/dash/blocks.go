@@ -97,7 +97,7 @@ func (m *Model) natural(n control.ConsoleNode, w int) int {
 	case "actions":
 		return 3
 	case "chart":
-		return 5
+		return 12 // the border, a heading, six rows, the axis and its labels
 	case "table":
 		rows := 0
 		if c != nil {

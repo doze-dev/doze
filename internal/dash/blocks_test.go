@@ -167,3 +167,19 @@ func TestTheDashNamesNoModule(t *testing.T) {
 		}
 	}
 }
+
+// A chart block is drawn as the generic charts are, with its axes: a module's
+// numbers over time, a value scale and a time scale that ends at now.
+func TestAChartBlockIsDrawnWithAxes(t *testing.T) {
+	m := consoleModel(t, "db")
+	spec := *m.con.spec
+	spec.Tabs = []control.ConsoleTab{{ID: "activity", Title: "activity", Body: control.ConsoleNode{Kind: "col", Children: []control.ConsoleNode{
+		{Kind: "chart", Panel: "databases", ID: "c", Title: "database sizes"},
+	}}}}
+	m.con.spec = &spec
+	m.tab = 1
+	got := frame(m, 100, 30)
+	if !strings.Contains(got, "database sizes") || !strings.Contains(got, "now") {
+		t.Errorf("a chart block should have its title and a time axis ending at now:\n%s", got)
+	}
+}
