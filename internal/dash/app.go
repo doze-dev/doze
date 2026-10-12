@@ -23,6 +23,9 @@ type Options struct {
 	// is the local zone. Tests fix both.
 	Now func() time.Time
 	Loc *time.Location
+	// Glyphs is the set of characters drawn with: GlyphsUnicode (the default),
+	// GlyphsNarrow or GlyphsASCII. DetectGlyphs chooses from the environment.
+	Glyphs string
 }
 
 // samples is how many meter readings are kept per instance, for the
@@ -86,6 +89,7 @@ type Model struct {
 	conns     map[string][]float64
 	notice    string
 	noticeBad bool
+	glyphs    glyphSet
 	atTop     bool // the logs are scrolled to the oldest line the dash holds
 	mouseTold bool // the shift-drag hint has been said
 	noticeAt  time.Time
@@ -107,7 +111,7 @@ type Model struct {
 
 // New builds the dash around a daemon. Init and Run start it listening.
 func New(d control.Daemon, o Options) *Model {
-	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo}
+	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo, glyphs: parseGlyphs(o.Glyphs)}
 	if m.nowf == nil {
 		m.nowf = time.Now
 	}
@@ -576,7 +580,7 @@ func (m *Model) Render(w, h int) string {
 		page = m.stackLogs
 	}
 	if w < minW || h < minH {
-		return tooSmall(m.st, w, h)
+		return substitute(tooSmall(m.st, w, h), m.glyphs)
 	}
 	base := page(w, h)
 	if m.modal != nil {
@@ -613,7 +617,7 @@ func (m *Model) Render(w, h int) string {
 			lines[i] = ansi.Truncate(l, w, "…")
 		}
 	}
-	return strings.Join(lines, "\n")
+	return substitute(strings.Join(lines, "\n"), m.glyphs)
 }
 
 // Run opens the dash on a terminal and returns when it is closed.
@@ -659,6 +663,6 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 }
 
 // Plain says colour should be off, from the environment.
-func Plain() bool { return os.Getenv("NO_COLOR") != "" }
+func Plain() bool { return os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" }
 
 func contextBackground() context.Context { return context.Background() }

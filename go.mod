@@ -12,6 +12,7 @@ require (
 	github.com/doze-dev/doze-sdk v0.7.1-0.20261011115536-2a1c39a9ce8a
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mattn/go-isatty v0.0.20
+	github.com/mattn/go-runewidth v0.0.30
 	github.com/spf13/cobra v1.10.2
 	github.com/zclconf/go-cty v1.18.1
 	golang.org/x/sync v0.23.0
@@ -41,7 +42,6 @@ require (
 	github.com/lrstanley/bubblezone/v2 v2.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect

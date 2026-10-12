@@ -39,7 +39,7 @@ func dashCmd() *cobra.Command {
 					return err
 				}
 			}
-			err = dash.Run(cmd.Context(), daemonFor(cfg), dash.Options{Plain: dash.Plain()})
+			err = dash.Run(cmd.Context(), daemonFor(cfg), dash.Options{Plain: dash.Plain(), Glyphs: dash.DetectGlyphs()})
 			// Leaving the dash leaves the stack running; a newcomer assumes otherwise.
 			if err == nil && daemonRunning(cfg) {
 				fmt.Fprintln(cmd.OutOrStdout(), "stack still running · doze down to stop it")
