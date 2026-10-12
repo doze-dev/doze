@@ -97,7 +97,7 @@ func (m *Model) refuse() tea.Cmd {
 	if m.conn == connLive {
 		return nil
 	}
-	return func() tea.Msg { return noticeMsg("the daemon is not responding: nothing was sent") }
+	return func() tea.Msg { return failMsg("the daemon is not responding: nothing was sent") }
 }
 
 // humanise makes a connection error one short sentence: what happened first,

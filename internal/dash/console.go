@@ -346,7 +346,7 @@ func (m *Model) runAction(a control.ActionView, tables []control.ConsoleNode, fo
 		return func() tea.Msg {
 			out, err := d.Admin(contextBackground(), inst, a.ID, resource, input)
 			if err != nil {
-				return noticeMsg(a.Label + ": " + err.Error())
+				return failMsg(a.Label + ": " + humanise(err))
 			}
 			if out == "" {
 				out = a.Label + " done"

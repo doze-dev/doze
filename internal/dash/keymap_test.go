@@ -177,3 +177,60 @@ func TestQuestionMarkOpensHelp(t *testing.T) {
 }
 
 func ansiStrip(s string) string { return stripAnsi(s) }
+
+// A failure stays through other keys, goes on esc, and is kept to be read again.
+func TestAFailureStaysUntilEscOrTime(t *testing.T) {
+	m := board()
+	frame(m, 120, 30)
+	m.Update(doneMsg{verb: "wake", target: "db", err: fmt.Errorf("dial unix /x/y.sock: connect: connection refused")})
+	if !m.noticeBad || !strings.Contains(m.notice, "wake db failed: the daemon is not reachable") {
+		t.Fatalf("notice = %q bad=%v", m.notice, m.noticeBad)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if m.notice == "" {
+		t.Fatal("a failure should survive other keys")
+	}
+	if out := frame(m, 120, 30); !strings.Contains(out, "wake db failed") {
+		t.Errorf("not on screen:\n%s", out)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.notice != "" {
+		t.Error("esc should dismiss it")
+	}
+	m.Update(failMsg("restart api failed: boom"))
+	later := m.now.Add(13 * time.Second)
+	m.nowf = func() time.Time { return later }
+	m.Update(tickMsg(later))
+	if m.notice != "" {
+		t.Error("a failure should fade after 12s")
+	}
+	if len(m.history) != 2 || !m.history[1].bad {
+		t.Errorf("history = %+v", m.history)
+	}
+}
+
+func TestASuccessFadesAndIsKept(t *testing.T) {
+	m := board()
+	m.say("sent 3 lines to the clipboard")
+	later := m.now.Add(5 * time.Second)
+	m.nowf = func() time.Time { return later }
+	m.Update(tickMsg(later))
+	if m.notice != "" {
+		t.Error("a success should fade after 4s")
+	}
+	m.recentMessages()
+	if m.modal == nil || !strings.Contains(strings.Join(m.modal.lines, "\n"), "sent 3 lines") {
+		t.Errorf("recent messages: %+v", m.modal)
+	}
+}
+
+func TestALongMessageNeverWidensTheBar(t *testing.T) {
+	m := board()
+	m.fail(strings.Repeat("something went badly wrong ", 12))
+	for _, w := range []int{120, 80, 50} {
+		if got := width(m.bar(m.homeHints(), w, m.noticeText())); got > w {
+			t.Errorf("at %d the bar is %d wide", w, got)
+		}
+	}
+}

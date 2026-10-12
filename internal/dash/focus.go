@@ -694,7 +694,7 @@ func openURL(url string) tea.Cmd {
 			cmd = exec.Command("xdg-open", url)
 		}
 		if err := cmd.Start(); err != nil {
-			return noticeMsg("could not open " + url + ": " + err.Error())
+			return failMsg("could not open " + url + ": " + err.Error())
 		}
 		go func() { _ = cmd.Wait() }()
 		return noticeMsg("opened " + url)
@@ -702,6 +702,9 @@ func openURL(url string) tea.Cmd {
 }
 
 type noticeMsg string
+
+// failMsg is a message that did not go well: red, and it stays.
+type failMsg string
 
 // focusKey handles a key inside the frame. handled says it was one of its own;
 // the rest (verbs, quit) fall through to the shared keys.
@@ -755,7 +758,7 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		if hasWeb(v) {
 			return openURL(webURL(v)), true
 		}
-		m.notice = v.Name + " has no console of its own"
+		m.say(v.Name + " has no console of its own")
 		return nil, true
 	case "enter":
 		if ts[m.tab].id == tabWeb {

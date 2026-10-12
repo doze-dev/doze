@@ -79,12 +79,15 @@ type Model struct {
 	tab          int           // the focused instance's tab
 	level        int           // the logs tab's minimum level
 
-	logs   []control.LogFrame // the selected instance's, oldest first
-	events []journal.Event    // the journal, newest last
-	ram    map[string][]float64
-	cpu    map[string][]float64
-	conns  map[string][]float64
-	notice string
+	logs      []control.LogFrame // the selected instance's, oldest first
+	events    []journal.Event    // the journal, newest last
+	ram       map[string][]float64
+	cpu       map[string][]float64
+	conns     map[string][]float64
+	notice    string
+	noticeBad bool
+	noticeAt  time.Time
+	history   []message
 
 	conn      connState // whether the daemon is being heard
 	waiting   bool      // no instances frame or snapshot yet: the stack is not known
@@ -173,6 +176,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.settle()
 	case tickMsg:
+		m.fadeNotice()
 		return m, tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 	case frameMsg:
 		m.lastFrame = m.now
@@ -204,14 +208,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case noticeMsg:
-		m.notice = string(msg)
+		m.say(string(msg))
+	case failMsg:
+		m.fail(string(msg))
 	case consoleMsg:
 		m.applyConsole(msg)
 	case doneMsg:
 		if msg.err != nil {
-			m.notice = fmt.Sprintf("%s %s: %v", msg.verb, msg.target, msg.err)
+			m.fail(fmt.Sprintf("%s %s failed: %s", msg.verb, msg.target, humanise(msg.err)))
 		} else {
-			m.notice = ""
+			m.clearNotice()
 		}
 		return m, m.snapshot()
 	case tea.KeyPressMsg:
@@ -249,7 +255,14 @@ func (m *Model) key(k string) (tea.Model, tea.Cmd) { return m.keyText(k, "") }
 // keyText handles a key; text is what it types, for the palette and the reset
 // confirmation.
 func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
-	m.notice = ""
+	if m.noticeBad {
+		if k == "esc" && m.modal == nil {
+			m.clearNotice()
+			return m, nil
+		}
+	} else {
+		m.clearNotice()
+	}
 	if m.modal != nil {
 		return m, m.modalKey(k, text)
 	}

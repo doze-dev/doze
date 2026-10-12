@@ -115,6 +115,7 @@ func (m *Model) actions() []action {
 		forInstance(v)
 	}
 	rank = 1
+	add(action{label: "recent messages", cli: "", run: func(m *Model) tea.Cmd { m.recentMessages(); return nil }})
 	add(action{label: "wake everything", cli: "doze wake", run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, "") }})
 	add(action{label: "sleep everything that is awake", cli: "doze sleep", run: func(m *Model) tea.Cmd { return m.do(control.VerbSleep, "") }})
 	add(action{label: "bring the stack up", cli: "doze up", run: func(m *Model) tea.Cmd { return m.do(control.VerbUp, "") }})

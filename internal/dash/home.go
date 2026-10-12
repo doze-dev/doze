@@ -648,7 +648,7 @@ func (m *Model) click(at tea.Mouse) {
 func (m *Model) yankURL(v control.InstanceView, file bool) tea.Cmd {
 	text := addressOf(v)
 	if text == "" {
-		m.notice = v.Name + " has no address to copy"
+		m.say(v.Name + " has no address to copy")
 		return nil
 	}
 	return m.out(text, text, v.Name+"-address", file)
@@ -664,7 +664,7 @@ func (m *Model) yankLines(v control.InstanceView, file bool) tea.Cmd {
 		}
 	}
 	if len(out) == 0 {
-		m.notice = "nothing to copy yet"
+		m.say("nothing to copy yet")
 		return nil
 	}
 	return m.out(strings.Join(out, "\n"), lineWord(len(out)), v.Name+"-logs", file)

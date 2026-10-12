@@ -29,7 +29,7 @@ func (m *Model) selectable() bool {
 // shownLines are the lines the page is drawing, as the last frame had them.
 func (m *Model) beginSelect(at int) {
 	if len(m.shown) == 0 {
-		m.notice = "nothing to select yet"
+		m.say("nothing to select yet")
 		return
 	}
 	m.selecting = true

@@ -3,6 +3,8 @@ package dash
 import (
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/doze-dev/doze/internal/control"
 )
 
@@ -44,14 +46,10 @@ func (m *Model) bar(hs []hint, w int, extra string) string {
 		hs = append(hs[:worst], hs[worst+1:]...)
 		line = build()
 	}
-	return line + extra
-}
-
-func (m *Model) noticeText() string {
-	if m.notice == "" {
-		return ""
+	if room := w - width(line); extra != "" && width(extra) > room {
+		extra = ansi.Truncate(extra, max(room, 0), "…")
 	}
-	return "   " + m.st.y.Render(m.notice)
+	return line + extra
 }
 
 // homeHints are the keys of Home.

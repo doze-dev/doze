@@ -68,7 +68,7 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 			out = append(out, strings.TrimRight(ansi.Strip(l), " "))
 		}
 		if len(out) == 0 {
-			m.notice = "nothing to copy yet"
+			m.say("nothing to copy yet")
 			return nil, true
 		}
 		return m.out(strings.Join(out, "\n"), lineWord(len(out)), "stack-logs", k == "Y"), true

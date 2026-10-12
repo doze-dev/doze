@@ -60,7 +60,7 @@ func TestADeadDaemonIsSaidAndAVerbIsRefused(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("w did nothing at all")
 	}
-	if msg, ok := cmd().(noticeMsg); !ok || !strings.Contains(string(msg), "not responding") {
+	if msg, ok := cmd().(failMsg); !ok || !strings.Contains(string(msg), "not responding") {
 		t.Errorf("w while down should say nothing was sent, got %v", cmd())
 	}
 	if len(m.d.(*fakedaemon.Fake).Done()) != 0 {

@@ -42,16 +42,17 @@ func (m *Model) out(text, what, name string, file bool) tea.Cmd {
 	if file {
 		path := filepath.Join(os.TempDir(), fmt.Sprintf("doze-%s-%s.txt", safeName(name), m.now.Format("150405")))
 		if err := os.WriteFile(path, []byte(text+"\n"), 0o600); err != nil {
-			m.notice = "could not write " + path + ": " + err.Error()
+			m.fail("could not write " + path + ": " + err.Error())
 			return nil
 		}
-		m.notice = "wrote " + what + " to " + path
+		m.say("wrote " + what + " to " + path)
 		return nil
 	}
-	m.notice = "sent " + what + " to the clipboard"
+	note := "sent " + what + " to the clipboard"
 	if !clipboardLikely() {
-		m.notice += " · if nothing pastes, Y writes a file instead"
+		note += " · if nothing pastes, Y writes a file instead"
 	}
+	m.say(note)
 	return tea.SetClipboard(text)
 }
 
