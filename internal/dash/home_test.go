@@ -756,3 +756,32 @@ func TestVitalsAcrossThePlatform(t *testing.T) {
 		t.Errorf("a short window should keep its room for the logs:\n%s", out)
 	}
 }
+
+// Looking at another instance and back loses nothing: every instance's lines
+// are kept as they arrive, including those that came while it was not shown.
+func TestLogsAreKeptWhenYouLookAway(t *testing.T) {
+	m := board()
+	line := func(inst, s string, sec int) logMsg {
+		return logMsg{inst, control.LogFrame{Instance: inst, Line: s, Time: epoch.Add(time.Duration(sec) * time.Second), Run: 1}}
+	}
+	m.sel = "api"
+	m.follow()
+	m.Update(line("api", "INFO first", 1))
+	m.Update(line("web", "INFO web while api shown", 2))
+	m.sel = "web"
+	m.follow()
+	if len(m.logs) != 1 || !strings.Contains(m.logs[0].Line, "web while api shown") {
+		t.Fatalf("web's lines that came while api was shown are lost: %+v", m.logs)
+	}
+	m.Update(line("api", "INFO api while web shown", 3))
+	m.sel = "api"
+	m.follow()
+	if len(m.logs) != 2 || m.logs[0].Line != "INFO first" || m.logs[1].Line != "INFO api while web shown" {
+		t.Errorf("api's lines were not kept: %+v", m.logs)
+	}
+	// the stack's logs are the same lines, merged
+	m.openLogs()
+	if len(m.all) != 3 || m.all[0].Line != "INFO first" || m.all[2].Line != "INFO api while web shown" {
+		t.Errorf("the stack's logs are not the kept lines in time order: %+v", m.all)
+	}
+}

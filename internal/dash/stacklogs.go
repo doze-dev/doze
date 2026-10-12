@@ -1,7 +1,6 @@
 package dash
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
 	"github.com/doze-dev/doze/internal/journal"
 )
@@ -19,41 +17,24 @@ import (
 // where it came from (boards/Logs.dc.html). It is its own page, opened by l on
 // Home, with its own subscription to every instance's lines.
 
-type allLogMsg control.LogFrame
-
 const allKept = 800
 
-// openLogs shows the whole stack's logs and starts following them.
+// openLogs shows the whole stack's logs: the lines the dash has kept of every
+// instance, merged, and then the new ones as they come.
 func (m *Model) openLogs() {
 	m.page = pageLogs
 	m.search, m.searching, m.paused = "", false, false
 	m.all = nil
-	if m.send == nil {
-		return
+	for _, lines := range m.cache {
+		m.all = append(m.all, lines...)
 	}
-	if m.allCancel != nil {
-		m.allCancel()
+	sort.SliceStable(m.all, func(i, j int) bool { return m.all[i].Time.Before(m.all[j].Time) })
+	if len(m.all) > allKept {
+		m.all = m.all[len(m.all)-allKept:]
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	m.allCancel = cancel
-	d, send := m.d, m.send
-	go func() {
-		_ = d.Subscribe(ctx, control.Subscription{Topics: []string{control.TopicLogs}, Backlog: 200}, func(f control.Frame) error {
-			if f.Log != nil {
-				send(allLogMsg(*f.Log))
-			}
-			return nil
-		})
-	}()
 }
 
-func (m *Model) closeLogs() {
-	if m.allCancel != nil {
-		m.allCancel()
-		m.allCancel = nil
-	}
-	m.page = pageHome
-}
+func (m *Model) closeLogs() { m.page = pageHome }
 
 // stackLogsKey handles a key on the page; it says whether it was handled.
 func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {

@@ -29,6 +29,10 @@ type Options struct {
 // sparklines.
 const samples = 240
 
+// logsKept is how many lines of each instance the dash holds, and how many it
+// asks the daemon for when it opens.
+const logsKept = 400
+
 // Model is the dash: the stack as the daemon last said it, what is selected,
 // and the page on top (only Home so far).
 type Model struct {
@@ -80,6 +84,7 @@ type Model struct {
 
 	send     func(tea.Msg)
 	followed string
+	cache    map[string][]control.LogFrame // every instance's kept lines, by name
 	cancel   context.CancelFunc
 }
 
@@ -143,18 +148,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case frameMsg:
 		m.apply(control.Frame(msg))
 		m.settle()
-	case allLogMsg:
-		if !m.paused {
-			m.all = append(m.all, control.LogFrame(msg))
+	case logMsg:
+		if m.cache == nil {
+			m.cache = map[string][]control.LogFrame{}
+		}
+		c := append(m.cache[msg.name], msg.frame)
+		if len(c) > logsKept {
+			c = c[len(c)-logsKept:]
+		}
+		m.cache[msg.name] = c
+		if msg.name == m.sel {
+			m.logs = c
+		}
+		if m.page == pageLogs && !m.paused {
+			m.all = append(m.all, msg.frame)
 			if len(m.all) > allKept {
 				m.all = m.all[len(m.all)-allKept:]
-			}
-		}
-	case logMsg:
-		if msg.name == m.sel {
-			m.logs = append(m.logs, msg.frame)
-			if len(m.logs) > 400 {
-				m.logs = m.logs[len(m.logs)-400:]
 			}
 		}
 	case noticeMsg:
@@ -298,9 +307,6 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	case "l":
 		m.openLogs()
 	case "ctrl+c", "q":
-		if m.cancel != nil {
-			m.cancel()
-		}
 		return m, tea.Quit
 	case "up", "k":
 		m.move(-1)
@@ -389,27 +395,12 @@ func (m *Model) find(name string) (control.InstanceView, bool) {
 // follow streams the selected instance's log lines when the selection changes,
 // and stops following the one before.
 func (m *Model) follow() tea.Cmd {
-	if m.sel == "" || m.sel == m.followed || m.send == nil {
-		if m.sel != m.followed {
-			m.followed, m.logs = m.sel, nil
-		}
-		return nil
+	if m.sel != m.followed {
+		// the lines of the instance chosen are the ones already kept: nothing is
+		// asked for again, and nothing is lost by looking at another
+		m.followed = m.sel
+		m.logs = m.cache[m.sel]
 	}
-	if m.cancel != nil {
-		m.cancel()
-	}
-	m.followed, m.logs = m.sel, nil
-	ctx, cancel := context.WithCancel(context.Background())
-	m.cancel = cancel
-	d, send, name := m.d, m.send, m.sel
-	go func() {
-		_ = d.Subscribe(ctx, control.Subscription{Topics: []string{control.TopicLogs}, Names: []string{name}, Backlog: 60}, func(f control.Frame) error {
-			if f.Log != nil {
-				send(logMsg{name, *f.Log})
-			}
-			return nil
-		})
-	}()
 	return nil
 }
 
@@ -527,6 +518,17 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 			Since:    control.JournalFromStart,
 		}, func(f control.Frame) error {
 			p.Send(frameMsg(f))
+			return nil
+		})
+	}()
+	// Every instance's lines, once, for as long as the dash is open: moving from
+	// one instance to another and back finds what it left, and the stack's logs
+	// are these same lines merged.
+	go func() {
+		_ = d.Subscribe(sctx, control.Subscription{Topics: []string{control.TopicLogs}, Backlog: logsKept}, func(f control.Frame) error {
+			if f.Log != nil {
+				p.Send(logMsg{f.Log.Instance, *f.Log})
+			}
 			return nil
 		})
 	}()
