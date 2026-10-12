@@ -339,6 +339,9 @@ func (m *Model) runAction(a control.ActionView, tables []control.ConsoleNode, fo
 	}
 	inst := c.inst
 	do := func(input string) tea.Cmd {
+		if r := m.refuse(); r != nil {
+			return r
+		}
 		d := m.d
 		return func() tea.Msg {
 			out, err := d.Admin(contextBackground(), inst, a.ID, resource, input)

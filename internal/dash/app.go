@@ -86,6 +86,12 @@ type Model struct {
 	conns  map[string][]float64
 	notice string
 
+	conn      connState // whether the daemon is being heard
+	waiting   bool      // no instances frame or snapshot yet: the stack is not known
+	lastFrame time.Time
+	downErr   string
+	retryAt   time.Time
+
 	send      func(tea.Msg)
 	followed  string
 	statAt    map[string][]time.Time        // when each instance's readings were taken, when the daemon said
@@ -144,8 +150,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
+	case connMsg:
+		if msg.up {
+			was := m.conn
+			m.conn, m.lastFrame, m.downErr = connLive, m.now, ""
+			if was == connDown {
+				// what happened while it was gone is not known: ask again, and
+				// have the console follow again
+				m.subscribeConsole()
+				return m, m.snapshot()
+			}
+		} else {
+			m.conn, m.downErr, m.retryAt = connDown, humanise(msg.err), m.now.Add(msg.retry)
+		}
 	case snapshotMsg:
 		if msg.err == nil {
+			m.waiting = false
 			m.snap = msg.snap
 			for i := range m.snap.Instances {
 				m.snap.Instances[i] = cleanView(m.snap.Instances[i])
@@ -155,12 +175,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		return m, tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 	case frameMsg:
+		m.lastFrame = m.now
+		if msg.Topic == control.TopicInstances {
+			m.waiting = false
+		}
 		m.apply(control.Frame(msg))
 		m.settle()
 	case logMsg:
 		msg.frame.Line = clean(msg.frame.Line)
 		if m.cache == nil {
 			m.cache = map[string][]control.LogFrame{}
+		}
+		if m.seenLine(msg.name, msg.frame) {
+			break // the daemon said it again after a reconnect
 		}
 		c := append(m.cache[msg.name], msg.frame)
 		if len(c) > logsKept {
@@ -368,6 +395,9 @@ func (m *Model) verb(name string) tea.Cmd {
 	if !ok {
 		return nil
 	}
+	if c := m.refuse(); c != nil {
+		return c
+	}
 	d, target := m.d, v.Name
 	return func() tea.Msg {
 		return doneMsg{name, target, d.Do(context.Background(), control.Verb{Name: name, Target: target})}
@@ -453,6 +483,9 @@ func (m *Model) apply(f control.Frame) {
 		}
 	case control.TopicStats:
 		for _, s := range f.Stats {
+			if at := m.statAt[s.Name]; !f.At.IsZero() && len(at) > 0 && !f.At.After(at[len(at)-1]) {
+				continue // a reading already held: the history is sent again on a reconnect
+			}
 			for i := range m.snap.Instances {
 				if m.snap.Instances[i].Name == s.Name {
 					m.snap.Instances[i].RAM, m.snap.Instances[i].CPU, m.snap.Instances[i].Conns = s.RAM, s.CPU, s.Conns
@@ -526,6 +559,23 @@ func (m *Model) Render(w, h int) string {
 		base = page(w, h)
 		m.st = saved
 	}
+	if ok, banner := m.health(); !ok {
+		// the picture is old or not yet there: faded, and said at the top right
+		if m.modal == nil {
+			saved := m.st
+			m.st = fadedStyles(saved.plain)
+			base = page(w, h)
+			m.st = saved
+		}
+		if len(base) > 0 {
+			b := m.st.pillY.Render(banner)
+			if m.conn == connConnecting {
+				b = m.st.pillC.Render(banner)
+			}
+			left := ansi.Truncate(base[0], max(w-width(b)-1, 0), "")
+			base[0] = left + strings.Repeat(" ", max(w-width(left)-width(b), 1)) + b
+		}
+	}
 	lines := m.withModal(base, w, h)
 	if len(lines) > h {
 		// a page that came out too tall loses its middle, not its header and keys
@@ -547,27 +597,35 @@ func Run(ctx context.Context, d control.Daemon, o Options) error {
 	m.send = p.Send
 	sctx, stop := context.WithCancel(ctx)
 	defer stop()
-	go func() {
-		_ = d.Subscribe(sctx, control.Subscription{
+	m.conn, m.waiting = connConnecting, true
+	var lastSeq uint64
+	go keepSubscribed(sctx, d, func() control.Subscription {
+		// the journal resumes where it was, not from the start again
+		since := control.JournalFromStart
+		if lastSeq > 0 {
+			since = lastSeq
+		}
+		return control.Subscription{
 			Topics:   []string{control.TopicInstances, control.TopicStats, control.TopicJournal},
 			Interval: time.Second, // a reading a second: the charts' time axis is built on it
-			Since:    control.JournalFromStart,
-		}, func(f control.Frame) error {
-			p.Send(frameMsg(f))
-			return nil
-		})
-	}()
+			Since:    since,
+		}
+	}, p.Send, func(f control.Frame) {
+		if f.Event != nil && f.Event.Seq > lastSeq {
+			lastSeq = f.Event.Seq
+		}
+		p.Send(frameMsg(f))
+	}, true)
 	// Every instance's lines, once, for as long as the dash is open: moving from
 	// one instance to another and back finds what it left, and the stack's logs
 	// are these same lines merged.
-	go func() {
-		_ = d.Subscribe(sctx, control.Subscription{Topics: []string{control.TopicLogs}, Backlog: logsKept}, func(f control.Frame) error {
-			if f.Log != nil {
-				p.Send(logMsg{f.Log.Instance, *f.Log})
-			}
-			return nil
-		})
-	}()
+	go keepSubscribed(sctx, d, func() control.Subscription {
+		return control.Subscription{Topics: []string{control.TopicLogs}, Backlog: logsKept}
+	}, p.Send, func(f control.Frame) {
+		if f.Log != nil {
+			p.Send(logMsg{f.Log.Instance, *f.Log})
+		}
+	}, false)
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("the dash: %w", err)
 	}

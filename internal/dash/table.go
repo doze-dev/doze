@@ -369,6 +369,9 @@ func (m *Model) homeTable(w, h int) []string {
 		}
 	}
 	out = append(out, "")
+	if len(rs) == 0 {
+		out = out[:1] // nothing to measure: the title, and then what to do
+	}
 
 	// --- the table's columns, fewest that leave the last room to say something ---
 	// a name is given what the window can spare, to a limit past which it is
@@ -630,7 +633,9 @@ func (m *Model) homeTable(w, h int) []string {
 		hput(fit("RUNS", runsW))
 	}
 	hput(" ")
-	out = append(out, hb.String())
+	if len(rs) > 0 {
+		out = append(out, hb.String())
+	}
 
 	m.hit = m.hit[:0]
 	m.hitY0, m.hitX1 = len(out), w
@@ -669,7 +674,14 @@ func (m *Model) homeTable(w, h int) []string {
 			s.text.Render("  doze init") + s.d.Render("             write a doze.hcl from this project"), "",
 			s.d.Render("or edit doze.hcl: the dash picks the change up.")}
 		cap := "empty"
-		if m.filter != "" {
+		switch {
+		case m.waiting:
+			// not yet told what is in the stack: not the same as nothing in it
+			msg, cap = []string{s.d.Render("Asking the daemon what is in this stack…")}, "connecting"
+			if m.conn == connDown {
+				msg = []string{s.d.Render("The daemon is not responding, so the stack is not known yet."), "", s.d.Render("  doze up      start it"), s.d.Render("  doze status  see what is running")}
+			}
+		case m.filter != "":
 			msg, cap = []string{s.d.Render("Nothing matches " + m.filter + ". esc clears the filter.")}, "filter"
 		}
 		out = append(out, box(s.border, s.d.Render(cap), "", msg, w, logsH)...)

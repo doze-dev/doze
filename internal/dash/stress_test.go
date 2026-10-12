@@ -336,7 +336,7 @@ func TestMashingKeysAndTheMouseNeverBreaksAFrame(t *testing.T) {
 					}
 				}()
 				for step := 0; step < 250; step++ {
-					switch n := rng.Intn(20); {
+					switch n := rng.Intn(23); {
 					case n < 14:
 						_, _ = m.Update(keys[rng.Intn(len(keys))])
 					case n < 16:
@@ -349,6 +349,10 @@ func TestMashingKeysAndTheMouseNeverBreaksAFrame(t *testing.T) {
 						_, _ = m.Update(tea.MouseWheelMsg(tea.Mouse{X: rng.Intn(w), Y: rng.Intn(h), Button: b}))
 					case n < 19:
 						_, _ = m.Update(tea.MouseMotionMsg(tea.Mouse{X: rng.Intn(w), Y: rng.Intn(h), Button: tea.MouseLeft}))
+					case n == 20:
+						_, _ = m.Update(connMsg{up: false, err: fmt.Errorf("gone"), retry: time.Second})
+					case n == 21:
+						_, _ = m.Update(connMsg{up: true})
 					default:
 						sz := sizes[rng.Intn(len(sizes))]
 						w, h = sz[0], sz[1]

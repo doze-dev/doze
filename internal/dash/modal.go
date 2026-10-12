@@ -130,6 +130,9 @@ func (m *Model) actions() []action {
 
 // do runs a verb on target ("" is the whole stack) and refreshes.
 func (m *Model) do(verb, target string) tea.Cmd {
+	if c := m.refuse(); c != nil {
+		return c
+	}
 	d := m.d
 	return func() tea.Msg {
 		return doneMsg{verb, target, d.Do(contextBackground(), control.Verb{Name: verb, Target: target})}

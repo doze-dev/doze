@@ -200,6 +200,18 @@ func host(args []string) {
 	if v := os.Getenv("DOZE_LOOK_FAIL"); v != "" {
 		d.Fail = map[string]error{v: fmt.Errorf("dial unix /Users/dev/.doze/projects/shop-3fa2/run/control.sock: connect: connection refused")}
 	}
+	// a daemon that goes away and comes back, to see how the dash says so
+	if v := os.Getenv("DOZE_LOOK_DROP"); v != "" {
+		if at, err := time.ParseDuration(v); err == nil {
+			d.ReplayOnce = true
+			go func() { time.Sleep(at); d.Drop() }()
+			if b := os.Getenv("DOZE_LOOK_BACK"); b != "" {
+				if back, err := time.ParseDuration(b); err == nil {
+					go func() { time.Sleep(back); d.Refuse(false) }()
+				}
+			}
+		}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	now := func() time.Time { return epoch }

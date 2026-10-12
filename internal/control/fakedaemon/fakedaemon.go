@@ -7,7 +7,9 @@ package fakedaemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -35,15 +37,54 @@ type Fake struct {
 	// AdminResult is what Admin answers with.
 	AdminResult string
 
+	// ReplayOnce plays the script to the first subscriber of each topic only, as a
+	// daemon that already told it does not say it again to one that came back.
+	ReplayOnce bool
+
 	mu      sync.Mutex
 	done    []control.Verb
 	actions []Action
 	live    []*liveSub
+	refuse  bool
+	played  map[string]bool
+}
+
+// ErrGone is what a refused or dropped call answers with.
+var ErrGone = errors.New("daemon not reachable: connection refused")
+
+// Refuse makes every call fail, as a daemon that has stopped does; Refuse(false)
+// brings it back. A held subscription is not ended by it: Drop does that.
+func (f *Fake) Refuse(on bool) {
+	f.mu.Lock()
+	f.refuse = on
+	f.mu.Unlock()
+}
+
+// Drop ends every held subscription with an error, as a daemon that went away
+// does, and refuses calls until Refuse(false).
+func (f *Fake) Drop() {
+	f.mu.Lock()
+	f.refuse = true
+	subs := append([]*liveSub(nil), f.live...)
+	f.mu.Unlock()
+	for _, s := range subs {
+		select {
+		case s.drop <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (f *Fake) refused() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.refuse
 }
 
 // liveSub is a subscriber that is held open and is sent what Push is given.
 type liveSub struct {
 	ch   chan control.Frame
+	drop chan struct{}
 	want map[string]bool
 	sub  control.Subscription
 }
@@ -87,17 +128,36 @@ var _ control.Daemon = (*Fake)(nil)
 func (f *Fake) Snapshot(context.Context) (control.Snapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.refuse {
+		return control.Snapshot{}, ErrGone
+	}
 	return f.Snap, nil
 }
 
 // Subscribe plays the script to on.
 func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(control.Frame) error) error {
+	if f.refused() {
+		return ErrGone
+	}
 	want := map[string]bool{}
 	for _, t := range sub.Topics {
 		want[t] = true
 	}
+	skip := map[string]bool{}
+	if f.ReplayOnce {
+		f.mu.Lock()
+		if f.played == nil {
+			f.played = map[string]bool{}
+		}
+		for t := range want {
+			key := t + "|" + strings.Join(sub.Names, ",")
+			skip[t] = f.played[key]
+			f.played[key] = true
+		}
+		f.mu.Unlock()
+	}
 	for _, fr := range f.Frames {
-		if !want[fr.Topic] {
+		if !want[fr.Topic] || skip[fr.Topic] {
 			continue
 		}
 		// A subscriber that named instances is sent the lines of those, as the
@@ -129,7 +189,7 @@ func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(
 		}
 	}
 	if f.Hold {
-		ls := &liveSub{ch: make(chan control.Frame, 256), want: want, sub: sub}
+		ls := &liveSub{ch: make(chan control.Frame, 256), drop: make(chan struct{}, 1), want: want, sub: sub}
 		f.mu.Lock()
 		f.live = append(f.live, ls)
 		f.mu.Unlock()
@@ -147,6 +207,8 @@ func (f *Fake) Subscribe(ctx context.Context, sub control.Subscription, on func(
 			select {
 			case <-ctx.Done():
 				return nil
+			case <-ls.drop:
+				return ErrGone
 			case fr := <-ls.ch:
 				if err := on(fr); err != nil {
 					return err
@@ -168,6 +230,9 @@ func contains(ss []string, s string) bool {
 
 // Do records the verb and returns the error scripted for it, if any.
 func (f *Fake) Do(_ context.Context, verb control.Verb) error {
+	if f.refused() {
+		return ErrGone
+	}
 	f.mu.Lock()
 	f.done = append(f.done, verb)
 	err := f.Fail[verb.Name+" "+verb.Target]
@@ -185,6 +250,9 @@ func (f *Fake) Do(_ context.Context, verb control.Verb) error {
 // Logs returns the scripted lines of an instance, honouring Tail and Since.
 // Run 0 is every line; any other run keeps the lines scripted with that run.
 func (f *Fake) Logs(_ context.Context, q control.LogQuery) ([]control.LogFrame, error) {
+	if f.refused() {
+		return nil, ErrGone
+	}
 	all, ok := f.Lines[q.Instance]
 	if !ok {
 		return nil, fmt.Errorf("instance %q is not declared", q.Instance)
@@ -207,6 +275,9 @@ func (f *Fake) Logs(_ context.Context, q control.LogQuery) ([]control.LogFrame, 
 
 // Admin records a data action and answers with what was scripted.
 func (f *Fake) Admin(_ context.Context, instance, action, resource, input string) (string, error) {
+	if f.refused() {
+		return "", ErrGone
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.actions = append(f.actions, Action{Instance: instance, Action: action, Resource: resource, Input: input})
