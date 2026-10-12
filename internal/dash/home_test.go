@@ -590,6 +590,9 @@ func TestYankTheAddress(t *testing.T) {
 	if !strings.Contains(m.notice, "copied") || !strings.Contains(m.notice, "api.shop.doze") {
 		t.Errorf("notice = %q", m.notice)
 	}
+	if strings.Contains(m.notice, "→") || strings.Contains(m.notice, ":8080") {
+		t.Errorf("what is copied is the address, not the page's drawing of it: %q", m.notice)
+	}
 	m.sel = "seed" // a task: no address
 	_, cmd = m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	if cmd != nil || !strings.Contains(m.notice, "no address") {

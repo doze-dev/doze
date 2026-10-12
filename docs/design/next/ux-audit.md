@@ -219,3 +219,14 @@ for an instance when it is first looked at.
 3. B5, C1, C6, C4, C2: contrast, too-small, exit message, top-of-logs, mouse hint.
 4. B6, B7: ASCII and narrow-glyph fallback.
 5. C3, C5, C7, C8: honest meters, stable sort, new instances, scale.
+
+## Screens
+
+The screens for these findings are in `docs/design/next/ux-audit/`, drawn by the
+look tool (`go run . au-<name>` in `tools/look`, and `watch` for the sort): the
+daemon killed under the dash (`daemon-before`, `daemon-after`), restart and sleep
+side by side, the failure notice and its disappearance (`fail-1`, `fail-2`), the
+crash strip and what its key does (`crash`, `crash-l`), key bars at 100 and 80
+columns, the empty stack, 40×12 and 24×8, the top of the logs, and the sort
+reshuffling (`sort-a`, `sort-b`). A3 also found that `y` copied the page's
+drawing of an address, with its `→ :8080`, instead of the address; that is fixed.

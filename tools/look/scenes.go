@@ -26,7 +26,8 @@ type scene struct {
 	keys    []string
 	wpx     int // the board's size in px
 	hpx     int
-	cols    int // the terminal's, which is that many px at 14px type and a 17px line
+	fail    string // a verb the daemon refuses, for the failure scenes
+	cols    int    // the terminal's, which is that many px at 14px type and a 17px line
 	rows    int
 }
 
@@ -88,6 +89,21 @@ var scenes = []scene{
 	{name: "home-mongo", board: "V-C", fixture: "shop", keys: downs(8), wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "mess-scrolled", board: "V-C", fixture: "mess", keys: downs(18), wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "mess-short", board: "V-C", fixture: "mess", keys: downs(6), wpx: 1640, hpx: 900, cols: 100, rows: 24},
+	// the audit: each finding of docs/design/next/ux-audit.md, as it is drawn
+	{name: "au-home", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-restart", board: "V-C", fixture: "shop", keys: cat(downs(5), []string{"r"}), wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-sleep", board: "V-C", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-empty", board: "Empty", fixture: "empty", wpx: 1200, hpx: 760, cols: 120, rows: 30},
+	{name: "au-crash", board: "V-Crash", fixture: "crash", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-crash-l", board: "V-Crash", fixture: "crash", keys: []string{"l"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-keys-100", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 100, rows: 24},
+	{name: "au-keys-focus-80", board: "V-C", fixture: "shop", keys: []string{"enter"}, wpx: 1640, hpx: 900, cols: 80, rows: 24},
+	{name: "au-small", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 40, rows: 12},
+	{name: "au-tiny", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 24, rows: 8},
+	{name: "au-top-of-logs", board: "Logs", fixture: "mess", keys: []string{"l", "g"}, wpx: 1200, hpx: 760, cols: 120, rows: 30},
+	{name: "au-fail-1", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-fail-2", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w", "down"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-copy", board: "V-C", fixture: "shop", keys: []string{"y"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
@@ -128,6 +144,8 @@ func host(args []string) {
 		d = fixture.Modules(epoch)
 	case "mess":
 		d = fixture.Mess(epoch)
+	case "empty":
+		d = &fakedaemon.Fake{Hold: true, Snap: control.Snapshot{Stack: "shop", Dir: "~/code/shop", IdleTimeout: 5 * time.Minute}}
 	default:
 		d = fixture.Shop(epoch)
 	}
@@ -177,6 +195,10 @@ func host(args []string) {
 				}
 			}
 		})
+	}
+	// a verb that fails, to see how a failure is told
+	if v := os.Getenv("DOZE_LOOK_FAIL"); v != "" {
+		d.Fail = map[string]error{v: fmt.Errorf("dial unix /Users/dev/.doze/projects/shop-3fa2/run/control.sock: connect: connection refused")}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

@@ -677,7 +677,7 @@ func (m *Model) click(at tea.Mouse) {
 // yankURL puts an instance's address on the clipboard, over OSC 52, so it
 // works across ssh. It says what it copied, or that there was nothing to.
 func (m *Model) yankURL(v control.InstanceView) tea.Cmd {
-	text := ansi.Strip(m.url(v))
+	text := addressOf(v)
 	if text == "" {
 		m.notice = v.Name + " has no address to copy"
 		return nil
@@ -701,4 +701,19 @@ func (m *Model) yankLines(v control.InstanceView) tea.Cmd {
 	}
 	m.notice = fmt.Sprintf("copied %d lines", len(out))
 	return tea.SetClipboard(strings.Join(out, "\n"))
+}
+
+// addressOf is what to paste for an instance: the address alone. The page draws
+// "http://api.shop.doze → :8080", which is a description, not something that
+// can be pasted into a browser.
+func addressOf(v control.InstanceView) string {
+	switch {
+	case v.URL != "":
+		return v.URL
+	case v.Resource != "":
+		return v.Resource
+	case v.Domain != "":
+		return "http://" + v.Domain
+	}
+	return v.Endpoint
 }

@@ -152,12 +152,23 @@ func watch(args []string) {
 		fatal(err)
 	}
 	self, _ := os.Executable()
-	sess, err := start(self, []string{"host", fixture}, nil, root, 150, 40)
+	cols, rows := 150, 40
+	var keys []string
+	if len(args) > 2 {
+		keys = strings.Fields(args[2])
+	}
+	if len(args) > 3 {
+		fmt.Sscanf(args[3], "%dx%d", &cols, &rows)
+	}
+	sess, err := start(self, []string{"host", fixture}, nil, root, cols, rows)
 	if err != nil {
 		fatal(err)
 	}
 	defer sess.close()
 	sess.settle(3 * time.Second)
+	for _, k := range keys {
+		sess.press(k)
+	}
 	dir := filepath.Join(root, ".look")
 	_ = os.MkdirAll(dir, 0o755)
 	for i, name := range []string{"watch-a.png", "watch-b.png"} {

@@ -111,7 +111,11 @@ func run(sc scene, outDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sess, err := start(self, []string{"host", sc.fixture, "frozen"}, nil, root, sc.cols, sc.rows)
+	var env []string
+	if sc.fail != "" {
+		env = append(env, "DOZE_LOOK_FAIL="+sc.fail)
+	}
+	sess, err := start(self, []string{"host", sc.fixture, "frozen"}, env, root, sc.cols, sc.rows)
 	if err != nil {
 		return "", err
 	}
