@@ -48,6 +48,7 @@ type Model struct {
 	page         int                // pageHome or pageFocus
 	hit          []string           // the instance on each line of the stack, "" for a heading
 	listTop      int                // the first line of the stack shown, when it is longer than its box
+	tableNote    string             // what the table's scrolling has put out of sight
 	sortBy       int                // o: how the table orders its rows within a group
 	tree         bool               // t: the table as a dependency tree
 	vitalsOn     bool               // the vitals are drawn across the top of this page
@@ -146,6 +147,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case snapshotMsg:
 		if msg.err == nil {
 			m.snap = msg.snap
+			for i := range m.snap.Instances {
+				m.snap.Instances[i] = cleanView(m.snap.Instances[i])
+			}
 		}
 		m.settle()
 	case tickMsg:
@@ -154,6 +158,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.apply(control.Frame(msg))
 		m.settle()
 	case logMsg:
+		msg.frame.Line = clean(msg.frame.Line)
 		if m.cache == nil {
 			m.cache = map[string][]control.LogFrame{}
 		}
@@ -420,8 +425,12 @@ func (m *Model) apply(f control.Frame) {
 	case control.TopicInstances:
 		if f.Snapshot {
 			m.snap.Instances = append([]control.InstanceView(nil), f.Instances...)
+			for i := range m.snap.Instances {
+				m.snap.Instances[i] = cleanView(m.snap.Instances[i])
+			}
 		} else {
 			for _, v := range f.Instances {
+				v = cleanView(v)
 				replaced := false
 				for i := range m.snap.Instances {
 					if m.snap.Instances[i].Name == v.Name {
@@ -467,7 +476,7 @@ func (m *Model) apply(f control.Frame) {
 		}
 	case control.TopicJournal:
 		if f.Event != nil {
-			m.events = append(m.events, *f.Event)
+			m.events = append(m.events, cleanEvent(*f.Event))
 			if len(m.events) > 300 {
 				m.events = m.events[len(m.events)-300:]
 			}
@@ -518,6 +527,11 @@ func (m *Model) Render(w, h int) string {
 		m.st = saved
 	}
 	lines := m.withModal(base, w, h)
+	if len(lines) > h {
+		// a page that came out too tall loses its middle, not its header and keys
+		keep := h - 1
+		lines = append(lines[:max(keep, 0)], lines[len(lines)-1])
+	}
 	for i, l := range lines {
 		if width(l) > w {
 			lines[i] = ansi.Truncate(l, w, "…")

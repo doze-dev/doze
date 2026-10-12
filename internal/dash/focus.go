@@ -279,10 +279,10 @@ func (m *Model) focus(w, h int) []string {
 	}
 	out = append(out, strip...)
 	out = append(out, body[:bodyH]...)
-	return append(out, m.focusKeys(v, ts, cur))
+	return append(out, m.focusKeys(v, ts, cur, w))
 }
 
-func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
+func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab, w int) string {
 	s := m.st
 	var ks [][2]string
 	if len(ts) > 1 {
@@ -307,7 +307,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 	}
 	if cur.id == tabLogs {
 		if m.selecting {
-			return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1)) + "   " + s.d.Render("or drag with the mouse")
+			return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
 		}
 		if m.searching {
 			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
@@ -329,15 +329,44 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab) string {
 		}
 	}
 	ks = append(ks, [2]string{":", "command"}, [2]string{"esc", "back to the stack"})
-	var parts []string
-	for _, k := range ks {
-		parts = append(parts, s.cap(k[0], k[1]))
-	}
-	line := strings.Join(parts, "  ")
+	extra := ""
 	if m.notice != "" {
-		line += "   " + s.y.Render(m.notice)
+		extra = "   " + s.y.Render(m.notice)
 	}
-	return line
+	// What is wanted most stays when the line is wider than the window: the way
+	// back, the command line, and what acts on this instance go last.
+	rank := func(key string) int {
+		switch key {
+		case "esc":
+			return 0
+		case ":":
+			return 1
+		case "w", "s", "r", "↑↓", "/", "tab":
+			return 2
+		case "f", "y", "v", "t", "l", "p", "[ ]":
+			return 4
+		}
+		return 3
+	}
+	build := func() string {
+		var parts []string
+		for _, k := range ks {
+			parts = append(parts, s.cap(k[0], k[1]))
+		}
+		return strings.Join(parts, "  ")
+	}
+	line := build()
+	for len(ks) > 2 && width(line)+width(extra) > w {
+		worst := -1
+		for i, k := range ks {
+			if worst < 0 || rank(k[0]) >= rank(ks[worst][0]) {
+				worst = i
+			}
+		}
+		ks = append(ks[:worst], ks[worst+1:]...)
+		line = build()
+	}
+	return line + extra
 }
 
 // --- tabs ---

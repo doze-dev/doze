@@ -76,9 +76,9 @@ func TestHomeAgainstTheBoard(t *testing.T) {
 	}
 	for _, want := range []string{
 		"doze  shop ~/code/shop", "mem", "cpu", "conns", "4 awake", "1 dozing", "2 waking", "3 asleep",
-		"NAME", "KIND", "STATE", "MEM", "WHY AWAKE · WHAT IT RUNS",
+		"NAME", "STATE", "MEM", "BECAUSE", "RUNS",
 		"APPS", "your code", "MODULES", "from the doze registry", "OUTSIDE", "brought in by you", "TASKS",
-		"go run ./cmd/api", "postgres 17", "valkey 9", "sleeps in 3:12", "woken by worker", "waiting on events",
+		"postgres 17", "valkey 9", "sleeps in 3:12", "woken by worker", "waiting on events",
 		"84 MB", "212 MB", "96 MB", "11 MB",
 		"api · logs · following", "INF listening addr=:8080", "WRN slow query", "zzz cache woke (api needed it)",
 	} {
@@ -100,7 +100,7 @@ func TestNarrowAgainstTheBoard(t *testing.T) {
 	if os.Getenv("DOZE_SHOW") != "" {
 		fmt.Println(got)
 	}
-	for _, want := range []string{"doze  shop", "APPS", "MODULES", "OUTSIDE", "zzz cache woke", "move"} {
+	for _, want := range []string{"doze  shop", "APPS", "MODULES", "more", "zzz cache woke", "move"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Narrow lacks %q", want)
 		}
@@ -528,18 +528,18 @@ func TestTableColumnsAlign(t *testing.T) {
 	lines := strings.Split(frame(m, 150, 36), "\n")
 	var head string
 	for _, l := range lines {
-		if strings.Contains(l, "WHY AWAKE") {
+		if strings.Contains(l, "BECAUSE") {
 			head = l
 		}
 	}
 	if head == "" {
 		t.Fatal("no header row")
 	}
-	why := strings.Index(head, "WHY AWAKE")
+	runs := strings.Index(head, "RUNS")
 	up := strings.Index(head, "UP") + len("UP")
 	for _, l := range lines {
-		if i := strings.Index(l, "go run ./cmd/api"); i >= 0 && i != why && !strings.Contains(l, "│") {
-			t.Errorf("why cell starts at %d, header at %d:\n%s", i, why, l)
+		if i := strings.Index(l, "go run ./cmd/api"); i >= 0 && i != runs && !strings.Contains(l, "│") {
+			t.Errorf("runs cell starts at %d, header at %d:\n%s", i, runs, l)
 		}
 		if i := strings.Index(l, " 14m "); i >= 0 && !strings.Contains(l, "│") && i+4 != up {
 			t.Errorf("up cell ends at %d, header at %d:\n%s", i+4, up, l)

@@ -78,8 +78,10 @@ func (m *Model) selectKey(k string) tea.Cmd {
 		m.selB = 0
 	case "G", "end":
 		m.selB = len(m.frozen) - 1
-	case "y", "enter":
+	case "y":
 		return m.copySelection()
+	case "enter", "o":
+		m.readSelection()
 	case "esc", "v", "q":
 		m.selecting, m.dragging, m.frozen = false, false, nil
 	case "ctrl+c":
@@ -142,4 +144,80 @@ func abs(n int) int {
 		return -n
 	}
 	return n
+}
+
+// readSelection opens the selected lines whole: wrapped to a box, nothing cut
+// off, for the line that is wider than the screen.
+func (m *Model) readSelection() {
+	lo, hi := min(m.selA, m.selB), max(m.selA, m.selB)
+	var lines []string
+	for i := lo; i <= hi && i < len(m.frozen); i++ {
+		lines = append(lines, strings.TrimRight(ansi.Strip(m.frozen[i]), " "))
+	}
+	m.selecting, m.dragging, m.frozen = false, false, nil
+	if len(lines) == 0 {
+		return
+	}
+	m.modal = &modal{kind: modalText, lines: lines, title: fmt.Sprintf("%d line%s", len(lines), map[bool]string{true: "", false: "s"}[len(lines) == 1])}
+}
+
+// textBox draws the lines of a modalText wrapped to the box, from the line it
+// has been read down to.
+func (m *Model) textBox(w, h int) []string {
+	s := m.st
+	md := m.modal
+	bw := min(w-4, 112)
+	if bw < 20 {
+		bw = max(w, 4)
+	}
+	inner := max(bw-4, 4)
+	var wrapped []string
+	for _, l := range md.lines {
+		if l == "" {
+			wrapped = append(wrapped, "")
+			continue
+		}
+		wrapped = append(wrapped, strings.Split(ansi.Hardwrap(l, inner, true), "\n")...)
+	}
+	room := max(h-6, 3)
+	md.off = min(max(md.off, 0), max(len(wrapped)-room, 0))
+	end := min(md.off+room, len(wrapped))
+	shown := make([]string, 0, room+1)
+	for _, l := range wrapped[md.off:end] {
+		shown = append(shown, s.text.Render(l))
+	}
+	cap := s.a.Bold(true).Render("whole line") + s.d.Render(" · "+md.title)
+	rcap := ""
+	if len(wrapped) > room {
+		rcap = s.d.Render(fmt.Sprintf("%d–%d of %d", md.off+1, end, len(wrapped)))
+	}
+	return box(s.borderOn, cap, rcap, shown, bw, len(shown)+2)
+}
+
+func (m *Model) textKey(k string) tea.Cmd {
+	md := m.modal
+	switch k {
+	case "esc", "enter", "q", "o":
+		m.modal = nil
+	case "up", "k":
+		md.off--
+	case "down", "j":
+		md.off++
+	case "pgup", "ctrl+u":
+		md.off -= 10
+	case "pgdown", "ctrl+d", " ":
+		md.off += 10
+	case "g", "home":
+		md.off = 0
+	case "G", "end":
+		md.off = 1 << 20
+	case "y":
+		text := strings.Join(md.lines, "\n")
+		m.modal = nil
+		m.notice = fmt.Sprintf("copied %d line%s", len(md.lines), map[bool]string{true: "", false: "s"}[len(md.lines) == 1])
+		return tea.SetClipboard(text)
+	case "ctrl+c":
+		return tea.Quit
+	}
+	return nil
 }

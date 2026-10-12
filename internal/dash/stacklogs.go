@@ -196,7 +196,7 @@ func (m *Model) stackLogs(w, h int) []string {
 
 	var keys string
 	if m.selecting {
-		keys = s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1)) + "   " + s.d.Render("or drag with the mouse")
+		keys = s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
 	} else if m.searching {
 		keys = s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
 	} else {

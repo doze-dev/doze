@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // Home as a table, the way htop is one (boards/V-C.dc.html): meters across the
@@ -167,42 +169,86 @@ func (m *Model) meter(name string, segs []float64, scale float64, val string, ce
 	return s.a.Bold(true).Render(name) + " " + s.d.Render("[") + bars.String() + strings.Repeat(" ", pad) + s.w.Render(val) + s.d.Render("]")
 }
 
-// why is the last column: what keeps it awake, what it waits for, what it runs.
-func (m *Model) why(v control.InstanceView) string {
+// because is what an instance's state is down to, in a few words: what holds
+// it awake, what it waits for, when it will sleep, why it is not well.
+func (m *Model) because(v control.InstanceView) string {
 	switch {
+	case v.Kind == "task":
+		switch {
+		case v.Task == nil:
+			return "not run yet"
+		case v.Task.Result == "failed":
+			return fmt.Sprintf("exit %d · ran %s ago", v.Task.ExitCode, ago(m.now.Sub(v.Task.RanAt)))
+		}
+		return fmt.Sprintf("ran %s ago in %s", ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100*time.Millisecond))
 	case troubled(v):
-		return m.what(v)
-	case v.State == "booting", v.State == "idle":
+		if v.RestartMax > 0 {
+			out := fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax)
+			if left := v.NextRestart.Sub(m.now).Round(time.Second); left > 0 {
+				out += fmt.Sprintf(" · next in %ds", int(left.Seconds()))
+			}
+			return out
+		}
+		return display.FirstLine(v.LastError)
+	case v.State == "booting":
 		if h := m.hint(v); h != "" {
 			return h
 		}
+		return "starting"
 	}
 	if awake(v) {
-		if v.Kind == "module" {
-			var by []string
-			for _, h := range v.Holders {
-				switch h.Kind {
-				case "dependant":
-					by = append(by, h.Name+" needs it")
-				case "connection":
-					by = append(by, fmt.Sprintf("%d connection%s", h.Count, plural(h.Count)))
-				case "pin":
-					by = append(by, "pinned awake")
+		var by []string
+		for _, h := range v.Holders {
+			switch h.Kind {
+			case "dependant":
+				by = append(by, h.Name+" needs it")
+			case "connection":
+				by = append(by, fmt.Sprintf("%d connection%s", h.Count, plural(h.Count)))
+			case "pin":
+				by = append(by, "pinned awake")
+			}
+		}
+		for _, o := range m.snap.Instances { // what declares it a dependency
+			if v.State == "idle" {
+				break // a dozing instance is held by nothing, whatever declared it
+			}
+			for _, n := range o.Needs {
+				if n == v.Name && awake(o) && !strings.Contains(strings.Join(by, " "), o.Name+" needs") {
+					by = append(by, o.Name+" needs it")
 				}
 			}
-			if len(by) > 0 {
-				return strings.Join(by, " · ")
+		}
+		switch {
+		case len(by) > 0:
+			return strings.Join(by, " · ")
+		case v.State == "idle":
+			if h := m.hint(v); h != "" {
+				return h
 			}
-			return "nothing holds it: it sleeps when idle"
+			return "idle: sleeps soon"
+		case v.Kind == "module":
+			return "nothing holds it"
 		}
-		if v.Kind == "app" || v.Kind == "service" {
-			return short(v.Run)
+		return "runs until stopped"
+	}
+	switch v.Kind {
+	case "module":
+		return "wakes on a connection"
+	}
+	return "starts when needed"
+}
+
+// runs is what an instance is running: the command of an app or a service, the
+// address of a module.
+func (m *Model) runs(v control.InstanceView) string {
+	switch v.Kind {
+	case "module":
+		if a := address(v); a != "" {
+			return a
 		}
+		return strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin"))
 	}
-	if v.Kind == "module" && !awake(v) && v.State != "booting" {
-		return "asleep: costs nothing until something connects"
-	}
-	return m.what(v)
+	return short(v.Run)
 }
 
 type tcol struct {
@@ -313,7 +359,7 @@ func (m *Model) homeTable(w, h int) []string {
 	if need > 0 {
 		rightCol[0] = s.a.Bold(true).Render("state") + " " + s.r.Render(fmt.Sprintf("%d needs you", need)) + "   " + state
 	}
-	if w < 100 {
+	if w < 120 {
 		// not room for two columns: the meters and one line of state
 		out = append(out, left[0], left[1], rightCol[0])
 	} else {
@@ -325,9 +371,20 @@ func (m *Model) homeTable(w, h int) []string {
 	out = append(out, "")
 
 	// --- the table's columns, fewest that leave the last room to say something ---
+	// a name is given what the window can spare, to a limit past which it is
+	// only the beginning that tells instances apart
+	nameCap := 16
+	switch {
+	case w >= 160:
+		nameCap = 30
+	case w >= 130:
+		nameCap = 24
+	case w >= 110:
+		nameCap = 20
+	}
 	nameW := 8
 	for _, r := range rs {
-		nameW = max(nameW, min(width(r.v.Name), 16))
+		nameW = max(nameW, min(width(r.v.Name), nameCap))
 	}
 	all := []tcol{
 		{"", 2, false, func(v control.InstanceView) string { return s.look(v).glyph }},
@@ -361,7 +418,10 @@ func (m *Model) homeTable(w, h int) []string {
 			return ""
 		}},
 	}
-	drop := []string{"UP", "KIND", "CONN", "CPU%", "ENGINE"}
+	// what goes first when the window is narrow: the kind (the group says it),
+	// then the counts, then the uptime, then the engine. The last two columns
+	// (because, runs) are worth more than any of them.
+	drop := []string{"KIND", "CONN", "CPU%", "UP", "ENGINE"}
 	fixed := func(cs []tcol) int {
 		n := 2 // the table's left and right padding
 		for _, c := range cs {
@@ -371,7 +431,7 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 	cols := all
 	for _, d := range drop {
-		if w-fixed(cols) >= 28 {
+		if w-fixed(cols) >= 64 {
 			break
 		}
 		var keep []tcol
@@ -382,14 +442,24 @@ func (m *Model) homeTable(w, h int) []string {
 		}
 		cols = keep
 	}
-	whyW := max(w-fixed(cols), 8)
+	// what is left is two columns: why it is as it is, and what it runs. They are
+	// two things, so they have two headings and a gap, and when there is no room
+	// for both, the second goes.
+	rest := max(w-fixed(cols), 8)
+	whyW, runsW := rest, 0
+	if rest >= 60 {
+		whyW = min(max(rest*38/100, 24), 38)
+		runsW = rest - whyW - 2
+	}
 
 	// --- body ---
 	type line struct {
 		text string
 		name string // the instance, "" for a heading
+		head string // the heading of the group it is in, as drawn
 	}
 	var body []line
+	curHead := ""
 	last := -1
 	for _, r := range rs {
 		if r.group != last && !m.tree {
@@ -406,7 +476,8 @@ func (m *Model) homeTable(w, h int) []string {
 				hd += s.d.Render(" · " + mb(mbs))
 			}
 			hd += "  " + s.d.Render(g.what)
-			body = append(body, line{" " + hd, ""})
+			body = append(body, line{" " + hd, "", " " + hd})
+			curHead = " " + hd
 			last = r.group
 		}
 		v := r.v
@@ -459,16 +530,31 @@ func (m *Model) homeTable(w, h int) []string {
 				put(gap, lipgloss.NewStyle())
 			}
 		}
-		put(fit(m.why(v), whyW), s.d)
+		because := s.d
+		if troubled(v) {
+			because = s.r
+		} else if v.State == "idle" || v.State == "booting" {
+			because = s.y
+		}
+		put(fit(m.because(v), whyW), because)
+		if runsW > 0 {
+			put("  ", lipgloss.NewStyle())
+			put(fit(m.runs(v), runsW), s.text)
+		}
 		put(" ", lipgloss.NewStyle())
-		body = append(body, line{b.String(), v.Name})
+		body = append(body, line{b.String(), v.Name, curHead})
 	}
 
 	// --- heights: the table as tall as its rows, the logs the rest ---
 	room := h - len(out) - 1 - 1 // the table's header row, and the key bar
-	minLogs := 6
-	if room < 16 {
-		minLogs = 3
+	// The logs are what the table is for looking at, so they are not squeezed:
+	// at least eight lines, and a third of the room on a tall window. The table
+	// takes the rest and scrolls inside it, with a line saying what is out of
+	// sight. At 40 lines that is about twenty rows of the table; at 24, about
+	// eight.
+	minLogs := min(max(10, room*35/100), 16) // the box: eight lines and its borders
+	if room < 20 {
+		minLogs = max(4, room/2)
 	}
 	if v, ok := m.selected(); ok && troubled(v) {
 		// what went wrong needs the room: a trace is not three lines. The table
@@ -476,7 +562,14 @@ func (m *Model) homeTable(w, h int) []string {
 		minLogs = max(minLogs, min(room/2, 16))
 	}
 	tableH := min(len(body), max(room-minLogs, 3))
+	scrolls := len(body) > tableH
+	if scrolls {
+		tableH = max(tableH-1, 2) // a line of the room says what is out of sight
+	}
 	logsH := room - tableH
+	if scrolls {
+		logsH--
+	}
 	if len(body) > tableH {
 		// a window that keeps the selection in view and moves only when it must
 		at := 0
@@ -492,9 +585,26 @@ func (m *Model) homeTable(w, h int) []string {
 			m.listTop = at - tableH + 1
 		}
 		m.listTop = min(max(m.listTop, 0), len(body)-tableH)
+		above, below := m.listTop, len(body)-m.listTop-tableH
 		body = body[m.listTop : m.listTop+tableH]
+		// scrolled into a group: its heading stays, in place of the first row
+		if len(body) > 2 && body[0].name != "" && body[0].name != m.sel && body[0].head != "" {
+			body[0] = line{body[0].head, "", body[0].head}
+		}
+		note := " "
+		if above > 0 {
+			note += fmt.Sprintf("↑ %d above", above)
+		}
+		if below > 0 {
+			if above > 0 {
+				note += " · "
+			}
+			note += fmt.Sprintf("↓ %d more", below)
+		}
+		m.tableNote = s.d.Render(note + "   / filter to narrow · o sort")
 	} else {
 		m.listTop = 0
+		m.tableNote = ""
 	}
 
 	// the header row, with the sorted column marked
@@ -514,7 +624,11 @@ func (m *Model) homeTable(w, h int) []string {
 		}
 		hput("  ")
 	}
-	hput(fit("WHY AWAKE · WHAT IT RUNS", whyW))
+	hput(fit("BECAUSE", whyW))
+	if runsW > 0 {
+		hput("  ")
+		hput(fit("RUNS", runsW))
+	}
 	hput(" ")
 	out = append(out, hb.String())
 
@@ -523,6 +637,9 @@ func (m *Model) homeTable(w, h int) []string {
 	for _, l := range body {
 		out = append(out, l.text)
 		m.hit = append(m.hit, l.name)
+	}
+	if m.tableNote != "" {
+		out = append(out, m.tableNote)
 	}
 
 	// --- the selected instance: what went wrong, or what it is saying ---
@@ -547,10 +664,15 @@ func (m *Model) homeTable(w, h int) []string {
 		}
 		out = append(out, box(border, caption, "", lines, w, logsH)...)
 	} else {
-		out = append(out, box(s.border, s.d.Render("nothing selected"), "", nil, w, logsH)...)
-	}
-	if len(rs) == 0 {
-		out = append(out, s.d.Render(" nothing matches "+m.filter))
+		msg := []string{s.d.Render("Nothing is declared in this stack yet."), "",
+			s.text.Render("  doze add postgres") + s.d.Render("      add a module from the registry"),
+			s.text.Render("  doze init") + s.d.Render("             write a doze.hcl from this project"), "",
+			s.d.Render("or edit doze.hcl: the dash picks the change up.")}
+		cap := "empty"
+		if m.filter != "" {
+			msg, cap = []string{s.d.Render("Nothing matches " + m.filter + ". esc clears the filter.")}, "filter"
+		}
+		out = append(out, box(s.border, s.d.Render(cap), "", msg, w, logsH)...)
 	}
 	out = append(out, m.keys(w))
 	return out

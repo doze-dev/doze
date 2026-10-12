@@ -24,6 +24,7 @@ const (
 	modalSleep
 	modalReset
 	modalInput // a module's action that takes some text
+	modalText  // some lines read whole, wrapped, with nothing cut off
 	modalAsk   // a module's action that deletes something
 )
 
@@ -38,6 +39,10 @@ type modal struct {
 	// a confirmation
 	btn   int
 	typed string
+
+	// the text of a modalText: its lines, and how far down it is read
+	lines []string
+	off   int
 
 	// a module's action: what it is called, what it wants, and what to do with it
 	title string
@@ -237,6 +242,8 @@ func (m *Model) modalKey(k, text string) tea.Cmd {
 		return m.resetKey(k, text)
 	case modalInput, modalAsk:
 		return m.askKey(k, text)
+	case modalText:
+		return m.textKey(k)
 	}
 	return nil
 }
@@ -422,6 +429,8 @@ func (m *Model) withModal(base []string, w, h int) []string {
 		box = m.resetBox(w)
 	case modalInput, modalAsk:
 		box = m.askBox(w)
+	case modalText:
+		box = m.textBox(w, h)
 	}
 	if len(box) == 0 {
 		return base
@@ -448,6 +457,9 @@ func (m *Model) withModal(base []string, w, h int) []string {
 		out[len(out)-1] = f.cap("←→", "choose") + "  " + f.cap("⏎", "confirm") + "  " + f.cap("esc", "cancel")
 		if m.modal.kind == modalReset {
 			out[len(out)-1] = f.cap("tab", "buttons") + "  " + f.cap("⏎", "confirm") + "  " + f.cap("esc", "cancel")
+		}
+		if m.modal.kind == modalText {
+			out[len(out)-1] = f.cap("↑↓", "read") + "  " + f.cap("y", "copy") + "  " + f.cap("esc", "close")
 		}
 	}
 	return out
