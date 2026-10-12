@@ -182,6 +182,16 @@ func host(args []string) {
 	if !frozen {
 		start := time.Now()
 		now = func() time.Time { return epoch.Add(time.Since(start)) }
+		// Five minutes is the real idle time; to be seen, it is half a minute here,
+		// and what is already dozing has twenty seconds left of it.
+		d.Mutate(func(snap *control.Snapshot) {
+			snap.IdleTimeout = 30 * time.Second
+			for i := range snap.Instances {
+				if in := &snap.Instances[i]; in.State == "idle" {
+					in.IdleSince = epoch.Add(-10 * time.Second)
+				}
+			}
+		})
 		go drive(ctx, d, now)
 	}
 	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC}); err != nil {
@@ -268,10 +278,10 @@ func (l *lifecycle) step(d *fakedaemon.Fake, now time.Time, tick int) {
 		}
 		// a sleeping module is woken by a connection every so often
 		if l.wakeAt == 0 {
-			l.wakeAt = tick + 20
+			l.wakeAt = tick + 50 // after the dozing one has had time to be seen asleep
 		}
 		if tick >= l.wakeAt {
-			l.wakeAt = tick + 45
+			l.wakeAt = tick + 60
 			for i := range snap.Instances {
 				in := &snap.Instances[i]
 				if in.Kind == "module" && in.State == "reaped" && !in.Disabled {

@@ -24,7 +24,7 @@ func Shop(now time.Time) *fakedaemon.Fake {
 			StartedAt: ago(14 * time.Minute), Domain: "api.shop.doze", Bind: "127.0.0.1:8080", Endpoint: "127.0.0.1:8080",
 			Needs: []string{"db", "mongo", "cache", "migrate"}},
 		{Name: "web", Kind: "app", Engine: "process", State: "active", Run: "pnpm dev", RAM: 212 << 20, PID: 48230, StartedAt: ago(14 * time.Minute)},
-		{Name: "worker", Kind: "app", Engine: "process", State: "booting", Needs: []string{"events"}},
+		{Name: "worker", Kind: "app", Engine: "process", State: "booting", Run: "go run ./cmd/worker", Needs: []string{"events"}},
 		{Name: "db", Kind: "module", Engine: "postgres", Version: "17", State: "active", RAM: 96 << 20, CPU: 0.8, PID: 612, Conns: 4,
 			StartedAt: ago(14 * time.Minute), URL: "postgres://shop@db.shop.doze:5432/shop", Domain: "db.shop.doze",
 			Endpoint: "127.0.0.1:5432", Bind: "127.0.0.1:5432", EnvVar: "DATABASE_URL", DataDir: "~/.doze/shop/db",
