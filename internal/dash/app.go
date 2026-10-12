@@ -48,6 +48,7 @@ type Model struct {
 	sortBy       int                // o: how the table orders its rows within a group
 	metrics      bool               // m: Focus shows the full charts, not the tiles
 	tree         bool               // t: the table as a dependency tree
+	ntCharts     bool               // charts drawn by ntcharts (c cycles it with the dash's own two)
 	search       string             // /: on a logs tab, only the lines that hold it
 	all          []control.LogFrame // the stack's lines, for the logs page
 	allCancel    context.CancelFunc
@@ -285,7 +286,7 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	}
 	switch k {
 	case "c":
-		m.areaCharts = !m.areaCharts
+		m.cycleCharts()
 	case "o":
 		m.sortBy = (m.sortBy + 1) % sortModes
 	case "y":

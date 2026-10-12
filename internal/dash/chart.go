@@ -320,6 +320,9 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 // chart is one trace: its name and figure, the plot with its scale at the left,
 // and the age of its oldest reading under it. Every line is at most one wide.
 func (m *Model) chart(t trace, cw, rows int) []string {
+	if m.ntCharts {
+		return m.ntChart(t, cw, rows)
+	}
 	s := m.st
 	peak, mean := stats(t.vals)
 	head := s.w.Render(t.name) + "  " + s.b.Render(t.now)

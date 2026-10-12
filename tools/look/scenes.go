@@ -87,6 +87,7 @@ var scenes = []scene{
 	{name: "logs-all", board: "Logs", fixture: "mess", keys: []string{"l"}, wpx: 1200, hpx: 760, cols: 136, rows: 40},
 	{name: "logs-select", board: "View-App", fixture: "shop", keys: []string{"enter", "v", "up", "up"}, wpx: 1200, hpx: 760, cols: 136, rows: 40},
 	{name: "home-mongo", board: "V-C", fixture: "shop", keys: downs(8), wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "metrics-nt", board: "V-Focus", fixture: "shop", keys: cat(downs(5), []string{"enter", "m"}), wpx: 1640, hpx: 900, cols: 150, rows: 44},
 	{name: "palette", board: "Palette", fixture: "shop", keys: []string{":", "r", "e"}, wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "sleep", board: "Confirm-Sleep", fixture: "shop", keys: cat(downs(5), []string{"s"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},
 	{name: "reset", board: "Confirm-Reset", fixture: "shop", keys: cat(downs(5), []string{":", "r", "e", "s", "e", "t", " ", "d", "b", "enter"}), wpx: 1200, hpx: 760, cols: 136, rows: 42},

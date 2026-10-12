@@ -204,3 +204,37 @@ func TestSqueezeKeepsTheSpikeAndTheNewest(t *testing.T) {
 		t.Errorf("a short series was changed: %v", got)
 	}
 }
+
+// The metrics view is ntcharts' time-series chart: a value axis, a time axis
+// ending at now, and every line the width asked for.
+func TestNTChartHasAxesAndTheWidthAsked(t *testing.T) {
+	m := board()
+	m.ntCharts = true
+	vals := make([]float64, 240)
+	for i := range vals {
+		vals[i] = 80 + float64(i%9)
+	}
+	tr := trace{name: "mem", vals: vals, zoom: true, unit: bytesLabel, now: "84 MB", cur: 84 << 20, st: lipgloss.NewStyle()}
+	for i := range tr.vals {
+		tr.vals[i] *= 1 << 20
+	}
+	lines := m.ntChart(tr, 50, 5)
+	if len(lines) != 5+2+1 {
+		t.Fatalf("%d lines, want head + plot + axis + labels = 8", len(lines))
+	}
+	all := strings.Join(plain(lines), "\n")
+	for _, want := range []string{"mem", "84 MB", "now", "-", "MB"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("chart lacks %q:\n%s", want, all)
+		}
+	}
+	for i, l := range plain(lines[1:]) {
+		if width(l) != gutter+1+50 {
+			t.Errorf("line %d is %d cells, want %d", i, width(l), gutter+1+50)
+		}
+	}
+	m.cycleCharts()
+	if m.ntCharts || !m.areaCharts {
+		t.Errorf("c from ntcharts should go to the filled area: nt=%v area=%v", m.ntCharts, m.areaCharts)
+	}
+}

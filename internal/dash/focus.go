@@ -800,6 +800,10 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		return nil, true
 	case "m":
 		m.metrics = !m.metrics
+		m.ntCharts = m.metrics // the metrics view is ntcharts' to start with; c changes it
+		return nil, true
+	case "c":
+		m.cycleCharts()
 		return nil, true
 	case "/":
 		if ts[m.tab].id == tabLogs {
