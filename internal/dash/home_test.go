@@ -587,7 +587,7 @@ func TestYankTheAddress(t *testing.T) {
 	if cmd == nil {
 		t.Fatalf("y did nothing; notice %q", m.notice)
 	}
-	if !strings.Contains(m.notice, "copied") || !strings.Contains(m.notice, "api.shop.doze") {
+	if !strings.Contains(m.notice, "sent") || !strings.Contains(m.notice, "api.shop.doze") {
 		t.Errorf("notice = %q", m.notice)
 	}
 	if strings.Contains(m.notice, "→") || strings.Contains(m.notice, ":8080") {
@@ -722,7 +722,7 @@ func TestCopyPartOfTheLogs(t *testing.T) {
 		t.Errorf("the key bar should say what is selected:\n%s", out)
 	}
 	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
-	if cmd == nil || !strings.Contains(m.notice, "copied 3 lines") || m.selecting {
+	if cmd == nil || !strings.Contains(m.notice, "sent 3 lines") || m.selecting {
 		t.Errorf("y should copy three lines and leave: cmd=%v notice=%q selecting=%v", cmd != nil, m.notice, m.selecting)
 	}
 
@@ -730,7 +730,7 @@ func TestCopyPartOfTheLogs(t *testing.T) {
 	m.Update(tea.MouseClickMsg(tea.Mouse{X: 10, Y: 2 + 1, Button: tea.MouseLeft}))
 	m.Update(tea.MouseMotionMsg(tea.Mouse{X: 10, Y: 2 + 3, Button: tea.MouseLeft}))
 	_, cmd = m.Update(tea.MouseReleaseMsg(tea.Mouse{X: 10, Y: 2 + 3, Button: tea.MouseLeft}))
-	if cmd == nil || !strings.Contains(m.notice, "copied 3 lines") {
+	if cmd == nil || !strings.Contains(m.notice, "sent 3 lines") {
 		t.Errorf("a drag over three lines should copy them: cmd=%v notice=%q", cmd != nil, m.notice)
 	}
 
@@ -870,5 +870,42 @@ func TestRestartAsksWhenSomethingIsUsingIt(t *testing.T) {
 	cmd()
 	if d := f.Done(); len(d) != 1 || d[0].Target != "web" {
 		t.Errorf("sent %v", d)
+	}
+}
+
+// What is said is what was done: it was sent, and when the terminal is one that
+// may ignore that, how to get the text anyway. Y writes a file with exactly the
+// text and says where.
+func TestCopyIsHonestAndHasAFile(t *testing.T) {
+	t.Setenv("TMUX", "")
+	t.Setenv("STY", "")
+	t.Setenv("TERM_PROGRAM", "ghostty")
+	t.Setenv("TERM", "xterm-ghostty")
+	dir := t.TempDir()
+	t.Setenv("TMPDIR", dir)
+
+	m := board()
+	m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if !strings.Contains(m.notice, "sent http://api.shop.doze to the clipboard") || strings.Contains(m.notice, "Y writes") || strings.Contains(m.notice, "copied") {
+		t.Errorf("in a terminal that honours it: %q", m.notice)
+	}
+
+	t.Setenv("TMUX", "/tmp/tmux-501/default,1,0")
+	m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if !strings.Contains(m.notice, "if nothing pastes, Y writes a file") {
+		t.Errorf("under tmux the way out is not offered: %q", m.notice)
+	}
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'Y', Text: "Y"})
+	if cmd != nil {
+		t.Error("Y should write a file, not touch the clipboard")
+	}
+	if !strings.HasPrefix(m.notice, "wrote http://api.shop.doze to ") {
+		t.Fatalf("notice = %q", m.notice)
+	}
+	path := strings.TrimPrefix(m.notice, "wrote http://api.shop.doze to ")
+	b, err := os.ReadFile(path)
+	if err != nil || strings.TrimSpace(string(b)) != "http://api.shop.doze" {
+		t.Errorf("file %q = %q, %v", path, b, err)
 	}
 }

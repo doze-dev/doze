@@ -676,18 +676,17 @@ func (m *Model) click(at tea.Mouse) {
 
 // yankURL puts an instance's address on the clipboard, over OSC 52, so it
 // works across ssh. It says what it copied, or that there was nothing to.
-func (m *Model) yankURL(v control.InstanceView) tea.Cmd {
+func (m *Model) yankURL(v control.InstanceView, file bool) tea.Cmd {
 	text := addressOf(v)
 	if text == "" {
 		m.notice = v.Name + " has no address to copy"
 		return nil
 	}
-	m.notice = "copied " + text
-	return tea.SetClipboard(text)
+	return m.out(text, text, v.Name+"-address", file)
 }
 
 // yankLines puts the lines the logs tab is showing on the clipboard.
-func (m *Model) yankLines(v control.InstanceView) tea.Cmd {
+func (m *Model) yankLines(v control.InstanceView, file bool) tea.Cmd {
 	lines := m.stream(v, 500, m.level, 0)
 	var out []string
 	for _, l := range lines {
@@ -699,8 +698,7 @@ func (m *Model) yankLines(v control.InstanceView) tea.Cmd {
 		m.notice = "nothing to copy yet"
 		return nil
 	}
-	m.notice = fmt.Sprintf("copied %d lines", len(out))
-	return tea.SetClipboard(strings.Join(out, "\n"))
+	return m.out(strings.Join(out, "\n"), lineWord(len(out)), v.Name+"-logs", file)
 }
 
 // addressOf is what to paste for an instance: the address alone. The page draws

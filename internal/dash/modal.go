@@ -104,7 +104,7 @@ func (m *Model) actions() []action {
 			return nil
 		}})
 		if line := orStr(v.URL, v.Endpoint); line != "" && v.Kind != "task" {
-			add(action{label: "copy the connect line of " + n, cli: "doze url " + n, run: func(*Model) tea.Cmd { return tea.SetClipboard(line) }})
+			add(action{label: "copy the connect line of " + n, cli: "doze url " + n, run: func(m *Model) tea.Cmd { return m.out(line, "the connect line of "+n, n+"-connect", false) }})
 		}
 	}
 
@@ -283,8 +283,7 @@ func (m *Model) paletteKey(k, text string) tea.Cmd {
 		}
 	case "tab":
 		if md.pick < len(hs) {
-			m.notice = "copied: " + hs[md.pick].a.cli
-			return tea.SetClipboard(hs[md.pick].a.cli)
+			return m.out(hs[md.pick].a.cli, "the command", "command", false)
 		}
 	case "space":
 		md.input += " "

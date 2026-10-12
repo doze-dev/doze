@@ -53,7 +53,7 @@ func (m *Model) decorate() []string {
 }
 
 // copySelection puts the selected lines on the clipboard and leaves the mode.
-func (m *Model) copySelection() tea.Cmd {
+func (m *Model) copySelection(file bool) tea.Cmd {
 	lo, hi := min(m.selA, m.selB), max(m.selA, m.selB)
 	var out []string
 	for i := lo; i <= hi && i < len(m.frozen); i++ {
@@ -63,8 +63,11 @@ func (m *Model) copySelection() tea.Cmd {
 	if len(out) == 0 {
 		return nil
 	}
-	m.notice = fmt.Sprintf("copied %d line%s", len(out), map[bool]string{true: "", false: "s"}[len(out) == 1])
-	return tea.SetClipboard(strings.Join(out, "\n"))
+	name := "selection"
+	if v, ok := m.selected(); ok && m.page == pageFocus {
+		name = v.Name + "-selection"
+	}
+	return m.out(strings.Join(out, "\n"), lineWord(len(out)), name, file)
 }
 
 // selectKey handles a key while a selection is open.
@@ -78,8 +81,8 @@ func (m *Model) selectKey(k string) tea.Cmd {
 		m.selB = 0
 	case "G", "end":
 		m.selB = len(m.frozen) - 1
-	case "y":
-		return m.copySelection()
+	case "y", "Y":
+		return m.copySelection(k == "Y")
 	case "enter", "o":
 		m.readSelection()
 	case "esc", "v", "q":
@@ -131,7 +134,7 @@ func (m *Model) logMouse(msg tea.Msg) (tea.Cmd, bool) {
 			m.dragging = false
 			// a click with no drag selects the line; a drag copies what it covered
 			if m.selA != m.selB {
-				return m.copySelection(), true
+				return m.copySelection(false), true
 			}
 			return nil, true
 		}
@@ -211,11 +214,10 @@ func (m *Model) textKey(k string) tea.Cmd {
 		md.off = 0
 	case "G", "end":
 		md.off = 1 << 20
-	case "y":
+	case "y", "Y":
 		text := strings.Join(md.lines, "\n")
 		m.modal = nil
-		m.notice = fmt.Sprintf("copied %d line%s", len(md.lines), map[bool]string{true: "", false: "s"}[len(md.lines) == 1])
-		return tea.SetClipboard(text)
+		return m.out(text, lineWord(len(md.lines)), "lines", k == "Y")
 	case "ctrl+c":
 		return tea.Quit
 	}

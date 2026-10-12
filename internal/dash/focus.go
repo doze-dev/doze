@@ -851,11 +851,11 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 			m.stepRun(k == "]")
 			return nil, true
 		}
-	case "y":
+	case "y", "Y":
 		if ts[m.tab].id == tabLogs {
-			return m.yankLines(v), true
+			return m.yankLines(v, k == "Y"), true
 		}
-		return m.yankURL(v), true
+		return m.yankURL(v, k == "Y"), true
 	case "p":
 		if v.Kind == "module" || v.Kind == "" {
 			return m.verb(control.VerbPin), true

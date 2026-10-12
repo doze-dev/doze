@@ -336,9 +336,9 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	switch k {
 	case "o":
 		m.sortBy = (m.sortBy + 1) % sortModes
-	case "y":
+	case "y", "Y":
 		if v, ok := m.selected(); ok {
-			return m, m.yankURL(v)
+			return m, m.yankURL(v, k == "Y")
 		}
 	case "t":
 		m.tree = !m.tree

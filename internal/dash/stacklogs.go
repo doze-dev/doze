@@ -61,7 +61,7 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 	case " ", "space":
 		m.paused = !m.paused
 		return nil, true
-	case "y":
+	case "y", "Y":
 		lines := m.stackLines(500)
 		var out []string
 		for _, l := range lines {
@@ -71,8 +71,7 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 			m.notice = "nothing to copy yet"
 			return nil, true
 		}
-		m.notice = fmt.Sprintf("copied %d lines", len(out))
-		return tea.SetClipboard(strings.Join(out, "\n")), true
+		return m.out(strings.Join(out, "\n"), lineWord(len(out)), "stack-logs", k == "Y"), true
 	case ":":
 		m.modal = &modal{kind: modalPalette}
 		return nil, true
