@@ -27,6 +27,7 @@ type scene struct {
 	wpx     int // the board's size in px
 	hpx     int
 	fail    string // a verb the daemon refuses, for the failure scenes
+	glyphs  string // the glyph set, for the ascii and narrow scenes
 	cols    int    // the terminal's, which is that many px at 14px type and a 17px line
 	rows    int
 }
@@ -101,6 +102,9 @@ var scenes = []scene{
 	{name: "au-small", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 40, rows: 12},
 	{name: "au-tiny", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 24, rows: 8},
 	{name: "au-top-of-logs", board: "Logs", fixture: "mess", keys: []string{"L", "g"}, wpx: 1200, hpx: 760, cols: 120, rows: 30},
+	{name: "au-ascii", board: "V-C", fixture: "shop", glyphs: "ascii", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-ascii-focus", board: "V-C", fixture: "shop", glyphs: "ascii", keys: []string{"enter"}, wpx: 1640, hpx: 900, cols: 120, rows: 36},
+	{name: "help", board: "Help", fixture: "shop", keys: []string{"?"}, wpx: 1200, hpx: 920, cols: 120, rows: 40},
 	{name: "au-fail-1", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "au-fail-2", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w", "down"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "au-copy", board: "V-C", fixture: "shop", keys: []string{"y"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
@@ -230,7 +234,7 @@ func host(args []string) {
 		})
 		go drive(ctx, d, now)
 	}
-	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC}); err != nil {
+	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC, Glyphs: dash.DetectGlyphs()}); err != nil {
 		os.Stderr.WriteString("look host: " + err.Error() + "\n")
 		os.Exit(1)
 	}

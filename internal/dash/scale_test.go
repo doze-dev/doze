@@ -42,3 +42,35 @@ func TestFiveHundredInstancesOfBacklogCostsLittle(t *testing.T) {
 		t.Errorf("held %d MB", held>>20)
 	}
 }
+
+// A burst: tens of thousands of lines a second into one instance, with the
+// stack's logs page open and the screen drawn every hundred lines (a renderer
+// that keeps up can be no faster than that). What is held stays at its caps,
+// and the cost of a line stays small.
+func TestALogBurstIsBoundedInMemoryAndCost(t *testing.T) {
+	m := stressModel(12, func(i int) string { return fmt.Sprintf("svc%02d", i) }, nil)
+	m.w, m.h = 150, 40
+	m.page = pageLogs
+	m.openLogs()
+	const n = 50000
+	start := time.Now()
+	var worst time.Duration
+	for i := 0; i < n; i++ {
+		m.Update(logMsg{"svc03", control.LogFrame{Instance: "svc03", Line: fmt.Sprintf("INFO burst line %d with some payload to be a realistic width of text", i), Time: epoch.Add(time.Duration(i) * time.Millisecond), Run: 1}})
+		if i%100 == 0 {
+			t0 := time.Now()
+			m.Render(150, 40)
+			if d := time.Since(t0); d > worst {
+				worst = d
+			}
+		}
+	}
+	total := time.Since(start)
+	t.Logf("%d lines: %v in all, worst frame %v, kept %d and %d on the page", n, total.Round(time.Millisecond), worst.Round(time.Millisecond), len(m.cache["svc03"]), len(m.all))
+	if len(m.cache["svc03"]) > logsKept || len(m.all) > allKept {
+		t.Errorf("not bounded: %d, %d", len(m.cache["svc03"]), len(m.all))
+	}
+	if worst > 250*time.Millisecond {
+		t.Errorf("a frame took %v", worst)
+	}
+}

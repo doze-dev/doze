@@ -182,6 +182,15 @@
       "x": 1280,
       "y": 0
     },
+    "Help.dc.html": {
+      "h": 920,
+      "page": "dash",
+      "radius": 12,
+      "title": "Help · every key, from one table",
+      "w": 1200,
+      "x": 0,
+      "y": 2020
+    },
     "Pg-Activity.dc.html": {
       "h": 760,
       "page": "blocks",
@@ -503,6 +512,7 @@
   "order": [
     "Main.dc.html",
     "Palette.dc.html",
+    "Help.dc.html",
     "Empty.dc.html",
     "Narrow.dc.html",
     "ViewMap.dc.html",

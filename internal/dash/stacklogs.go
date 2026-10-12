@@ -82,6 +82,16 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 	return nil, true // the page has no cursor: the other keys do nothing here
 }
 
+// keptCap is the right of the box's top: how many lines are held, and the zone
+// their times are in.
+func (m *Model) keptCap() string {
+	c := fmt.Sprintf("%d kept", len(m.all))
+	if z := m.zone(); z != "" {
+		c += " · " + z
+	}
+	return c
+}
+
 // stackLines is the newest n lines that pass the level and the search, oldest
 // first, each as the page draws it.
 func (m *Model) stackLines(n int) []string {
@@ -197,7 +207,7 @@ func (m *Model) stackLogs(w, h int) []string {
 		}
 		lines = []string{s.d.Render(msg)}
 	}
-	out = append(out, box(s.border, s.d.Render(cap), s.d.Render(fmt.Sprintf("%d kept", len(m.all))), lines, w, h-2)...)
+	out = append(out, box(s.border, s.d.Render(cap), s.d.Render(m.keptCap()), lines, w, h-2)...)
 
 	var keys string
 	if m.selecting {

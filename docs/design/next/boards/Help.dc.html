@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Help · every key of the page</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./term.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="t" style="width: 1200px; height: 920px; position: relative">
+
+<div class="row sb ce dim">
+<div class="row ce"><span class="pill">doze</span><span class="w b">shop</span><span class="d">~/code/shop</span></div>
+<span><span class="w b">≈ 552 MB</span> <span class="d">resident</span></span>
+</div>
+<div class="box grow dim"><div class="cap a b">stack</div></div>
+
+<div class="box on" style="position: absolute; left: 100px; top: 24px; width: 1000px; background: #15131d; padding: 16px 20px 14px; gap: 6px">
+<div class="row sb"><span class="a b">keys</span><span class="d">Home</span></div>
+<div class="hr"></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">↑↓</span><span class="w">move</span><span class="d">move the selection; the wheel does too; click selects, a second click opens</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">⏎</span><span class="w">focus</span><span class="d">open the selected instance in full</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">w</span><span class="w">wake</span><span class="d">start it now, and what it needs</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">s</span><span class="w">sleep</span><span class="d">stop it, keeping its data; asks first when something is using it</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">r</span><span class="w">restart</span><span class="d">stop and start it; asks first when something is using it</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">l</span><span class="w">logs</span><span class="d">this instance's logs</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">L</span><span class="w">all logs</span><span class="d">every instance's logs, merged in time order</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">y</span><span class="w">copy</span><span class="d">send the address to the clipboard (Y writes a file instead)</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">o</span><span class="w">sort name</span><span class="d">sort within each group: name, memory, state</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">t</span><span class="w">tree</span><span class="d">show what needs what, as a tree</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">/</span><span class="w">filter</span><span class="d">narrow the table to rows matching every word typed</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">:</span><span class="w">command</span><span class="d">the palette: every action, with its command-line form</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">?</span><span class="w">help</span><span class="d">this list</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">q</span><span class="w">quit</span><span class="d">leave; the stack keeps running</span></div>
+<div class="hr"></div>
+<div class="a b">Everywhere</div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">esc</span><span class="w">back</span><span class="d">leave a page, clear a filter or a search, close a box</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">ctrl+c</span><span class="w">quit</span><span class="d">leave the dash</span></div>
+<div class="a b" style="margin-top:6px">Mouse</div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">click</span><span class="w">select</span><span class="d">a row; a second click opens it</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">wheel</span><span class="w">scroll</span><span class="d">the logs, or the selection on Home</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">drag</span><span class="w">select lines</span><span class="d">over logs, to copy them</span></div>
+<div class="tr" style="--c: 9ch 14ch 1fr"><span class="a b">shift</span><span class="w">native select</span><span class="d">hold it to drag-select any text (the dash holds the mouse)</span></div>
+<div class="a b" style="margin-top:6px">What the meters are</div>
+<div class="d">memory   resident size from ps, summed; shared pages are counted in each</div>
+<div class="d">of ~X    what every instance has been seen to take, not a limit</div>
+<div class="d">CPU%     ps's decayed average over a short while: a one-second burst reads low</div>
+<div class="d">charts   a reading a second; "last 4m" is how much the daemon has kept</div>
+<div class="hr"></div>
+<div class="row sb d"><span>This list and the bar along the bottom are drawn from one table, so they cannot disagree.</span><span><span class="k">↑↓</span>read  <span class="k">esc</span>close</span></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":920}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

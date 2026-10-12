@@ -341,6 +341,9 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		}
 	}
 	rcap := fmt.Sprintf("%d lines · this run", n)
+	if z := m.zone(); z != "" {
+		rcap += " · " + z
+	}
 	if m.runSel > 0 {
 		cap = "not following · " + levelNames[m.level]
 		rcap = fmt.Sprintf("run %d of %d", indexOf(runs, m.runSel)+1, len(runs))
@@ -968,6 +971,16 @@ func (m *Model) taskOf(name string) *control.TaskView {
 }
 
 // stamp is a log line's time, as the clock or as how long ago, in 8 cells.
+// zone is the abbreviation of the zone log times are drawn in, or "" when they
+// are shown as how long ago, which has none.
+func (m *Model) zone() string {
+	if m.timeRel {
+		return ""
+	}
+	name, _ := m.now.In(m.loc).Zone()
+	return name
+}
+
 func (m *Model) stamp(at time.Time) string {
 	if at.IsZero() {
 		return "        "

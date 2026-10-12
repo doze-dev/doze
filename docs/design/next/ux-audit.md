@@ -34,11 +34,13 @@ All twenty are dealt with, in nine commits on `main`. The "after" screens are
 | C7 | new instance has no logs | f0766a9 | logs asked for again when one appears |
 | C8 | scale unmeasured | f0766a9 | measured: 500 × 400 lines is 44 MB, 93 ms, a frame in 9 ms; no change needed |
 
-Not done, and why: the Low items. Time zone on log lines is still unshown; the
-screen-reader note is not yet in the docs; very fast logging is still a guess.
-The look tool does not pass `DOZE_ASCII` to the dash it hosts, so the glyph sets
-are tested by unit tests (every shape, three sizes, byte-checked and
-column-checked) and have no screenshot.
+The Low items: log times now name their zone beside the line count (`UTC`,
+`IST`) and not when shown as how long ago; `docs/getting-started.md` says the dash
+is not for screen readers and `doze status` / `doze logs` are; a 50,000-line burst
+into one instance with the stack's logs open is bounded (400 and 800 lines held,
+worst frame 8 ms, about 25,000 lines a second taken in). The glyph sets have
+screens: `ux-audit/after-ascii.png` and `after-ascii-focus.png`. The V-C board
+and a new Help board (`boards/Help.dc.html`) show what was built.
 
 ## How it was done
 

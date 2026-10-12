@@ -95,7 +95,11 @@ doze run -- <your app command>   # ensures the backends are up, then runs it
   (Terraform-style `+ / ~ / -` plan; `--dry-run` to preview).
 - **`doze doctor`** — diagnose config, daemon, and (optional) local-DNS setup.
 - **`doze dash`** (or just `doze`) — the full-screen TUI: logs, wake/sleep, and the
-  command palette.
+  command palette. `?` lists its keys. It is not usable with a screen reader (a
+  full-screen terminal program redraws in place); `doze status` and `doze logs`
+  print plain lines and are the accessible way to the same information. On a
+  terminal that cannot draw box characters (`LANG=C`, `TERM=linux`) it falls back to
+  ASCII by itself, and `DOZE_ASCII=1` forces it.
 
 ## Local AWS (optional)
 

@@ -344,3 +344,32 @@ func TestTheTotalSaysItIsAnEstimate(t *testing.T) {
 		t.Errorf("header:\n%s", out)
 	}
 }
+
+// The clock on log lines says which zone it is in, and not when it is a duration.
+func TestLogTimesNameTheirZone(t *testing.T) {
+	m := focused("api")
+	m.loc = time.FixedZone("IST", 5*3600+1800)
+	m.followed = "api"
+	m.logs = []control.LogFrame{{Instance: "api", Line: "INFO hi", Time: epoch, Run: 1}}
+	m.cache = map[string][]control.LogFrame{"api": m.logs}
+	m.page = pageFocus
+	for i, tb := range m.tabs(func() control.InstanceView { v, _ := m.selected(); return v }()) {
+		if tb.id == tabLogs {
+			m.tab = i
+		}
+	}
+	if out := stripAnsi(frame(m, 140, 40)); !strings.Contains(out, "· IST") {
+		t.Errorf("focus logs do not name the zone:\n%s", out)
+	}
+	m.timeRel = true
+	if out := stripAnsi(frame(m, 140, 40)); strings.Contains(out, "· IST") {
+		t.Error("a duration has no zone")
+	}
+	m = board()
+	m.loc = time.FixedZone("CEST", 7200)
+	m.page = pageLogs
+	m.openLogs()
+	if out := stripAnsi(frame(m, 140, 40)); !strings.Contains(out, "kept · CEST") {
+		t.Errorf("stack logs do not name the zone:\n%s", out)
+	}
+}
