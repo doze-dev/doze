@@ -365,7 +365,9 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	case "w":
 		return m, m.verb(control.VerbWake)
 	case "r":
-		return m, m.verb(control.VerbRestart)
+		if v, ok := m.selected(); ok {
+			return m, m.askRestart(v.Name)
+		}
 	case "s":
 		if v, ok := m.selected(); ok {
 			return m, m.askSleep(v.Name)

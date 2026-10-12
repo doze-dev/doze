@@ -829,3 +829,46 @@ func TestScrollBackThroughTheLogs(t *testing.T) {
 		t.Errorf("G should follow again:\n%s", out)
 	}
 }
+
+// Restarting something that is in use asks first, with who is affected; an idle
+// instance restarts at once; no is no.
+func TestRestartAsksWhenSomethingIsUsingIt(t *testing.T) {
+	m := focused("db") // held by api and four connections
+	f := m.d.(*fakedaemon.Fake)
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	if cmd != nil || m.modal == nil || m.modal.kind != modalRestart {
+		t.Fatalf("r on a held db should ask: cmd=%v modal=%v", cmd != nil, m.modal)
+	}
+	out := frame(m, 140, 36)
+	for _, want := range []string{"restart db?", "api is running and needs it", "4 connections", "Every connection drops", "Restart db", "Cancel"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the question lacks %q:\n%s", want, out)
+		}
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.modal != nil || len(f.Done()) != 0 {
+		t.Errorf("esc must send nothing: modal=%v done=%v", m.modal, f.Done())
+	}
+	m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on Restart should send it")
+	}
+	cmd()
+	if d := f.Done(); len(d) != 1 || d[0].Name != control.VerbRestart || d[0].Target != "db" {
+		t.Errorf("sent %v", d)
+	}
+
+	// an instance nothing holds restarts at once
+	m = board()
+	m.sel = "web"
+	f = m.d.(*fakedaemon.Fake)
+	_, cmd = m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	if m.modal != nil || cmd == nil {
+		t.Fatalf("an unheld web should restart without asking: modal=%v cmd=%v", m.modal, cmd != nil)
+	}
+	cmd()
+	if d := f.Done(); len(d) != 1 || d[0].Target != "web" {
+		t.Errorf("sent %v", d)
+	}
+}

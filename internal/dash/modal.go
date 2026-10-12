@@ -22,6 +22,7 @@ const (
 	modalNone modalKind = iota
 	modalPalette
 	modalSleep
+	modalRestart // restarting something that is in use
 	modalReset
 	modalInput // a module's action that takes some text
 	modalText  // some lines read whole, wrapped, with nothing cut off
@@ -82,7 +83,7 @@ func (m *Model) actions() []action {
 			}
 			if awake(v) {
 				add(action{label: "sleep " + n, cli: "doze sleep " + n, run: func(m *Model) tea.Cmd { return m.askSleep(n) }})
-				add(action{label: "restart " + n, cli: "doze restart " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbRestart, n) }})
+				add(action{label: "restart " + n, cli: "doze restart " + n, run: func(m *Model) tea.Cmd { return m.askRestart(n) }})
 			}
 			pin := "pin " + n + " awake"
 			if v.KeepAwake {
@@ -239,6 +240,8 @@ func (m *Model) modalKey(k, text string) tea.Cmd {
 	switch m.modal.kind {
 	case modalPalette:
 		return m.paletteKey(k, text)
+	case modalRestart:
+		return m.restartKey(k)
 	case modalSleep:
 		return m.sleepKey(k)
 	case modalReset:
@@ -428,6 +431,8 @@ func (m *Model) withModal(base []string, w, h int) []string {
 		box = m.paletteBox(w, h)
 	case modalSleep:
 		box = m.sleepBox(w)
+	case modalRestart:
+		box = m.restartBox(w)
 	case modalReset:
 		box = m.resetBox(w)
 	case modalInput, modalAsk:
@@ -724,4 +729,89 @@ func (m *Model) askBox(w int) []string {
 	lines = append(lines, s.text.Render("This deletes data and cannot be undone."), "",
 		s.cap("⏎", md.title)+"  "+s.cap("esc", "cancel"))
 	return box(s.borderBad, s.r.Bold(true).Render(md.title+"?"), "", lines, bw, len(lines)+2)
+}
+
+// askRestart restarts target, or asks first when something is using it: a
+// restart drops every connection, which is what sleeping does too and is asked
+// about by the same rule. An instance nobody holds, a task or a crashed one
+// restarts at once.
+func (m *Model) askRestart(target string) tea.Cmd {
+	v, ok := m.find(target)
+	if !ok {
+		return nil
+	}
+	if c := m.refuse(); c != nil {
+		return c
+	}
+	if awake(v) && v.Kind != "task" && inUse(v) != "" {
+		m.modal = &modal{kind: modalRestart, target: target}
+		return nil
+	}
+	return m.do(control.VerbRestart, target)
+}
+
+func (m *Model) restartBox(w int) []string {
+	s := m.st
+	v, ok := m.find(m.modal.target)
+	if !ok {
+		return nil
+	}
+	bw := min(w*66/100, 100)
+	if bw < 56 {
+		bw = w
+	}
+	label := func(k string) string { return s.d.Render(fit(k, 13)) + " " }
+	conns := 0
+	for _, h := range v.Holders {
+		if h.Kind == "connection" {
+			conns = h.Count
+		}
+	}
+	deps := dependants(v)
+	var sentence string
+	switch {
+	case len(deps) > 0 && conns > 0:
+		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it, and " + s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " are open to it right now."
+	case len(deps) > 0:
+		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it."
+	default:
+		sentence = s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " open to it right now."
+	}
+	lines := []string{"", s.text.Render(sentence), "",
+		label("what happens") + s.text.Render("It stops and starts again. Every connection drops; clients that"),
+		label("") + s.text.Render("reconnect find it back in a few seconds, those that do not stay down."),
+		label("data") + s.text.Render("Kept. Nothing is deleted."),
+		"",
+		m.buttons([]string{"Restart " + v.Name, "Cancel"}, m.modal.btn, -1),
+		"",
+		s.border.Render(strings.Repeat("─", bw-4)),
+		s.d.Render("doze only asks when something is using it. Restarting an idle one never asks."),
+		"",
+	}
+	return box(s.borderOn, s.a.Bold(true).Render("restart "+v.Name+"?"), "", lines, bw, len(lines)+2)
+}
+
+func (m *Model) restartKey(k string) tea.Cmd {
+	md := m.modal
+	v, ok := m.find(md.target)
+	if !ok {
+		m.modal = nil
+		return nil
+	}
+	switch k {
+	case "esc", "n":
+		m.modal = nil
+	case "left", "shift+tab", "h":
+		if md.btn > 0 {
+			md.btn--
+		}
+	case "right", "tab", "l":
+		md.btn = (md.btn + 1) % 2
+	case "enter", "y":
+		m.modal = nil
+		if md.btn == 0 || k == "y" {
+			return m.do(control.VerbRestart, v.Name)
+		}
+	}
+	return nil
 }
