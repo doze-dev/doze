@@ -154,6 +154,8 @@ func Modules(now time.Time) *fakedaemon.Fake {
 			{Name: "db", PID: 612, RAM: climb(i, 88, 96, 80), CPU: wave(i, 1.2, 0.9, 23, 59, 6), Conns: 2 + i/120},
 			{Name: "cache", PID: 701, RAM: climb(i, 10, 11, 120), CPU: wave(i, 0.1, 0.1, 19, 0, 0)},
 			{Name: "flows", PID: 733, RAM: climb(i, 130, 148, 90), CPU: wave(i, 0.8, 0.5, 29, 71, 3), Conns: 1},
+			{Name: "events", PID: 741, RAM: climb(i, 176, 188, 110), CPU: wave(i, 1.1, 0.7, 31, 67, 4), Conns: 2},
+			{Name: "cloud", PID: 752, RAM: climb(i, 60, 64, 100), CPU: wave(i, 0.6, 0.4, 37, 0, 0), Conns: 1},
 		}})
 	}
 	pgSpec, pgActions := PostgresConsole()

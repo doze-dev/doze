@@ -738,3 +738,21 @@ func TestCopyPartOfTheLogs(t *testing.T) {
 		t.Errorf("esc should cancel the selection and stay: selecting=%v page=%d", m.selecting, m.page)
 	}
 }
+
+// A running instance shows the same vitals box at the top of its page, on every
+// tab but the overview (which has its own) and not for a task or a sleeping one.
+func TestVitalsAcrossThePlatform(t *testing.T) {
+	m := focused("api")
+	out := frame(m, 140, 42)
+	if !strings.Contains(out, "vitals") || !strings.Contains(out, "now") {
+		t.Errorf("a running app's logs tab lacks the vitals box:\n%s", out)
+	}
+	m = focused("seed")
+	if out := frame(m, 140, 42); strings.Contains(out, "vitals") {
+		t.Errorf("a task has no vitals:\n%s", out)
+	}
+	m = focused("api")
+	if out := frame(m, 140, 24); strings.Contains(out, "vitals") {
+		t.Errorf("a short window should keep its room for the logs:\n%s", out)
+	}
+}

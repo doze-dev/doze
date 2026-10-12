@@ -242,6 +242,15 @@ func (m *Model) focus(w, h int) []string {
 	out := []string{l + strings.Repeat(" ", gap) + r}
 
 	bodyH := h - 2
+	// What it is doing, drawn the same on every page of a running instance: the
+	// module overview has it in its own place, and the others get it across the
+	// top when the window has the room.
+	var strip []string
+	if cur.id != tabOverview && cur.id != tabLastRun && awake(v) && v.Kind != "task" && bodyH >= 30 {
+		strip = m.vitalsStrip(v, w, min(11, bodyH-18))
+	}
+	m.vitalsOn = len(strip) > 0
+	bodyH -= len(strip)
 	var body []string
 	m.currentTabID = cur.id
 	switch {
@@ -259,6 +268,7 @@ func (m *Model) focus(w, h int) []string {
 	for len(body) < bodyH {
 		body = append(body, "")
 	}
+	out = append(out, strip...)
 	out = append(out, body[:bodyH]...)
 	return append(out, m.focusKeys(v, ts, cur))
 }
@@ -414,6 +424,9 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
 			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
 		} {
+			if m.vitalsOn {
+				break // the vitals are across the top; this box does not say them twice
+			}
 			if i == 0 {
 				run = append(run, "")
 			}
@@ -990,4 +1003,23 @@ func (m *Model) stamp(at time.Time) string {
 		return right(fmt.Sprintf("-%dm %02ds", int(d.Minutes()), int(d.Seconds())%60), 8)
 	}
 	return right("-"+ago(d), 8)
+}
+
+// vitalsStrip is the vitals box across the top of a page: cpu, memory and
+// connections as the charts the module overview shows, as tall as maxH lines
+// allow. It returns nothing when not even the smallest chart fits.
+func (m *Model) vitalsStrip(v control.InstanceView, w, maxH int) []string {
+	s := m.st
+	ts := []trace{
+		{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+		{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+		{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
+	}
+	groups := chartGroups(w-4, len(ts))
+	for r := 5; r >= 2; r-- {
+		if h := 2 + groups*(r+3) + (groups - 1); h <= maxH {
+			return box(s.border, s.a.Bold(true).Render("vitals"), "", m.charts(ts, w-4, r), w, h)
+		}
+	}
+	return nil
 }

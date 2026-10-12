@@ -46,6 +46,7 @@ type Model struct {
 	listTop      int                // the first line of the stack shown, when it is longer than its box
 	sortBy       int                // o: how the table orders its rows within a group
 	tree         bool               // t: the table as a dependency tree
+	vitalsOn     bool               // the vitals are drawn across the top of this page
 	search       string             // /: on a logs tab, only the lines that hold it
 	all          []control.LogFrame // the stack's lines, for the logs page
 	allCancel    context.CancelFunc
