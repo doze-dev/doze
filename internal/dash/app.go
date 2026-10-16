@@ -106,10 +106,11 @@ type Model struct {
 	// can have its logs asked for; resubLogs asks again.
 	known       map[string]bool
 	resubLogs   func()
-	runningTask string // a task asked for and not yet finished: its message stays
-	reportTask  string // a task that has finished: say how it went when the snapshot is in
-	atTop       bool   // the logs are scrolled to the oldest line the dash holds
-	mouseTold   bool   // the shift-drag hint has been said
+	runningTask string  // a task asked for and not yet finished: its message stays
+	reportTask  string  // a task that has finished: say how it went when the snapshot is in
+	area        logArea // where the lines that can be selected are on screen
+	atTop       bool    // the logs are scrolled to the oldest line the dash holds
+	mouseTold   bool    // the shift-drag hint has been said
 	noticeAt    time.Time
 	history     []message
 
@@ -298,7 +299,7 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	if m.modal != nil {
 		return m, m.modalKey(k, text)
 	}
-	if m.selecting && (m.page == pageFocus || m.page == pageLogs) {
+	if m.selecting && (m.page == pageFocus || m.page == pageLogs || m.page == pageHome) {
 		return m, m.selectKey(k)
 	}
 	if m.page == pageLogs {
@@ -413,6 +414,8 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		}
 	case "w":
 		return m, m.verb(control.VerbWake)
+	case "v":
+		m.beginSelect(len(m.shown) - 1)
 	case "r":
 		if v, ok := m.selected(); ok {
 			return m, m.askRestart(v.Name)
@@ -608,6 +611,7 @@ func (m *Model) Render(w, h int) string {
 	if w < minW || h < minH {
 		return substitute(tooSmall(m.st, w, h), m.glyphs)
 	}
+	m.area = logArea{}
 	base := page(w, h)
 	if m.modal != nil {
 		saved := m.st

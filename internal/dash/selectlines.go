@@ -14,17 +14,13 @@ import (
 // the button is let go. While a selection is open the lines hold still, so what
 // is selected is what was seen.
 
-// selectable says whether the screen is one of lines that can be selected.
-func (m *Model) selectable() bool {
-	if m.page == pageLogs {
-		return true
-	}
-	if v, ok := m.selected(); ok && m.page == pageFocus {
-		ts := m.tabs(v)
-		return m.tab < len(ts) && ts[m.tab].id == tabLogs
-	}
-	return false
-}
+// logArea is where, on screen, the lines of a box of logs are: the row of the
+// first, and the columns of the box. A page sets it when it draws one, so the
+// mouse is mapped to the lines and not to where a page used to put them.
+type logArea struct{ y0, x0, x1 int }
+
+// selectable says whether the last frame drew a box of lines that can be selected.
+func (m *Model) selectable() bool { return m.area.x1 > 0 }
 
 // shownLines are the lines the page is drawing, as the last frame had them.
 func (m *Model) beginSelect(at int) {
@@ -64,7 +60,7 @@ func (m *Model) copySelection(file bool) tea.Cmd {
 		return nil
 	}
 	name := "selection"
-	if v, ok := m.selected(); ok && m.page == pageFocus {
+	if v, ok := m.selected(); ok && (m.page == pageFocus || m.page == pageHome) {
 		name = v.Name + "-selection"
 	}
 	return m.out(strings.Join(out, "\n"), lineWord(len(out)), name, file)
@@ -96,7 +92,7 @@ func (m *Model) selectKey(k string) tea.Cmd {
 // logRow is which shown line a mouse row is on: the box has a header line and a
 // border above its first line.
 func (m *Model) logRow(y int) (int, bool) {
-	i := y - 2
+	i := y - m.area.y0
 	return i, i >= 0 && i < len(m.shown)
 }
 
@@ -111,8 +107,8 @@ func (m *Model) logMouse(msg tea.Msg) (tea.Cmd, bool) {
 		if mo.Button != tea.MouseLeft {
 			return nil, false
 		}
-		if m.page == pageFocus && profileOf(m.w, 0).wc != widthCompact && mo.X >= m.w-41 {
-			return nil, false // the column beside the logs is not lines of them
+		if mo.X < m.area.x0 || mo.X >= m.area.x1 {
+			return nil, false // beside the logs is not lines of them
 		}
 		if i, ok := m.logRow(mo.Y); ok {
 			if !m.selecting {
@@ -126,7 +122,7 @@ func (m *Model) logMouse(msg tea.Msg) (tea.Cmd, bool) {
 	case tea.MouseMotionMsg:
 		if m.dragging && m.selecting {
 			mo := tea.Mouse(e)
-			m.selB = min(max(mo.Y-2, 0), len(m.frozen)-1)
+			m.selB = min(max(mo.Y-m.area.y0, 0), len(m.frozen)-1)
 			return nil, true
 		}
 	case tea.MouseReleaseMsg:
@@ -222,4 +218,10 @@ func (m *Model) textKey(k string) tea.Cmd {
 		return tea.Quit
 	}
 	return nil
+}
+
+// selectBar is the key line while a selection is open.
+func (m *Model) selectBar() string {
+	s := m.st
+	return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("Y", "file") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
 }

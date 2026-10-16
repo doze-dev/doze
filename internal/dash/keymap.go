@@ -70,6 +70,7 @@ func (m *Model) homeHints() []hint {
 		{"o", "sort " + sortTitles[m.sortBy], "sort within each group: name, memory, state", 4},
 		{"t", "tree", "show what needs what, as a tree", 4},
 		{"/", "filter", "narrow the table to rows matching every word typed", 3},
+		{"v", "select", "select lines of the logs beside or under the list, to copy them; or drag with the mouse", 4},
 		{":", "command", "the palette: every action, with its command-line form", 1},
 		{"?", "help", "this list", 0},
 		{"q", "quit", "leave; the stack keeps running", 1},

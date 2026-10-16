@@ -722,7 +722,12 @@ func (m *Model) homeTable(w, h int) []string {
 		left := out[leftAt-1:] // the header row and what follows
 		out = out[:leftAt-1]
 		P := room + 1 // the header row and the rows under it
+		m.area = logArea{}
 		right := m.detailPane(v, dw, P)
+		if m.area.x1 > 0 {
+			m.area.y0 += leftAt - 1 // the pane's first row is the list's header row
+			m.area.x0, m.area.x1 = tw+1, w
+		}
 		// a short list leaves room under it: what has been happening
 		if free := min(P-len(left)-1, 16); free >= 6 {
 			left = append(left, "")
@@ -740,7 +745,12 @@ func (m *Model) homeTable(w, h int) []string {
 			out = append(out, l+" "+r)
 		}
 	} else if v, ok := m.selected(); ok {
-		out = append(out, m.logsBox(v, w, logsH)...)
+		m.area = logArea{}
+		box := m.logsBox(v, w, logsH)
+		if m.area.x1 > 0 {
+			m.area.y0 += len(out)
+		}
+		out = append(out, box...)
 	} else {
 		msg := []string{s.d.Render("Nothing is declared in this stack yet."), "",
 			s.text.Render("  doze add postgres") + s.d.Render("      add a module from the registry"),

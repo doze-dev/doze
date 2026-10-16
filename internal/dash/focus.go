@@ -280,6 +280,9 @@ func (m *Model) focus(w, h int) []string {
 		body = append(body, "")
 	}
 	out = append(out, strip...)
+	if m.area.x1 > 0 {
+		m.area.y0 = len(out) + 1 // the header and the strip, then the box's top border
+	}
 	out = append(out, body[:bodyH]...)
 	return append(out, m.focusKeys(v, ts, cur, w))
 }
@@ -288,7 +291,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab, w int) stri
 	s := m.st
 	if cur.id == tabLogs {
 		if m.selecting {
-			return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("Y", "file") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
+			return m.selectBar()
 		}
 		if m.searching {
 			return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("search") + " " + s.w.Render(m.search) + s.a.Render("▏")
@@ -357,6 +360,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		}
 		cap = "search " + s.w.Render(m.search) + cursor + s.d.Render(" · "+cap)
 	}
+	m.area = logArea{x0: 0, x1: lw} // the page sets the row
 	left := box(s.border, s.d.Render(cap), s.d.Render(rcap), lines, lw, h)
 	if rw == 0 {
 		return left

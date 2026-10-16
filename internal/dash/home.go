@@ -525,6 +525,8 @@ func (m *Model) keys(w int) string {
 	s := m.st
 	extra := m.noticeText()
 	switch {
+	case m.selecting:
+		return m.selectBar()
 	case m.filtering:
 		return s.cap("⏎", "keep") + "  " + s.cap("esc", "clear") + "  " + s.a.Bold(true).Render("filter") + " " + s.w.Render(m.filter) + s.a.Render("▏")
 	case m.filter != "":
@@ -629,6 +631,9 @@ func (m *Model) hint(v control.InstanceView) string {
 // click handles a left click on Home: on a row of the stack it selects that
 // row, and a second click on the same row soon after opens it, as enter does.
 func (m *Model) click(at tea.Mouse) {
+	if m.selecting {
+		m.selecting, m.dragging, m.frozen = false, false, nil // a click elsewhere leaves it
+	}
 	if at.Button != tea.MouseLeft || m.page != pageHome || m.modal != nil || at.X >= m.hitX1 {
 		return
 	}

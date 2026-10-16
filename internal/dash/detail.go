@@ -27,6 +27,12 @@ func (m *Model) logsBox(v control.InstanceView, w, h int) []string {
 		}
 	} else {
 		lines = m.stream(v, h-2, lvDebug, 0)
+		if m.selecting && m.page == pageHome {
+			lines = m.decorate()
+		} else {
+			m.shown = lines
+		}
+		m.area = logArea{y0: 1, x0: 0, x1: w} // the caller adds where the box is
 	}
 	return box(border, caption, "", lines, w, h)
 }
@@ -45,7 +51,11 @@ func (m *Model) detailPane(v control.InstanceView, dw, p int) []string {
 			logsH = p - len(strip)
 		}
 	}
-	return append(out, m.logsBox(v, dw, logsH)...)
+	box := m.logsBox(v, dw, logsH)
+	if m.area.x1 > 0 {
+		m.area.y0 += len(out) // under the vitals
+	}
+	return append(out, box...)
 }
 
 // activityBox is the stack's recent events, newest last, in the room a short

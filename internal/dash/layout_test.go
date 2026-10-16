@@ -152,3 +152,76 @@ func TestTheSizeMatrix(t *testing.T) {
 	}
 	_ = fmt.Sprint
 }
+
+// rowOf is the screen row of the first line containing s, and the column of it.
+func rowOf(out, s string) (y, x int) {
+	for i, l := range strings.Split(out, "\n") {
+		if j := strings.Index(l, s); j >= 0 {
+			return i, len([]rune(l[:j]))
+		}
+	}
+	return -1, -1
+}
+
+// A press on the first line of the logs selects the first line, whatever is
+// above the box: on an instance's page that is a strip of vitals, and the
+// mouse used to be mapped as if the box were at the top.
+func TestAPressOnTheFirstLogLineSelectsItWithVitalsAbove(t *testing.T) {
+	m := focused("api")
+	out := frame(m, 140, 50)
+	if !strings.Contains(out, "vitals") {
+		t.Fatalf("this test wants the vitals strip above the logs:\n%s", out)
+	}
+	y, x := rowOf(out, "listening addr")
+	if y < 0 {
+		t.Fatalf("no log line on screen:\n%s", out)
+	}
+	m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+	if !m.selecting || m.selA != 0 {
+		t.Fatalf("a press on the first line selected line %d (selecting=%v)", m.selA, m.selecting)
+	}
+	// and a drag to the third line copies three
+	m.Update(tea.MouseMotionMsg{X: x, Y: y + 2, Button: tea.MouseLeft})
+	_, cmd := m.Update(tea.MouseReleaseMsg{X: x, Y: y + 2, Button: tea.MouseLeft})
+	if cmd == nil || !strings.Contains(m.notice, "sent 3 lines") {
+		t.Errorf("a drag over three lines: notice %q", m.notice)
+	}
+}
+
+// The logs on Home can be selected, under the list and beside it.
+func TestTheLogsOnHomeCanBeSelected(t *testing.T) {
+	for _, sz := range [][2]int{{150, 44}, {190, 54}} {
+		m := board()
+		out := frame(m, sz[0], sz[1])
+		y, x := rowOf(out, "listening addr")
+		if y < 0 {
+			t.Fatalf("%v: no log line on screen:\n%s", sz, out)
+		}
+		// a press beside the logs (in the list) selects a row, not a log line
+		m.Update(tea.MouseClickMsg{X: 3, Y: m.hitY0 + 1, Button: tea.MouseLeft})
+		if m.selecting {
+			t.Errorf("%v: a click in the list began a selection", sz)
+		}
+		m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+		if !m.selecting || m.selA != 0 {
+			t.Fatalf("%v: a press on the first log line: selecting=%v at %d", sz, m.selecting, m.selA)
+		}
+		m.Update(tea.MouseMotionMsg{X: x, Y: y + 2, Button: tea.MouseLeft})
+		_, cmd := m.Update(tea.MouseReleaseMsg{X: x, Y: y + 2, Button: tea.MouseLeft})
+		if cmd == nil || !strings.Contains(m.notice, "sent 3 lines") {
+			t.Errorf("%v: a drag over three lines: notice %q", sz, m.notice)
+		}
+		// the lines are marked while selected, and v starts one from the keyboard
+		m.Update(tea.KeyPressMsg{Code: 'v', Text: "v"})
+		if !m.selecting || m.selA != len(m.frozen)-1 {
+			t.Errorf("%v: v should select the newest line (selecting=%v at %d of %d)", sz, m.selecting, m.selA, len(m.frozen))
+		}
+		if bar := frame(m, sz[0], sz[1]); !strings.Contains(bar, "extend") || !strings.Contains(bar, "copy") {
+			t.Errorf("%v: the key bar while selecting:\n%s", sz, bar)
+		}
+		m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.selecting {
+			t.Errorf("%v: esc should leave the selection", sz)
+		}
+	}
+}

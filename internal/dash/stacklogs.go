@@ -200,6 +200,7 @@ func (m *Model) stackLogs(w, h int) []string {
 	} else {
 		m.shown = lines
 	}
+	m.area = logArea{y0: 2, x0: 0, x1: w}
 	if len(lines) == 0 {
 		msg := "nothing printed yet"
 		if m.search != "" {
