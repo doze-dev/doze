@@ -1,6 +1,10 @@
 package dash
 
-import "strings"
+import (
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+)
 
 // Scrolling the logs. A page of logs follows the newest line until it is
 // scrolled back; then it holds still, whatever arrives, and says how many newer
@@ -76,6 +80,9 @@ func (m *Model) pageTotal() int {
 	}
 	if v, ok := m.selected(); ok {
 		m.query = m.search
+		if m.page == pageHome {
+			m.query = "" // Home's logs are not searched
+		}
 		n := len(m.streamAll(v, m.level, m.runSel))
 		m.query = ""
 		return n
@@ -84,3 +91,10 @@ func (m *Model) pageTotal() int {
 }
 
 var _ = strings.TrimSpace
+
+// overLogs says whether the pointer is on the box of logs Home is drawing, so
+// the wheel scrolls them; anywhere else on Home it moves through the list.
+func (m *Model) overLogs(mo tea.Mouse) bool {
+	a := m.area
+	return a.x1 > 0 && !m.selecting && mo.X >= a.x0 && mo.X < a.x1 && mo.Y >= a.y0-1 && mo.Y <= a.y0+a.n
+}

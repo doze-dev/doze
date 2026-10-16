@@ -104,15 +104,20 @@ type Model struct {
 
 	// known are the instances the dash has seen, so one added while it is open
 	// can have its logs asked for; resubLogs asks again.
-	known       map[string]bool
-	resubLogs   func()
-	runningTask string  // a task asked for and not yet finished: its message stays
-	reportTask  string  // a task that has finished: say how it went when the snapshot is in
-	area        logArea // where the lines that can be selected are on screen
-	atTop       bool    // the logs are scrolled to the oldest line the dash holds
-	mouseTold   bool    // the shift-drag hint has been said
-	noticeAt    time.Time
-	history     []message
+	known        map[string]bool
+	resubLogs    func()
+	runningTask  string  // a task asked for and not yet finished: its message stays
+	reportTask   string  // a task that has finished: say how it went when the snapshot is in
+	scrolledFor  string  // the instance whose logs on Home the scroll belongs to
+	selMode      selMode // whole lines, or from a column to a column
+	selAc, selBc int     // the columns, in selByChar
+	click3       clickRun
+	dragMode     dragMode
+	area         logArea // where the lines that can be selected are on screen
+	atTop        bool    // the logs are scrolled to the oldest line the dash holds
+	mouseTold    bool    // the shift-drag hint has been said
+	noticeAt     time.Time
+	history      []message
 
 	conn      connState // whether the daemon is being heard
 	waiting   bool      // no instances frame or snapshot yet: the stack is not known
@@ -266,7 +271,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tellMouse()
 		if m.modal == nil {
 			btn := tea.Mouse(msg).Button
+			mo := tea.Mouse(msg)
 			switch {
+			case m.page == pageHome && m.overLogs(mo) && btn == tea.MouseWheelUp:
+				m.scrollBy(-3)
+			case m.page == pageHome && m.overLogs(mo) && btn == tea.MouseWheelDown:
+				m.scrollBy(3)
 			case m.page == pageHome && btn == tea.MouseWheelUp:
 				m.move(-1)
 			case m.page == pageHome && btn == tea.MouseWheelDown:

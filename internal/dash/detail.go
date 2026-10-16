@@ -1,6 +1,8 @@
 package dash
 
 import (
+	"fmt"
+
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
 	"github.com/doze-dev/doze/internal/journal"
@@ -26,13 +28,26 @@ func (m *Model) logsBox(v control.InstanceView, w, h int) []string {
 			lines = append(lines, m.stream(v, room-1, lvDebug, 0)...)
 		}
 	} else {
-		lines = m.stream(v, h-2, lvDebug, 0)
+		if m.page == pageHome {
+			// each instance's logs are followed until scrolled, and the scroll is not
+			// carried from one instance to the next
+			if m.scrolledFor != v.Name {
+				m.scrolledFor, m.pinned = v.Name, false
+			}
+			var newer int
+			lines, newer = m.window(m.streamAll(v, lvDebug, 0), h-2)
+			if newer > 0 {
+				caption = s.b.Render(v.Name) + " " + s.d.Render(fmt.Sprintf("· scrolled back · %d newer lines · wheel down to follow", newer))
+			}
+		} else {
+			lines = m.stream(v, h-2, lvDebug, 0)
+		}
 		if m.selecting && m.page == pageHome {
 			lines = m.decorate()
 		} else {
 			m.shown = lines
 		}
-		m.area = logArea{y0: 1, x0: 0, x1: w} // the caller adds where the box is
+		m.area = logArea{y0: 1, x0: 0, x1: w, n: h - 2} // the caller adds where the box is
 	}
 	return box(border, caption, "", lines, w, h)
 }

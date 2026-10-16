@@ -17,7 +17,7 @@ import (
 // logArea is where, on screen, the lines of a box of logs are: the row of the
 // first, and the columns of the box. A page sets it when it draws one, so the
 // mouse is mapped to the lines and not to where a page used to put them.
-type logArea struct{ y0, x0, x1 int }
+type logArea struct{ y0, x0, x1, n int } // n is how many lines it has room for
 
 // selectable says whether the last frame drew a box of lines that can be selected.
 func (m *Model) selectable() bool { return m.area.x1 > 0 }
@@ -34,40 +34,31 @@ func (m *Model) beginSelect(at int) {
 	m.selA, m.selB = at, at
 }
 
-// decorate marks the selected lines of frozen, in the pick colour.
-func (m *Model) decorate() []string {
-	lo, hi := min(m.selA, m.selB), max(m.selA, m.selB)
-	out := make([]string, len(m.frozen))
-	for i, l := range m.frozen {
-		if i >= lo && i <= hi {
-			out[i] = m.st.onPick(m.st.w).Render(ansi.Strip(l))
-		} else {
-			out[i] = l
-		}
-	}
-	return out
-}
-
-// copySelection puts the selected lines on the clipboard and leaves the mode.
+// copySelection puts the selected text on the clipboard and leaves the mode.
 func (m *Model) copySelection(file bool) tea.Cmd {
-	lo, hi := min(m.selA, m.selB), max(m.selA, m.selB)
-	var out []string
-	for i := lo; i <= hi && i < len(m.frozen); i++ {
-		out = append(out, strings.TrimRight(ansi.Strip(m.frozen[i]), " "))
-	}
+	out := m.selText()
+	what := m.selWhat(out)
 	m.selecting, m.dragging, m.frozen = false, false, nil
-	if len(out) == 0 {
+	if len(out) == 0 || (len(out) == 1 && out[0] == "") {
 		return nil
 	}
 	name := "selection"
 	if v, ok := m.selected(); ok && (m.page == pageFocus || m.page == pageHome) {
 		name = v.Name + "-selection"
 	}
-	return m.out(strings.Join(out, "\n"), lineWord(len(out)), name, file)
+	return m.out(strings.Join(out, "\n"), what, name, file)
 }
 
 // selectKey handles a key while a selection is open.
 func (m *Model) selectKey(k string) tea.Cmd {
+	// the keyboard works on whole lines: a selection made with the mouse becomes
+	// the lines it touches
+	if m.selMode == selByChar {
+		switch k {
+		case "up", "k", "down", "j", "g", "home", "G", "end", "enter", "o":
+			m.selMode = selByLine
+		}
+	}
 	switch k {
 	case "up", "k":
 		m.selB = max(m.selB-1, 0)
@@ -110,29 +101,47 @@ func (m *Model) logMouse(msg tea.Msg) (tea.Cmd, bool) {
 		if mo.X < m.area.x0 || mo.X >= m.area.x1 {
 			return nil, false // beside the logs is not lines of them
 		}
-		if i, ok := m.logRow(mo.Y); ok {
-			if !m.selecting {
-				m.beginSelect(i)
-			} else {
-				m.selA, m.selB = i, i
-			}
-			m.dragging = true
-			return nil, true
+		i, ok := m.logRow(mo.Y)
+		if !ok {
+			return nil, false
 		}
+		if !m.selecting {
+			m.beginSelect(i)
+			if !m.selecting {
+				return nil, true
+			}
+		}
+		col := m.textCol(mo.X)
+		m.selMode, m.dragging = selByChar, true
+		m.selA, m.selB, m.selAc, m.selBc = i, i, col, col
+		switch m.clicked(i, col) {
+		case 2: // a word
+			m.selAc, m.selBc = wordAt(m.plain(i), col)
+			m.dragMode = dragFixed
+		case 3: // the line
+			m.selMode = selByLine
+			m.dragMode = dragFixed
+		default:
+			m.dragMode = dragFree
+		}
+		return nil, true
 	case tea.MouseMotionMsg:
-		if m.dragging && m.selecting {
+		if m.dragging && m.selecting && m.dragMode == dragFree {
 			mo := tea.Mouse(e)
 			m.selB = min(max(mo.Y-m.area.y0, 0), len(m.frozen)-1)
+			m.selBc = m.textCol(mo.X)
 			return nil, true
 		}
 	case tea.MouseReleaseMsg:
 		if m.dragging {
 			m.dragging = false
-			// a click with no drag selects the line; a drag copies what it covered
-			if m.selA != m.selB {
-				return m.copySelection(false), true
+			// what was covered is copied on release; a press that did not move
+			// selects nothing and leaves
+			if m.selEmpty() {
+				m.selecting, m.frozen = false, nil
+				return nil, true
 			}
-			return nil, true
+			return m.copySelection(false), true
 		}
 	}
 	return nil, false
@@ -223,5 +232,9 @@ func (m *Model) textKey(k string) tea.Cmd {
 // selectBar is the key line while a selection is open.
 func (m *Model) selectBar() string {
 	s := m.st
-	return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("Y", "file") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1))
+	n := fmt.Sprintf("   %d lines", abs(m.selB-m.selA)+1)
+	if m.selMode == selByChar {
+		n = "   " + m.selWhat(m.selText())
+	}
+	return s.cap("↑↓", "extend") + "  " + s.cap("y", "copy") + "  " + s.cap("Y", "file") + "  " + s.cap("⏎", "read whole") + "  " + s.cap("esc", "cancel") + s.d.Render(n)
 }
