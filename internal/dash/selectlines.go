@@ -111,7 +111,7 @@ func (m *Model) logMouse(msg tea.Msg) (tea.Cmd, bool) {
 		if mo.Button != tea.MouseLeft {
 			return nil, false
 		}
-		if m.page == pageFocus && m.w >= 100 && mo.X >= m.w-41 {
+		if m.page == pageFocus && profileOf(m.w, 0).wc != widthCompact && mo.X >= m.w-41 {
 			return nil, false // the column beside the logs is not lines of them
 		}
 		if i, ok := m.logRow(mo.Y); ok {

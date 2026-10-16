@@ -99,7 +99,7 @@ Decided, by the project owner, during design:
 | D46 | The meters show only what is consumed, never a ceiling that is a guess: `of ~X` (D15) is gone. Each bar is the whole of what the stack consumes, cut by instance, biggest first, with a line naming each colour and its size; CPU is said in cores (1 core = one core fully busy), not a bare percent. The key needs 34 rows; below that the bars and totals remain. Decided 2026-10-16. |
 | D47 | The dash reads its window into one profile (width class, height class) that every part asks; no scattered thresholds. See adaptive-layout.md. Decided 2026-10-16. |
 | D48 | Size is a budget spent in priority order, never a cliff: bars, then the key under them, then every table row, then more log lines. Decided 2026-10-16. |
-| D49 | At 160 columns and up Home is master and detail (W-Home): the table at its natural width on the left, the selected instance's vitals and logs on the right. Decided 2026-10-16. |
+| D49 | At 176 columns and up Home is master and detail (W-Home): the table at its natural width on the left, the selected instance's vitals and logs on the right. Decided 2026-10-16. |
 | D50 | Columns stop at their content; extra width is spent on information, never on blank space. At 220 and up the table gains a memory trend. Decided 2026-10-16. |
 | D15 | "N MB of ~M if nothing slept" stays, using each service's memory from the last time it ran. Services that have never run are left out. Tier: should. Decided 2026-10-10. |
 | D16 | Cold versus warm request timing is cut. The wake timeline stays. Decided 2026-10-10. |

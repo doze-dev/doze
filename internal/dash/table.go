@@ -266,6 +266,14 @@ func (m *Model) homeTable(w, h int) []string {
 	s := m.st
 	rs := m.ordered()
 	p := profileOf(w, h)
+	// Wide: the list at its natural width, and the selected instance beside it
+	// (boards/W-Home.dc.html). tw is the list's width, dw the detail's.
+	tw, dw := w, 0
+	if p.wc >= widthWide && h >= 24 && len(rs) > 0 {
+		tw = min(max(w*55/100, 100), 128)
+		dw = w - tw - 1
+	}
+	split := dw > 0
 	if len(rs) > 0 {
 		found := false
 		for _, r := range rs {
@@ -334,7 +342,7 @@ func (m *Model) homeTable(w, h int) []string {
 	if p.wc >= widthWide {
 		mc = min(half, 100) // the key can name more of them
 	}
-	if w < 100 {
+	if profileOf(w, 0).wc == widthCompact {
 		mc = min(w-2, 64)
 	}
 	// with room, each bar has the line that names its colours under it
@@ -435,10 +443,21 @@ func (m *Model) homeTable(w, h int) []string {
 			return ""
 		}},
 	}
+	// at the grand size there is room to show where memory has been going
+	if p.wc == widthGrand {
+		trend := tcol{"TREND", 12, false, func(v control.InstanceView) string {
+			if !awake(v) {
+				return ""
+			}
+			return spark(m.ram[v.Name], 12)
+		}}
+		all = append(all[:6], append([]tcol{trend}, all[6:]...)...)
+	}
 	// what goes first when the window is narrow: the kind (the group says it),
 	// then the counts, then the uptime, then the engine. The last two columns
 	// (because, runs) are worth more than any of them.
-	drop := []string{"KIND", "CONN", "CPU%", "UP", "ENGINE"}
+	drop := []string{"TREND", "KIND", "CONN", "CPU%", "UP", "ENGINE"}
+	needRest := 64
 	fixed := func(cs []tcol) int {
 		n := 2 // the table's left and right padding
 		for _, c := range cs {
@@ -446,9 +465,22 @@ func (m *Model) homeTable(w, h int) []string {
 		}
 		return n
 	}
+	// a wide window's list is as wide as its content needs, every column and what
+	// they say, and what is left is the detail's
+	if split {
+		natWhy, natRuns := 0, 0
+		for _, r := range rs {
+			natWhy = max(natWhy, width(m.because(r.v)))
+			natRuns = max(natRuns, width(m.runs(r.v)))
+		}
+		needRest = min(needRest, min(natWhy, 38)+2+min(natRuns, 48))
+		nat := fixed(all) + min(natWhy, 38) + 2 + min(natRuns, 48)
+		tw = min(max(nat, 100), max(w*60/100, 100))
+		dw = w - tw - 1
+	}
 	cols := all
 	for _, d := range drop {
-		if w-fixed(cols) >= 64 {
+		if tw-fixed(cols) >= needRest {
 			break
 		}
 		var keep []tcol
@@ -462,7 +494,7 @@ func (m *Model) homeTable(w, h int) []string {
 	// what is left is two columns: why it is as it is, and what it runs. They are
 	// two things, so they have two headings and a gap, and when there is no room
 	// for both, the second goes.
-	rest := max(w-fixed(cols), 8)
+	rest := max(tw-fixed(cols), 8)
 	whyW, runsW := rest, 0
 	if rest >= 60 {
 		whyW = min(max(rest*38/100, 24), 38)
@@ -548,6 +580,8 @@ func (m *Model) homeTable(w, h int) []string {
 				if !awake(v) {
 					st = s.d
 				}
+			case "TREND":
+				st = s.a
 			case "KIND", "UP", "CPU%", "CONN":
 				st = s.d
 				if c.title == "CPU%" || c.title == "CONN" {
@@ -571,7 +605,7 @@ func (m *Model) homeTable(w, h int) []string {
 			put(fit(m.runs(v), runsW), s.text)
 		}
 		put(" ", lipgloss.NewStyle())
-		if pad := w - width(b.String()); pad > 0 {
+		if pad := tw - width(b.String()); pad > 0 {
 			put(strings.Repeat(" ", pad), lipgloss.NewStyle())
 		}
 		body = append(body, line{b.String(), v.Name, curHead})
@@ -592,6 +626,9 @@ func (m *Model) homeTable(w, h int) []string {
 		// what went wrong needs the room: a trace is not three lines. The table
 		// scrolls to keep the row in view.
 		minLogs = max(minLogs, min(room/2, 16))
+	}
+	if split {
+		minLogs = 0 // the detail is beside the list, not under it
 	}
 	tableH := min(len(body), max(room-minLogs, 3))
 	scrolls := len(body) > tableH
@@ -662,7 +699,7 @@ func (m *Model) homeTable(w, h int) []string {
 		hput(fit("RUNS", runsW))
 	}
 	hput(" ")
-	if pad := w - width(ansi.Strip(hb.String())); pad > 0 {
+	if pad := tw - width(ansi.Strip(hb.String())); pad > 0 {
 		hput(strings.Repeat(" ", pad))
 	}
 	if len(rs) > 0 {
@@ -670,7 +707,8 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 
 	m.hit = m.hit[:0]
-	m.hitY0, m.hitX1 = len(out), w
+	leftAt := len(out)
+	m.hitY0, m.hitX1 = len(out), tw
 	for _, l := range body {
 		out = append(out, l.text)
 		m.hit = append(m.hit, l.name)
@@ -680,26 +718,29 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 
 	// --- the selected instance: what went wrong, or what it is saying ---
-	if v, ok := m.selected(); ok {
-		border := s.border
-		caption := s.b.Render(v.Name) + " " + s.d.Render("· logs · following")
-		var lines []string
-		if troubled(v) {
-			var rcap string
-			lines, _, rcap, border = m.detail(v, w-4, logsH-2)
-			caption = s.b.Render(v.Name) + " " + s.pillR.Render("crashing")
-			if rcap != "" {
-				caption += "  " + rcap
-			}
-			room := logsH - 2 - len(lines)
-			if room > 2 {
-				lines = append(lines, "")
-				lines = append(lines, m.stream(v, room-1, lvDebug, 0)...)
-			}
-		} else {
-			lines = m.stream(v, logsH-2, lvDebug, 0)
+	if v, ok := m.selected(); ok && split {
+		left := out[leftAt-1:] // the header row and what follows
+		out = out[:leftAt-1]
+		P := room + 1 // the header row and the rows under it
+		right := m.detailPane(v, dw, P)
+		// a short list leaves room under it: what has been happening
+		if free := min(P-len(left)-1, 16); free >= 6 {
+			left = append(left, "")
+			left = append(left, m.activityBox(tw, free)...)
 		}
-		out = append(out, box(border, caption, "", lines, w, logsH)...)
+		for i := 0; i < P; i++ {
+			l := strings.Repeat(" ", tw)
+			if i < len(left) {
+				l = left[i] + strings.Repeat(" ", max(tw-width(left[i]), 0))
+			}
+			r := ""
+			if i < len(right) {
+				r = right[i]
+			}
+			out = append(out, l+" "+r)
+		}
+	} else if v, ok := m.selected(); ok {
+		out = append(out, m.logsBox(v, w, logsH)...)
 	} else {
 		msg := []string{s.d.Render("Nothing is declared in this stack yet."), "",
 			s.text.Render("  doze add postgres") + s.d.Render("      add a module from the registry"),

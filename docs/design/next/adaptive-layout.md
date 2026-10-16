@@ -51,8 +51,8 @@ of comparing `w` and `h` itself.
 | width class | columns | what it is (estimates, **not** measured on a machine) |
 |---|---|---|
 | compact | under 100 | a small or split window; the old 80×24 |
-| standard | 100–159 | half a laptop screen; a maximised small laptop |
-| wide | 160–219 | a maximised 14″ laptop |
+| standard | 100–175 | half a laptop screen; a maximised small laptop |
+| wide | 176–219 | a maximised 14″ laptop or larger |
 | grand | 220 and up | a large laptop or an external display |
 
 | height class | rows |
@@ -75,7 +75,7 @@ order listed, while rows remain.
 | necessary | table header + at least 6 rows (or all, if fewer) | 7 | |
 | necessary | logs, 8 lines and their box | 10 | a troubled instance gets half the room |
 | 1 | the meters as bars (mem, cpu, conns) | 3 | one line each, or a one-line summary under 100 columns |
-| 2 | the line under each bar naming its colours | +2 | the biggest few instances, as many as the width holds |
+| 2 | the line under each bar naming its colours | +2 | bought only while the table still shows up to 16 rows (a small stack gets it at 24 rows, the board's 15 rows at 34) |
 | 3 | every table row | up to all | scrolls, saying `↓ N more` |
 | 4 | more log lines | the rest | |
 
@@ -90,7 +90,7 @@ row. **New:** today the key appears at a bare `h>=34`.
 (kind, conns, cpu, uptime, engine) and `?`, `l` and `esc` stay in the key bar.
 Home at 80×24 keeps its own screen (`Narrow.dc.html`).
 
-**Standard (100–159).** Stacked, as today: header, table, the selected instance's
+**Standard (100–175).** Stacked, as today: header, table, the selected instance's
 logs under it. Two changes: the table is only as wide as its content (a column
 stops growing at its widest cell, so RUNS is beside BECAUSE, not across the room),
 and the header row and the selected row still run the full width, as in htop.
@@ -108,7 +108,7 @@ and the header row and the selected row still run the full width, as in htop.
 ╭─ api · logs · following ───────────────────────────────────────────────────╮
 ```
 
-**Wide (160–219).** Master and detail, after `W-Home`: the table on the left at
+**Wide (176–219).** Master and detail, after `W-Home`: the table on the left at
 its natural width (about 110–125 columns, content-capped), and on the right, the
 whole height of the page, the selected instance: its caption, its vitals as
 charts as tall as the rows allow, and its logs. The header across the top stays.
@@ -127,8 +127,8 @@ page, which is now the same thing with the list gone.
 ```
 
 **Grand (220 and up).** The wide layout, plus a memory trend per instance in the
-table (twelve cells, from the history the dash already holds) and the detail's
-charts side by side (`W-Charts`). Nothing else grows: the windows are bigger, the
+table (twelve cells, from the history the dash already holds); the detail's
+charts go side by side on their own once the detail is wide enough (`W-Charts`). Nothing else grows: the windows are bigger, the
 type is not.
 
 ## The meters, at every size
@@ -175,6 +175,23 @@ type is not.
   `ux-audit/`.
 - **Resize fuzz**: the existing fuzz already resizes; it now crosses the width
   classes.
+
+## Why 176 and not 160
+
+Built and rendered at 160 first: the detail beside the list was 59 cells wide, too
+narrow for a chart, and the list had to drop three columns to make room. At 176
+the detail is about 75 cells and the list keeps its columns. The boundary is a
+measured one, and the profile is the one place to move it.
+
+## Built (2026-10-16)
+
+The profile and the budget (`layout.go`), columns that stop at their content, the
+full-width header and selected row, the master and detail with the list's activity
+under it (`detail.go`), the memory trend at grand, and the size matrix
+(`layout_test.go`). The screens are `ux-audit/after-size-*.png`. Not built: the
+single-line meter summary under 100 columns (the meters keep their bar there, one
+line each) and `+N more · M MB` on the key is built but the key's width is the only
+thing that grows with the window.
 
 ## Files
 

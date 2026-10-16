@@ -304,7 +304,7 @@ func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab, w int) stri
 func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 	s := m.st
 	rw := 40
-	if w < 100 {
+	if profileOf(w, 0).wc == widthCompact {
 		rw = 0
 	}
 	lw := w
@@ -581,7 +581,7 @@ func plural(n int) string {
 func (m *Model) lastRun(v control.InstanceView, w, h int) []string {
 	s := m.st
 	rw := 48
-	if w < 100 {
+	if profileOf(w, 0).wc == widthCompact {
 		rw = 0
 	}
 	lw := w

@@ -10,8 +10,8 @@ type widthClass int
 
 const (
 	widthCompact  widthClass = iota // under 100: a small or split window
-	widthStandard                   // 100 to 159
-	widthWide                       // 160 to 219: a detail beside the list
+	widthStandard                   // 100 to 175
+	widthWide                       // 176 to 219: a detail beside the list
 	widthGrand                      // 220 and up: a trend as well
 )
 
@@ -35,7 +35,7 @@ func profileOf(w, h int) profile {
 	switch {
 	case w >= 220:
 		p.wc = widthGrand
-	case w >= 160:
+	case w >= 176:
 		p.wc = widthWide
 	case w >= 100:
 		p.wc = widthStandard

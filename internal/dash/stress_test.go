@@ -106,7 +106,7 @@ func shapes() []stackShape {
 	}
 }
 
-var sizes = [][2]int{{200, 60}, {150, 40}, {120, 30}, {100, 24}, {80, 24}, {60, 20}, {40, 12}, {24, 8}}
+var sizes = [][2]int{{260, 70}, {200, 60}, {190, 54}, {160, 45}, {150, 40}, {120, 30}, {100, 24}, {80, 24}, {60, 20}, {40, 12}, {24, 8}}
 
 // pages visits each screen of m once, returning a name and a way to draw it.
 func pages(m *Model) []struct {

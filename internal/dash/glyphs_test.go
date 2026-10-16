@@ -21,7 +21,7 @@ func TestASCIISetDrawsOnlyASCIIAndKeepsColumns(t *testing.T) {
 			pgs = pages(m0)
 		}
 		for _, pg := range pgs {
-			for _, sz := range [][2]int{{150, 40}, {80, 24}, {60, 16}} {
+			for _, sz := range [][2]int{{260, 70}, {190, 54}, {150, 40}, {80, 24}, {60, 16}} {
 				plain, ascii := sh.build(), sh.build()
 				ascii.glyphs = glyphsASCII
 				for _, m := range []*Model{plain, ascii} {
