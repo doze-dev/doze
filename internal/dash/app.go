@@ -271,19 +271,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tellMouse()
 		if m.modal == nil {
 			btn := tea.Mouse(msg).Button
+			// The wheel scrolls the logs under the pointer, and nothing else: it does
+			// not move through the list (the keys do), and it does nothing where there
+			// is nothing under it to scroll.
 			mo := tea.Mouse(msg)
 			switch {
-			case m.page == pageHome && m.overLogs(mo) && btn == tea.MouseWheelUp:
+			case m.overLogs(mo) && btn == tea.MouseWheelUp:
 				m.scrollBy(-3)
-			case m.page == pageHome && m.overLogs(mo) && btn == tea.MouseWheelDown:
-				m.scrollBy(3)
-			case m.page == pageHome && btn == tea.MouseWheelUp:
-				m.move(-1)
-			case m.page == pageHome && btn == tea.MouseWheelDown:
-				m.move(1)
-			case m.scrollable() && btn == tea.MouseWheelUp:
-				m.scrollBy(-3)
-			case m.scrollable() && btn == tea.MouseWheelDown:
+			case m.overLogs(mo) && btn == tea.MouseWheelDown:
 				m.scrollBy(3)
 			}
 		}

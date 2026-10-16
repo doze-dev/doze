@@ -360,7 +360,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		}
 		cap = "search " + s.w.Render(m.search) + cursor + s.d.Render(" · "+cap)
 	}
-	m.area = logArea{x0: 0, x1: lw} // the page sets the row
+	m.area = logArea{x0: 0, x1: lw, n: h - 2} // the page sets the row
 	left := box(s.border, s.d.Render(cap), s.d.Render(rcap), lines, lw, h)
 	if rw == 0 {
 		return left

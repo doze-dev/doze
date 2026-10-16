@@ -178,7 +178,7 @@ func (m *Model) helpLines(int) []string {
 		pad("ctrl+c")+s.w.Render(fit("quit", 14))+" "+s.d.Render("leave the dash"),
 		"", s.a.Bold(true).Render("Mouse"),
 		pad("click")+s.w.Render(fit("select", 14))+" "+s.d.Render("a row; a second click opens it"),
-		pad("wheel")+s.w.Render(fit("scroll", 14))+" "+s.d.Render("the logs when the pointer is over them; over the list on Home, the selection"),
+		pad("wheel")+s.w.Render(fit("scroll", 14))+" "+s.d.Render("the logs the pointer is over; nothing else (the keys move through the apps)"),
 		pad("drag")+s.w.Render(fit("select text", 14))+" "+s.d.Render("over logs: from any character to any; copied on release (double-click a word, triple-click a line)"),
 		pad(strings.ToLower(nativeSelectKey()))+s.w.Render(fit("native select", 14))+" "+s.d.Render("hold it to drag-select any text (the dash holds the mouse); DOZE_NO_MOUSE=1 gives it back for good"),
 		"", s.a.Bold(true).Render("What the meters are"),

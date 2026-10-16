@@ -28,8 +28,9 @@ func mlift(x, y int) tea.MouseReleaseMsg {
 	return tea.MouseReleaseMsg{X: x, Y: y, Button: tea.MouseLeft}
 }
 
-// On Home the wheel goes where the pointer is: over the logs it scrolls them,
-// over the list it moves the selection. It did the second everywhere.
+// The wheel acts on what is under the pointer and nothing else: over the logs
+// it scrolls them; over the list it does nothing, because the keys move through
+// the apps.
 func TestTheWheelFollowsThePointerOnHome(t *testing.T) {
 	for _, sz := range [][2]int{{150, 44}, {190, 54}} {
 		m := board()
@@ -47,13 +48,17 @@ func TestTheWheelFollowsThePointerOnHome(t *testing.T) {
 		if got := frame(m, sz[0], sz[1]); !strings.Contains(got, "scrolled back") {
 			t.Errorf("%v: it does not say it is scrolled back:\n%s", sz, got)
 		}
-		// over the list the wheel moves the selection and leaves the logs
-		top := m.listTop
+		// over the list the wheel does nothing: the keys move through the apps
 		m.Update(tea.MouseWheelMsg{X: 4, Y: m.hitY0 + 2, Button: tea.MouseWheelDown})
-		if m.sel == sel {
-			t.Errorf("%v: wheel over the list did not move the selection", sz)
+		m.Update(tea.MouseWheelMsg{X: 4, Y: m.hitY0 + 2, Button: tea.MouseWheelUp})
+		if m.sel != sel || !m.pinned {
+			t.Errorf("%v: the wheel over the list changed something: selection %q, pinned=%v", sz, m.sel, m.pinned)
 		}
-		_ = top
+		// the keys do
+		m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+		if m.sel == sel {
+			t.Errorf("%v: the down key should move the selection", sz)
+		}
 		// and the scroll is not carried to the next instance's logs
 		withManyLogs(m, 80)
 		frame(m, sz[0], sz[1])
@@ -147,3 +152,37 @@ func TestWordsAreBoundedBySpacesQuotesAndBrackets(t *testing.T) {
 }
 
 func ansiCut(s string, a, b int) string { return ansiCutImpl(s, a, b) }
+
+// On an instance's page the wheel scrolls the logs only when the pointer is on
+// them, not on the column beside them.
+func TestTheWheelScrollsOnlyTheLogsUnderIt(t *testing.T) {
+	m := focused("api")
+	withManyLogs(m, 80)
+	out := frame(m, 140, 40)
+	y, x := rowOf(out, "GET /orders/ord_")
+	if y < 0 {
+		t.Fatalf("no logs:\n%s", out)
+	}
+	m.Update(tea.MouseWheelMsg{X: 138, Y: y, Button: tea.MouseWheelUp}) // the column beside
+	if m.pinned {
+		t.Error("the wheel beside the logs scrolled them")
+	}
+	m.Update(tea.MouseWheelMsg{X: x, Y: y, Button: tea.MouseWheelUp})
+	if !m.pinned {
+		t.Error("the wheel over the logs did not scroll them")
+	}
+}
+
+func TestTheWheelScrollsTheAllLogsPage(t *testing.T) {
+	m := board()
+	m.page = pageLogs
+	for i := 0; i < 120; i++ {
+		m.all = append(m.all, control.LogFrame{Instance: "api", Line: fmt.Sprintf("INF line %03d", i), Time: epoch.Add(time.Duration(i) * time.Second)})
+	}
+	out := frame(m, 120, 30)
+	y, x := rowOf(out, "INF line")
+	m.Update(tea.MouseWheelMsg{X: x, Y: y, Button: tea.MouseWheelUp})
+	if !m.pinned {
+		t.Errorf("the wheel over the all-logs page did not scroll it:\n%s", out)
+	}
+}
