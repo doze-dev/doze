@@ -432,3 +432,48 @@ func TestRerunningATaskSaysSoThroughout(t *testing.T) {
 		t.Errorf("notice = %q bad=%v", m.notice, m.noticeBad)
 	}
 }
+
+// The meters say what is consumed and by whom, and never "of" something that is
+// only a guess.
+func TestMetersNameWhoConsumesAndSayOfNothing(t *testing.T) {
+	m := board()
+	out := frame(m, 150, 40)
+	if strings.Contains(out, "of ~") {
+		t.Errorf("an estimated ceiling is back:\n%s", out)
+	}
+	lines := strings.Split(out, "\n")
+	var mem, memKey, cpu string
+	for i, l := range lines {
+		switch {
+		case strings.HasPrefix(l, "mem"):
+			mem, memKey = l, lines[i+1]
+		case strings.HasPrefix(l, "cpu"):
+			cpu = l
+		}
+	}
+	for _, want := range []string{"web 212", "mongo 148"} {
+		if !strings.Contains(memKey, want) {
+			t.Errorf("the key under mem lacks %q: %q", want, memKey)
+		}
+	}
+	if !strings.Contains(mem, "MB") || !strings.Contains(cpu, "cores") && !strings.Contains(cpu, "core") {
+		t.Errorf("totals: %q / %q", mem, cpu)
+	}
+	// the bar is the whole of what is consumed: it is full
+	bar := func(l string) string { return l[strings.Index(l, "[")+1 : strings.Index(l, "]")] }
+	if b := bar(mem); b == "" || strings.Contains(b, " ") { // plain: runs differ by character
+		t.Errorf("the memory bar is not full: %q", b)
+	}
+	// short windows have the bars without the key, so the table keeps its rows
+	if short := frame(m, 150, 30); strings.Contains(short, "web 212") {
+		t.Errorf("a 30-row window has no room for the key")
+	}
+}
+
+func TestCoresSaysWhatTheNumberIs(t *testing.T) {
+	for pct, want := range map[float64]string{0: "0 cores", 0.1: "<0.01 cores", 22.6: "0.23 cores", 100: "1 core", 250: "2.5 cores", 1020: "10.2 cores"} {
+		if got := cores(pct); got != want {
+			t.Errorf("cores(%v) = %q, want %q", pct, got, want)
+		}
+	}
+}

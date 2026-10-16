@@ -166,34 +166,6 @@ func (m *Model) segStyle(i int) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(segColours[i%len(segColours)]))
 }
 
-// meter draws [|||||||     value] cells wide, one run of bars per segment.
-func (m *Model) meter(name string, segs []float64, scale float64, val string, cells int) string {
-	s := m.st
-	inner := cells - len(name) - 1 - 2
-	if inner < 8 {
-		inner = 8
-	}
-	var bars strings.Builder
-	used := 0
-	for i, v := range segs {
-		n := 0
-		if scale > 0 {
-			n = int(v/scale*float64(inner) + 0.5)
-		}
-		if v > 0 && n == 0 {
-			n = 1
-		}
-		n = min(n, inner-len(val)-used)
-		if n <= 0 {
-			continue
-		}
-		bars.WriteString(m.segStyle(i).Render(strings.Repeat("|", n)))
-		used += n
-	}
-	pad := max(inner-used-len(val), 0)
-	return s.a.Bold(true).Render(name) + " " + s.d.Render("[") + bars.String() + strings.Repeat(" ", pad) + s.w.Render(val) + s.d.Render("]")
-}
-
 // because is what an instance's state is down to, in a few words: what holds
 // it awake, what it waits for, when it will sleep, why it is not well.
 func (m *Model) because(v control.InstanceView) string {
@@ -309,16 +281,11 @@ func (m *Model) homeTable(w, h int) []string {
 	// --- header and meters ---
 	var out []string
 	var awakeN, dozing, waking, asleep, need, done, ready, running, conns int
-	var segMem, segCPU []float64
-	var ram, budget int64
+	var memShares, cpuShares []share
+	var ram int64
 	var cpu float64
 	for _, r := range rs {
 		v := r.v
-		peak := v.RAM
-		for _, x := range m.ram[v.Name] {
-			peak = max(peak, int64(x))
-		}
-		budget += peak
 		switch {
 		case troubled(v):
 			need++
@@ -338,17 +305,12 @@ func (m *Model) homeTable(w, h int) []string {
 			asleep++
 		}
 		if awake(v) {
-			segMem = append(segMem, float64(v.RAM))
-			segCPU = append(segCPU, v.CPU)
+			memShares = append(memShares, share{v.Name, float64(v.RAM)})
+			cpuShares = append(cpuShares, share{v.Name, v.CPU})
 			ram += v.RAM
 			cpu += v.CPU
 			conns += v.Conns
 		}
-	}
-	// against what everything has been seen to take, when something sleeps
-	memVal := mb(ram)
-	if budget > ram {
-		memVal += " of ~" + mb(budget)
 	}
 	{
 		l := s.pill.Render("doze")
@@ -370,11 +332,15 @@ func (m *Model) homeTable(w, h int) []string {
 	if w < 100 {
 		mc = min(w-2, 64)
 	}
-	left := []string{
-		m.meter("mem", segMem, float64(max(budget, ram)), memVal, mc),
-		m.meter("cpu", segCPU, 100, fmt.Sprintf("%.1f%%", cpu), mc),
-		s.a.Bold(true).Render("conns") + " " + s.text.Render(fmt.Sprint(conns)) + s.d.Render(" open across the stack"),
+	// with room, each bar has the line that names its colours under it
+	keyed := h >= 34
+	memTotal := mb(ram)
+	if ram == 0 {
+		memTotal = "0 MB"
 	}
+	left := m.composition("mem", memTotal, memShares, 0, mc, memUnit(float64(ram)), keyed)
+	left = append(left, m.composition("cpu", cores(cpu), cpuShares, 0.5, mc, coresUnit, keyed)...)
+	left = append(left, s.a.Bold(true).Render(fit("conns", 6))+s.text.Render(fmt.Sprint(conns))+s.d.Render(" open across the stack"))
 	state := s.g.Render("●") + fmt.Sprintf(" %d awake", awakeN)
 	if dozing > 0 {
 		state += "   " + s.y.Render("◐") + fmt.Sprintf(" %d dozing", dozing)
@@ -393,10 +359,15 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 	if w < 120 {
 		// not room for two columns: the meters and one line of state
-		out = append(out, left[0], left[1], rightCol[0])
+		out = append(out, left[:len(left)-1]...)
+		out = append(out, rightCol[0])
 	} else {
-		for i := 0; i < 3; i++ {
-			l, r := left[i], rightCol[i]
+		for i := 0; i < len(left); i++ {
+			r := ""
+			if i < len(rightCol) {
+				r = rightCol[i]
+			}
+			l := left[i]
 			out = append(out, l+strings.Repeat(" ", max(2+half-width(l), 2))+r)
 		}
 	}

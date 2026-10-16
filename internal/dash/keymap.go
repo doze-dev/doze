@@ -181,9 +181,9 @@ func (m *Model) helpLines(int) []string {
 		pad("drag")+s.w.Render(fit("select lines", 14))+" "+s.d.Render("over logs, to copy them"),
 		pad("shift")+s.w.Render(fit("native select", 14))+" "+s.d.Render("hold it to drag-select any text (the dash holds the mouse)"),
 		"", s.a.Bold(true).Render("What the meters are"),
-		s.d.Render("  memory   resident size from ps, summed; shared pages are counted in each"),
-		s.d.Render("  of ~X    what every instance has been seen to take, not a limit"),
-		s.d.Render("  CPU%     ps's decayed average over a short while: a one-second burst reads low"),
+		s.d.Render("  mem      what the awake instances hold now (resident size from ps, summed; shared pages are counted in each)"),
+		s.d.Render("  cpu      cores in use: 1 core is one core fully busy, so 2.5 cores is two and a half busy; from ps, a recent average"),
+		s.d.Render("  bars     the whole bar is what is consumed, cut by instance, biggest first; the line under names each colour"),
 		s.d.Render("  charts   a reading a second; \"last 4m\" is how much the daemon has kept"),
 	)
 	return out
