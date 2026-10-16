@@ -586,6 +586,11 @@ func (m *Model) View() tea.View {
 	v := tea.NewView(m.Render(m.w, m.h))
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	if os.Getenv("DOZE_NO_MOUSE") != "" {
+		// for people who rely on the terminal's own selection: the dash keeps its
+		// drawing and its keys, and gives the mouse back
+		v.MouseMode = tea.MouseModeNone
+	}
 	if !m.st.plain {
 		// The palette is drawn for this ground. Without it the dash is the board's
 		// colours on whatever the terminal's theme is, and the faint and the

@@ -84,7 +84,7 @@ func (m *Model) selectKey(k string) tea.Cmd {
 	case "esc", "v", "q":
 		m.selecting, m.dragging, m.frozen = false, false, nil
 	case "ctrl+c":
-		return tea.Quit
+		return m.copySelection(false) // with a selection open it copies, as in an editor
 	}
 	return nil
 }

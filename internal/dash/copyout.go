@@ -48,7 +48,23 @@ func (m *Model) out(text, what, name string, file bool) tea.Cmd {
 		m.say("wrote " + what + " to " + path)
 		return nil
 	}
+	// On the machine you are at: the system's clipboard tool, which cannot be
+	// ignored without saying so. Over ssh the clipboard that matters is the other
+	// end's, which only the terminal can reach.
+	if !overSSH() {
+		if via, err := copyNative(text); err == nil {
+			note := "copied " + what + " to the clipboard"
+			if os.Getenv("TMUX") != "" && copyTmux(text) == nil {
+				note += " and tmux's buffer"
+			}
+			m.say(note + " · " + via)
+			return nil
+		}
+	}
 	note := "sent " + what + " to the clipboard"
+	if os.Getenv("TMUX") != "" && copyTmux(text) == nil {
+		note += " and tmux's buffer"
+	}
 	if !clipboardLikely() {
 		note += " · if nothing pastes, Y writes a file instead"
 	}

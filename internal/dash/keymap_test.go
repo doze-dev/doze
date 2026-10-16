@@ -265,7 +265,7 @@ func TestTooSmallSaysSoAndKeysStillWork(t *testing.T) {
 func TestTheMouseHintIsSaidOnce(t *testing.T) {
 	m := board()
 	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
-	if !strings.Contains(m.notice, "shift-drag") {
+	if !strings.Contains(m.notice, "-drag selects text") {
 		t.Fatalf("notice = %q", m.notice)
 	}
 	m.clearNotice()

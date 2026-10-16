@@ -180,7 +180,7 @@ func (m *Model) helpLines(int) []string {
 		pad("click")+s.w.Render(fit("select", 14))+" "+s.d.Render("a row; a second click opens it"),
 		pad("wheel")+s.w.Render(fit("scroll", 14))+" "+s.d.Render("the logs, or the selection on Home"),
 		pad("drag")+s.w.Render(fit("select lines", 14))+" "+s.d.Render("over logs, to copy them"),
-		pad("shift")+s.w.Render(fit("native select", 14))+" "+s.d.Render("hold it to drag-select any text (the dash holds the mouse)"),
+		pad(strings.ToLower(nativeSelectKey()))+s.w.Render(fit("native select", 14))+" "+s.d.Render("hold it to drag-select any text (the dash holds the mouse); DOZE_NO_MOUSE=1 gives it back for good"),
 		"", s.a.Bold(true).Render("What the meters are"),
 		s.d.Render("  mem      what the awake instances hold now (resident size from ps, summed; shared pages are counted in each)"),
 		s.d.Render("  cpu      cores in use: 1 core is one core fully busy, so 2.5 cores is two and a half busy; from ps, a recent average"),

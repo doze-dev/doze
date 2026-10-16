@@ -93,7 +93,7 @@ func (m *Model) tellMouse() {
 		return
 	}
 	m.mouseTold = true
-	m.say("shift-drag selects text in the terminal; drag over logs here copies them")
+	m.say(nativeSelectKey() + "-drag selects text in the terminal; drag over logs here copies them")
 }
 
 // Under this the pages have nothing left to use.
