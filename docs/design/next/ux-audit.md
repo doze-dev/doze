@@ -42,6 +42,15 @@ worst frame 8 ms, about 25,000 lines a second taken in). The glyph sets have
 screens: `ux-audit/after-ascii.png` and `after-ascii-focus.png`. The banner was also seen against a real daemon stopped under the dash: `after-daemon-live.png`. The V-C board
 and a new Help board (`boards/Help.dc.html`) show what was built.
 
+**Found afterwards (2026-10-16): rerunning a task said nothing.** The daemon runs a
+task before it answers, so for its whole run the screen showed the old result, a
+row that said "waking", and no message; when it ended, nothing said how it went.
+Now: the key answers at once (`running migrate…`, kept while it runs), the row
+says `running` and BECAUSE says `running now`, the header counts `◌ 1 running`, and
+the end is said: `migrate done in 1.2s`, or in red `migrate failed (exit 2) after
+800ms`. `r` on a task is labelled `rerun` and runs it again. Screens:
+`ux-audit/after-task-running.png` and `after-task-done.png`.
+
 ## How it was done
 
 - **A stress suite** (`internal/dash/stress_test.go`): every page of seven stacks

@@ -54,12 +54,16 @@ func (m *Model) bar(hs []hint, w int, extra string) string {
 
 // homeHints are the keys of Home.
 func (m *Model) homeHints() []hint {
+	restart, restartHelp := "restart", "stop and start it; asks first when something is using it"
+	if v, ok := m.selected(); ok && v.Kind == "task" {
+		restart, restartHelp = "rerun", "run the task again, whatever its state"
+	}
 	return []hint{
 		{"↑↓", "move", "move the selection; the wheel does too; click selects, a second click opens", 2},
 		{"⏎", "focus", "open the selected instance in full", 2},
 		{"w", "wake", "start it now, and what it needs", 2},
 		{"s", "sleep", "stop it, keeping its data; asks first when something is using it", 2},
-		{"r", "restart", "stop and start it; asks first when something is using it", 2},
+		{"r", restart, restartHelp, 2},
 		{"l", "logs", "this instance's logs", 3},
 		{"L", "all logs", "every instance's logs, merged in time order", 5},
 		{"y", "copy", "send the address to the clipboard (Y writes a file instead)", 4},

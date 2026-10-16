@@ -115,6 +115,9 @@ func run(sc scene, outDir string) (string, error) {
 	if sc.fail != "" {
 		env = append(env, "DOZE_LOOK_FAIL="+sc.fail)
 	}
+	if sc.task != "" {
+		env = append(env, "DOZE_LOOK_TASK="+sc.task)
+	}
 	if sc.glyphs != "" {
 		env = append(env, "DOZE_GLYPHS="+sc.glyphs)
 	}

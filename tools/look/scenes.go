@@ -28,6 +28,7 @@ type scene struct {
 	hpx     int
 	fail    string // a verb the daemon refuses, for the failure scenes
 	glyphs  string // the glyph set, for the ascii and narrow scenes
+	task    string // how long a task takes to run, for the scenes that watch one
 	cols    int    // the terminal's, which is that many px at 14px type and a 17px line
 	rows    int
 }
@@ -105,6 +106,8 @@ var scenes = []scene{
 	{name: "au-ascii", board: "V-C", fixture: "shop", glyphs: "ascii", wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "au-ascii-focus", board: "V-C", fixture: "shop", glyphs: "ascii", keys: []string{"enter"}, wpx: 1640, hpx: 900, cols: 120, rows: 36},
 	{name: "help", board: "Help", fixture: "shop", keys: []string{"?"}, wpx: 1200, hpx: 920, cols: 120, rows: 40},
+	{name: "au-task-running", board: "V-C", fixture: "shop", task: "60s", keys: cat(downs(10), []string{"r"}), wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "au-task-rerun", board: "V-C", fixture: "shop", keys: cat(downs(10), []string{"r"}), wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "au-fail-1", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "au-fail-2", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w", "down"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
 	{name: "au-copy", board: "V-C", fixture: "shop", keys: []string{"y"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
@@ -156,7 +159,23 @@ func host(args []string) {
 	// The fixture's daemon only records a verb. Under the look tool, and for a
 	// person trying the dash with "look host", a verb should be seen to do what it
 	// says: wake an instance and it is awake, sleep it and it is not.
+	taskTime, _ := time.ParseDuration(os.Getenv("DOZE_LOOK_TASK"))
 	d.OnDo = func(v control.Verb) {
+		// A task takes time in a real daemon: it is booting while it runs, the dash is
+		// told so, and the call does not return until it has finished.
+		if v.Name == control.VerbTask && taskTime > 0 {
+			var view control.InstanceView
+			d.Mutate(func(snap *control.Snapshot) {
+				for i := range snap.Instances {
+					if in := &snap.Instances[i]; in.Name == v.Target {
+						in.State, in.StartedAt = "booting", epoch
+						view = *in
+					}
+				}
+			})
+			d.Push(control.Frame{Topic: control.TopicInstances, Instances: []control.InstanceView{view}})
+			time.Sleep(taskTime)
+		}
 		d.Mutate(func(snap *control.Snapshot) {
 			for i := range snap.Instances {
 				in := &snap.Instances[i]
@@ -195,6 +214,7 @@ func host(args []string) {
 				case control.VerbTask:
 					if in.Kind == "task" {
 						in.Task = &control.TaskView{Result: "done", TookMS: 900, RanAt: epoch, Why: "you ran it"}
+						in.State = "idle"
 					}
 				}
 			}

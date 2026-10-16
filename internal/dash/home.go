@@ -66,6 +66,8 @@ func (s styles) look(v control.InstanceView) look {
 	switch {
 	case v.Disabled:
 		return look{"disabled", "⊘", s.d}
+	case v.Kind == "task" && v.State == "booting":
+		return look{"running", "◌", s.c}
 	case v.Task != nil && v.State != "booting":
 		if v.Task.Result == "failed" {
 			return look{"failed", "✗", s.r}

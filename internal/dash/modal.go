@@ -137,6 +137,7 @@ func (m *Model) do(verb, target string) tea.Cmd {
 		return c
 	}
 	d := m.d
+	m.startedTask(verb, target)
 	return func() tea.Msg {
 		return doneMsg{verb, target, d.Do(contextBackground(), control.Verb{Name: verb, Target: target})}
 	}
@@ -754,6 +755,9 @@ func (m *Model) askRestart(target string) tea.Cmd {
 	if awake(v) && v.Kind != "task" && inUse(v) != "" {
 		m.modal = &modal{kind: modalRestart, target: target}
 		return nil
+	}
+	if v.Kind == "task" {
+		return m.do(control.VerbTask, target) // a task restarts by running again
 	}
 	return m.do(control.VerbRestart, target)
 }

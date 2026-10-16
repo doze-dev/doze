@@ -104,12 +104,14 @@ type Model struct {
 
 	// known are the instances the dash has seen, so one added while it is open
 	// can have its logs asked for; resubLogs asks again.
-	known     map[string]bool
-	resubLogs func()
-	atTop     bool // the logs are scrolled to the oldest line the dash holds
-	mouseTold bool // the shift-drag hint has been said
-	noticeAt  time.Time
-	history   []message
+	known       map[string]bool
+	resubLogs   func()
+	runningTask string // a task asked for and not yet finished: its message stays
+	reportTask  string // a task that has finished: say how it went when the snapshot is in
+	atTop       bool   // the logs are scrolled to the oldest line the dash holds
+	mouseTold   bool   // the shift-drag hint has been said
+	noticeAt    time.Time
+	history     []message
 
 	conn      connState // whether the daemon is being heard
 	waiting   bool      // no instances frame or snapshot yet: the stack is not known
@@ -195,6 +197,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for i := range m.snap.Instances {
 				m.snap.Instances[i] = cleanView(m.snap.Instances[i])
 			}
+			m.reportTaskResult()
 		}
 		m.settle()
 	case tickMsg:
@@ -238,9 +241,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case doneMsg:
 		if msg.err != nil {
 			m.fail(fmt.Sprintf("%s %s failed: %s", msg.verb, msg.target, humanise(msg.err)))
+		} else if msg.verb == control.VerbTask {
+			m.reportTask = msg.target
 		} else {
 			m.clearNotice()
 		}
+		m.runningTask = ""
 		return m, m.snapshot()
 	case tea.KeyPressMsg:
 		return m.keyText(msg.String(), msg.Text)
@@ -444,6 +450,7 @@ func (m *Model) verb(name string) tea.Cmd {
 		return c
 	}
 	d, target := m.d, v.Name
+	m.startedTask(name, target)
 	return func() tea.Msg {
 		return doneMsg{name, target, d.Do(context.Background(), control.Verb{Name: name, Target: target})}
 	}

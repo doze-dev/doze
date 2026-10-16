@@ -173,6 +173,8 @@ func (m *Model) streamAll(v control.InstanceView, min int, onlyRun int) []string
 		switch {
 		case awake(v):
 			return []string{s.d.Render("nothing printed yet")}
+		case v.Kind == "task" && v.State == "booting":
+			return []string{s.c.Render("running now · its output appears here as it prints")}
 		case v.Kind == "task":
 			return []string{s.d.Render("it has not run")}
 		}

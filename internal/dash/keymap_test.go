@@ -373,3 +373,62 @@ func TestLogTimesNameTheirZone(t *testing.T) {
 		t.Errorf("stack logs do not name the zone:\n%s", out)
 	}
 }
+
+// Asking for a task to run is answered at once; while it runs the row says
+// running, not waking; and the end says how it went.
+func TestRerunningATaskSaysSoThroughout(t *testing.T) {
+	m := board()
+	m.sel = "migrate"
+	frame(m, 150, 40)
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	if cmd == nil || !strings.Contains(m.notice, "running migrate") {
+		t.Fatalf("no answer at once: cmd=%v notice=%q", cmd != nil, m.notice)
+	}
+	// the daemon marks it booting while it runs
+	for i := range m.snap.Instances {
+		if m.snap.Instances[i].Name == "migrate" {
+			m.snap.Instances[i].State = "booting"
+			m.snap.Instances[i].StartedAt = m.now.Add(-3 * time.Second)
+		}
+	}
+	out := stripAnsi(frame(m, 150, 40))
+	if !strings.Contains(out, "running") || !strings.Contains(out, "running now") || !strings.Contains(out, "1 running") {
+		t.Errorf("a running task should say so in the row, BECAUSE and the header:\n%s", out)
+	}
+	if strings.Contains(out, "migrate") && strings.Contains(strings.Split(out, "migrate")[1], "waking") {
+		t.Error("a task is not waking")
+	}
+	// still running after the message's time: it stays
+	later := m.now.Add(10 * time.Second)
+	m.nowf = func() time.Time { return later }
+	m.Update(tickMsg(later))
+	if !strings.Contains(m.notice, "running migrate") {
+		t.Error("the message should stay while it runs")
+	}
+	// it finishes: the snapshot carries the record
+	m.Update(doneMsg{verb: control.VerbTask, target: "migrate"})
+	snap := m.snap
+	snap.Instances = append([]control.InstanceView(nil), snap.Instances...)
+	for i := range snap.Instances {
+		if snap.Instances[i].Name == "migrate" {
+			snap.Instances[i].State = "idle"
+			snap.Instances[i].Task = &control.TaskView{Result: "done", TookMS: 1234, RanAt: later}
+		}
+	}
+	m.Update(snapshotMsg{snap: snap})
+	if !strings.Contains(m.notice, "migrate done in 1.2s") || m.noticeBad {
+		t.Errorf("notice = %q", m.notice)
+	}
+	// and a failure is red
+	m.Update(doneMsg{verb: control.VerbTask, target: "migrate"})
+	snap.Instances = append([]control.InstanceView(nil), snap.Instances...)
+	for i := range snap.Instances {
+		if snap.Instances[i].Name == "migrate" {
+			snap.Instances[i].Task = &control.TaskView{Result: "failed", ExitCode: 2, TookMS: 800, RanAt: later}
+		}
+	}
+	m.Update(snapshotMsg{snap: snap})
+	if !m.noticeBad || !strings.Contains(m.notice, "migrate failed (exit 2) after 800ms") {
+		t.Errorf("notice = %q bad=%v", m.notice, m.noticeBad)
+	}
+}

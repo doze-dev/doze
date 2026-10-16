@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/doze-dev/doze/internal/control"
 )
 
 // What the dash tells the person about what they did. A success is said and
@@ -44,6 +46,9 @@ func (m *Model) clearNotice() { m.notice, m.noticeBad = "", false }
 func (m *Model) fadeNotice() {
 	if m.notice == "" {
 		return
+	}
+	if v, ok := m.find(m.runningTask); ok && m.runningTask != "" && v.State == "booting" && !m.noticeBad {
+		return // still running: the message stays as long as it is true
 	}
 	ttl := okFor
 	if m.noticeBad {
@@ -111,4 +116,42 @@ func tooSmall(s styles, w, h int) string {
 	rows := make([]string, h)
 	rows[h/2] = strings.Repeat(" ", pad) + s.d.Render(msg)
 	return strings.Join(rows, "\n")
+}
+
+// startedTask says at once that a task was asked for: the daemon runs it before
+// it answers, so for a while nothing else on the screen would say so.
+func (m *Model) startedTask(verb, target string) {
+	if verb != control.VerbTask {
+		return
+	}
+	m.runningTask = target
+	m.say("running " + target + "…")
+}
+
+// reportTaskResult says how a task that has just finished went: the snapshot
+// after it carries the record.
+func (m *Model) reportTaskResult() {
+	name := m.reportTask
+	if name == "" {
+		return
+	}
+	m.reportTask = ""
+	v, ok := m.find(name)
+	if !ok || v.Task == nil {
+		return
+	}
+	took := (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100 * time.Millisecond)
+	if v.Task.Result == "failed" {
+		m.fail(fmt.Sprintf("%s failed (exit %d) after %s", name, v.Task.ExitCode, took))
+		return
+	}
+	m.say(fmt.Sprintf("%s done in %s", name, took))
+}
+
+// runningNote is the header's count of tasks running, when there are any.
+func runningNote(s styles, n int) string {
+	if n == 0 {
+		return ""
+	}
+	return "   " + s.c.Render(fmt.Sprintf("◌ %d running", n))
 }

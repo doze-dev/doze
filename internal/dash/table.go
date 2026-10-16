@@ -200,6 +200,11 @@ func (m *Model) because(v control.InstanceView) string {
 	switch {
 	case v.Kind == "task":
 		switch {
+		case v.State == "booting":
+			if !v.StartedAt.IsZero() && m.now.After(v.StartedAt) {
+				return "running now · " + ago(m.now.Sub(v.StartedAt))
+			}
+			return "running now"
 		case v.Task == nil:
 			return "not run yet"
 		case v.Task.Result == "failed":
@@ -303,7 +308,7 @@ func (m *Model) homeTable(w, h int) []string {
 
 	// --- header and meters ---
 	var out []string
-	var awakeN, dozing, waking, asleep, need, done, ready, conns int
+	var awakeN, dozing, waking, asleep, need, done, ready, running, conns int
 	var segMem, segCPU []float64
 	var ram, budget int64
 	var cpu float64
@@ -321,6 +326,8 @@ func (m *Model) homeTable(w, h int) []string {
 			awakeN++
 		case v.State == "idle":
 			dozing++
+		case v.State == "booting" && v.Kind == "task":
+			running++
 		case v.State == "booting":
 			waking++
 		case v.Task != nil && v.Task.Result == "done":
@@ -379,7 +386,7 @@ func (m *Model) homeTable(w, h int) []string {
 	rightCol := []string{
 		s.a.Bold(true).Render("state") + " " + state,
 		s.a.Bold(true).Render("sleep") + " " + s.text.Render("after "+clock(m.snap.IdleTimeout)) + s.d.Render(" with nothing holding it"),
-		s.a.Bold(true).Render("tasks") + " " + s.g.Render("✓") + fmt.Sprintf(" %d done   ", done) + s.d.Render(fmt.Sprintf("▸ %d ready", ready)),
+		s.a.Bold(true).Render("tasks") + " " + s.g.Render("✓") + fmt.Sprintf(" %d done   ", done) + s.d.Render(fmt.Sprintf("▸ %d ready", ready)) + runningNote(s, running),
 	}
 	if need > 0 {
 		rightCol[0] = s.a.Bold(true).Render("state") + " " + s.r.Render(fmt.Sprintf("%d needs you", need)) + "   " + state
