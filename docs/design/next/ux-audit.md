@@ -39,7 +39,7 @@ The Low items: log times now name their zone beside the line count (`UTC`,
 is not for screen readers and `doze status` / `doze logs` are; a 50,000-line burst
 into one instance with the stack's logs open is bounded (400 and 800 lines held,
 worst frame 8 ms, about 25,000 lines a second taken in). The glyph sets have
-screens: `ux-audit/after-ascii.png` and `after-ascii-focus.png`. The V-C board
+screens: `ux-audit/after-ascii.png` and `after-ascii-focus.png`. The banner was also seen against a real daemon stopped under the dash: `after-daemon-live.png`. The V-C board
 and a new Help board (`boards/Help.dc.html`) show what was built.
 
 ## How it was done
