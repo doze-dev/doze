@@ -61,7 +61,7 @@ func (m *Model) detailPane(v control.InstanceView, dw, p int) []string {
 	// vitals are for something that is running, and take a share of the height
 	// that leaves the logs their room
 	if awake(v) && !troubled(v) && p >= 24 {
-		if strip := m.vitalsStrip(v, dw, min(p*50/100, 22)); len(strip) > 0 && p-len(strip) >= minLogRows {
+		if strip := m.vitalsStrip(v, dw, min(p*50/100, 22), false); len(strip) > 0 && p-len(strip) >= minLogRows {
 			out = append(out, strip...)
 			logsH = p - len(strip)
 		}

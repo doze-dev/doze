@@ -158,13 +158,15 @@ func (m *Model) ordered() []row {
 
 // segColours are what each awake instance is drawn in on the meters, in the
 // order they are listed.
-var segColours = []string{hexGood, hexCool, hexAccent, hexWarn, "#FF9E64", hexBad}
+func segColours(p palette) []string {
+	return []string{p.good, p.cool, p.accent, p.warn, p.extra, p.bad}
+}
 
 func (m *Model) segStyle(i int) lipgloss.Style {
 	if m.st.plain {
 		return lipgloss.NewStyle()
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(segColours[i%len(segColours)]))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(segColours(m.st.pal)[i%6]))
 }
 
 // because is what an instance's state is down to, in a few words: what holds

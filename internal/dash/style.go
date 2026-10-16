@@ -37,6 +37,7 @@ const (
 // styles are the board's classes: a g y c r d w are the colour classes, b is
 // bold bright, and the pills and key caps are their own.
 type styles struct {
+	pal              palette
 	plain            bool
 	selHex, pickHex  string
 	dimHex, dimOnHex string // dim, and dim as it is drawn on a selection
@@ -50,12 +51,17 @@ type styles struct {
 	key                          lipgloss.Style
 }
 
-func newStyles(plain bool) styles { return build(plain, func(h string) string { return h }) }
+func newStyles(plain bool) styles { return newThemed(plain, violet) }
+
+// newThemed is the styles drawn in palette p.
+func newThemed(plain bool, p palette) styles {
+	return build(plain, p, func(h string) string { return h })
+}
 
 // fadedStyles are the same colours at a third of their strength, for the page
 // behind a modal: the board dims it, it does not grey it out.
-func fadedStyles(plain bool) styles {
-	return build(plain, func(h string) string { return mix(h, hexBg, 0.32) })
+func fadedStyles(plain bool, p palette) styles {
+	return build(plain, p, func(h string) string { return mix(h, p.bg, 0.32) })
 }
 
 // mix is fg at alpha over bg, as hex.
@@ -70,7 +76,7 @@ func mix(fg, bg string, alpha float64) string {
 	return fmt.Sprintf("#%02x%02x%02x", o[0], o[1], o[2])
 }
 
-func build(plain bool, tint func(string) string) styles {
+func build(plain bool, p palette, tint func(string) string) styles {
 	fg := func(hex string) lipgloss.Style {
 		if plain {
 			return lipgloss.NewStyle()
@@ -84,33 +90,33 @@ func build(plain bool, tint func(string) string) styles {
 		}
 		return s.Background(lipgloss.Color(tint(bg))).Foreground(lipgloss.Color(tint(fgHex)))
 	}
-	s := styles{plain: plain}
-	s.text, s.a, s.g, s.y, s.c = fg(hexText), fg(hexAccent), fg(hexGood), fg(hexWarn), fg(hexCool)
-	s.r, s.d, s.w = fg(hexBad), fg(hexDim), fg(hexBright)
+	s := styles{plain: plain, pal: p}
+	s.text, s.a, s.g, s.y, s.c = fg(p.text), fg(p.accent), fg(p.good), fg(p.warn), fg(p.cool)
+	s.r, s.d, s.w = fg(p.bad), fg(p.dim), fg(p.bright)
 	s.b = s.w.Bold(true)
 	s.hl = lipgloss.NewStyle().Reverse(true).Bold(true)
 	if !plain {
-		s.hl = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color(tint(hexWarn))).Foreground(lipgloss.Color(tint(hexBg)))
+		s.hl = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color(tint(p.warn))).Foreground(lipgloss.Color(tint(p.bg)))
 	}
-	s.border, s.borderOn, s.borderBad = fg(hexBorder), fg(hexAccent), fg(hexBad)
+	s.border, s.borderOn, s.borderBad = fg(p.border), fg(p.accent), fg(p.bad)
 	if !plain {
 		// a box's borders carry the ground of its inside, which box reads
-		panel := lipgloss.Color(tint(hexPanel))
+		panel := lipgloss.Color(tint(p.panel))
 		s.border, s.borderOn, s.borderBad = s.border.Background(panel), s.borderOn.Background(panel), s.borderBad.Background(panel)
 	}
-	s.pill = pill(hexAccent, hexBg)
-	s.pillG, s.pillY, s.pillR = pill(hexGood, hexBg), pill(hexWarn, hexBg), pill(hexBad, hexBg)
-	s.pillC = pill(hexCool, hexBg)
+	s.pill = pill(p.accent, p.bg)
+	s.pillG, s.pillY, s.pillR = pill(p.good, p.bg), pill(p.warn, p.bg), pill(p.bad, p.bg)
+	s.pillC = pill(p.cool, p.bg)
 	s.pillQ = lipgloss.NewStyle().Padding(0, 1)
 	s.pillOn = lipgloss.NewStyle().Bold(true).Padding(0, 1)
 	if !plain {
-		s.pillOn = s.pillOn.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexAccent)))
-		s.pillQ = s.pillQ.Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexText)))
-		s.selHex = tint(hexSel)
-		s.pickHex = tint(hexPick)
-		s.dimHex, s.dimOnHex = tint(hexDim), tint(hexDimOn)
-		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(s.selHex)).Foreground(lipgloss.Color(tint(hexBright)))
-		s.key = lipgloss.NewStyle().Background(lipgloss.Color(tint(hexSel))).Foreground(lipgloss.Color(tint(hexBright))).Padding(0, 1)
+		s.pillOn = s.pillOn.Background(lipgloss.Color(tint(p.sel))).Foreground(lipgloss.Color(tint(p.accent)))
+		s.pillQ = s.pillQ.Background(lipgloss.Color(tint(p.sel))).Foreground(lipgloss.Color(tint(p.text)))
+		s.selHex = tint(p.sel)
+		s.pickHex = tint(p.pick)
+		s.dimHex, s.dimOnHex = tint(p.dim), tint(p.dimOn)
+		s.sel = lipgloss.NewStyle().Background(lipgloss.Color(s.selHex)).Foreground(lipgloss.Color(tint(p.bright)))
+		s.key = lipgloss.NewStyle().Background(lipgloss.Color(tint(p.sel))).Foreground(lipgloss.Color(tint(p.bright))).Padding(0, 1)
 	} else {
 		s.sel = lipgloss.NewStyle().Reverse(true)
 		s.key = lipgloss.NewStyle().Bold(true).Padding(0, 1)

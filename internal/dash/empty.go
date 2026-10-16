@@ -25,6 +25,7 @@ type EmptyOptions struct {
 	Dir   string   // shown with ~ for the home
 	Found []string // what the project says: "app api", "module postgres", …
 	Plain bool
+	Theme string
 }
 
 type emptyModel struct {
@@ -45,7 +46,7 @@ var emptyChoices = [3]struct{ title, what string }{
 
 // Empty runs the screen and returns what was chosen.
 func Empty(o EmptyOptions) (Start, error) {
-	m := &emptyModel{o: o, st: newStyles(o.Plain)}
+	m := &emptyModel{o: o, st: newThemed(o.Plain, themeNamed(o.Theme))}
 	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
 		return Start{}, fmt.Errorf("the dash: %w", err)
@@ -117,8 +118,8 @@ func (m *emptyModel) View() tea.View {
 	v := tea.NewView(m.render(max(m.w, 60), max(m.h, 16)))
 	v.AltScreen = true
 	if !m.st.plain {
-		v.BackgroundColor = lipglossColor(hexBg)
-		v.ForegroundColor = lipglossColor(hexText)
+		v.BackgroundColor = lipglossColor(m.st.pal.bg)
+		v.ForegroundColor = lipglossColor(m.st.pal.text)
 	}
 	return v
 }

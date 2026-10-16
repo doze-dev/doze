@@ -8,3 +8,5 @@ func init() {
 	copyNative = func(string) (string, error) { return "", errors.New("no clipboard in tests") }
 	copyTmux = func(string) error { return errors.New("no tmux in tests") }
 }
+
+func init() { rememberTheme = func(string) {} } // a test never writes the user's config

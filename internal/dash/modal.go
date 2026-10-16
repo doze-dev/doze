@@ -116,6 +116,14 @@ func (m *Model) actions() []action {
 	}
 	rank = 1
 	add(action{label: "recent messages", cli: "", run: func(m *Model) tea.Cmd { m.recentMessages(); return nil }})
+	for _, t := range themes {
+		t := t
+		note := t.about
+		if t.name == m.st.pal.name {
+			note = "in use · " + t.about
+		}
+		add(action{label: "theme · " + t.name, note: note, run: func(m *Model) tea.Cmd { m.setTheme(t.name); return nil }})
+	}
 	add(action{label: "wake everything", cli: "doze wake", run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, "") }})
 	add(action{label: "sleep everything that is awake", cli: "doze sleep", run: func(m *Model) tea.Cmd { return m.do(control.VerbSleep, "") }})
 	add(action{label: "bring the stack up", cli: "doze up", run: func(m *Model) tea.Cmd { return m.do(control.VerbUp, "") }})
@@ -467,7 +475,7 @@ func (m *Model) withModal(base []string, w, h int) []string {
 	// A confirmation's keys replace the page's in the bar along the bottom, dim,
 	// as on the boards.
 	if m.modal.kind != modalPalette && len(out) > 0 {
-		f := fadedStyles(m.st.plain)
+		f := fadedStyles(m.st.plain, m.st.pal)
 		out[len(out)-1] = f.cap("←→", "choose") + "  " + f.cap("⏎", "confirm") + "  " + f.cap("esc", "cancel")
 		if m.modal.kind == modalReset {
 			out[len(out)-1] = f.cap("tab", "buttons") + "  " + f.cap("⏎", "confirm") + "  " + f.cap("esc", "cancel")

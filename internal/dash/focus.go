@@ -258,7 +258,7 @@ func (m *Model) focus(w, h int) []string {
 	// top when the window has the room.
 	var strip []string
 	if cur.id != tabOverview && cur.id != tabLastRun && awake(v) && v.Kind != "task" && bodyH >= 30 {
-		strip = m.vitalsStrip(v, w, min(11, bodyH-18))
+		strip = m.vitalsStrip(v, w, min(11, bodyH-18), true)
 	}
 	m.vitalsOn = len(strip) > 0
 	bodyH -= len(strip)
@@ -416,7 +416,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			}
 			lo, hi := t.scale(vals)
 			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now)+s.d.Render("  last "+spanWord(m.spanSeconds(v.Name, len(t.vals)))))
-			run = append(run, plot(vals, rw-4, 2, lo, hi, t.st, dimmed(t.st))...)
+			run = append(run, plot(vals, rw-4, 2, lo, hi, t.st, s.dimmed(t.st))...)
 			run = append(run, "")
 		}
 	}
@@ -1006,15 +1006,18 @@ func (m *Model) stamp(at time.Time) string {
 	return right("-"+ago(d), 8)
 }
 
-// vitalsStrip is the vitals box across the top of a page: cpu, memory and
-// connections as the charts the module overview shows, as tall as maxH lines
-// allow. It returns nothing when not even the smallest chart fits.
-func (m *Model) vitalsStrip(v control.InstanceView, w, maxH int) []string {
+// vitalsStrip is the vitals box across the top of a page: cpu and memory, and
+// connections when withConns, as the charts the module overview shows, as tall
+// as maxH lines allow. It returns nothing when not even the smallest chart fits.
+// Home's detail leaves connections out: the meters above already count them.
+func (m *Model) vitalsStrip(v control.InstanceView, w, maxH int, withConns bool) []string {
 	s := m.st
 	ts := []trace{
 		{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
 		{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
-		{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
+	}
+	if withConns {
+		ts = append(ts, trace{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g})
 	}
 	groups := chartGroups(w-4, len(ts))
 	for r := 5; r >= 2; r-- {

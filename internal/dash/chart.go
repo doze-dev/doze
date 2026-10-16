@@ -141,7 +141,7 @@ func plot(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.St
 
 // dimmed is st's colour a good part of the way to the ground, for the body of a
 // chart under its line. A plain style has no colour to dim.
-func dimmed(st lipgloss.Style) lipgloss.Style {
+func (s styles) dimmed(st lipgloss.Style) lipgloss.Style {
 	fg := st.GetForeground()
 	if _, none := fg.(lipgloss.NoColor); none || fg == nil {
 		return st
@@ -150,7 +150,7 @@ func dimmed(st lipgloss.Style) lipgloss.Style {
 		r, g, b, _ := c.RGBA()
 		return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(mix(hex(fg), hexBg, 0.38)))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(mix(hex(fg), s.pal.bg, 0.38)))
 }
 
 // squeeze fits vs into w columns by merging neighbours by their highest, from

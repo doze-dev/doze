@@ -27,6 +27,9 @@ type Options struct {
 	// Glyphs is the set of characters drawn with: GlyphsUnicode (the default),
 	// GlyphsNarrow or GlyphsASCII. DetectGlyphs chooses from the environment.
 	Glyphs string
+	// Theme names the palette (see ThemeNames); "" is the default. DetectTheme
+	// reads DOZE_THEME and the last choice.
+	Theme string
 }
 
 // samples is how many meter readings are kept per instance, for the
@@ -135,7 +138,7 @@ type Model struct {
 
 // New builds the dash around a daemon. Init and Run start it listening.
 func New(d control.Daemon, o Options) *Model {
-	m := &Model{d: d, st: newStyles(o.Plain), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo, glyphs: parseGlyphs(o.Glyphs)}
+	m := &Model{d: d, st: newThemed(o.Plain, themeNamed(o.Theme)), nowf: o.Now, loc: o.Loc, ram: map[string][]float64{}, cpu: map[string][]float64{}, conns: map[string][]float64{}, level: lvInfo, glyphs: parseGlyphs(o.Glyphs)}
 	if m.nowf == nil {
 		m.nowf = time.Now
 	}
@@ -600,8 +603,8 @@ func (m *Model) View() tea.View {
 		// The palette is drawn for this ground. Without it the dash is the board's
 		// colours on whatever the terminal's theme is, and the faint and the
 		// selection read wrongly.
-		v.BackgroundColor = lipgloss.Color(hexBg)
-		v.ForegroundColor = lipgloss.Color(hexText)
+		v.BackgroundColor = lipgloss.Color(m.st.pal.bg)
+		v.ForegroundColor = lipgloss.Color(m.st.pal.text)
 	}
 	return v
 }
@@ -625,7 +628,7 @@ func (m *Model) Render(w, h int) string {
 	base := page(w, h)
 	if m.modal != nil {
 		saved := m.st
-		m.st = fadedStyles(saved.plain)
+		m.st = fadedStyles(saved.plain, saved.pal)
 		base = page(w, h)
 		m.st = saved
 	}
@@ -633,7 +636,7 @@ func (m *Model) Render(w, h int) string {
 		// the picture is old or not yet there: faded, and said at the top right
 		if m.modal == nil {
 			saved := m.st
-			m.st = fadedStyles(saved.plain)
+			m.st = fadedStyles(saved.plain, saved.pal)
 			base = page(w, h)
 			m.st = saved
 		}

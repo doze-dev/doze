@@ -28,6 +28,7 @@ type scene struct {
 	hpx     int
 	fail    string // a verb the daemon refuses, for the failure scenes
 	glyphs  string // the glyph set, for the ascii and narrow scenes
+	theme   string // the palette, for the theme scenes
 	task    string // how long a task takes to run, for the scenes that watch one
 	cols    int    // the terminal's, which is that many px at 14px type and a 17px line
 	rows    int
@@ -111,6 +112,11 @@ var scenes = []scene{
 	{name: "size-80x24", board: "Narrow", fixture: "shop", wpx: 716, hpx: 564, cols: 80, rows: 24},
 	{name: "size-100x30", board: "V-C", fixture: "shop", wpx: 1640, hpx: 900, cols: 100, rows: 30},
 	{name: "size-160x45", board: "W-Home", fixture: "shop", wpx: 1640, hpx: 1010, cols: 160, rows: 45},
+	{name: "theme-teal", board: "V-C", fixture: "shop", theme: "teal", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "theme-burgundy", board: "V-C", fixture: "shop", theme: "burgundy", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "theme-amber", board: "V-C", fixture: "shop", theme: "amber", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "theme-slate", board: "V-C", fixture: "shop", theme: "slate", wpx: 1640, hpx: 900, cols: 150, rows: 40},
+	{name: "theme-slate-wide", board: "W-Home", fixture: "shop", theme: "slate", wpx: 1640, hpx: 1010, cols: 190, rows: 54},
 	{name: "size-190x54", board: "W-Home", fixture: "shop", wpx: 1640, hpx: 1010, cols: 190, rows: 54},
 	{name: "size-260x70", board: "W-Home", fixture: "shop", wpx: 1640, hpx: 1010, cols: 260, rows: 70},
 	{name: "au-fail-1", board: "V-C", fixture: "shop", fail: "wake", keys: []string{"down", "w"}, wpx: 1640, hpx: 900, cols: 150, rows: 40},
@@ -259,7 +265,7 @@ func host(args []string) {
 		})
 		go drive(ctx, d, now)
 	}
-	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC, Glyphs: dash.DetectGlyphs()}); err != nil {
+	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC, Glyphs: dash.DetectGlyphs(), Theme: dash.DetectTheme()}); err != nil {
 		os.Stderr.WriteString("look host: " + err.Error() + "\n")
 		os.Exit(1)
 	}

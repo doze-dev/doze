@@ -21,7 +21,8 @@ type share struct {
 
 // shareColours are the runs of a bar, largest first; the rest are dim. Red is
 // not among them: it means something is wrong.
-var shareColours = []string{hexGood, hexCool, hexAccent, hexWarn, "#FF9E64"}
+// shareColours are the palette's, in that order.
+func shareColours(p palette) []string { return []string{p.good, p.cool, p.accent, p.warn, p.extra} }
 
 // plainRuns tell the runs apart when there is no colour.
 var plainRuns = []string{"|", "#", "=", "+", ":"}
@@ -34,10 +35,11 @@ func (m *Model) runStyle(i int) lipgloss.Style {
 	if m.st.plain {
 		return lipgloss.NewStyle()
 	}
-	if i >= len(shareColours) {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(hexDim))
+	cols := shareColours(m.st.pal)
+	if i >= len(cols) {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.st.pal.dim))
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(shareColours[i]))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(cols[i]))
 }
 
 func runChar(plain bool, i int) string {

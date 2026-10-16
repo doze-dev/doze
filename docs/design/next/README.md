@@ -101,6 +101,8 @@ Decided, by the project owner, during design:
 | D48 | Size is a budget spent in priority order, never a cliff: bars, then the key under them, then every table row, then more log lines. Decided 2026-10-16. |
 | D49 | At 176 columns and up Home is master and detail (W-Home): the table at its natural width on the left, the selected instance's vitals and logs on the right. Decided 2026-10-16. |
 | D50 | Columns stop at their content; extra width is spent on information, never on blank space. At 220 and up the table gains a memory trend. Decided 2026-10-16. |
+| D51 | Home's detail charts cpu and memory only; connections are counted once, in the meters above (an instance's own page still charts them). Decided 2026-10-16. |
+| D52 | The dash has five themes: violet (the default), teal, burgundy, amber and slate. Meaning does not change with the theme (good, warn and bad stay green, yellow and red-ish, and are kept apart from the accent); every theme passes the contrast test. Chosen from the palette (`:` then `theme`), `DOZE_THEME`, and remembered in the user config dir. Decided 2026-10-16. |
 | D15 | "N MB of ~M if nothing slept" stays, using each service's memory from the last time it ran. Services that have never run are left out. Tier: should. Decided 2026-10-10. |
 | D16 | Cold versus warm request timing is cut. The wake timeline stays. Decided 2026-10-10. |
 | D17 | Per-app connection counts and the aws caller column are deferred. "Held by" ships from dependency holds. A two-day experiment after phase 3 decides keep or cut. Decided 2026-10-10. |
