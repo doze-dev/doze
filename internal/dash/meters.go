@@ -26,8 +26,9 @@ var shareColours = []string{hexGood, hexCool, hexAccent, hexWarn, "#FF9E64"}
 // plainRuns tell the runs apart when there is no colour.
 var plainRuns = []string{"|", "#", "=", "+", ":"}
 
-// shown is how many instances a key names before it says "+N".
-const shown = 5
+// shown is the most instances a key names before it says "+N"; the width
+// usually stops it sooner.
+const shown = 8
 
 func (m *Model) runStyle(i int) lipgloss.Style {
 	if m.st.plain {
@@ -51,7 +52,7 @@ func runChar(plain bool, i int) string {
 
 // composition draws a meter: its name and total, the bar, and (when keyed) the
 // line that says whose each colour is. unit formats one instance's part.
-func (m *Model) composition(name, total string, all []share, floor float64, cells int, unit func(float64) string, keyed bool) []string {
+func (m *Model) composition(name, total string, all []share, floor float64, cells int, unit, sumOf func(float64) string, keyed bool) []string {
 	s := m.st
 	const head = 6 + 11 // "mem   " and the total's column
 	inner := max(cells-head-2, 8)
@@ -122,7 +123,7 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 		more := len(shares) - i - 1
 		reserve := 0
 		if more > 0 {
-			reserve = 3 + len(fmt.Sprintf("+%d more", more))
+			reserve = 3 + len(fmt.Sprintf("+%d more · 000.0 GB", more))
 			if idle > 0 {
 				reserve += 3 + len(fmt.Sprintf("%d idle", idle))
 			}
@@ -135,7 +136,11 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 	}
 	line2 := key + strings.Join(parts, s.d.Render(" · "))
 	if rest := len(shares) - len(parts); rest > 0 {
-		line2 += s.d.Render(fmt.Sprintf(" · +%d more", rest))
+		var restSum float64
+		for _, x := range shares[len(parts):] {
+			restSum += x.v
+		}
+		line2 += s.d.Render(fmt.Sprintf(" · +%d more · %s", rest, sumOf(restSum)))
 	}
 	if idle > 0 {
 		line2 += s.d.Render(fmt.Sprintf(" · %d idle", idle))

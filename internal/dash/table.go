@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/display"
@@ -264,6 +265,7 @@ type tcol struct {
 func (m *Model) homeTable(w, h int) []string {
 	s := m.st
 	rs := m.ordered()
+	p := profileOf(w, h)
 	if len(rs) > 0 {
 		found := false
 		for _, r := range rs {
@@ -329,17 +331,34 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 	half := (w - 4) / 2
 	mc := min(half, 64)
+	if p.wc >= widthWide {
+		mc = min(half, 100) // the key can name more of them
+	}
 	if w < 100 {
 		mc = min(w-2, 64)
 	}
 	// with room, each bar has the line that names its colours under it
-	keyed := h >= 34
+	tableRows := len(rs)
+	for g := -1; ; {
+		next := -1
+		for _, r := range rs {
+			if r.group > g && (next < 0 || r.group < next) {
+				next = r.group
+			}
+		}
+		if next < 0 {
+			break
+		}
+		g = next
+		tableRows++ // each group's heading is a row
+	}
+	keyed := p.keyedMeters(tableRows)
 	memTotal := mb(ram)
 	if ram == 0 {
 		memTotal = "0 MB"
 	}
-	left := m.composition("mem", memTotal, memShares, 0, mc, memUnit(float64(ram)), keyed)
-	left = append(left, m.composition("cpu", cores(cpu), cpuShares, 0.5, mc, coresUnit, keyed)...)
+	left := m.composition("mem", memTotal, memShares, 0, mc, memUnit(float64(ram)), func(v float64) string { return mb(int64(v)) }, keyed)
+	left = append(left, m.composition("cpu", cores(cpu), cpuShares, 0.5, mc, coresUnit, cores, keyed)...)
 	left = append(left, s.a.Bold(true).Render(fit("conns", 6))+s.text.Render(fmt.Sprint(conns))+s.d.Render(" open across the stack"))
 	state := s.g.Render("●") + fmt.Sprintf(" %d awake", awakeN)
 	if dozing > 0 {
@@ -379,15 +398,7 @@ func (m *Model) homeTable(w, h int) []string {
 	// --- the table's columns, fewest that leave the last room to say something ---
 	// a name is given what the window can spare, to a limit past which it is
 	// only the beginning that tells instances apart
-	nameCap := 16
-	switch {
-	case w >= 160:
-		nameCap = 30
-	case w >= 130:
-		nameCap = 24
-	case w >= 110:
-		nameCap = 20
-	}
+	nameCap := p.nameCap()
 	nameW := 8
 	for _, r := range rs {
 		nameW = max(nameW, min(width(r.v.Name), nameCap))
@@ -456,6 +467,18 @@ func (m *Model) homeTable(w, h int) []string {
 	if rest >= 60 {
 		whyW = min(max(rest*38/100, 24), 38)
 		runsW = rest - whyW - 2
+		// a column stops at its widest cell: RUNS beside BECAUSE, not across the room
+		natWhy, natRuns := 0, 0
+		for _, r := range rs {
+			natWhy = max(natWhy, width(m.because(r.v)))
+			natRuns = max(natRuns, width(m.runs(r.v)))
+		}
+		if natRuns > 0 && natWhy+2+natRuns <= rest {
+			whyW, runsW = max(natWhy, 12), natRuns
+		} else if natRuns > 0 {
+			whyW = min(whyW, max(natWhy, 12))
+			runsW = min(rest-whyW-2, natRuns)
+		}
 	}
 
 	// --- body ---
@@ -548,6 +571,9 @@ func (m *Model) homeTable(w, h int) []string {
 			put(fit(m.runs(v), runsW), s.text)
 		}
 		put(" ", lipgloss.NewStyle())
+		if pad := w - width(b.String()); pad > 0 {
+			put(strings.Repeat(" ", pad), lipgloss.NewStyle())
+		}
 		body = append(body, line{b.String(), v.Name, curHead})
 	}
 
@@ -636,6 +662,9 @@ func (m *Model) homeTable(w, h int) []string {
 		hput(fit("RUNS", runsW))
 	}
 	hput(" ")
+	if pad := w - width(ansi.Strip(hb.String())); pad > 0 {
+		hput(strings.Repeat(" ", pad))
+	}
 	if len(rs) > 0 {
 		out = append(out, hb.String())
 	}
