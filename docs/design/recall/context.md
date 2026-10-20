@@ -14,14 +14,14 @@ under it changes.
 | File | Holds | Committed |
 |---|---|---|
 | Notes (`*.md`) | facts about code and resources that code doesn't say | yes |
-| `recall/glossary.md` | business words ↔ code names, for search | yes |
-| `recall/topology.yaml` | people's decisions about edges: approved, rejected, asserted | yes |
-| `<ProjectDir>/recall/proposals.json` | agent proposals waiting for review | no; per person, kept across index rebuilds |
+| `.recall/stack/glossary.md` | business words ↔ code names, for search | yes |
+| `.recall/stack/topology.yaml` | people's decisions about edges: approved, rejected, asserted | yes |
+| `~/.doze-recall/projects/<root hash>/proposals.json` | agent proposals waiting for review | no; per person, kept across index rebuilds |
 
 ## 1. When recall writes
 
-**Recall writes a committed file only when a person presses a key in the
-dash**, or, standalone, in `doze-recall review`, which uses the same keys ([standalone.md](standalone.md) §7). Nothing is written in the background, on index, or by an agent.
+**Recall writes a committed file only when a person presses a key in
+`doze-recall review`**, or in the dash under doze, which uses the same keys ([running.md](running.md) §7). Nothing is written in the background, on index, or by an agent.
 
 | Key, where | Writes |
 |---|---|
@@ -42,18 +42,17 @@ them, and normalizes line endings before any hash.
 
 | Home | For |
 |---|---|
-| `recall/` beside `doze.hcl` | the stack: notes about resources and flows across apps, the glossary, `topology.yaml` |
-| `.recall/` at an app repo's root | notes about that repo's code |
-| `.recall/stack/` at the root, standalone | the stack's files (notes across apps, the glossary, `topology.yaml`), since there is no `doze.hcl`; read like `recall/` when a `doze.hcl` sits at that root ([standalone.md](standalone.md) §7) |
+| `.recall/stack/` at the root (beside `doze.hcl` under doze) | the stack: notes about resources and flows across apps, the glossary, `topology.yaml` |
+| `.recall/` at each repo's root | `recall.toml`, and notes about that repo's code |
 
 Code ids don't contain app names ([graph.md](graph.md) §1), so a repo's
 `.recall/` notes work in every stack that contains it. Stack ids
-(`module.cloud:queue.orders`) mean something only next to the `doze.hcl`
-that declares them, so notes that name resources belong in the stack's
-`recall/`. A `.recall/` note naming a stack id is loaded only by stacks where
+(`module.cloud:queue.orders`, `inferred:kafka:topic.orders`) mean something
+only at the root that declares or infers them, so notes that name resources
+belong in that root's `.recall/stack/`. A `.recall/` note naming a stack id is loaded only by stacks where
 that id resolves, and is flagged in the others' Notes tab.
 
-New notes from `n` go to `recall/notes/<slug>.md` when they name a stack id,
+New notes from `n` go to `.recall/stack/notes/<slug>.md` when they name a stack id,
 and to `<repo>/.recall/<slug>.md` when they name only code. The slug comes
 from the first `about` name.
 
@@ -123,7 +122,7 @@ its own.
 
 ## 4. The glossary
 
-`recall/glossary.md`, one table:
+`.recall/stack/glossary.md`, one table:
 
 ```markdown
 | Term | Means | Points at | Source |
@@ -154,7 +153,7 @@ receives from what is the Topology tab and the `topology` tool, built from the
 graph.
 
 ```yaml
-# recall/topology.yaml: decisions people made in recall's Review tab.
+# .recall/stack/topology.yaml: decisions people made in `doze-recall review`.
 recall: 1
 decisions:
   - from: "go:example.com/acme/billing/jobs.Poll"
@@ -207,7 +206,7 @@ decisions:
 ### Proposals
 
 Edge verdicts and glossary rows from generation go to
-`<ProjectDir>/recall/proposals.json`. That file is per person, not committed,
+`~/.doze-recall/projects/<root hash>/proposals.json`. That file is per person, not committed,
 and survives index rebuilds because it isn't part of `graph.db`. Review lists
 them; `a` and `r` turn one into a decision or a glossary row and remove it from
 proposals. Teammates see a proposal only once someone has approved it into a
@@ -227,7 +226,11 @@ Their text is indexed for search, pointing at the nodes it mentions by exact
 name. It is never served as notes. To make an agent see something with a
 node, write a note.
 
-## 7. In the dash
+## 7. In `doze-recall review` and the dash
+
+`doze-recall review` shows the same items as one list with the same keys
+([running.md](running.md) §7). Under doze, the dash shows them as tabs,
+through recall's local API:
 
 | Tab | Shows | Keys |
 |---|---|---|
@@ -235,11 +238,13 @@ node, write a note.
 | Review | proposals, drift on decisions, decisions code now proves | `a` approve · `r` reject · `e` edit · `n` note |
 | Topology | every resource with who sends, receives, reads and writes it; one level down, its declaration, every use with how it was found, its notes, its decisions, and what doze-aws doesn't implement | `enter` detail · `a` / `r` / `e` on one entry |
 
-## 8. `doze recall check` in CI
+## 8. `doze-recall check` in CI
 
-The one headless command ([fit.md](fit.md) §6). It builds what it can of the
-graph in the CI checkout, without a daemon: it loads the config in-process
-and uses plugins only if they are already fetched. Then it checks:
+The CI command ([running.md](running.md) §7). It builds what it can of the
+graph in the CI checkout, from the code and a stack file if one is present.
+Under doze, `doze recall check` first writes the stack file without a
+daemon, using plugins only if they are already fetched ([fit.md](fit.md)
+§3). Then it checks:
 
 | Check | Fails the build |
 |---|---|
@@ -257,7 +262,7 @@ every finding with its file and line.
   repo goes.
   - The Notes tab warns before writing anything that matches a secret
     pattern.
-  - `doze recall check` fails on one in CI.
+  - `doze-recall check` fails on one in CI.
   - Recall never puts env values into any file it writes.
 - Every piece of people's text that reaches an agent is quoted as data and
   redacted ([answers.md](answers.md) §3.8): note bodies, glossary "Means",

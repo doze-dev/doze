@@ -1,7 +1,9 @@
 # Phases
 
 Status: plan, 2026-10-20; revised the same day after an independent review,
-and again when v1 grew from Go to five languages (R76). Nothing is built.
+and again when v1 grew from Go to five languages (R76). Restructured
+2026-10-21 when recall became independent of doze (R103): recall's own base
+comes first, and doze's integration is the last phase. Nothing is built.
 
 The build order for recall v1, in units small enough to review one at a time,
 in the style of [../next/phases.md](../next/phases.md). Phases are numbered
@@ -29,51 +31,54 @@ not at the end.
 
 | Phase | What ships | Days | Depends on |
 |---|---|---|---|
-| P0 | The address and sandbox questions tried; a throwaway `impact` spike | 4 to 6 | none |
-| P1 | doze's side: the hand-off, `Declared`, the built-in instance, the pinned `doze-recall`, the change feed | 22 to 34 | P0 |
-| P2 | The graph core and Go | 30 to 45 | P1.1, and P1.8 for incremental updates |
+| P0 | Stdio inside agents' sandboxes tried; a throwaway `impact` spike; the eval's groundwork | 3 to 5 | none |
+| P1 | Recall's base: the repository, the shim and background process, the watcher, finding the root and apps, `status`, a release | 22 to 32 | P0 |
+| P2 | The graph core and Go | 30 to 45 | P1 |
 | P3 | The language-pack machinery: syntax layer, pack framework, language-server client and supervision | 18 to 29 | P2 |
-| P4 | The join: catalogue engine, value resolvers, Go rules | 22 to 32 | P2 |
+| P4 | The join: catalogue engine, value resolvers, Go rules, inferred resources, the declared-stack file | 25 to 36 | P2 |
 | P5 | The TypeScript/JavaScript pack | 25 to 35 | P3, P4 |
 | P6 | Answers and the retrieval eval (E0) | 18 to 26 | P4, P5; the first 10 eval tasks (T) |
-| P7 | The pilot (E1) on a Go + TypeScript stack | 10 to 15 | P6; 20 eval tasks (T) |
+| P7 | The pilot (E1), on code alone | 10 to 15 | P6; 20 eval tasks (T) |
 | P8 | The Python pack | 20 to 30 | P5 |
 | P9 | The Rust pack | 20 to 30 | P5 |
-| P10 | The dash and what people add | 25 to 35 | P6 |
+| P10 | What people add: notes, glossary, decisions, `doze-recall review` and `check` | 20 to 28 | P6 |
 | P11 | Generation | 10 to 15 | P10 |
-| P12 | Standalone: recall without doze | 15 to 25 | P6; its review command after P10, `generate` after P11 |
-| | **Total** | **239 to 357** | |
+| P12 | doze as an input: the stack file from `doze.hcl`, `Declared`, the pinned copy and `doze recall`, the dash screen | 30 to 44 | P10, P11 (the Generate tab); the stack-file format from P4 |
+| | **Total** | **251 to 370** | |
 | T | `parcel` built by agents (E1 slice, then the Python and Rust apps for E2) and tasks written by agents | agent time: about 4–6 weeks to the E1 slice, 6–11 to E2's stack; owner supervision about 5 to 8 days to E1 (the stack slice and 20 tasks), about 25 to 35 days to E2 (at a day per 20 tasks, plus the stack's audits) | none |
 
-P8, P9 and P10 can go in any order after the pilot starts. P12 can start once
-P6 is done, and must finish before E2, which runs its standalone arm. The suggested
-order is Python, then the dash, then Rust: Python is the more common
-language, and the dash makes notes and review usable before the last pack.
+The total grew by about 12 days over the plan where doze hosted recall: recall needs its
+own review command and local API, and doze's dash becomes a client of it
+rather than sharing code.
+
+P8, P9 and P10 can go in any order after the pilot starts, and P12 follows
+P10. If E2 runs, its doze arms need P12. The suggested order is Python, then
+P10, then Rust, then P12: Python is the more common language, and review
+makes notes usable before the last pack.
 
 ## Milestones
 
 | Milestone | Phases | What a user gets |
 |---|---|---|
-| M1 | P1–P6 | An agent in Claude Code asks `impact`, `brief`, `trace`, `find`, `topology` and `diagnose` about a stack of Go and TypeScript/JavaScript apps, and gets cited answers across apps that say whether they're complete. The dash shows the header strip only |
+| M1 | P1–P6 | Anyone installs `doze-recall`, adds it to Claude Code, and asks `impact`, `brief`, `trace`, `find`, `topology` and `diagnose` about a repo of Go and TypeScript/JavaScript apps, with cited answers across apps that say whether they're complete. No doze needed |
 | M2 | P7 | The pilot's result, and decision V1: how strong a claim v1 ships on |
-| M3 | P8–P10 | Python and Rust apps indexed; the recall screen with notes, glossary, decisions and `doze recall check` |
+| M3 | P8–P10 | Python and Rust apps indexed; notes, glossary and decisions; `doze-recall review` and `doze-recall check` |
 | M4 | P11 | Generate: edge verdicts, glossary rows and note checks through the person's own agent CLI, Claude Code first |
-| M5 | P12 | `doze-recall` for people without doze: install one binary, add it to the agent, get the graph and inferred cross-app links; review in the terminal |
+| M5 | P12 | doze users get declared links, the dash's recall screen, and `doze recall` with a pinned copy |
 
-Each milestone leaves `main` releasable in both repositories. Recall is off unless a `doze.hcl`
-has a `recall {}` block, so shipping M1 changes nothing for anyone who
-doesn't add one. Until a language's pack ships, its apps appear through
-their `doze.hcl` wiring, and answers say `partial: <app> is not indexed`.
+doze-recall releases from M1. doze itself is untouched until P12, so
+nothing about recall can break a doze release before then. Until a
+language's pack ships, its apps are still found by discovery, and answers
+say `partial: <app> is not indexed`.
 
 ## P0: try the risky parts first
 
 | Unit | Work |
 |---|---|
-| P0.1 | **The address, tried.** fit.md prefers one machine-wide address that routes sessions by stack. But the daemon is per project, and MCP roots arrive only after `initialize`, so routing needs a shared component that answers before it knows the stack. Try it against doze-names' shared `:80` ingress. Also try the standalone shim forwarding to doze's instance when the root has `recall {}` ([standalone.md](standalone.md) §4), which gives one stdio registration for both modes. If neither holds up within the unit, choose a per-stack URL registered per project (`claude mcp add --scope local`). Decide the `domains = false` case. Write the result into [fit.md](fit.md) |
-| P0.2 | **Sandboxes, tried** (O9): connect Claude Code inside its sandbox, Codex, and a cloud agent to a `.doze` name and to loopback |
-| P0.3 | **The spike:** a hand-written `stack.json` for `examples/shop`, `go/types` over its module, and an `impact` answer for the order event across api and worker, printed to stdout. Thrown away afterwards |
-| P0.4 | Settled: V4 is our own stack, `parcel` ([eval.md](eval.md) §2). Create the private `parcel` and `doze-recall-eval` repositories; measure the realism targets on Jitsu and Hatchet clones; write the trap list; fix the task format and the four validity checks as a bun script in `doze-recall-eval`, so T can start before P6. The building agents start T.1 |
-| P0.5 | O5: the machine-wide cache under `~/.doze`, accepted or kept in the project |
+| P0.1 | **Stdio in sandboxes, tried** (O9): `doze-recall serve` started by Claude Code inside its sandbox, by Codex, and by a cloud agent. Can the shim start a background process, and reach its socket in `~/.doze-recall/run/`? If a sandbox forbids it, the shim serves in-process for that session instead (one writer still holds through the lock) |
+| P0.2 | **The spike:** `go/types` over `examples/shop` with no stack file, inferred resources by hand, and an `impact` answer for the order event across api and worker, printed to stdout. Thrown away afterwards |
+| P0.3 | Settled: V4 is our own stack, `parcel` ([eval.md](eval.md) §2). Create the private `parcel` and `doze-recall-eval` repositories; measure the realism targets on Jitsu and Hatchet clones; write the trap list; fix the task format and the four validity checks as a bun script in `doze-recall-eval`, so T can start before P6. The building agents start T.1 |
+| P0.4 | O5: the machine-wide cache under `~/.doze-recall`, accepted or kept in the project |
 
 Exit measures:
 
@@ -81,35 +86,29 @@ Exit measures:
 - The spike's `impact` lists the shop's cross-app consumers of the order
   event.
 
-## P1: doze's side
+## P1: recall's base
 
-Contract: [fit.md](fit.md), [graph.md](graph.md) §4.1, §4.8.
+Contract: [running.md](running.md).
 
 | Unit | Work | Files |
 |---|---|---|
-| P1.1 | The hand-off, built in `internal/config` so the daemon and `doze recall check` both produce it; the daemon writes it on every config load. Contents: each env key's `ref` (captured while `evaluate` walks traversals), `env_files`, `blocks` fingerprints, tasks, a contract version | `internal/config/eval.go`, `fingerprint.go`, new `handoff.go`, `internal/daemon/` |
-| P1.2 | The `Declared` capability: read-only, never called by plan or sync, in the SDK, the plugin protocol and the host adapter. `Admin.Resources` exists but needs the instance awake; `Declared` is computed from config | `doze-sdk/engine/driver.go`, `doze-sdk/plugin/proto/engine.proto`, `doze-sdk/plugin/adapter.go`, `doze-sdk/plugin/server.go` |
-| P1.3 | `Declared` in doze-aws (resources with URLs and ARNs, plus the operations it implements) and doze-kafka (topics, groups) | `doze-aws/module/`, `doze-kafka/module/` |
-| P1.4 | Releases: the SDK tagged, both plugins released against it, doze's pins moved | `doze-sdk`, `doze-aws`, `doze-kafka`, `go.mod` |
-| P1.5 | `recall` in `reservedBlocks`; the name and the `recall-` prefix reserved; the `recall {}` block parsed (`include`, `exclude`, `agents`) | `internal/config/load.go`, new `internal/config/recall.go` |
-| P1.6 | The built-in recall instance, hidden: proxied, sleeping on idle, excluded from `doze up`, skipped by dash rows, `status` and `env` | `internal/config/runnable.go`, `internal/daemon/`, `internal/dash/`, `cmd/doze/` |
-| P1.7 | The pinned `doze-recall`: its version and SHA-256 compiled into doze, downloaded and checked on the first `recall {}` (through `DOZE_MIRROR` when set), never written to `doze.lock`; language-server archives mirrored in doze-binaries | `cmd/doze/`, `internal/runtime/`, `doze-binaries/` |
-| P1.8 | The watcher as a doze-sdk package (FSEvents through purego on macOS with a persisted event id per root, inotify on Linux, git to reconcile, polling on Windows), run by the daemon; a `files` subscription. Runs only while recall is awake | `doze-sdk/feed/`, `internal/control/`, `internal/daemon/subscribe.go` |
-| P1.9 | The `doze-recall` repository: module skeleton; reads `stack.json`, serves MCP at P0.1's address with the `Origin` check, one placeholder tool, a `check` subcommand stub; goreleaser, `install.sh`, CI; the first release, pinned by doze | `doze-recall/` (new repository) |
-| P1.10 | `status.json` and the dash header strip that reads it without waking recall | `doze-recall/internal/status/`, `internal/dash/` |
-| P1.11 | The asleep budget: recall asleep adds nothing to the idle bench | `test/bench/` |
+| P1.1 | The `doze-recall` repository: module skeleton, CI on macOS, Linux and Windows, goreleaser, `install.sh` checked on macOS and Linux | `doze-recall/` |
+| P1.2 | The stdio shim and the background process: one per root, Unix socket (0700, peer uid checked), `flock` and stale-socket recovery, the version handshake, idle exit after 5 minutes; a named pipe on Windows | `doze-recall/internal/shim/`, `doze-recall/internal/bgproc/` |
+| P1.3 | MCP over stdio with one placeholder tool; the local API's skeleton (status, versioned) | `doze-recall/internal/serve/`, `doze-recall/internal/bgproc/api.go` |
+| P1.4 | The watcher: FSEvents through purego on macOS with a saved event id per root, inotify on Linux, git to reconcile, polling on Windows; the wake catch-up's input | `doze-recall/internal/feed/` |
+| P1.5 | The root and the apps: root rules and refusals, discovery from manifests in all five languages (as text, no scripts), app names, `.env` files with the secret rules, `.recall/recall.toml` and accepting `roots` | `doze-recall/internal/inputs/` |
+| P1.6 | `status.json`; `doze-recall status` (reads it without starting anything) and `connect` | `doze-recall/internal/status/`, `doze-recall/internal/cli/` |
+| P1.7 | The first release | `doze-recall/` |
 
 Exit measures:
 
-- An MCP client wakes recall through the proxy and gets the placeholder
-  answer. Closing the session lets it sleep.
-- doze downloads the pinned `doze-recall` release on the first `recall {}`,
-  checks its SHA-256, and leaves `doze.lock` untouched.
-- `stack.json` for `examples/shop` lists every env key with its `ref` or
-  value, the declared queues and topics, and doze-aws's operations.
-- Edits made while recall sleeps are all reported on the next wake, on macOS
-  and Linux.
-- After the first index, with recall asleep, the idle bench is unchanged.
+- Claude Code starts `doze-recall serve` and gets the placeholder answer.
+  Two sessions on one root share one background process; nothing runs 5
+  minutes after the last closes.
+- On `testdata/shop/` (copied from doze's `examples/shop`) and on `parcel` in the plain-repo setting, discovery
+  finds every app, and refuses a home folder.
+- Edits made while recall wasn't running are all reported when it next
+  starts, on macOS and Linux.
 
 ## P2: the graph core and Go
 
@@ -123,10 +122,10 @@ Contract: [graph.md](graph.md) §1–§3, §4.2, §4.4, §5–§9.
 | P2.4 | Go: `go list -e -deps -export` with `GOTOOLCHAIN=local`, `GOPROXY=off`, the cgo retry; the cache key | `doze-recall/internal/golang/list.go` |
 | P2.5 | Go: the package loop with up to 4 workers, `nice`, `GOMAXPROCS` capped, a byte-bounded import LRU (its bound measured on Kubernetes) | `doze-recall/internal/golang/check.go`, `lru.go` |
 | P2.6 | Go: extraction (definitions, references, calls, `implements`, `reads_env`, routes, logging and error literals, undefined names); build-constrained files; hazards | `doze-recall/internal/golang/` |
-| P2.7 | The stack: reading `stack.json`, secrets dropped from `env_files`, app ownership by entry-point reachability, run facts and test commands | `doze-recall/internal/stack/` |
+| P2.7 | Apps from P1.5: app ownership by entry-point reachability, run facts and test commands from manifests | `doze-recall/internal/inputs/` |
 | P2.8 | Dependencies, Go first: `go list -m -json`, module cache paths, the machine-wide cache; the interface the packs fill for lockfiles | `doze-recall/internal/deps/` |
 | P2.9 | Storage: the snapshot, `graph.db` with FTS5 (split identifiers, `porter` for prose), existing prose indexed, the per-module cache; the SQLite driver chosen | `doze-recall/internal/graph/snapshot.go`, `doze-recall/internal/store/`, `doze-recall/internal/prose/` |
-| P2.10 | The writer queue, passes, publish, generations, refreshes; incremental updates (surface hash without positions, importers outward, added names, config-file owners, deletions); the wake catch-up | `doze-recall/internal/index/`, `doze-recall/internal/feed/` |
+| P2.10 | The writer queue, passes, publish, generations, refreshes; incremental updates (surface hash without positions, importers outward, added names, config-file owners, deletions); the wake catch-up from P1.4's watcher | `doze-recall/internal/index/` |
 | P2.11 | Tests and budgets: the Go oracle (`gopls references` on a sample, a type check per GOOS), id stability, incremental equals full, determinism; bench entries for serving RSS and indexing peak | `doze-recall/internal/*/…_test.go`, `test/bench/` |
 
 Exit measures:
@@ -152,7 +151,7 @@ Contract: [graph.md](graph.md) §4.6–§4.7; the rules in
 | P3.1 | The syntax layer: gotreesitter pinned, a grammar subset (TS, TSX, JS, Python, Rust), parse → run queries → release in one goroutine, 2–4 workers, the size and minified caps, a per-file time budget, our own parity corpus against C tree-sitter in CI | `doze-recall/internal/syntax/` |
 | P3.2 | The pack framework: what a pack declares (globs, root markers, queries, resolver, id rules, catalogue rows, server), and how the index runs a pack's three steps | `doze-recall/internal/lang/pack.go` |
 | P3.3 | The language-server client: initialize, answering server requests, per-server readiness rules, the canary, pipelined `definition` requests for doubtful sites, a site cache keyed by (file hash, site, server version), the memory ceiling and one restart | `doze-recall/internal/lsp/` |
-| P3.4 | Server supervision as recall's child processes, in both modes: the compiled-in `{url, sha256}` table, `DOZE_MIRROR`, the gunzip-to-one-file fallback, the cache in recall's home; started per app and language, one at a time per machine, held while doubtful sites remain plus 2 minutes, then stopped; logs and `status.json` entries | `doze-recall/internal/lsp/lifecycle.go`, `doze-recall/internal/lsp/fetch.go` |
+| P3.4 | Server supervision as recall's child processes: the compiled-in `{url, sha256}` table, `DOZE_RECALL_MIRROR` (and `DOZE_MIRROR`), the archives mirrored in doze-binaries releases, the gunzip-to-one-file fallback, the cache in recall's home; started per app and language, one at a time per machine, held while doubtful sites remain plus 2 minutes, then stopped; logs and `status.json` entries | `doze-recall/internal/lsp/lifecycle.go`, `doze-recall/internal/lsp/fetch.go` |
 | P3.5 | The binary-size check: recall with SQLite, x/tools, go-pgquery and the five grammars (TS, TSX, JS, Python, Rust), measured and budgeted | `Makefile`, `test/bench/` |
 
 Exit measures:
@@ -171,19 +170,23 @@ Contract: [graph.md](graph.md) §4.3.
 |---|---|---|
 | P4.1 | The catalogue engine, language-neutral: row format, the five shapes (argument, literal, option, output, identity), matched over each language's facts | `doze-recall/internal/join/catalogue.go` |
 | P4.2 | The value resolver: one interface, a `go/types` implementation (constants, env reads, concatenation, `Same`, `OneOf`, config struct summaries, envconfig and caarlos0/env), and a syntax-level implementation the packs use (literals, module constants, env reads, same-file concatenation) | `doze-recall/internal/join/resolve.go`, `resolve_go.go`, `resolve_syntax.go` |
-| P4.3 | Client-to-module binding; the join with the hand-off; `undeclared` resources; `doubtful` candidates; unresolved-site facts | `doze-recall/internal/join/` |
-| P4.4 | The AWS generator: Smithy models and the Service Authorization Reference pinned by commit, one resource-argument table emitted in every SDK's call shape (Go v2, JS v3, boto3, Rust), about 10 overrides; rows committed | `doze-recall/tools/catalogue-aws/`, `doze-recall/internal/*/catalogue/aws.tsv` |
-| P4.5 | Go rows: franz-go, Sarama, segmentio, confluent-kafka-go (cgo, so `go list -export` needs a C toolchain, and without one its users fall back to syntax); `database/sql`, pgx, sqlx, sqlc; ServeMux, chi, gin, echo; `net/http` clients; logging | `doze-recall/internal/golang/catalogue/` |
-| P4.6 | SQL through `wasilibs/go-pgquery`; schema from migrations and sqlc files. HTTP: route tables, client path templates, segment matching | `doze-recall/internal/join/sql.go`, `http.go` |
-| P4.7 | Tests: catalogue conformance against doze-aws; the shop join | `doze-recall/internal/join/*_test.go` |
+| P4.3 | Client-to-module binding; the join with declared resources; `undeclared` resources; `doubtful` candidates; unresolved-site facts | `doze-recall/internal/join/` |
+| P4.4 | Inferred resources when there is no stack file: ids, `scoped` at best, the coverage line, `doubtful` links through a shared env key name, mapping to declared resources when a file appears | `doze-recall/internal/join/inferred.go` |
+| P4.5 | The declared-stack file: its JSON Schema and version, the reader, `sources` hashes and staleness, `logs` for `diagnose`; tested with hand-written files until P12 writes real ones | `doze-recall/internal/inputs/stackfile.go`, `doze-recall/schema/stack.schema.json` |
+| P4.6 | The AWS generator: Smithy models and the Service Authorization Reference pinned by commit, one resource-argument table emitted in every SDK's call shape (Go v2, JS v3, boto3, Rust), about 10 overrides; rows committed | `doze-recall/tools/catalogue-aws/`, `doze-recall/internal/*/catalogue/aws.tsv` |
+| P4.7 | Go rows: franz-go, Sarama, segmentio, confluent-kafka-go (cgo, so `go list -export` needs a C toolchain, and without one its users fall back to syntax); `database/sql`, pgx, sqlx, sqlc; ServeMux, chi, gin, echo; `net/http` clients; logging | `doze-recall/internal/golang/catalogue/` |
+| P4.8 | SQL through `wasilibs/go-pgquery`; schema from migrations and sqlc files. HTTP: route tables, client path templates, segment matching | `doze-recall/internal/join/sql.go`, `http.go` |
+| P4.9 | Tests: catalogue conformance against a recorded doze-aws fixture; the shop join on `testdata/shop/` (copied from doze's `examples/shop`, with a hand-written stack file) | `doze-recall/internal/join/*_test.go` |
 
 Exit measures:
 
-- On `examples/shop`, every edge is found with the expected label and
-  chain, with no unresolved sites:
+- On `examples/shop` with a hand-written stack file, every edge is found
+  with the expected label and chain, with no unresolved sites:
   - `api —sends→ topic.orders` (literal shape);
   - `worker —receives→ topic.orders` (option shape);
   - `worker —receives→ queue.orders` (output shape and the name match).
+- Without the stack file, the same three links appear through inferred
+  resources, labelled `scoped`.
 - The AWS rows agree with doze-aws.
 - P2's budgets still hold.
 
@@ -217,13 +220,13 @@ Contract: [answers.md](answers.md); [eval.md](eval.md) §3, §6 (E0).
 
 | Unit | Work | Files |
 |---|---|---|
-| P6.1 | Sessions: which stack (per P0.1), generic instructions, the tool registry with annotations and `alwaysLoad`; dropping the in-memory graph after a quiet hour | `doze-recall/internal/serve/mcp.go`, `session.go`, `instructions.go` |
+| P6.1 | Sessions on the shim's root, generic instructions, the tool registry with annotations and `alwaysLoad`; dropping the in-memory graph after a quiet hour | `doze-recall/internal/serve/mcp.go`, `session.go`, `instructions.go` |
 | P6.2 | Parse, seed, resolve; freshen | `anchor.go`, `freshen.go` |
 | P6.3 | Expand per tool, rank, pack (levels, the estimator, caps, cursors with generations) | `expand.go`, `rank.go`, `pack.go` |
 | P6.4 | Render: text and shared `structuredContent`, quoting, redaction, paths, completeness lines | `render.go`, `complete.go` |
-| P6.5 | The six tools; `impact` on a diff; `diagnose` from the journal and log store | `doze-recall/internal/serve/tools/`, `diff.go` |
+| P6.5 | The six tools; `impact` on a diff; `diagnose` from the error text, and from the logs a stack file points at | `doze-recall/internal/serve/tools/`, `diff.go` |
 | P6.6 | The Queries log | `querylog.go` |
-| P6.7 | E0: the retrieval eval on `parcel`'s first 10 tasks (format and checks from P0.4), the budget sweep, `doze-recall-eval`'s CI in report-only mode | `doze-recall/eval/retrieval/`; tasks in `doze-recall-eval` |
+| P6.7 | E0: the retrieval eval on `parcel`'s first 10 tasks (format and checks from P0.3), the budget sweep, `doze-recall-eval`'s CI in report-only mode | `doze-recall/eval/retrieval/`; tasks in `doze-recall-eval` |
 
 Exit measures:
 
@@ -241,9 +244,9 @@ Contract: [eval.md](eval.md).
 
 | Unit | Work | Who |
 |---|---|---|
-| T.1 | `parcel`'s E1 slice: v0 of the six Go and TypeScript apps and their `doze.hcl` (doze-aws, Kafka, Postgres), then 80–120 feature commits that bring in the trap list; unit tests run with no services; 40–50k hand-written lines and 25+ cross-app links (36+ once the E2 apps join), each listed in the plan before building; an independent audit against the targets | building agents (Opus; Codex for two apps when available), from P0.4 |
-| T.2 | 20 cross-app tasks, at least half crossing Go ↔ TypeScript, with required sites, hidden tests and the four validity checks, each reviewed by a second agent, 5 read by the owner; the first 10 feed E0 | authoring and reviewing agents, from T.1 (tasks need `parcel` commits as their base) and P0.4 |
-| P7.1 | The harness: worktrees, an idle daemon with a fresh `DOZE_HOME` and nothing started, fresh configuration homes, A0's removals and leak scan, waiting on usage windows, the results layout; the analysis script written before the runs | recall's builder |
+| T.1 | `parcel`'s E1 slice: v0 of the six Go and TypeScript apps and their `doze.hcl` (doze-aws, Kafka, Postgres), then 80–120 feature commits that bring in the trap list; unit tests run with no services; 40–50k hand-written lines and 25+ cross-app links (36+ once the E2 apps join), each listed in the plan before building; an independent audit against the targets | building agents (Opus; Codex for two apps when available), from P0.3 |
+| T.2 | 20 cross-app tasks, at least half crossing Go ↔ TypeScript, with required sites, hidden tests and the four validity checks, each reviewed by a second agent, 5 read by the owner; the first 10 feed E0 | authoring and reviewing agents, from T.1 (tasks need `parcel` commits as their base) and P0.3 |
+| P7.1 | The harness: worktrees in the plain-repo setting (`doze.hcl` and `.doze/` removed, a `.env` per app generated from the resolved config), a fresh `~/.doze-recall` per run, fresh configuration homes, A0's removals and leak scan, waiting on usage windows, the results layout; the analysis script written before the runs | recall's builder |
 | P7.2 | 80 runs: Claude Code on `claude-sonnet-5-5`, A0 and A2, 2 runs each | the subscription |
 | P7.3 | The report: the primary measure with its interval, the secondaries, the measured variance, runs per usage window, transcripts read | recall's builder |
 
@@ -286,31 +289,27 @@ Exit measures:
 - With no cargo on the machine, the generated project file still gives
   references.
 
-## P10: the dash and what people add
+## P10: what people add
 
-Contract: [context.md](context.md); the screens as tabs in recall's screen
-([fit.md](fit.md) §5).
+Contract: [context.md](context.md); [running.md](running.md) §7.
 
 | Unit | Work | Files |
 |---|---|---|
-| P10.1 | A tab component for the dash (there is none; `internal/dash` is about 11.6k lines); recall's screen: Overview (levels per app and language, skipped and degraded reasons), Queries, Connect | `internal/dash/` |
-| P10.2 | Notes: parsing, the full-id rule, staleness against the `checked` commit from git, orphans and re-anchor candidates | `doze-recall/internal/notes/` |
-| P10.3 | The glossary and `topology.yaml` decisions: parsing, per-entry validation, drift; `proposals.json` | `doze-recall/internal/notes/` |
-| P10.4 | Writes on keypress only, atomic and mtime-checked; the Notes, Review and Topology tabs | `doze-recall/internal/notes/write.go`, `internal/dash/` |
-| P10.5 | `doze recall check`: `cmd/doze` runs `doze-recall check`; the hand-off built in-process; the checks and exit codes | `cmd/doze/recall.go`, `doze-recall/cmd/doze-recall/` |
-| P10.6 | The parity exemption for all of recall's dash actions (R9) | `cmd/doze/parity_test.go` |
-| P10.7 | Notes in answers: the Notes section, quoting, stale notes to Unconfirmed | `doze-recall/internal/serve/` |
+| P10.1 | Notes: parsing, the full-id rule, staleness against the `checked` commit from git, orphans and re-anchor candidates | `doze-recall/internal/notes/` |
+| P10.2 | The glossary and `topology.yaml` decisions: parsing, per-entry validation, drift; `proposals.json` | `doze-recall/internal/notes/` |
+| P10.3 | Writes on keypress only, atomic and mtime-checked, behind the local API so the dash can use them later | `doze-recall/internal/notes/write.go`, `doze-recall/internal/bgproc/api.go` |
+| P10.4 | `doze-recall review`: one list and prompt for everything waiting, with the dash's keys | `doze-recall/internal/cli/review.go` |
+| P10.5 | `doze-recall check`: the checks and exit codes, on code alone or with a stack file | `doze-recall/cmd/doze-recall/`, `doze-recall/internal/check/` |
+| P10.6 | Notes in answers: the Notes section, quoting, stale notes to Unconfirmed | `doze-recall/internal/serve/` |
 
 Exit measures:
 
 - A note on a queue appears in `brief` and `impact` answers that touch it.
-  It goes to Unconfirmed when the queue's declaration changes, and stays put
-  for unrelated edits.
+  It goes to Unconfirmed when the queue's code changes, and stays put for
+  unrelated edits.
 - A fresh clone sees the same staleness.
-- `doze recall check` fails on a bad id and on drift, and passes with a
-  partial build listed. The doze binary's dependencies are unchanged.
-- Screenshots of every tab compared with the design boards before the phase
-  is called done.
+- `doze-recall check` fails on a bad id and on drift, and passes with a
+  partial build listed.
 
 ## P11: generation
 
@@ -323,47 +322,45 @@ Contract: [generation.md](generation.md).
 | P11.6 | Codex and Cursor runners, each added once the owner has the plan and it passes the contract test (R95) | `runner_codex.go`, `runner_cursor.go` |
 | P11.3 | The contract test, and a hostile fixture in `testdata/hostile/` whose comment tells the agent to write a file and run a command | `contract_test.go` |
 | P11.4 | Jobs: edge verdicts (most useful on the Python and JavaScript doubtful sites), glossary rows, note checks | `doze-recall/internal/generate/jobs/` |
-| P11.5 | The Generate tab; the agent picker in Connect honouring `agents`; proposals into Review | `internal/dash/` |
+| P11.5 | `doze-recall generate`: `--agent`, remembered in `~/.doze-recall/config.toml`, honouring `agents`; proposals into `review` | `doze-recall/internal/cli/generate.go` |
 
 Exit measures:
 
 - A verdict on a fixture's unresolved site passes its checks and waits in
-  Review.
+  `review`.
 - The contract test passes for Claude Code.
 - The hostile fixture changes nothing the runner can do.
 
-## P12: standalone
+## P12: doze as an input
 
-Contract: [standalone.md](standalone.md).
+Contract: [fit.md](fit.md); [graph.md](graph.md) §4.1.
 
 | Unit | Work | Files |
 |---|---|---|
-| P12.1 | The host interface: the graph fed either by doze (`stack.json`, the daemon's feed) or standalone; the doze host is what P1–P6 built, moved behind it | `doze-recall/internal/host/` |
-| P12.2 | Discovery: the root, apps from manifests in all five languages, app names, `recall.toml`, run and test commands from manifests, `.env` files with the secret rules | `doze-recall/internal/discover/`, `doze-recall/internal/host/standalone/` |
-| P12.3 | Inferred resources in the join: ids, `scoped` at best, the coverage line, `doubtful` links through a shared env key name; mapping to declared resources when `doze.hcl` appears | `doze-recall/internal/join/` |
-| P12.4 | The process model: the stdio shim, forwarding to doze when the root has `recall {}`, one background process per root, socket (0700, peer uid checked), `flock` and stale-socket recovery, the version handshake, the machine-wide server lock, idle exit; the doze-sdk watcher run in-process with saved event ids; named pipe on Windows | `doze-recall/internal/shim/`, `doze-recall/internal/bgproc/` |
-| P12.5 | Terminal commands: `status`, `connect`, `review` (one list and prompt for everything waiting, after P10, using the same write functions as the dash), `generate` (after P11), the agent setting in `~/.doze-recall/config.toml`; refusing to start on a home folder or with no apps; accepting `roots` | `doze-recall/internal/cli/` |
-| P12.6 | The standalone README, `install.sh` checked on macOS and Linux, a release | `doze-recall/` |
+| P12.1 | The stack file, built in `internal/config` so the daemon and `doze recall stack` both write it, to `.doze/recall/stack.json`: each env key's `ref` (captured while `evaluate` walks traversals), `env_files`, `blocks` fingerprints, tasks, `sources` with hashes (`doze.hcl`, `doze.lock`, env files), `partial` for modules whose plugins aren't fetched, plain-text log paths per app; checked against doze-recall's JSON Schema | `internal/config/eval.go`, `fingerprint.go`, new `stackfile.go`, `internal/daemon/` |
+| P12.2 | The `Declared` capability: read-only, never called by plan or sync, in the SDK, the plugin protocol and the host adapter. `Admin.Resources` exists but needs the instance awake; `Declared` is computed from config | `doze-sdk/engine/driver.go`, `doze-sdk/plugin/proto/engine.proto`, `doze-sdk/plugin/adapter.go`, `doze-sdk/plugin/server.go` |
+| P12.3 | `Declared` in doze-aws (resources with URLs and ARNs, plus the operations it implements) and doze-kafka (topics, groups); releases: the SDK tagged, both plugins released against it, doze's pins moved | `doze-aws/module/`, `doze-kafka/module/`, `doze-sdk`, `go.mod` |
+| P12.4 | `recall` in `reservedBlocks`; the name reserved; the `recall {}` block (no keys) | `internal/config/load.go`, new `internal/config/recall.go` |
+| P12.5 | The pinned copy: version and SHA-256 compiled in, downloaded and checked on the first `recall {}` (through `DOZE_MIRROR`), never written to `doze.lock`; `doze recall <args>` writes the stack file if stale and runs it; `doze recall check`; the parity exemption | `cmd/doze/recall.go`, `internal/runtime/`, `cmd/doze/parity_test.go` |
+| P12.6 | The dash: the header strip from `doze-recall status --json`; a tab component (there is none; `internal/dash` is about 11.6k lines); recall's screen with Overview, Notes, Review, Topology, Queries, Connect and Generate, each a client of the local API | `internal/dash/` |
 
 Exit measures:
 
-- On `examples/shop` and on `parcel` with `doze.hcl` removed, discovery
-  finds every app, and every declared link whose resource name is a constant
-  in code appears as an inferred link.
-- Two agent sessions on one root share one background process, and nothing
-  runs 5 minutes after the last one closes.
-- Adding `doze.hcl` back maps every inferred resource with one declared
-  match, offered in `review`.
-- The awake and indexing budgets hold as under doze.
-
-If E2 runs, its standalone arm A5 needs P12.
+- `.doze/recall/stack.json` for `examples/shop` lists every env key with
+  its `ref` or value, the declared queues and topics, and doze-aws's
+  operations, and validates against the schema.
+- With it, the shop's links turn from inferred to declared, and notes on
+  inferred ids are offered for re-anchoring in Review.
+- doze downloads the pinned release on the first `recall {}`, checks it,
+  and leaves `doze.lock` untouched. doze's idle bench is unchanged.
+- Screenshots of every tab compared with the design boards before the phase
+  is called done.
 
 ## After v1
 
 Not planned in units yet:
 
 - E2, if V1 calls for it, with Python and Rust services in the eval stack;
-- `watch` on the change feed;
 - observed calls;
 - Java, C#, PHP, Ruby and Kotlin at syntax level (a grammar and queries
   each, a few days per language), and at full precision only where a server
@@ -372,4 +369,3 @@ Not planned in units yet:
 - the Go rows cut from P4 (confluent-kafka-go, viper, koanf, resty, SaaS
   SDKs);
 - bulk re-anchor after a module rename;
-- Windows verified, once doze has Windows CI.

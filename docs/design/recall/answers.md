@@ -9,7 +9,8 @@ An answer is what an agent receives from one tool call. It comes from recall's
 own data and never from a model:
 
 - the graph;
-- the journal and log store, for `diagnose`;
+- the error text an agent passes, and the logs a declared-stack file points
+  at, for `diagnose`;
 - source lines read from disk at render time.
 
 It is small by default and leads with the answer. It keeps what recall can
@@ -21,21 +22,13 @@ billing. The real fixture's module is
 
 ## 1. The server
 
-- Hosted by doze: MCP over streamable HTTP, bound to loopback only. The
-  `Origin` header is checked on every request, as the MCP transport spec
-  requires against DNS rebinding.
-- Standalone: stdio, through the `doze-recall serve` shim, with no network
-  listener at all ([standalone.md](standalone.md) §4). The shim picks the
-  root before it connects, so the stack question below doesn't arise.
-- Registered by the person as `doze-recall`; the address is decided in
-  [fit.md](fit.md) ("Connecting an agent").
-- **Which stack a session talks to**, first match wins:
-  1. the stack named in the URL, if the registration has one;
-  2. the client's MCP roots, if the client supports them;
-  3. the only stack running on the machine.
-
-  Otherwise every tool answers with one line asking for its `stack`
-  argument, listing the running stacks.
+- MCP over stdio, through the `doze-recall serve` shim (or `doze recall
+  serve`), with no network listener ([running.md](running.md) §4).
+- Registered by the person as `doze-recall`; `doze-recall connect` prints
+  the line for each client.
+- **The root** is chosen by the shim before the session starts
+  ([running.md](running.md) §2). A client's MCP roots are only checked
+  against it, and a mismatch is said in one line at the top of each answer.
 - Six tools, all annotated `readOnlyHint: true`, `idempotentHint: true`,
   `openWorldHint: false`. Clients that auto-approve read-only tools can then
   run them without asking. Codex does with
@@ -60,9 +53,9 @@ and `topology`. The triggers come first, inside the first 512 characters,
 which Codex asks to be self-contained:
 
 ```
-doze recall: before changing code another function, app or service uses, call
+doze-recall: before changing code another function, app or service uses, call
 impact; at the start of a task, brief. It knows every app, route, queue, topic,
-table and env var in this doze stack and which code sends to, reads or calls
+table and env var in this system and which code sends to, reads or calls
 each, which grep can't show. trace follows a request or message; topology
 shows what talks to what; diagnose explains an error or crashed app; find
 locates a name.
@@ -213,7 +206,7 @@ Each tool walks the graph its own way:
 | `trace` | forward (or backward) along `calls` and join edges, ordered, branch points marked, up to 12 steps | Path · Side effects |
 | `find` | none: search only | Matches |
 | `topology` | stack nodes and join edges only, no code | Apps · Resources · Who talks to whom |
-| `diagnose` | trace frames and log text to symbols; one hop back; the app's journal (crashes, restarts, give-ups) and the last stderr lines of the matching run | Likely origin · Path · Live state |
+| `diagnose` | trace frames and log text to symbols; one hop back; the last lines of the app's log, when a stack file lists plain-text log files for it | Likely origin · Path · Recent log |
 
 Every tool adds a **Notes** section when notes are anchored to nodes in its
 answer: at most 3, those on the highest-ranked nodes first, each quoted with
@@ -429,7 +422,7 @@ Versions
     source: ~/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/sqs@v1.38.2
 
 Notes
-  recall/queues.md (invariant, checked 2026-10-19)
+  .recall/stack/notes/queues.md (invariant, checked 2026-10-19)
   │ orders is FIFO. The dedupe id is the invoice id; never generate a new one on retry.
 
 Next: impact {"target": "queue orders"} · trace {"from": "go:…/internal/refunds.(*Service).Refund"}

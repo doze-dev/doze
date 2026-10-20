@@ -61,8 +61,8 @@ key:      hash(inputs) + job version + prompt version + agent
 ```
 
 The key is the cache: the same inputs with the same prompt are never sent
-twice. A run is a list of jobs. Before it starts, the dash shows its scope
-(jobs, files, apps) so the person can see what it will spend, and it can be
+twice. A run is a list of jobs. Before it starts, `doze-recall generate` (or the
+dash) shows its scope (jobs, files, apps) so the person can see what it will spend, and it can be
 stopped at any point.
 
 ## How the agent is run
@@ -91,7 +91,8 @@ writing. The scope rules are enforced by recall in both designs. Headless mode
 just needs fewer moving parts.
 
 Leaning: **headless first, ACP only if headless modes prove too uneven.** An
-agent is listed in the Connect tab only after a contract test proves, on a
+agent is offered by `generate --agent` (and the dash's Connect tab) only
+after a contract test proves, on a
 fixture, that it:
 
 - reads nothing outside recall's tools,
@@ -122,8 +123,8 @@ person.
    because they only see what code couldn't settle.
 3. **Check** each proposal against the graph. Failures are dropped and logged
    with the reason.
-4. **Review**: everything that passes its checks waits in the dash's Review
-   tab (`a` approve, `r` reject, `e` edit): edge verdicts, glossary rows and
+4. **Review**: everything that passes its checks waits in `doze-recall review`
+   (and the dash's Review tab under doze; `a` approve, `r` reject, `e` edit): edge verdicts, glossary rows and
    note checks. Nothing an agent produced reaches a committed file until a
    person approves it ([context.md](context.md) §1).
 5. **Remember**: rejections are kept, so the same guess is not proposed
@@ -131,19 +132,17 @@ person.
 
 ## What the person does
 
-- Picks their agent once in the Connect tab. It is saved in their doze home,
-  never in `doze.hcl`.
-- Presses Generate when the header says files are stale, sees the scope, and
-  confirms.
-- Approves or rejects what lands in Review.
+- Picks their agent once: `doze-recall generate --agent claude`, remembered
+  in `~/.doze-recall/config.toml`, never in a committed file. Under doze,
+  the Connect tab does the same.
+- Runs `doze-recall generate` (or presses Generate in the dash) when status
+  says files are stale, sees the scope, and confirms.
+- Approves or rejects what lands in `doze-recall review` (or the dash's
+  Review tab).
 
-Standalone, the same steps are `doze-recall generate` and
-`doze-recall review`; `--agent` picks the agent once, remembered in
-`~/.doze-recall/config.toml` ([standalone.md](standalone.md) §7).
-
-Teams can list the agents allowed to read their stack in `doze.hcl`
-(`agents = ["claude", "codex"]`). How each agent is launched is built into
-doze and not configurable, so the tested path can't be bypassed.
+Teams can list the agents allowed to read their stack in
+`.recall/recall.toml` (`agents = ["claude", "codex"]`). How each agent is
+launched is built into recall and not configurable, so the tested path can't be bypassed.
 
 ## Open
 

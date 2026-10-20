@@ -4,6 +4,17 @@ Status: decided 2026-10-20 (C1–C9 as recommended in §10). Built on six
 research reports in [research/](research/README.md). The graph contract is
 [graph.md](graph.md). Nothing here is implemented.
 
+> **Revised 2026-10-21 (R103):** recall is independent of doze
+> ([running.md](running.md)). Where this document has recall woken by doze's
+> proxy, reading the daemon's hand-off, sharing the daemon's change feed or
+> running language servers as hidden doze services (§4.1, §5, §6, C2, C3, C6,
+> and the open question about sandboxes reaching a `.doze` name), read
+> instead: started by the agent over stdio, an optional declared-stack file
+> that doze writes, its own watcher, its own child processes, indexing on
+> the first run on a root. Links into fit.md's old sections no longer
+> resolve; fit.md now describes only how doze feeds recall. The evidence and
+> the other decisions stand.
+
 Recall is worth running only if what it tells an agent is complete where it
 says it is complete, current, and small. The research changes what "the
 graph" has to be. Finding the right file is mostly solved. Agents fail by
@@ -94,7 +105,8 @@ the eval.
 
 ### 4.1 The stack
 
-From the daemon's hand-off ([fit.md](fit.md) §3): apps, modules, the
+From a declared-stack file when there is one, such as the one doze writes
+([graph.md](graph.md) §4.1), else from discovery ([running.md](running.md) §2): apps, modules, the
 resources nested in them, every reference with the env var it lands in, run
 commands, ports, `dir`, engine versions.
 
@@ -355,8 +367,8 @@ and goes back to sleep.
 
 | Need | doze machinery | New work |
 |---|---|---|
-| Recall itself sleeps until called | The proxy boots on connect and holds while connected | A hidden built-in instance ([fit.md](fit.md) §2) |
-| Language servers start only when there is work | Synthetic service instances get crash backoff, logs, the journal and idle sleep for free (`config/runnable.go:305`) | A `hidden` flag so helpers stay out of the dash, `doze up` and `doze env`; `doze __lspbridge`, a hidden subcommand that listens on the service's port and pipes to the server's stdio (servers speak stdio, the proxy wakes on a connection); a `recall-` name prefix reserved. Recall adds each helper at run time through the control socket's `add`, once it knows an app's language. A helper block needs only the app's folder, so the live path's lack of sibling references doesn't matter. **Revised 2026-10-21:** recall supervises its servers itself, in both modes, so none of these doze pieces are needed ([standalone.md](standalone.md) §6) |
+| Recall itself sleeps until called | The proxy boots on connect and holds while connected | A hidden built-in instance (dropped 2026-10-21, R103) |
+| Language servers start only when there is work | Synthetic service instances get crash backoff, logs, the journal and idle sleep for free (`config/runnable.go:305`) | A `hidden` flag so helpers stay out of the dash, `doze up` and `doze env`; `doze __lspbridge`, a hidden subcommand that listens on the service's port and pipes to the server's stdio (servers speak stdio, the proxy wakes on a connection); a `recall-` name prefix reserved. Recall adds each helper at run time through the control socket's `add`, once it knows an app's language. A helper block needs only the app's folder, so the live path's lack of sibling references doesn't matter. **Revised 2026-10-21:** recall supervises its servers itself, in both modes, so none of these doze pieces are needed ([running.md](running.md) §6) |
 | No installs | `__fetch` streams, checks a sha256 and caches under `~/.doze/downloads`; tsc 7's archive unpacks today | Recall's helpers must not use the service `download` path as it is: on first fetch it records the URL in the person's committed `doze.lock` (`runtime/runtime.go:347-354`). Recall passes its own compiled-in `{url, sha256}` table to `__fetch --sha` and records nothing. The archives are mirrored into doze-binaries releases so `DOZE_MIRROR` and offline mirrors work, which plain download URLs don't today. A gunzip-to-one-file fallback (about 15 lines) is needed because rust-analyzer ships `.gz`, not `.tar.gz` |
 | Edits while asleep are caught | — | macOS: FSEvents through purego, no cgo. Measured: it replays every change since a saved event id in 13 ms. Linux: `git status -uall` for tracked and new untracked files, plus a stat walk for folders outside git (43 ms for 31k files) |
 | Observed calls (after v1) | doze-aws and doze-kafka recorders | App identity, a persisted feed of recorder rows, and the Postgres tee (§4.5) |
@@ -376,7 +388,7 @@ an agent's question lands on an unsettled site ─► answered now, the site in 
 
 Answers never wait on a server. Recall holds the bridge connection only for a
 batch of questions and then stops it (revised 2026-10-21: recall's own child
-process, [standalone.md](standalone.md) §6). Starting it again costs a
+process, [running.md](running.md) §6). Starting it again costs a
 project reload: seconds, in the background. Servers run one at a time per
 machine, so the memory peak is one
 server, not one per app.
@@ -407,7 +419,7 @@ all.
   in. Serena shipped a fix in October 2026 because opening a repo ran that
   repo's `tsserver`.
 - An answer that waits on a language server or an agent.
-- A write to the person's files outside `recall/` and `.recall/`: no
+- A write to the person's files outside `.recall/`: no
   `doze.lock` entries for recall's own downloads, no git config changes.
 - An empty answer that looks authoritative. If recall is asleep, half-built
   or broken, it says so in one line and the agent carries on with grep.
@@ -541,8 +553,8 @@ Fixed in place already, because they were errors:
 
 Applied after the decisions, on 2026-10-20:
 
-- fit.md §7–§8: the helper pieces, the `Declared` capability, env provenance, and
-  the budget.
+- fit.md (at the time §7–§8, since rewritten): the helper pieces, the
+  `Declared` capability, env provenance, and the budget.
 - README.md: languages and precision.
 - generation.md: jobs narrowed per C5.
 
@@ -553,20 +565,20 @@ All nine taken as recommended on 2026-10-20.
 | # | Decision | Taken | Why |
 |---|---|---|---|
 | C1 | Precision beyond Go | Syntax + own resolver for all languages; pinned single-binary servers for TS/JS, Python and Rust; no SCIP indexers | The only route with no installs and no build; measured on real repos |
-| C2 | Language servers as hidden doze services (with `__lspbridge`) or as recall's own child processes | **Hidden services**; revised 2026-10-21 to **recall's own child processes** in both modes, since standalone recall needs that supervision anyway ([standalone.md](standalone.md) §6) | Standalone recall needs the supervision anyway, and one code path for both modes is simpler than two; doze's journal and log store for servers are given up |
+| C2 | Language servers as hidden doze services (with `__lspbridge`) or as recall's own child processes | **Hidden services**; revised 2026-10-21 to **recall's own child processes** in both modes, since standalone recall needs that supervision anyway ([running.md](running.md) §6) | Standalone recall needs the supervision anyway, and one code path for both modes is simpler than two; doze's journal and log store for servers are given up |
 | C3 | When indexing runs | **Once in the background when `recall {}` first appears; afterwards only when recall is woken**, starting with a catch-up | An agent's first question never meets a cold index, and nothing runs at `doze up` or while nobody asks |
 | C4 | Observed calls | **After v1**, once the eval shows the static join is used. Then app identity, a persisted recorder feed and the Postgres tee | Valuable (precision near 1.0, a free recall measure), but doze injects no per-app identity today and the recorders forget; it is real work, not a few lines |
 | C5 | Generation's jobs | **Edge verdicts on unresolved join sites, the glossary (the vocabulary bridge for search, since there are no embeddings), note checks.** Flows, contracts and conventions only once the eval shows they help | The only independent study of generated repo context found it hurt; verdicts and glossary entries can be checked |
-| C6 | Change feed | **FSEvents (purego) on macOS, inotify on Linux, git to reconcile**, owned by the daemon; move `watch` onto it too | Zero cost while asleep, exact replay on wake; polling a large tree costs about 4% of a core |
+| C6 | Change feed | **FSEvents (purego) on macOS, inotify on Linux, git to reconcile**, owned by the daemon; move `watch` onto it too. Revised 2026-10-21: owned by recall itself (R103) | Zero cost while asleep, exact replay on wake; polling a large tree costs about 4% of a core |
 | C7 | Search | **FTS5 with split identifiers; no Zoekt** | Literal search is grep's job; Zoekt's indexing peak is too heavy |
 | C8 | Languages | **All five in v1:** Go, then TypeScript/JavaScript before the pilot, Python and Rust during it (revised 2026-10-20) | Most doze stacks mix languages; a Go-only recall would say "partial" on the very cross-app questions it exists for. The pilot still comes early |
 | C9 | The pasted AGENTS.md lines | **Keep "doze never edits agent files", but make the Connect tab's snippet prominent** and measure its effect | Present context gets used far more than tools that must be chosen; subagents see only files |
 
 Still open, not blocking these:
 
-- Whether agents in sandboxes (Claude Code's sandbox, cloud agents) can reach
-  a `.doze` name or loopback. This decides recall's address ([fit.md](fit.md),
-  Open).
+- Whether agents in sandboxes (Claude Code's sandbox, cloud agents) let
+  recall's shim start a background process and reach its socket (O9,
+  [running.md](running.md) §4).
 - Whether recall drops its in-memory graph when a session stays open but
   idle for a long time. Reloading a million edges from the snapshot takes
   tens of milliseconds, so dropping it is cheap.

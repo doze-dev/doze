@@ -6,7 +6,7 @@ in [context-system.md](context-system.md) §10 are taken as recommended.
 Nothing here is implemented.
 
 The graph is everything recall knows about a stack, as facts with evidence.
-It holds what the code and `doze.hcl` prove, and the points where people's
+It holds what the code and a declared-stack file prove, and the points where people's
 notes and agents' proposals attach. Answers are built from it and nothing else
 ([answers.md](answers.md)).
 
@@ -25,7 +25,8 @@ Ids must survive what happens to real code: an app being renamed, the same
 repo used in two stacks, several apps sharing one Go module (the shop example's
 three apps have no `dir` and share one module), and edits inside a file.
 So **code ids are keyed by the code's own name, never by the app.** Stack ids
-are keyed by `doze.hcl` names, because that is what they are.
+are keyed by the stack file's names, or by inferred names when there is no
+file, because that is what they are.
 
 ```
 id        = kind ":" body
@@ -37,7 +38,7 @@ file      = "file:" moduleid "/" relpath               file:go:github.com/doze-d
 app       = "app." name                                app.worker
 module    = "module." name                             module.cloud
 resource  = "module." name ":" kind "." rname          module.cloud:queue.orders
-inferred  = "inferred:" family ":" kind "." rname    inferred:kafka:topic.order.events   (standalone only)
+inferred  = "inferred:" family ":" kind "." rname    inferred:kafka:topic.order.events   (no stack file)
 column    = resource "." column                        module.db:table.orders.total
 env var   = "app." name ":env." key                    app.worker:env.ORDERS_QUEUE
 route     = "app." name ":route " quoted               app.api:route "POST /orders"
@@ -90,7 +91,7 @@ file, symbol, dependency, dependency symbol (ids in §1).
 | `calls` | symbol → symbol | call expressions; calls through an interface go to the interface method |
 | `implements` | type → interface | method sets, for every interface declared in the workspace |
 | `reads_env` | symbol → env var | `os.Getenv`, `os.LookupEnv`, config tags |
-| `wires` | env var → module attribute or resource | the hand-off |
+| `wires` | env var → module attribute or resource | the stack file, or `.env` files |
 | `sends`, `receives`, `reads`, `writes` | symbol (or a client) → resource | the join |
 | `serves` | symbol → route | route registration |
 | `requests` | symbol → route | client call matched to a route |
@@ -135,20 +136,25 @@ don't prove one exists. Data-flow analysis is out of v1 (README).
 
 ## 4. Where facts come from
 
-### 4.1 The stack hand-off
+### 4.1 The declared-stack file
 
-Standalone, there is no hand-off: recall builds the same app, env and run
-nodes from manifests and `.env` files, and infers resources from code
-([standalone.md](standalone.md) §2–§3).
+An optional input ([running.md](running.md) §1). With none, recall builds the
+same app, env and run nodes from manifests and `.env` files, and infers
+resources from code (§2–§3 there).
 
-The daemon writes `<ProjectDir>/recall/stack.json` every time it loads the
-config, and recall reads it on each wake and whenever the file changes. Recall
-never parses HCL.
+The format is recall's, published with a JSON Schema and a version. doze is
+its first producer: it writes `.doze/recall/stack.json` on every config load
+and on `doze recall stack` ([fit.md](fit.md) §2). Recall reads it on each
+wake and whenever the file changes, and never parses HCL.
 
 ```json
 {
   "contract": 1,
+  "producer": "doze 0.9.0",
   "stack": "shop",
+  "sources": [{"path": "doze.hcl", "sha256": "…"}, {"path": "doze.lock", "sha256": "…"}, {"path": "worker.env", "sha256": "…"}],
+  "partial": [],
+  "logs": {"worker": [".doze/logs/worker/current.log"]},
   "blocks": {"app.worker": "sha256:…", "module.cloud": "sha256:…"},
   "apps": [{
     "name": "worker", "dir": ".", "run": "go run ./cmd/worker",
@@ -172,7 +178,22 @@ never parses HCL.
 (`internal/config/fingerprint.go`). They let derived facts be owned by a
 block without recall parsing HCL.
 
-Gaps in doze to fill, from the code:
+Paths in the file are relative to the folder holding the file's `.doze/`
+(or the file itself, for `stack` in `recall.toml`), which need not be the
+git root: recall looks for `.doze/recall/stack.json` from the working
+directory up to the root.
+
+- **`sources`** lets recall see the file go stale: when one of them changes,
+  the declared facts are `stale` until the producer writes again. It can't
+  capture the process environment the producer saw; values that came from
+  it are marked so.
+- **`partial`** lists what the producer couldn't include (a module whose
+  plugin isn't fetched), so answers say partial instead of treating its
+  resources as absent.
+- **`logs`** lists plain-text log files per app, for `diagnose`'s recent log.
+  Recall reads the last lines and nothing else of the producer's formats.
+
+Gaps in doze to fill, as its producer, from the code:
 
 - **`ref` per env key.** Which reference fed which key is lost after
   `evaluate`. Capture it by walking each env expression's traversals
@@ -191,17 +212,18 @@ Gaps in doze to fill, from the code:
   matching (resource names, hosts). It drops values of keys that look like
   secrets (`*_KEY`, `*_SECRET`, `*_TOKEN`, `*_PASSWORD`), the password part
   of any URL with userinfo (`postgres://user:pass@…`), and strings in known
-  key formats, before anything is stored. The env apps inherit from the
-  daemon is not included.
+  key formats, before anything is stored. Env a producer inherits from its
+  own process is not included.
 
 **Run facts.** Each app node also carries what `brief`'s "Run and check" needs:
 
-- the run command and what must be awake, from the hand-off;
+- the run command and what must be awake, from the stack file, else the
+  manifest;
 - a test command derived from the app's code: `go test` over the packages
   the app uses, and `task` blocks it waits on. When nothing gives one, the
   fact is absent, never guessed.
 
-From the hand-off recall builds app, module, resource, env var and `wires`
+From the stack file recall builds app, module, resource, env var and `wires`
 nodes and edges.
 
 - A `wires` edge from a `ref` is `exact`.
@@ -315,8 +337,9 @@ Where rows come from:
   10 rows. The models are not vendored anywhere: `doze-aws/.audit-models` is
   a gitignored cache. So the tool fetches models pinned by commit, and the
   generated rows are committed to recall. Regenerating is a deliberate step,
-  not part of every build. CI checks the rows against doze-aws's own request
-  decoding.
+  not part of every build. CI checks the rows against a recorded fixture of
+  doze-aws's request decoding, committed to doze-recall and regenerated by
+  a tool when doze-aws changes.
 - **Kafka** (franz-go, Sarama, segmentio, confluent-kafka-go), **SQL**
   (`database/sql`, pgx, sqlx, sqlc), **HTTP** (ServeMux patterns, chi, gin,
   echo; `net/http`, resty clients), **logging** and **external SDK** rows are
@@ -350,13 +373,13 @@ take the union of their callers' values (`OneOf`).
 
 **The join** carries `Env(name)` through the app's `wires` edges, and matches
 `Const` values against declared resource names and the attributes doze mints
-(queue URLs, ARNs, from the hand-off).
+(queue URLs, ARNs, from the stack file).
 
 | Value resolves to | Edge |
 |---|---|
 | one declared resource | `scoped`, with the whole chain as evidence |
-| a name no module declares | an `undeclared` resource node, `scoped` edge, and a Review item: used in code, missing from `doze.hcl` |
-| anything, when there are no declarations (standalone) | an `inferred` resource, `scoped` at best, never `exact` ([standalone.md](standalone.md) §3) |
+| a name no module declares | an `undeclared` resource node, `scoped` edge, and a Review item: used in code, missing from the stack file |
+| anything, when there is no stack file | an `inferred` resource, `scoped` at best, never `exact` ([running.md](running.md) §3) |
 | several candidates | one `doubtful` edge per candidate |
 | `Unknown` | no edge; an unresolved-site fact (§3) |
 
@@ -449,8 +472,8 @@ go-pgquery and Python and Rust grammars, is measured in phases.md P3.5.
 
 ### 4.7 Language servers
 
-Each pack's server is a child process of recall, whether doze hosts recall
-or not ([standalone.md](standalone.md) §6). Its binary comes from recall's
+Each pack's server is a child process of recall ([running.md](running.md)
+§6). Its binary comes from recall's
 compiled-in `{url, sha256}` table, mirrored in doze-binaries releases so
 `DOZE_MIRROR` works, and is kept in recall's own cache, so nothing is
 written to the person's `doze.lock`.
@@ -543,8 +566,8 @@ Publish writes a new generation: the snapshot, the SQLite rows and
 
 ### 5.3 When it runs
 
-Per decision C3: once when `recall {}` first appears, then only when recall is
-woken (an agent session connects, or the dash opens recall), starting with a
+Per decision C3: once when recall first runs on a root, then only when recall is
+woken (an agent session starts it, or a person runs `review` or opens the dash's recall screen), starting with a
 catch-up from the change feed. `doze up` doesn't start it. Work runs at low
 priority (`nice` on macOS and Linux, below-normal priority class on Windows)
 with `GOMAXPROCS` capped at 4.
@@ -599,13 +622,13 @@ Each publish bumps the generation number. Answers report it, and cursors carry i
 
 | What | Where | Format |
 |---|---|---|
-| Graph for traversal | `<ProjectDir>/recall/graph.snap` | Header: magic, format version, generation, stack, commit per repo. Then interned strings, a node table, and a sorted edge array `{from, to, kind, labels, site}` with a reverse permutation and offsets. Measured: doze-aws's 577k edges took 17 MB, about 30 bytes each, without labels or columns; budget 40. Loaded with one read on wake |
-| Search, chains, coverage facts, notes index, query log | `<ProjectDir>/recall/graph.db` | SQLite, pure-Go driver (`modernc.org/sqlite` or `ncruces/go-sqlite3`, chosen once FTS5 support and speed are checked) |
+| Graph for traversal | `~/.doze-recall/projects/<root hash>/graph.snap` | Header: magic, format version, generation, stack, commit per repo. Then interned strings, a node table, and a sorted edge array `{from, to, kind, labels, site}` with a reverse permutation and offsets. Measured: doze-aws's 577k edges took 17 MB, about 30 bytes each, without labels or columns; budget 40. Loaded with one read on wake |
+| Search, chains, coverage facts, notes index, query log | `~/.doze-recall/projects/<root hash>/graph.db` | SQLite, pure-Go driver (`modernc.org/sqlite` or `ncruces/go-sqlite3`, chosen once FTS5 support and speed are checked) |
 | Symbol and prose search | `graph.db`, FTS5 | Identifier columns (name, qualified name, signature) whole and split (`createOrder` → `create order`), unstemmed; prose columns (doc comments, notes, glossary) through FTS5's built-in `porter` tokenizer |
-| Per-module facts | `~/.doze/recall/cache/go/` | Keyed by module content state + extractor version. Holds app-independent facts only, so two stacks share them |
-| Dependency facts | `~/.doze/recall/cache/deps/` | Keyed `module@version` + extractor version |
-| Hand-off | `<ProjectDir>/recall/stack.json` | Written by the daemon (§4.1) |
-| Status for the dash header | `<ProjectDir>/recall/status.json` | State, counts, level per app, last error |
+| Per-module facts | `~/.doze-recall/cache/go/` | Keyed by module content state + extractor version. Holds app-independent facts only, so two stacks share them |
+| Dependency facts | `~/.doze-recall/cache/deps/` | Keyed `module@version` + extractor version |
+| Declared-stack file | `.doze/recall/stack.json`, or `stack` in `recall.toml` | Written by its producer (§4.1) |
+| Status | `~/.doze-recall/projects/<root hash>/status.json` | State, counts, level per app, last error; read by `doze-recall status` and doze's dash |
 
 All of it is disposable. A format change rebuilds; nothing is migrated.
 Source text is never stored; snippets are read from disk when an answer is
@@ -629,14 +652,14 @@ built.
 | Go oracle | On a sample of symbols (the net/http set from the design record's benchmark, plus doze-aws), callers match an oracle independent of the extractor: `gopls references`, run only in tests, and a type check per GOOS for build-tagged files. `exact` edges must match; `scoped` precision ≥ 0.98 |
 | Ids | Renaming an app, adding a stack around the same module, and moving a declaration within a package keep ids; a rename produces an orphan with a re-anchor candidate |
 | Catalogue conformance | Every AWS row's resource argument agrees with what doze-aws decodes for the same call, on a recorded fixture |
-| Join on the shop fixture | `api —sends→ topic.orders` (literal shape), `worker —receives→ topic.orders` (option shape), `worker —receives→ queue.orders` through `GetQueueUrl` (output shape) and the `ORDERS_QUEUE` name match, each with the expected label and chain, and no unresolved sites |
-| Incremental equals full | After a scripted series of edits (add, rename, delete, move between files, change `go.mod`, change `doze.hcl`), the incremental graph equals a full build |
+| Join on the shop fixture (`testdata/shop/`, copied from doze's `examples/shop` with a hand-written stack file) | `api —sends→ topic.orders` (literal shape), `worker —receives→ topic.orders` (option shape), `worker —receives→ queue.orders` through `GetQueueUrl` (output shape) and the `ORDERS_QUEUE` name match, each with the expected label and chain, and no unresolved sites |
+| Incremental equals full | After a scripted series of edits (add, rename, delete, move between files, change `go.mod`, change the stack file), the incremental graph equals a full build |
 | Budgets | `test/bench`: indexing peak, serving RSS and save-to-fresh latency on doze-aws, against budget.json |
 | Determinism | Two full builds of the same tree produce byte-identical snapshots |
 | Pack oracles | For TypeScript/JavaScript (hono plus the eval stack's TS services), Python (pydantic plus the eval stack) and Rust (ripgrep plus the eval stack): on a sample, `exact` edges match the server's own answers, and `scoped` precision is ≥ 0.98 |
 | Server rules | Each server's readiness rule and canary, against a fixture with no dependencies installed, plus fakes that never report readiness, answer early, or return nothing; each ends ready, waited for, or degraded |
 | Syntax parity | Our corpus parses the same with gotreesitter as with C tree-sitter, in CI |
-| Windows | The Go loop with cgo off, path normalization in ids. Unverified until doze has Windows CI; the change feed polls there in v1 |
+| Windows | The Go loop with cgo off, path normalization in ids. doze-recall's CI runs Windows from P1; the watcher polls there in v1 |
 
 ## 10. After v1
 
@@ -656,7 +679,7 @@ set and the chain format already have room for them.
 ## 11. Code
 
 Recall is its own repository, `doze-dev/doze-recall`
-([standalone.md](standalone.md) §8), built as `doze-recall`. v1:
+([running.md](running.md) §8), built as `doze-recall`. v1:
 
 ```
 doze-recall/
@@ -665,16 +688,14 @@ doze-recall/
   cmd/doze-recall/main.go   serve (the stdio shim), the background process, index, check,
                             and the terminal commands
   internal/
-    host/       the two hosts behind one interface: doze (stack.json, the daemon's feed)
-                and standalone (discovery, .env files, its own feed)
-    stack/      stack.json: decode, stack nodes, wires edges, name matching, run facts
+    inputs/     the root, apps from manifests, app names, .env files, recall.toml;
+                the declared-stack file: decode, stack nodes, wires edges, run facts
     graph/      ids, node and edge types, labels, coverage facts, the snapshot
     store/      graph.db: schema, FTS5, chains, query log
     prose/      READMEs, ADRs, OpenAPI, AsyncAPI, proto, agent files into search
     index/      the writer queue, passes, publish, generations, incremental updates
-    feed/       change feed client, wake catch-up, pending files
-    discover/   modules and packages per app, every language; the skip rules;
-                standalone: apps from manifests, app names, recall.toml
+    feed/       recall's own watcher, event ids, wake catch-up, pending files
+    discover/   modules and packages per app, every language; the skip rules
     golang/     go list, workers, import LRU, extraction, hazards, build-tag files
       catalogue/  Go rows: AWS generated; Kafka, SQL, HTTP, logging hand-written
     syntax/     gotreesitter: parse, run queries, release, limits, parity corpus
@@ -690,7 +711,7 @@ doze-recall/
     serve/      MCP, sessions, the answer pipeline, tools (answers.md §11)
     notes/      notes, glossary, topology.yaml decisions, proposals, writes
     status/     status.json
-    bgproc/     the standalone background process: socket, lock, idle exit
+    bgproc/     the background process: socket, lock, idle exit, the local API
     shim/       `serve` over stdio
     cli/        review, generate, status, connect
     generate/   jobs, the Claude Code runner, its contract test (after the pilot)
@@ -704,14 +725,13 @@ Changes outside doze-recall for v1, unit by unit in [phases.md](phases.md):
 
 | Where | Change |
 |---|---|
-| `internal/config/eval.go`, new `handoff.go` | keep the env key ← reference map from `evaluate`; build the hand-off |
+| `internal/config/eval.go`, new `stackfile.go` | keep the env key ← reference map from `evaluate`; write the stack file |
 | `internal/config/load.go`, new `recall.go` | `recall` in `reservedBlocks`; the reserved name; the `recall {}` block |
-| `internal/config/runnable.go`, `internal/daemon` | the hidden built-in recall instance; write `stack.json` on every config load |
-| doze-sdk `feed/`, `internal/control/`, `internal/daemon/subscribe.go` | the watcher, as a package standalone recall uses too; the daemon's feed and its `files` subscription |
-| `internal/dash/` | the header strip, a tab component, recall's screen |
-| `cmd/doze` | `recall check`, which runs `doze-recall check`; the parity exemption in `parity_test.go` |
+| `internal/daemon` | write the stack file on every config load |
+| `internal/dash/` | the header strip, a tab component, recall's screen as a client of the local API |
+| `cmd/doze` | `doze recall <args>` running the pinned copy, `doze recall stack`, `doze recall check`; the parity exemption in `parity_test.go` |
 | doze-binaries | mirrored server archives (tsc 7, ty, pyrefly, rust-analyzer) |
-| `test/bench/` | recall's budget entries |
+| `test/bench/` | the idle bench, unchanged |
 | `cmd/doze`, `internal/runtime/` | the pinned `doze-recall` version and SHA-256, downloaded on the first `recall {}` |
 | doze-sdk (`engine/driver.go`, `plugin/proto/engine.proto`, `plugin/adapter.go`, `plugin/server.go`) | the read-only `Declared` capability |
 | doze-aws, doze-kafka | implement `Declared`; doze-aws includes its implemented operations |

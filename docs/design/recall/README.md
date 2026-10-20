@@ -2,11 +2,12 @@
 
 Status: design, started 2026-10-20. Nothing here is implemented yet.
 
-Doze runs your stack, so it can know your stack. Recall turns that knowledge
-into context any coding agent can use: one picture of the whole system, built
-from the code, `doze.hcl` and what people add, served over MCP to Claude Code,
-Cursor, Codex or anything else that speaks it. Recall also runs on its own,
-for people who don't use doze ([standalone.md](standalone.md)).
+Recall, `doze-recall`, is a code graph for systems of services: one picture
+of the whole system, built from the code and what people add, served over
+MCP to Claude Code, Cursor, Codex or anything else that speaks it. It is
+independent of doze. Where a project uses doze, `doze.hcl` adds declared
+resources and wiring, and the dash shows recall's screen
+([running.md](running.md), [fit.md](fit.md)).
 
 The first exploration lives in the Doze Recall design record
 (https://claude.ai/artifact/Eyoyd1TVhFubAqyYQrp214, private to its owner). It
@@ -17,15 +18,15 @@ keep what holds up, and cut what makes recall harder to build or to use.
 
 | Doc | What it answers | State |
 |---|---|---|
-| [fit.md](fit.md) | How recall plugs into the daemon, proxy, journal, config and budget, and what doze lacks today | written |
-| [standalone.md](standalone.md) | Recall without doze: one binary, two hosts, apps found from manifests, inferred resources, the stdio shim, terminal review, its own repo and release | written |
+| [fit.md](fit.md) | How doze feeds recall: the declared-stack file, the pinned copy and `doze recall`, the dash screen | rewritten 2026-10-21 |
+| [running.md](running.md) | How recall runs on its own: inputs, the root and apps, inferred resources, the stdio shim and background process, its watcher, review, release, the eval's settings | written |
 | [freshness.md](freshness.md) | How the graph and context stay current, and how staleness is shown when they are not | written |
 | [generation.md](generation.md) | How the person's own agent CLI (Claude Code, Codex, Cursor…) improves the context, and why it can't make it worse | written; scope narrows after context-system.md §10 |
 | [context-system.md](context-system.md) | What agents need from the context by evidence, how doze builds it, budgets, and decisions C1–C9 | decided |
 | [research/](research/README.md) | The seven reports and bench programs behind context-system.md and the eval stack; covers the prior art | written |
-| [graph.md](graph.md) | Ids, nodes, edges, labels, the hand-off, Go extraction, the join, language packs and servers, incremental updates, storage, tests, code layout | written, revised for five languages |
+| [graph.md](graph.md) | Ids, nodes, edges, labels, the declared-stack file, Go extraction, the join, language packs and servers, incremental updates, storage, tests, code layout | written, revised for five languages |
 | [answers.md](answers.md) | The six MCP tools, how an answer is built (anchor, expand, rank, pack, render), completeness, errors, adoption | written |
-| [context.md](context.md) | Notes, the glossary, `topology.yaml` decisions, proposals, when recall writes, `doze recall check`, the Notes, Review and Topology tabs | written, revised after review |
+| [context.md](context.md) | Notes, the glossary, `topology.yaml` decisions, proposals, when recall writes, `doze-recall check`, `review` and the dash tabs | written, revised after review |
 | [eval.md](eval.md) | How we prove agents do better with recall: questions and ship rules, stacks, task families and format, arms, measures, retrieval eval, cost, order | written |
 | [decisions.md](decisions.md) | Every decision, open question and rejection, keeping the design record's ids | written |
 | [phases.md](phases.md) | The build order P0–P12: units, files, exit measures and day ranges | written |
@@ -36,9 +37,10 @@ Every agent session starts cold. It greps, guesses how services connect,
 invents library APIs, and misses the change in `api` that breaks `worker`. The
 next session pays the same cost again.
 
-Doze already holds what no code-graph tool has: the declared stack (apps,
-modules, queues, topics, tables, the references between them), what actually
-runs, and every app's code at once. Joining those gives an agent the view a
+Most code graphs stop at symbols and references inside one codebase. What
+an agent misses is between services: who produces and who consumes a topic,
+a queue, a table or a route, across languages. Recall joins every app's code
+at once, and a declared stack where there is one, to give an agent the view a
 senior engineer on the team has.
 
 ## Three layers, one answer
@@ -54,7 +56,7 @@ senior engineer on the team has.
    │ 2. told       notes, corrections, approvals, committed       │  pinned, flagged on drift
    │               by people                            context.md
    ├──────────────────────────────────────────────────────────────┤
-   │ 1. proven     doze.hcl + code + the joins between them       │  current within seconds
+   │ 1. proven     code + declarations + the joins between them   │  current within seconds
    │               (who sends to which queue, which route a       │
    │               client calls)                          graph.md
    └──────────────────────────────────────────────────────────────┘
@@ -73,23 +75,23 @@ as carefully as extraction (answers.md).
 ## Principles
 
 - **Local, and an aid to whatever agent people choose.** Recall indexes on
-  the person's machine and serves on loopback. Generation drives their own
+  the person's machine and serves over stdio to the agent that started it. Generation drives their own
   local agent CLI with their own login: Claude Code first, then each other
   CLI once it passes the contract test. Doze never generates code itself and
   never ties anyone to one tool: Claude Code, Cursor, Codex or any MCP
   client gets the same context. The eval measures it inside those real
   tools.
 - **Simple to use, or nobody uses it.** The whole surface a person meets:
-  add `recall {}` to `doze.hcl`, paste one connect command, and optionally
-  press Generate and review what comes back. No query language, no tuning
-  knobs beyond `include` and `exclude`, a handful of tools for agents.
+  install one binary, paste one connect command, and optionally run
+  `generate` and `review`. No config needed, no query language, a handful of
+  tools for agents.
 - **Proven first.** Layer 1 alone has to be worth using. AI only adds.
 - **Nothing silently stale.** Every answer item says whether it is current
   or stale since which commit (freshness.md).
 - **No AI when serving.** Answers come only from data recall already built:
   fast, free, the same every time.
 - **Asleep by default.** Recall costs nothing until an agent or a person calls
-  it, like everything else in doze.
+  it: no process runs with no session open.
 - **No edge rather than a wrong edge.** A doubtful link is labeled or sent to
   review, never presented as fact.
 - **Build only what the eval rewards.** The retrieval eval runs from the
@@ -98,9 +100,7 @@ as carefully as extraction (answers.md).
 
 ## Carried over from the design record
 
-Kept: recall is a facility, not a module (one per stack, privileged reads, not
-built on doze-sdk), served at a reserved address and woken by the proxy;
-serving never calls AI; no embeddings and no local models; doze never edits
+Kept: not built on doze-sdk; serving never calls AI; no embeddings and no local models; doze never edits
 agent files; task-shaped tools with `file:line` evidence; human notes anchored
 to the graph; `topology.yaml` with its ownership rules; generation through the
 person's own agent login; the eval.
@@ -116,16 +116,15 @@ Changed:
   conventions wait until the eval shows they help, because the only
   independent study of generated repo context found it hurt. Per-symbol
   descriptions are cut.
-- **A headless check for CI.** No interactive recall commands under doze,
-  but drift has to fail a pull request, which needs `doze recall check`
-  (fit.md).
-- **Standalone as well as inside doze** (R96). Recall is its own repository
-  and binary, `doze-recall`. Without doze it finds apps from their manifests
-  and infers resources from the names code uses; with doze it gets declared
-  resources, env provenance and the dash. Standalone review happens in one
-  terminal command with the dash's keys ([standalone.md](standalone.md)).
-- **One connect line for every stack.** A per-stack URL registered once per
-  user breaks with two stacks (fit.md).
+- **Independent of doze** (R103). Recall is its own repository and binary,
+  started by the agent over stdio, with no proxy, address or built-in
+  instance. On code alone it finds apps from their manifests and infers
+  resources from the names code uses; a declared-stack file, which doze
+  writes, adds declared resources and env provenance. A few terminal
+  commands (`review`, `generate`, `status`, `connect`, `check`) replace
+  "dash only"; under doze the dash offers the same.
+- **One connect line for every repo.** The agent starts `doze-recall serve`,
+  which finds the root itself ([running.md](running.md) §4).
 - **Headless agent CLIs before ACP** for generation (generation.md).
 
 Cut from v1: the web map, observed wire traffic, module facts, per-app

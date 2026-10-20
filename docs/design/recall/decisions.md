@@ -21,19 +21,19 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | # | Decision | Status | Where |
 |---|---|---|---|
 | R1 | The facility is called recall | decided | |
-| R2 | Recall is core and bundled in every doze release | decided | |
-| R3 | Recall is not a module, service, app or task. One per stack, turned on by a `recall {}` block | decided | [fit.md](fit.md) §1 |
-| R4 | Not built on doze-sdk; users can't change how it works | decided | |
-| R5 | No interactive recall CLI commands; actions run from the dash, MCP is the programmatic surface. **Changed:** one headless exception, `doze recall check`, for CI | changed | [fit.md](fit.md) §6 |
-| R6 | Asleep until called, woken through the proxy. **Changed:** the address (`recall.<stack>.doze`, a machine-wide address, or per project) is open, see O1 | changed | [fit.md](fit.md), "Connecting an agent" |
+| R2 | Recall is core and bundled in every doze release. **Changed 2026-10-21:** its own product; doze pins a copy (R97, R103) | changed | [fit.md](fit.md) §3 |
+| R3 | Recall is not a module, service, app or task. One per stack, turned on by a `recall {}` block. **Changed:** recall runs per root, started by the agent; under doze, `recall {}` turns on the stack file and the dash screen | changed | [fit.md](fit.md) §1, [running.md](running.md) §4 |
+| R4 | Not built on doze-sdk; users can't change how it works. Now stronger: it imports nothing from doze or doze-sdk (R103) | decided | [running.md](running.md) |
+| R5 | No interactive recall CLI commands; actions run from the dash, MCP is the programmatic surface. **Changed:** recall has its own commands, `review`, `generate`, `status`, `connect`, `check` (R102); under doze the dash also offers them | changed | [running.md](running.md) §7 |
+| R6 | Asleep until called, woken through the proxy. **Changed:** asleep until an agent starts it over stdio; the background process exits 5 minutes after its last session. No proxy and no address (R98, R103) | changed | [running.md](running.md) §4 |
 | R7 | The name `recall` is reserved in every stack | decided | [fit.md](fit.md) §1 |
 | R8 | Recall's dash screens are designed on their own, not as a per-kind front | decided | |
-| R9 | Recall is exempt from "every dash action has a CLI form"; `parity_test.go` knows it | decided | [fit.md](fit.md) §6 |
+| R9 | Recall is exempt from "every dash action has a CLI form"; `parity_test.go` knows it. Now `doze recall` gives most of them one anyway | decided | [fit.md](fit.md) §3 |
 | R10 | Read-only toward the stack in v1 | decided | |
-| R11 | Only `include` and `exclude`, on top of `.gitignore` | decided | [fit.md](fit.md) §1 |
-| R12 | Recall shows as a strip in the dash header, not as a row | decided | [fit.md](fit.md) §5 |
-| R13 | A separate process, supervised with the existing state machine, journal and logs | decided | [fit.md](fit.md) §2 |
-| R14 | A second Go module in the doze repo (`recall/`), its own binary in the same release. **Changed 2026-10-21:** its own repository, `doze-dev/doze-recall`, released on its own and pinned by doze (R96, R97) | changed | [standalone.md](standalone.md) §8 |
+| R11 | Only `include` and `exclude`, on top of `.gitignore`. **Changed:** `.recall/recall.toml` holds `include`, `exclude`, `agents`, `roots`, `stack` and `apps`; the `recall {}` block takes no keys | changed | [running.md](running.md) §2 |
+| R12 | Recall shows as a strip in the dash header, not as a row | decided | [fit.md](fit.md) §4 |
+| R13 | A separate process, supervised with the existing state machine, journal and logs. **Changed:** a separate process started by recall's own shim, not a doze instance | changed | [running.md](running.md) §4 |
+| R14 | A second Go module in the doze repo (`recall/`), its own binary in the same release. **Changed 2026-10-21:** its own repository, `doze-dev/doze-recall`, released on its own and pinned by doze (R96, R97) | changed | [running.md](running.md) §8 |
 
 ## Serving agents
 
@@ -55,7 +55,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | R23 | Precise first; no edge rather than a wrong edge. **Changed:** trust is carried by labels (`exact`, `scoped`, `observed`, `told`, `doubtful`, `proposed`) rather than a ranked source list | changed | [graph.md](graph.md) §2 |
 | R24 | A language is a pack of data plus small hooks | decided | [graph.md](graph.md) §4.6 |
 | R25 | Framework rules form the contract layer, linked to `doze.hcl` | decided, as the operation catalogue | [graph.md](graph.md) §4.3 |
-| R26 | Index beyond code. **Changed:** v1 reads `doze.hcl` (through the hand-off), env files and SQL migrations; Dockerfiles, compose, Kubernetes, Terraform, CI and git churn are deferred | changed | [graph.md](graph.md) §4 |
+| R26 | Index beyond code. **Changed:** v1 reads `doze.hcl` (through doze's stack file, R103), `.env` files and SQL migrations; Dockerfiles, compose, Kubernetes, Terraform, CI and git churn are deferred | changed | [graph.md](graph.md) §4 |
 | R27 | Index dependencies at their pinned version, cached machine-wide | decided | [graph.md](graph.md) §4.4 |
 | R28 | Oracle tests per language in CI; an eval with and without recall | decided | [graph.md](graph.md) §9, [eval.md](eval.md) |
 | R29 | AI may help write extractors and rules while building recall, gated by the oracle tests; it never generates the graph | decided | |
@@ -77,7 +77,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | R31 | Traversal runs on an in-memory graph. **Changed:** loaded from a flat snapshot, not from SQLite | changed | [graph.md](graph.md) §7 |
 | R32 | Zoekt for code search, FTS5 for symbols and prose. **Changed:** no Zoekt (C7); FTS5 only, identifiers split, prose stemmed | changed | [graph.md](graph.md) §7 |
 | R33 | `graph.db` is a disposable cache; people's decisions live in committed files | decided | [graph.md](graph.md) §7 |
-| R34 | One change feed owned by the daemon, shared with `watch`; recall writes `status.json` | decided (C6) | [freshness.md](freshness.md) |
+| R34 | One change feed owned by the daemon, shared with `watch`; recall writes `status.json`. **Changed 2026-10-21:** recall owns its watcher (R103) | changed | [freshness.md](freshness.md) |
 
 ## Generation
 
@@ -100,7 +100,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 
 | # | Decision | Status | Where |
 |---|---|---|---|
-| R43 | Notes are markdown with `about` anchors, in `recall/` and `.recall/` | decided | [context.md](context.md) §2 |
+| R43 | Notes are markdown with `about` anchors, in `.recall/` and `.recall/stack/` | decided | [context.md](context.md) §2 |
 | R44 | Existing prose is read, never written | decided | [context.md](context.md) §5 |
 
 ## Runtime and watch
@@ -108,7 +108,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | # | Decision | Status | Where |
 |---|---|---|---|
 | R45 | Observe wire traffic by default | deferred (C4): after v1, once the static join is shown to be used; doze injects no per-app identity today | [context-system.md](context-system.md) §4.5 |
-| R46 | `watch` uses the shared change feed | decided (C6), deferred: the move happens after the pilot, once the feed has run under recall | [phases.md](phases.md) |
+| R46 | `watch` uses the shared change feed | dropped 2026-10-21: there is no shared feed (R103) | [phases.md](phases.md) |
 
 ## Stack and external services
 
@@ -136,17 +136,17 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 |---|---|---|---|
 | C1 | Precision beyond Go: syntax + own resolver; pinned single-binary language servers; no SCIP indexers | decided | [context-system.md](context-system.md) §10 |
 | C2 | Language servers as recall's own child processes in both modes; revised 2026-10-21 from hidden doze services through `__lspbridge` | decided; in v1 | [graph.md](graph.md) §4.7 |
-| C3 | Index once when `recall {}` first appears, then only when woken | decided | [graph.md](graph.md) §5.3 |
+| C3 | Index once when recall first runs on a root, then only when woken (started by a session) | decided | [graph.md](graph.md) §5.3 |
 | C4 | Observed calls after v1 | decided | [context-system.md](context-system.md) §4.5 |
 | C5 | Generation does checkable work only | decided | [generation.md](generation.md) |
-| C6 | FSEvents through purego, inotify, git to reconcile; the daemon owns the feed | decided | [freshness.md](freshness.md) |
+| C6 | FSEvents through purego, inotify, git to reconcile; **changed 2026-10-21:** recall owns the watcher, not the daemon | changed | [freshness.md](freshness.md) |
 | C7 | FTS5 only, no Zoekt | decided | [graph.md](graph.md) §7 |
 | C8 | All five languages in v1: Go, then TypeScript/JavaScript before the pilot, Python and Rust during it | changed 2026-10-20 (was: one at a time after v1) | [phases.md](phases.md) |
 | C9 | Never edit agent files; make the Connect snippet prominent | decided | [answers.md](answers.md) §10 |
 | R75 | Code ids are keyed by the code's own name (Go import path), never by app; which app uses a package is a separate fact | decided | [graph.md](graph.md) §1 |
 | R76 | v1 covers Go, TypeScript, JavaScript, Python and Rust; observed calls and further languages are designed but not built. **Changed** 2026-10-20 from "Go only": most doze stacks mix languages | changed | [graph.md](graph.md), [phases.md](phases.md) |
 | R77 | Declared resources reach recall through a new read-only `Declared` capability, not `Inventory.Objects`, which would make plan and sync diff plugin resources | decided | [graph.md](graph.md) §4.1 |
-| R78 | The daemon writes the hand-off to `stack.json` on every config load | decided | [graph.md](graph.md) §4.1 |
+| R78 | The daemon writes the declared-stack file, `.doze/recall/stack.json`, on every config load | decided | [graph.md](graph.md) §4.1 |
 | R79 | One writer queue for passes and refreshes; answers read immutable generations | decided | [graph.md](graph.md) §5.1 |
 | R80 | The operation catalogue has five shapes: argument, literal, option, output, identity | decided | [graph.md](graph.md) §4.3 |
 | R81 | AWS catalogue rows are generated from pinned Smithy models and committed | decided | [graph.md](graph.md) §4.3 |
@@ -154,38 +154,40 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | R83 | Text recall didn't write is quoted as data in answers; secrets are redacted in answers and the query log | decided | [answers.md](answers.md) §3.8 |
 | R84 | Cursors carry their generation; a moved index restarts paging | decided | [answers.md](answers.md) §3.7 |
 | R85 | No `since` tokens in v1 | decided | [answers.md](answers.md) §7 |
-| R86 | Recall's downloads never touch the person's `doze.lock` | decided | [fit.md](fit.md) §7 |
+| R86 | Recall's downloads never touch the person's `doze.lock` | decided | [fit.md](fit.md) §3, [running.md](running.md) §6 |
 | R87 | Notes and the glossary use full ids only; short names are flagged and expanded on a keypress, never resolved silently | decided | [context.md](context.md) §3 |
 | R88 | Note staleness compares each anchor with its state at the note's `checked` commit, from git, ignoring positions, comments and new callers | decided | [context.md](context.md) §3 |
 | R89 | Files are validated per entry; one bad entry never disables a whole file | decided | [context.md](context.md) §4, §5 |
-| R90 | `doze recall check` runs the `doze-recall` binary, so recall's dependencies stay out of `doze`; the hand-off is built in `internal/config` so it works without a daemon | decided | [phases.md](phases.md) P1.1, P10.5 |
+| R90 | `doze recall check` runs the `doze-recall` binary, so recall's dependencies stay out of `doze`; the stack file is built in `internal/config` so it works without a daemon | decided | [phases.md](phases.md) P12.1, P12.5 |
 | R91 | Generation is built after the pilot, since the pilot doesn't use it | decided | [phases.md](phases.md) |
 | R92 | The eval stack and tasks are written by agents walled off from recall, starting at P0 | decided (follows V3) | [phases.md](phases.md), [eval.md](eval.md) §3 |
-| R93 | Windows polls for changes in v1 and is unverified until doze has Windows CI | decided | [phases.md](phases.md) |
+| R93 | Windows polls for changes in v1; doze-recall's own CI runs Windows from P1 | decided | [phases.md](phases.md) |
 | V1 | How strong a claim v1 ships on | open, decided after E1 | [eval.md](eval.md) §10 |
 | V2 | The eval runs on the Claude Code subscription, Sonnet pinned, E1 an 80-run pilot | decided | [eval.md](eval.md) §9 |
 | V3 | Eval tasks are written by agents: walled-off sessions, Opus authoring, a reviewer agent, the owner reading a sample | decided | [eval.md](eval.md) §3 |
 | V4 | The eval stack is our own, `parcel`, built by agents: six Go and TypeScript apps for E1, a Python and a Rust app for E2, over doze-aws, Kafka and Postgres; sized to stay outside the agent's context (40–50k lines for E1) and to hold E2's tasks (36+ cross-app links); private. Replaces porting Jitsu, decided earlier the same day | decided | [eval.md](eval.md) §2, [research/7](research/7-eval-stack.md) |
 | R95 | E0 and E1 run in Claude Code only; Codex and Cursor plans are obtained before E2, and their generation runners (P11) follow once they pass the contract test | decided | [eval.md](eval.md) §4 |
-| R96 | Recall runs standalone as well as hosted by doze: one binary, two hosts behind one interface; graph, tools, labels and answers are shared | decided 2026-10-21 | [standalone.md](standalone.md) |
-| R97 | Its own public repository, `doze-dev/doze-recall`, with `install.sh` and GitHub Releases; doze pins an exact version and SHA-256 and downloads it on the first `recall {}`; recall accepts its own hand-off contract and the one before | decided | [standalone.md](standalone.md) §8 |
-| R98 | Standalone process model: `doze-recall serve` is a stdio shim (forwarding to doze when the root has `recall {}`); one background process per root behind a Unix socket and lock keeps one writer, and exits 5 minutes after its last session; one language server per machine across processes | decided | [standalone.md](standalone.md) §4 |
-| R99 | Standalone takes the root from git or the working directory when the shim starts (MCP roots only checked), refuses a home folder or a root with no apps, and finds apps from manifests without running any repo script; optional `.recall/recall.toml` with `roots` (git repos, accepted once by the person), `include`, `exclude`, `agents`, `apps` | decided | [standalone.md](standalone.md) §2 |
-| R100 | Without declarations, resources are inferred from code as `inferred:<family>:<kind>.<name>`, `scoped` at best and never `exact`; they map to declared ones on a keypress when `doze.hcl` arrives. docker-compose and Terraform wait for the eval's standalone arm | decided | [standalone.md](standalone.md) §3 |
-| R101 | The file watcher is a doze-sdk package, run by the daemon under doze and by recall's background process standalone | decided | [standalone.md](standalone.md) §5 |
-| R102 | Standalone review is one terminal command, `doze-recall review`, a list and prompt with the dash's keys; stack files in `.recall/stack/`; no map, no query box | decided | [standalone.md](standalone.md) §7 |
+| R96 | Recall runs on code alone; a declared-stack file, from doze or any producer, adds declarations. Graph, tools, labels and answers are the same either way | decided 2026-10-21 | [running.md](running.md) |
+| R97 | Its own public repository, `doze-dev/doze-recall`, with `install.sh` and GitHub Releases; doze pins an exact version and SHA-256 and downloads it on the first `recall {}`; recall accepts the current version of each contract it publishes (stack file, shim protocol, local API) and the one before | decided | [running.md](running.md) §8 |
+| R98 | Process model: `doze-recall serve` is a stdio shim; one background process per root behind a Unix socket and lock keeps one writer, and exits 5 minutes after its last session; one language server per machine across processes | decided | [running.md](running.md) §4 |
+| R99 | Recall takes the root from git or the working directory when the shim starts (MCP roots only checked), refuses a home folder or a root with no apps, and finds apps from manifests without running any repo script; optional `.recall/recall.toml` with `roots` (git repos, accepted once by the person), `include`, `exclude`, `agents`, `apps` | decided | [running.md](running.md) §2 |
+| R100 | Without declarations, resources are inferred from code as `inferred:<family>:<kind>.<name>`, `scoped` at best and never `exact`; they map to declared ones on a keypress when a stack file appears. docker-compose and Terraform producers wait for E2's A5 − A2 to show declarations matter | decided | [running.md](running.md) §3 |
+| R101 | The file watcher is a doze-sdk package, run by the daemon under doze and by recall's background process standalone. **Changed the same day:** recall runs its own watcher always; doze's `watch` keeps its poller (R103) | changed | [running.md](running.md) §5 |
+| R102 | Review is one terminal command, `doze-recall review`, a list and prompt with the dash's keys; stack notes in `.recall/stack/`; no map, no query box | decided | [running.md](running.md) §7 |
+| R103 | Recall is independent of doze. It imports nothing from doze or doze-sdk. doze is one input: it writes `.doze/recall/stack.json` (a format recall publishes), ships a pinned copy behind `doze recall`, and its dash is a client of recall's local API. No built-in instance, proxy, address or shared watcher | decided 2026-10-21 | [running.md](running.md), [fit.md](fit.md) |
+| R104 | The pilot measures recall on code alone, in a plain repo; the doze setting (A0d, A5) comes in E2 | decided 2026-10-21 | [eval.md](eval.md) §2, §4 |
 | R94 | No backend runs during the eval. Every task is scored by unit and contract tests with no services; "run and verify" tasks are out; diagnose tasks use recorded logs | decided | [eval.md](eval.md) §2, §3 |
 
 ## Open questions
 
 | # | Question | Before | Where |
 |---|---|---|---|
-| O1 | Recall's address: per stack, machine-wide with routing, or per project; and the address when `domains = false` | P0.1 | [fit.md](fit.md) |
+| O1 | Recall's address. **Answered 2026-10-21:** there is none; agents start recall over stdio (R103) | — | [running.md](running.md) §4 |
 | O4 | Memory ceiling on a big repo. **Partly answered:** budgets measured (≤ 300 MB indexing on doze-aws-sized code); the import LRU bound for Kubernetes-sized modules is still open | P2.5 | [graph.md](graph.md) §12 |
-| O5 | Is a machine-wide cache under `~/.doze` acceptable, or must everything stay in the project? | P0.5 | [fit.md](fit.md) |
+| O5 | Is a machine-wide cache under `~/.doze-recall` acceptable, or must everything stay in the project? | P0.4 | [fit.md](fit.md) |
 | O6 | Observation on or off by default | moot until observation exists (C4) | |
 | O7 | gotreesitter speed. **Answered:** measured 2–9× slower than C, workable with the rules in context-system.md §4.3 | — | [research/3](research/3-breadth-speed-memory.md) |
-| O9 | Can agents in sandboxes (Claude Code's sandbox, cloud agents) reach a `.doze` name or loopback? | P0.2 | [fit.md](fit.md) |
+| O9 | Can agents in sandboxes (Claude Code's sandbox, Codex, cloud agents) start recall's shim and let it start a background process and reach its socket? | P0.1 | [running.md](running.md) §4 |
 | O10 | Which pure-Go SQLite driver | P2.9 | [graph.md](graph.md) §12 |
 | O11 | Per-resource attributes on the aws and kafka plugins, which would make queue wiring `exact` | any time | [graph.md](graph.md) §12 |
 
@@ -194,7 +196,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | # | What | Why |
 |---|---|---|
 | X1 | Recall as a doze module | a module sees only its own block |
-| X2 | A `doze mcp` stdio command and shim | superseded under doze by HTTP through the proxy; standalone recall has a stdio shim of its own (R98) |
+| X2 | A `doze mcp` stdio command and shim | rejected for HTTP through the proxy at first; a stdio shim is now how recall always runs (R98) |
 | X3 | A separate `doze-recall` repo | rejected for R14 at first; adopted 2026-10-21 (R96, R97) |
 | X4 | Embeddings with a local model; live vector search | R16, R35, R50 |
 | X5 | Any AI call while serving | R15 |

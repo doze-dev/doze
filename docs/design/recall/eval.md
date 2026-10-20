@@ -28,8 +28,11 @@ depends on.
 
 Fixed before any run, so the result can't be chosen to fit:
 
-> **On cross-app tasks, in Claude Code on Sonnet, the per-task pass rate with recall
-> (arm A2) minus without (A0).**
+> **On cross-app tasks, in Claude Code on Sonnet, in the plain-repo setting,
+> the per-task pass rate with recall (arm A2) minus without (A0).**
+
+The plain-repo setting is recall on code alone, what most people will run
+(§4, [running.md](running.md) §9).
 
 - **Unit:** the task. Each task gets k runs per arm. Its pass rate is the mean
   of those runs, and the paired difference is A2 − A0 for that task.
@@ -79,8 +82,8 @@ tables and HTTP.
 | `parcel`, the eval stack | **our own, built by agents for this eval** (V4): the corpus for E0, E1 and E2. Six apps in Go and TypeScript for E1; a Python and a Rust app join for E2. Described below |
 | Real stacks | external validity, after E2. Candidates must have three or more services in v1's languages, two kinds of link, unit tests that run without services, a history of commits that changed more than one service, and a license that allows it. Jitsu and Hatchet are the first candidates ([research/7](research/7-eval-stack.md)) |
 
-**No backend runs during the eval.** Recall reads code and `doze.hcl`, and
-declared queues and topics come from config, so it needs nothing running.
+**No backend runs during the eval.** Recall reads code, `.env` files and,
+in the doze setting, doze's stack file, so it needs nothing running.
 Every task is scored by unit and contract tests that run with `go test`,
 `vitest`, `pytest` or `cargo test` and no services. A stack in the eval
 therefore needs:
@@ -214,8 +217,25 @@ contamination advantage.
   eval's code. The retrieval eval runs in `doze-recall-eval`'s CI against a
   pinned `doze-recall` build. Only summary reports, never tasks, come back to the public repositories.
 
-The doze daemon runs in every arm, so recall is reached the real way: woken
-through the proxy. Nothing connects to the modules, so they stay asleep.
+Every arm runs in one of two settings, chosen per arm (§4):
+
+- **Plain repo** (the pilot, and the primary measure), what a team without
+  doze would have:
+  - `doze.hcl`, `doze.lock` and `.doze/` removed;
+  - a `.env` file in each app's folder (the Go main package's folder, or the
+    `package.json`, `pyproject.toml` or `Cargo.toml` folder), generated from
+    the resolved config, with `*.doze` hostnames rewritten to
+    `localhost:<port>`;
+  - `doze` commands in READMEs and agent files replaced by the plain run
+    commands.
+
+  No daemon. Recall, where the
+  arm has it, is started by the agent through `doze-recall serve`.
+- **doze** (E2): `doze.hcl` kept, doze's stack file written, recall started
+  through `doze recall serve`. The daemon runs with nothing started.
+
+Tasks whose required sites include `doze.hcl` run only in the doze setting.
+The pilot's tasks have none.
 
 E1's tasks cross languages on purpose: at least half change something in a Go
 service that a TypeScript service consumes, or the other way around. A recall
@@ -276,10 +296,12 @@ told (the behaviour), not field names.
 `doze.hcl` wiring, SQL migrations, env files. A hidden static check covers
 them:
 
-- `doze lint` on the stack;
 - a check that parses the migrations with the Postgres grammar and asserts
   the column exists;
-- a check that the consumer's env names a topic `doze.hcl` declares.
+- a check that the consumer's `.env` names the topic or queue the producer
+  uses;
+- in the doze setting only, `doze lint` and a check that the topic is
+  declared in `doze.hcl`.
 
 ### Required sites
 
@@ -364,7 +386,7 @@ hidden:                                                   # kept outside the wor
     - "cd storefront && pnpm vitest run hidden/gift-note-request.test.ts"  # writes request.json
     - "cd orders && go test -run TestHiddenGiftNote ./..."                 # reads request.json, writes event.json
     - "cd dispatch && pnpm vitest run hidden/gift-note-slip.test.ts"       # reads event.json
-  static: ["doze lint", "migrations: orders has a gift-note column"]
+  static: ["migrations: orders has a gift-note column"]
 required:                                                 # path:line + symbol, by the author
   - {at: "storefront/src/routes/checkout.ts:…", symbol: "…"}             # illustrative
   - {at: "orders/api/openapi.yaml:…", symbol: "…"}
@@ -380,16 +402,17 @@ checks: {fails_at_base: true, reference_passes: 5/5, partial_fails_hidden: true}
 
 | Arm | Setup |
 |---|---|
-| A0 | No recall. The `recall {}` block and every `recall/` and `.recall/` folder are removed from the worktree, the `doze-recall` binary is absent, and `doze recall` is disabled. The daemon runs with nothing started, as in every arm |
-| A1 | Recall registered as an MCP server; nothing in AGENTS.md |
+| A0 | No recall, plain repo. Every `.recall/` folder is removed from the worktree and the `doze-recall` binary is absent |
+| A1 | Recall registered as an MCP server, plain repo; nothing in AGENTS.md |
 | A2 | A1 plus the pasted lines from [answers.md](answers.md) §10 |
 | A3 | A2 with context made false before the run: stale notes, wrong `told` notes in main sections, injected `doubtful` edges |
 | A4 | A2 with a generated glossary, once generation exists |
-| A5 | Standalone recall, E2 only: A2's setup with `doze.hcl` removed, a `.env` file in each app generated from the resolved config, and recall started by the agent through `doze-recall serve` ([standalone.md](standalone.md) §9). No backend runs in any arm, so A2 − A5 is what the declarations add |
+| A0d | No recall, doze setting, E2 only: `doze.hcl` kept, `doze recall` disabled. A0d − A0 is what `doze.hcl` alone gives an agent |
+| A5 | A2 in the doze setting, E2 only: recall reads doze's stack file. A5 − A2 is what declarations add to recall ([running.md](running.md) §9) |
 
 **The leak check.** CodeGraph's own benchmark was contaminated when its
-baseline reached the tool through the shell, in 26 of 28 runs. Every A0
-transcript is scanned for any use of recall's files, binary or address. A run
+baseline reached the tool through the shell, in 26 of 28 runs. Every A0 and A0d
+transcript is scanned for any use of recall's files or binary. A run
 with a leak is void.
 
 **Same starting point.** A1–A5 index the worktree before the agent starts, so
@@ -464,9 +487,9 @@ the dash.
 
 | Step | What | Exit |
 |---|---|---|
-| E0 | `parcel`'s E1 slice built and audited; the task format and validity checks (built first, in P0.4); the retrieval eval in CI; 10 tasks | the retrieval eval runs in CI in report-only mode |
+| E0 | `parcel`'s E1 slice built and audited; the task format and validity checks (built first, in P0.3); the retrieval eval in CI; 10 tasks | the retrieval eval runs in CI in report-only mode |
 | E1 | The eval stack, first slice; 20 cross-app tasks; Claude Code on Sonnet; arms A0 and A2; 2 runs each: **80 runs** | **a pilot**, with no ship decision unless V1 chooses E1 alone (§1). It shows whether recall helps a lot, measures the between-task variance that sizes E2, and measures how many runs fit in a usage window. It can't show a small effect, and can't separate the server from the pasted lines (A1 waits for E2) |
-| E2 | Cross-app tasks as sized by E1, plus the single-file and exploratory families; A0–A2 and A5, and A3 if A2 showed an effect; Claude Code, Codex and Cursor's CLI | the primary measure decides v1, when V1 chooses E2 |
+| E2 | Cross-app tasks as sized by E1, plus the single-file and exploratory families; A0–A2 in the plain repo, A0d and A5 in the doze setting, and A3 if A2 showed an effect; Claude Code, Codex and Cursor's CLI | the primary measure decides v1, when V1 chooses E2 |
 | E3 | Each release: the retrieval eval in CI; a 30-task agent run on a rotating subset | **a smoke check** for breakage (adoption collapsing, crashes, cost jumps), not a statistical gate; a full E2-style run on major changes |
 
 **How many cross-app tasks E2 needs**, before E1's data. Assume pass rates
@@ -492,19 +515,19 @@ built, the honest alternative is to accept a 15-point detectable effect with
 **The harness** is bun scripts in `doze-recall/eval/run/`, following the doze-dev
 rule of bun for tooling. Each run:
 
-1. Make a fresh git worktree at `base`, apply the arm's removals or
-   injections.
-2. Load the stack in a doze daemon with a fresh `DOZE_HOME`. Nothing is
-   started: the modules stay asleep, and only recall wakes when the agent
-   connects.
-3. Index (A1–A4), or wait the same time (A0).
+1. Make a fresh git worktree at `base`, apply the arm's setting (§2) and
+   its removals or injections.
+2. Give recall a fresh `~/.doze-recall`. In the doze setting, also load the
+   stack in a doze daemon with a fresh `DOZE_HOME`, nothing started.
+3. Index (A1–A5), or wait the same time (A0, A0d).
 4. Run the agent CLI headless with the prompt, in a fresh configuration home.
 5. Copy in the hidden tests, run them, and collect the transcript, diff and
    results.
-6. Stop the daemon and remove the worktree and `DOZE_HOME`.
+6. Stop recall's background process and any daemon, and remove the
+   worktree and both homes.
 
-With no backends, a run costs a worktree, an idle daemon, recall and the
-agent. Runs can go several at a time, limited by the subscription's pace
+With no backends, a run costs a worktree, recall and the agent (and an idle
+daemon in the doze setting). Runs can go several at a time, limited by the subscription's pace
 rather than the machine.
 
 **On a subscription** (the default plan). Runs use the subscription's usage
@@ -532,7 +555,7 @@ a few times that, so plan on $1–3 per run.
 | Run | Runs | Likely cost on the API |
 |---|---|---|
 | E1 (20 tasks × 2 arms × 2 runs) | 80 | $80–250 |
-| E2, Claude Code (about 325 tasks × 3 arms × 3 runs) | about 2,900 | $3,000–9,000 |
+| E2, Claude Code (about 325 tasks × 5 arms (A0, A1, A2, A0d, A5) × 3 runs) | about 4,900 | $5,000–15,000 |
 | E2, Codex | about the same again | |
 
 **Agent time and the owner's attention**, the larger cost:
@@ -571,6 +594,7 @@ Negative and flat results are reported the same way as positive ones.
 | An agent-built stack too clean or too uniform | realism targets measured on Jitsu and Hatchet, the trap list, growth as history, mixed authors, an independent audit (§2); every report says the stack is small and agent-built |
 | Agents starting modules | nothing needs them, but either arm may run `doze up`; the harness records it per run so it can be compared |
 | Tasks written to suit recall | authoring sessions that never see recall, a different model from the subject, a reviewer agent, frozen sets, a held-out quarter |
+| `.env` files holding every value | the plain-repo setting's generated `.env` files are inference's best case; E2 adds a keys-only variant of A2 and reports the gap |
 | Agents writing for agents | Sonnet writes none of the stack; stated as a limit in every report; a real ported system after E2 for external validity |
 | The baseline reaching recall | A0 strips recall; every A0 transcript is checked for leaks |
 | Model and harness drift | pin and record versions; compare arms only within one run |

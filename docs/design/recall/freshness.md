@@ -14,7 +14,7 @@ refresh, so each kind gets its own mechanism.
 
 | Knowledge | Changed by | Kept current by | Cost |
 |---|---|---|---|
-| Declared stack | edits to `doze.hcl` | re-reading the hand-off when doze reloads config | trivial |
+| Declared stack | edits to `doze.hcl` or another producer's sources | re-reading the stack file when it changes; `stale` when its sources changed after it was written | trivial |
 | Code facts | every save, including the agent's own edits | re-indexing the file by content hash, then re-resolving what depended on it | milliseconds per file |
 | Big jumps | branch switch, pull, rebase, new worktree, edits while recall slept | a catch-up on wake against the last indexed commit | seconds; near zero for a branch seen before |
 | Dependencies | lockfile changes | re-extracting the external symbols the code uses, cached by `module@version` | once per version, machine-wide |
@@ -42,10 +42,9 @@ saved event id, in 13 ms**. On Kubernetes' 31k files, `git status` took 140 ms
 
 Leaning: **FSEvents on macOS, inotify on Linux, git to reconcile** (on Linux
 after sleep, and on macOS when FSEvents reports it dropped events), polling
-only for small folders outside git. The daemon owns the feed and `watch`
-subscribes to it too, so a tree is only looked at once. The watcher is a
-doze-sdk package; standalone, recall's background process runs it itself and
-starting that process counts as waking ([standalone.md](standalone.md) §5).
+only for small folders outside git. Recall's background process runs the
+watcher itself, and starting that process counts as waking
+([running.md](running.md) §5).
 
 While recall sleeps nothing runs. It saves one event id per root; on wake it
 asks the OS what changed since then.
@@ -97,8 +96,8 @@ burst of saves or a formatter run is one re-index, not hundreds.
   run. Agents adopt wrong context readily and labels inside the text barely
   slow them, so stale items never sit beside facts. Hiding them completely
   would lose the human knowledge in them.
-- **The dash shows the counts**: files stale, notes to check, entries in
-  drift. The header strip shows the total.
+- **`doze-recall status` shows the counts**: files stale, notes to check,
+  entries in drift. Under doze, the dash's header strip also shows the total.
 - **The eval measures it**: the share of answer items that were stale, per
   task. If that number grows, the generated layer is anchored to things that
   change too fast.
@@ -128,12 +127,12 @@ When regeneration runs is open:
 
 | Trigger | For | Against |
 |---|---|---|
-| Manual, from the dash | the person chooses when to spend their subscription | stale files pile up if nobody presses it |
+| Manual, with `doze-recall generate` (or the dash's Generate) | the person chooses when to spend their subscription | stale files pile up if nobody presses it |
 | On merge to main | the committed files track main | needs an agent in CI, which recall otherwise avoids |
 | When the stale count passes a threshold | automatic, bounded | spends subscription without asking each time |
 
-Leaning: manual in v1, with the stale count visible in the header so it is
-hard to ignore. Revisit with numbers from the eval.
+Leaning: manual in v1, with the stale count shown by `status` and at the top
+of `review` (and in the dash header under doze) so it is hard to ignore. Revisit with numbers from the eval.
 
 ## Never
 
@@ -142,4 +141,5 @@ hard to ignore. Revisit with numbers from the eval.
 - Delete a human note because its code moved. It is flagged, or orphaned and
   offered for re-anchoring.
 - Change a decision in `topology.yaml`. It is flagged as drift.
-- Write a committed file except when a person presses a key in the dash.
+- Write a committed file except when a person presses a key in
+  `doze-recall review` or the dash.

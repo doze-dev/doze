@@ -1,211 +1,134 @@
-# How recall fits into doze
+# How doze feeds recall
 
-Status: design, 2026-10-20; revised 2026-10-21: recall is its own repository
-and binary, and also runs without doze ([standalone.md](standalone.md)). Code references checked
-against `doze` at `142af83`.
+Status: design, 2026-10-20; rewritten 2026-10-21 when recall became
+independent of doze (R103). Code references checked against `doze` at
+`142af83`.
 
-Recall is doze looking at the stack, alongside the daemon, the proxy, `.doze`
-names and the dash. It is not one of the four nouns: one per stack, turned on
-by a block, with reads no module or app is allowed (every app folder, the
-resolved config, the journal, logs). Most of what it needs to run already
-exists. Two pieces do not: a way for the daemon to own a built-in process,
-and a change feed over whole source trees.
+Recall is its own program, `doze-recall`, and needs nothing from doze to run
+([running.md](running.md)). doze makes it better in three ways:
 
-## What recall reuses
+1. **It writes a declared-stack file** from `doze.hcl`, so recall's links
+   between apps come from declarations instead of being inferred from names
+   in code (§2).
+2. **It ships a pinned copy** and a `doze recall` command, so a doze user
+   never installs or updates recall separately (§3).
+3. **Its dash shows recall's screen**, a client of recall's local API (§4).
 
-| Recall needs | doze has today | Where |
-|---|---|---|
-| Sleep until called, wake on the first connection | The proxy boots a backend on connect, holds it while connections are open, releases after | `internal/proxy/proxy.go:127` (`handle`), `:213` (`bootBackend`), `:206` (`Acquire`/`Release`) |
-| One lifecycle, not a second one | Registry states booting → active → idle → reaped, with crash backoff | `internal/registry/registry.go:14`, `Acquire` `:279`, `Reapable` `:315` |
-| Supervision, events, logs | Supervisor, journal with `Subscribe`, log store (5 runs or 10 MB) | `internal/supervisor/supervisor.go`, `internal/journal/journal.go:196`, `internal/logstore/` |
-| A name agents can reach | `<name>.<stack>.doze` from the daemon's resolver | `internal/config/domains.go` |
-| The declared stack | The parsed config: instances, kinds, references, app `dir` and `env` | `internal/config/config.go:23`, `runnable.go:33`, `eval.go` |
-| A config block | Top-level blocks that are not instances | `reservedBlocks`, `internal/config/load.go:309` |
-| A memory budget | Idle daemon and idle tree checked in CI on darwin | `test/bench/budget.json`, `test/bench/bench_test.go` |
+doze doesn't run recall as one of its instances, doesn't proxy it, and
+doesn't feed it file changes. Recall is started by the agent, over stdio,
+like any MCP server.
 
-The proxy's hold-while-connected rule is what makes "asleep by default" free:
-an agent session with an open MCP connection holds recall awake, and when the
-last one closes recall idles out like any service.
-
-## What has to be added
-
-### 1. The `recall {}` block
+## 1. The `recall {}` block
 
 ```hcl
-recall {
-  exclude = ["**/*_generated.go", "fixtures/**"]   # .gitignore is always respected
-  include = ["docs/**", "adr/**"]                   # extra prose, beyond READMEs
-  agents  = ["claude", "codex"]                     # optional: who may run generation here
-}
+recall {}
 ```
 
-Its presence turns recall on. `recall` joins `reservedBlocks`, and the name
-`recall` is reserved as an instance name whether the block is there or not, so
-turning recall on never collides with an app someone already called that.
-Every app with a `dir` is indexed; downloaded services and modules have no
-source and are skipped. `agents` is a team policy: the agent CLIs allowed to
-run generation on this stack (R51). Nothing else is configurable. Which agent
-a person uses is their own setting, kept in the doze home
-([generation.md](generation.md)).
+Its presence turns on the stack file and the dash's recall screen. It takes
+no keys: recall's settings (`include`, `exclude`, `agents`, `roots`) live in
+`.recall/recall.toml`, so they are the same with or without doze
+([running.md](running.md) §2).
 
-### 2. A built-in instance the daemon owns
+`recall` joins `reservedBlocks` (`internal/config/load.go:309`), and the name
+`recall` is reserved as an instance name whether the block is there or not.
 
-There is no hook for a process that `doze.hcl` doesn't declare.
-`Daemon.AddInstance` (`internal/daemon/dynamic.go:131`) parses an HCL block
-and wires it into the proxy and DNS, and services already become synthetic
-`InstanceDecl`s (`internal/config/runnable.go:326`). Recall follows the
-second pattern: when the block is present, config loading adds a synthetic
-instance named `recall`, running the pinned `doze-recall` binary (downloaded
-on the first `recall {}`, [standalone.md](standalone.md) §8) with the process
-engine, proxied at `recall.<stack>.doze`, sleeping after the idle time. It
-then gets states, crash backoff, the journal and logs with no new code.
+## 2. The declared-stack file
 
-It differs from a user service in three ways:
+doze writes `.doze/recall/stack.json` (its own gitignored folder, beside
+`doze.hcl`):
 
-- It is hidden from the instance rows in the dash and shown as a strip in the
-  header instead.
-- It is excluded from `doze up` (nothing wakes it but a call).
-- It gets a stack hand-off at start (below).
+- on every config load, while the daemon runs;
+- on `doze recall stack`, with no daemon, built from the config in-process.
 
-### 3. The stack hand-off
+The format is recall's, published with a version ([graph.md](graph.md)
+§4.1). doze is its first producer, not its only possible one. The file is
+built in `internal/config`, so recall never parses HCL and the two can't
+disagree about what the stack is.
 
 Recall needs more than the public `Inspection.Topology()` gives
-(`inspect.go:49`). That returns instance names and boot order (`types.go:56`)
-and nothing about which attribute flows where. Recall needs the
-attribute-level wiring: `app.api` env `DATABASE_URL` comes from
+(`inspect.go:49`), which returns instance names and boot order
+(`types.go:56`) and nothing about which attribute flows where. Recall needs
+the attribute-level wiring: `app.api` env `DATABASE_URL` comes from
 `module.db.url`, `app.worker` env `JOBS_QUEUE` comes from
-`module.cloud:queue.jobs.url`. That is the backbone of the stack join.
+`module.cloud:queue.jobs.url`. Three gaps to fill:
 
-The daemon starts recall with:
+- **Which attribute fed which env key** is lost after `evaluate`. Keep the
+  map: walk each env expression's traversals.
+- **The queues, topics and buckets inside the aws and kafka modules** are
+  opaque to doze core. Not `Inventory.Objects`: both plugins converge, so
+  answering it would make plan and sync diff their resources. Instead, a
+  read-only `Declared` capability in doze-sdk, implemented by doze-aws and
+  doze-kafka, returns declared resources with the attributes doze mints.
+  This is a doze-side addition; recall only reads the file it ends up in.
+- **Sources and logs.** The file lists the files it was made from with their
+  hashes (`doze.hcl`, env files), so recall can tell when it is stale
+  ([running.md](running.md) §5), and the paths of the journal
+  (`run/journal.jsonl`) and each app's log store, for `diagnose`.
 
-- The resolved stack as JSON: every instance with kind, type, `dir`, the
-  resources nested in each module, and every reference with its source block,
-  attribute and the env var or argument it lands in.
-- The daemon socket, for reading the journal and subscribing to changes.
-- A contract version, so a newer doze can refuse an older recall binary.
+## 3. The pinned copy and `doze recall`
 
-The JSON is written by doze, from `internal/config`, so recall never parses
-HCL and the two can't disagree about what the stack is.
+doze pins an exact `doze-recall` version and SHA-256 in its build. The first
+time a `doze.hcl` has `recall {}`, doze downloads it (through `DOZE_MIRROR`
+when set), checks it, and keeps it in its cache. The download never touches
+the person's `doze.lock` (R86).
 
-### 4. A change feed over source trees
+`doze recall <args>` writes the stack file if it is out of date and runs the
+pinned binary with the same arguments: `serve`, `review`, `status`,
+`generate`, `connect`, `check`. So a doze user's connect line is:
 
-Today's watcher (`internal/watch/poll.go:72`) checks the size and mtime of an
-app's own `watch` globs once a second, only while that app is awake. It was
-chosen over the kernel watcher because kqueue on macOS holds a descriptor per
-file (`../next/phases.md`, phase 4.6). Recall needs every file of every app,
-asleep or awake. How that works is in [freshness.md](freshness.md). The feed
-is owned by the daemon and shared with `watch`, so a large repo is looked at
-once, not twice. The watcher itself is a doze-sdk package, which standalone
-recall runs on its own ([standalone.md](standalone.md) §5).
+```
+claude mcp add doze-recall -- doze recall serve
+```
 
-### 5. A status file for the header strip
+`doze recall check` is the CI check ([context.md](context.md) §8): it writes
+the stack file without a daemon and runs `doze-recall check`. Recall's
+dependencies (a SQLite driver, tree-sitter grammars) stay out of the doze
+binary. `cmd/doze/parity_test.go` needs to know about `doze recall`, which
+has no dash twin for `serve` and `check`.
 
-The dash shows recall's state (asleep, indexing, fresh, n to review) in its
-header. Asking recall would wake it. Instead, recall writes
-`<ProjectDir>/recall/status.json` whenever its state changes, and the dash
-reads the file.
+## 4. The dash
 
-### 6. One headless command
+- **The header strip** shows recall's state (asleep, indexing, fresh, n to
+  review) from `doze-recall status --json`, which reads `status.json` from
+  disk and never starts recall.
+- **Recall's screen** has the tabs Overview, Notes, Review, Topology,
+  Queries, Connect and Generate ([context.md](context.md) §7). Each is a
+  client of recall's local API ([running.md](running.md) §4). Opening a tab
+  that needs the graph starts recall's background process, since the person
+  asked for it.
+- **Writes** happen inside recall, on the person's keypress, the same as in
+  `doze-recall review`. The dash sends the key; recall does the write.
 
-Recall's interactive actions live in the dash. MCP is the programmatic
-surface for agents. CI needs a third way in: `doze recall check` builds
-what it can of the graph in the checkout and fails on notes, glossary rows or
-decisions that don't resolve, on drifted decisions, and on secrets in them
-([context.md](context.md) §8). It never runs an agent. This is the one
-exception to "dash only", and `cmd/doze/parity_test.go` needs to know about
-it.
+## 5. What doze no longer needs
 
-### 7. Language servers
+Earlier drafts had doze host recall. Each of these is dropped:
 
-Recall runs its language servers itself, as child processes, whether doze
-hosts it or not ([standalone.md](standalone.md) §6; C2, revised 2026-10-21).
-doze needs nothing for them: no hidden helper services, no `__lspbridge`,
-no special download path. Their archives are still mirrored in doze-binaries
-so `DOZE_MIRROR` works, and recall's downloads never touch `doze.lock`
-(R86).
+| Dropped | Because |
+|---|---|
+| A hidden built-in recall instance, woken by the proxy | the agent starts recall over stdio |
+| A reserved address and per-stack routing (the old P0.1) | stdio has no address |
+| A daemon-owned change feed shared with `watch` | recall watches files itself; `watch` keeps its poller |
+| Hidden helper services and `doze __lspbridge` for language servers | recall runs them as child processes |
+| A download path for helpers that skips `doze.lock` | recall downloads its own servers |
+| A gunzip fallback in `doze-sdk/binaries` | it lives in recall |
 
-### 8. Declared resources and env provenance
-
-Two hand-off gaps found in the code:
-
-- Which attribute fed which env key is lost after `evaluate`. Keep the map.
-- The queues, topics and buckets inside the aws and kafka modules are opaque
-  to doze core. Not `Inventory.Objects`: both plugins converge, so answering
-  it would make plan and sync diff their resources. Instead, a read-only
-  `Declared` capability in doze-sdk, implemented by doze-aws and doze-kafka,
-  returns declared resources with the attributes doze mints
-  ([graph.md](graph.md) §4.1).
-
-The daemon writes the hand-off to `<ProjectDir>/recall/stack.json` on every
-config load, so recall picks up `doze.hcl` changes without the daemon
-restarting it.
-
-
-## Where things live
-
-| What | Where | Committed |
-|---|---|---|
-| `recall {}` | `doze.hcl` | yes |
-| Stack notes, `glossary.md`, `topology.yaml` (decisions) | `recall/` beside `doze.hcl` | yes |
-| Notes about a repo's code | `<repo>/.recall/` | yes, in that repo |
-| Proposals waiting for review | `<ProjectDir>/recall/proposals.json` | no |
-| Graph, search indexes, query log | `<ProjectDir>/recall/graph.db` | no, disposable, rebuilt on schema change |
-| Status for the header | `<ProjectDir>/recall/status.json` | no |
-| Extraction caches, keyed by content hash | `~/.doze/recall/cache/` | no |
-| Logs | the log store, like any instance | no |
-
-Recall's code lives in its own repository, `doze-dev/doze-recall`, released
-on its own (R14, changed; [standalone.md](standalone.md) §8). doze pins an
-exact version and SHA-256 and downloads it on the first `recall {}`, so a
-person never manages two versions. `stack.json`'s contract version lets
-recall accept its own contract and the one before. Recall's dependencies (a
-SQLite driver, tree-sitter grammars) stay out of the daemon.
-
-## Connecting an agent
-
-The design record registered a per-stack URL (`recall.shop.doze/mcp`) once per
-user under one fixed name. That breaks as soon as a person has two stacks:
-every project gets whichever URL was registered last. There are two ways out:
-
-- **Per project, not committed.** `claude mcp add --scope local` stores the
-  server for one project on one machine. It works today, but it is one
-  command per stack per person, and every client has its own equivalent.
-- **One machine-wide address** (preferred). The daemon serves
-  `recall.doze/mcp` and routes each session to the right stack from the
-  client's MCP roots or working directory. One registration, once, for every
-  stack. It also answers the design record's open question about the address
-  when `domains = false`: the daemon picks a fixed loopback port.
-
-Standalone, there is no address: the agent starts `doze-recall serve` over
-stdio ([standalone.md](standalone.md) §4).
-
-Either way, doze never edits agent files. The Connect tab shows the line to
-copy, and an optional `AGENTS.md` section that tells agents to use the
-`doze-recall` tools if they are present and to ignore the section if not, so
-it is safe to commit for teammates without doze.
+What remains on doze's side: the block, the stack file with env provenance
+and `Declared`, the pinned copy and `doze recall`, the dash screen.
 
 ## Budget
 
-Asleep, recall is not running and costs nothing against `idle_tree_kb`.
-"Asleep" means no agent session is connected: an open session holds recall
-awake through the proxy. The bench needs three new entries, all with
-proposed starting values in [context-system.md](context-system.md) §7:
-
-- awake and serving (≤ 80 MB up to 1M edges);
-- indexing peak of the recall process (≤ 300 MB);
-- save-to-fresh latency.
-
-Language servers run one at a time, typically 0.1–0.7 GB while they work.
-They are recall's child processes and stop 2 minutes after their last
-batch, one at a time per machine ([standalone.md](standalone.md) §6).
+Recall isn't a doze instance, so doze's idle bench (`test/bench/budget.json`)
+doesn't change: with no agent session open, no recall process runs. Recall's
+own budgets (awake and serving, indexing peak, save-to-fresh latency) are in
+[context-system.md](context-system.md) §7 and are enforced in doze-recall's
+CI. Writing the stack file on a config load is a few milliseconds.
 
 ## Open
 
-- An agent session left open all day holds recall awake all day. Is that
-  acceptable, or does recall drop its in-memory graph after a quiet period
-  while keeping the connection?
-- Agents in sandboxes (Claude Code's sandbox, cloud agents) may not resolve
-  `.doze` names or reach loopback. Find out what each one allows before
-  picking the address.
-- Is a machine-wide cache under `~/.doze` acceptable for teams with strict
-  data rules, or must everything stay inside the project?
+- Whether doze should write the stack file only when `recall {}` is present,
+  or always (it's cheap, and a person who installs doze-recall later would
+  get declarations at once). Leaning: only with the block, so doze writes
+  nothing nobody asked for.
+- Whether a machine-wide cache under `~/.doze-recall` is acceptable for
+  teams with strict data rules, or must everything stay inside the project
+  (O5).
