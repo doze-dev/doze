@@ -39,7 +39,9 @@ still be called `recall`: with no built-in instance, nothing clashes.
 
 doze writes `.doze/recall/stack.json`, in the project's `.doze/` folder
 beside `doze.hcl` where it already keeps `endpoints.yaml` and `state.json`
-(doze's other state lives under `~/.doze/projects/<slug>/`):
+(doze's other state lives under `~/.doze/projects/<slug>/`). The folder ignores
+itself: doze writes `.doze/.gitignore` with `*` when it creates it (`7dea40c`).
+The file is written:
 
 - on every config load, while the daemon runs;
 - on `doze recall stack`, with no daemon, built from the config in-process.
@@ -129,12 +131,6 @@ CI. Writing the stack file on a config load is a few milliseconds.
 
 ## Open
 
-- Nothing makes a project's `.doze/` ignored today: doze's own repo lists
-  it in `.gitignore`, but doze writes no ignore rule into a person's
-  project, so `endpoints.yaml`, `state.json` and now the stack file could be
-  committed by accident. Leaning: doze writes `.doze/.gitignore` containing
-  `*` when it creates the folder, which needs no edit to the person's own
-  `.gitignore`. Worth doing before the first release, separately from recall.
 
 - Whether doze should write the stack file only when `recall {}` is present,
   or always (it's cheap, and a person who installs doze-recall later would
