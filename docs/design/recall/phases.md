@@ -69,7 +69,7 @@ their `doze.hcl` wiring, and answers say `partial: <app> is not indexed`.
 | P0.1 | **The address, tried.** fit.md prefers one machine-wide address that routes sessions by stack. But the daemon is per project, and MCP roots arrive only after `initialize`, so routing needs a shared component that answers before it knows the stack. Try it against doze-names' shared `:80` ingress. If it doesn't hold up within the unit, choose a per-stack URL registered per project (`claude mcp add --scope local`). Decide the `domains = false` case. Write the result into [fit.md](fit.md) |
 | P0.2 | **Sandboxes, tried** (O9): connect Claude Code inside its sandbox, Codex, and a cloud agent to a `.doze` name and to loopback |
 | P0.3 | **The spike:** a hand-written `stack.json` for `examples/shop`, `go/types` over its module, and an `impact` answer for the order event across api and worker, printed to stdout. Thrown away afterwards |
-| P0.4 | Settled: V4 is our own stack, `parcel` ([eval.md](eval.md) §2). Create the private `parcel` and `recall-eval` repositories; measure the realism targets on Jitsu and Hatchet clones; write the trap list; fix the task format and the four validity checks as a bun script in `recall-eval`, so T can start before P6. The building agents start T.1 |
+| P0.4 | Settled: V4 is our own stack, `parcel` ([eval.md](eval.md) §2). Create the private `parcel` and `doze-recall-eval` repositories; measure the realism targets on Jitsu and Hatchet clones; write the trap list; fix the task format and the four validity checks as a bun script in `doze-recall-eval`, so T can start before P6. The building agents start T.1 |
 | P0.5 | O5: the machine-wide cache under `~/.doze`, accepted or kept in the project |
 
 Exit measures:
@@ -221,7 +221,7 @@ Contract: [answers.md](answers.md); [eval.md](eval.md) §3, §6 (E0).
 | P6.4 | Render: text and shared `structuredContent`, quoting, redaction, paths, completeness lines | `render.go`, `complete.go` |
 | P6.5 | The six tools; `impact` on a diff; `diagnose` from the journal and log store | `recall/internal/serve/tools/`, `diff.go` |
 | P6.6 | The Queries log | `querylog.go` |
-| P6.7 | E0: the retrieval eval on `parcel`'s first 10 tasks (format and checks from P0.4), the budget sweep, `recall-eval`'s CI in report-only mode | `recall/eval/retrieval/`; tasks in `recall-eval` |
+| P6.7 | E0: the retrieval eval on `parcel`'s first 10 tasks (format and checks from P0.4), the budget sweep, `doze-recall-eval`'s CI in report-only mode | `recall/eval/retrieval/`; tasks in `doze-recall-eval` |
 
 Exit measures:
 

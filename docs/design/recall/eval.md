@@ -208,10 +208,10 @@ contamination advantage.
 - **`doze-dev/parcel`**, private: the stack. Its own repository because its
   git history is part of the corpus: tasks pin base commits, and recall reads
   git for staleness.
-- **`doze-dev/recall-eval`**, private: the task sets, the held-out quarter
+- **`doze-dev/doze-recall-eval`**, private: the task sets, the held-out quarter
   and the results. Sessions tuning recall never read the held-out folder.
 - **doze**, public: the harness (`recall/eval/run/`) and the retrieval eval's
-  code. The retrieval eval runs in `recall-eval`'s CI against a pinned doze
+  code. The retrieval eval runs in `doze-recall-eval`'s CI against a pinned doze
   build. Only summary reports, never tasks, come back to the public repo.
 
 The doze daemon runs in every arm, so recall is reached the real way: woken
@@ -350,7 +350,7 @@ natural.
 ### Task format
 
 ```yaml
-# recall-eval: tasks/<id>/task.yaml
+# doze-recall-eval: tasks/<id>/task.yaml
 id: parcel-order-gift-note
 family: cross-app
 stack: parcel
@@ -545,7 +545,7 @@ a few times that, so plan on $1–3 per run.
 - How much authoring a usage window holds is measured on the first 5 tasks,
   the same way run pace is.
 
-**Results** go in the private `recall-eval` repository, under `results/<date>-<harness>/`:
+**Results** go in the private `doze-recall-eval` repository, under `results/<date>-<harness>/`:
 
 - the frozen task set's hash;
 - the analysis script, written before the run;
