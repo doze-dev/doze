@@ -311,6 +311,11 @@ var reservedBlocks = map[string]bool{
 	"variable": true, "locals": true, "output": true,
 }
 
+// futureBlocks are top-level block types a later release will read. Until
+// then they are refused with a message saying so, and no module may take one
+// as its type, so turning one on later breaks no stack.
+var futureBlocks = map[string]bool{"recall": true}
+
 // pluginBytes returns filename's source in the form a plugin decodes.
 func (l *loader) pluginBytes(filename string) []byte {
 	if src, ok := l.pluginSrc[filename]; ok {

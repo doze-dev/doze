@@ -77,7 +77,7 @@ func headOf(parser *hclparse.Parser, block *hcl.Block) (blockHead, error) {
 	case etype == AppEngine:
 		return blockHead{}, posErr(parser, block.DefRange, "`process` is not a module",
 			fmt.Sprintf("an app is declared as: app %q { run = \"…\" }", name))
-	case reservedBlocks[etype] || isKind(etype):
+	case reservedBlocks[etype] || futureBlocks[etype] || isKind(etype):
 		return blockHead{}, posErr(parser, block.DefRange, fmt.Sprintf("%q is a keyword, not a module type", etype),
 			"a module block reads: module <type> \"<name>\" { … }, for example: module postgres \"db\" { … }")
 	}
@@ -107,6 +107,9 @@ func checkOldForms(parser *hclparse.Parser, files []*hcl.File) error {
 				label = blk.Labels[len(blk.Labels)-1]
 			}
 			switch {
+			case futureBlocks[blk.Type]:
+				return posErr(parser, rng, fmt.Sprintf("the `%s` block isn't in this release of doze", blk.Type),
+					"remove it for now; a later release reads it")
 			case blk.Type == "modules" && len(blk.Labels) == 0:
 				return posErr(parser, rng, "the `modules` block is gone",
 					"doze has one registry and picks each module's release itself; doze.lock pins it, and `doze modules upgrade` moves the pin")
@@ -137,6 +140,9 @@ func checkOldForms(parser *hclparse.Parser, files []*hcl.File) error {
 func nearKeyword(s string) string {
 	candidates := append([]string{}, kinds...)
 	for k := range reservedBlocks {
+		candidates = append(candidates, k)
+	}
+	for k := range futureBlocks {
 		candidates = append(candidates, k)
 	}
 	for _, c := range candidates {

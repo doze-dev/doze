@@ -196,6 +196,8 @@ func TestOldFormsNameTheNewOne(t *testing.T) {
 		"modules block":     {"modules {\n  mirror = \"https://example.com\"\n}", []string{"the `modules` block is gone", "one registry"}},
 		"module process":    {`module process "api" { run = "x" }`, []string{"`process` is not a module", `app "api"`}},
 		"keyword as type":   {`module task "x" {}`, []string{"is a keyword, not a module type"}},
+		"future block":      {`recall {}`, []string{"the `recall` block isn't in this release", "remove it for now"}},
+		"future as type":    {`module recall "x" {}`, []string{`"recall" is a keyword, not a module type`}},
 		"a slip":            {`apps "api" { run = "x" }`, []string{`unknown block "apps"`, `did you mean "app"?`}},
 		"type-first reference": {`
 module postgres "db" { version = 16 }
