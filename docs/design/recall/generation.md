@@ -137,6 +137,10 @@ person.
   confirms.
 - Approves or rejects what lands in Review.
 
+Standalone, the same steps are `doze-recall generate` and
+`doze-recall review`; `--agent` picks the agent once, remembered in
+`~/.doze-recall/config.toml` ([standalone.md](standalone.md) §7).
+
 Teams can list the agents allowed to read their stack in `doze.hcl`
 (`agents = ["claude", "codex"]`). How each agent is launched is built into
 doze and not configurable, so the tested path can't be bypassed.

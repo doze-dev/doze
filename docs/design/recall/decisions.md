@@ -33,7 +33,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | R11 | Only `include` and `exclude`, on top of `.gitignore` | decided | [fit.md](fit.md) §1 |
 | R12 | Recall shows as a strip in the dash header, not as a row | decided | [fit.md](fit.md) §5 |
 | R13 | A separate process, supervised with the existing state machine, journal and logs | decided | [fit.md](fit.md) §2 |
-| R14 | A second Go module in the doze repo (`recall/`), its own binary in the same release | decided | [graph.md](graph.md) §11 |
+| R14 | A second Go module in the doze repo (`recall/`), its own binary in the same release. **Changed 2026-10-21:** its own repository, `doze-dev/doze-recall`, released on its own and pinned by doze (R96, R97) | changed | [standalone.md](standalone.md) §8 |
 
 ## Serving agents
 
@@ -67,7 +67,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | R57 | `impact` lists hazards; zero callers is never proof | decided | [graph.md](graph.md) §3 |
 | R58 | Shipping bar per language. **Changed:** precision ≥ 0.98 for `exact` and `scoped` edges on the pack's oracle corpus, recall reported and not regressing | changed | [graph.md](graph.md) §9 |
 | R59 | SCIP indexers as separate pinned programs | rejected (C1) | [context-system.md](context-system.md) §4.3 |
-| O8 | Language servers as a precision source | decided (C1): the precision source for the v1 packs, pinned single binaries run as hidden services | [graph.md](graph.md) §4.7 |
+| O8 | Language servers as a precision source | decided (C1): the precision source for the v1 packs, pinned single binaries run as recall's child processes (C2, revised) | [graph.md](graph.md) §4.7 |
 
 ## Storage
 
@@ -135,7 +135,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | # | Decision | Status | Where |
 |---|---|---|---|
 | C1 | Precision beyond Go: syntax + own resolver; pinned single-binary language servers; no SCIP indexers | decided | [context-system.md](context-system.md) §10 |
-| C2 | Language servers as hidden doze services through `__lspbridge` | decided; in v1 | [graph.md](graph.md) §4.7 |
+| C2 | Language servers as recall's own child processes in both modes; revised 2026-10-21 from hidden doze services through `__lspbridge` | decided; in v1 | [graph.md](graph.md) §4.7 |
 | C3 | Index once when `recall {}` first appears, then only when woken | decided | [graph.md](graph.md) §5.3 |
 | C4 | Observed calls after v1 | decided | [context-system.md](context-system.md) §4.5 |
 | C5 | Generation does checkable work only | decided | [generation.md](generation.md) |
@@ -167,6 +167,13 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | V3 | Eval tasks are written by agents: walled-off sessions, Opus authoring, a reviewer agent, the owner reading a sample | decided | [eval.md](eval.md) §3 |
 | V4 | The eval stack is our own, `parcel`, built by agents: six Go and TypeScript apps for E1, a Python and a Rust app for E2, over doze-aws, Kafka and Postgres; sized to stay outside the agent's context (40–50k lines for E1) and to hold E2's tasks (36+ cross-app links); private. Replaces porting Jitsu, decided earlier the same day | decided | [eval.md](eval.md) §2, [research/7](research/7-eval-stack.md) |
 | R95 | E0 and E1 run in Claude Code only; Codex and Cursor plans are obtained before E2, and their generation runners (P11) follow once they pass the contract test | decided | [eval.md](eval.md) §4 |
+| R96 | Recall runs standalone as well as hosted by doze: one binary, two hosts behind one interface; graph, tools, labels and answers are shared | decided 2026-10-21 | [standalone.md](standalone.md) |
+| R97 | Its own public repository, `doze-dev/doze-recall`, with `install.sh` and GitHub Releases; doze pins an exact version and SHA-256 and downloads it on the first `recall {}`; recall accepts its own hand-off contract and the one before | decided | [standalone.md](standalone.md) §8 |
+| R98 | Standalone process model: `doze-recall serve` is a stdio shim (forwarding to doze when the root has `recall {}`); one background process per root behind a Unix socket and lock keeps one writer, and exits 5 minutes after its last session; one language server per machine across processes | decided | [standalone.md](standalone.md) §4 |
+| R99 | Standalone takes the root from git or the working directory when the shim starts (MCP roots only checked), refuses a home folder or a root with no apps, and finds apps from manifests without running any repo script; optional `.recall/recall.toml` with `roots` (git repos, accepted once by the person), `include`, `exclude`, `agents`, `apps` | decided | [standalone.md](standalone.md) §2 |
+| R100 | Without declarations, resources are inferred from code as `inferred:<family>:<kind>.<name>`, `scoped` at best and never `exact`; they map to declared ones on a keypress when `doze.hcl` arrives. docker-compose and Terraform wait for the eval's standalone arm | decided | [standalone.md](standalone.md) §3 |
+| R101 | The file watcher is a doze-sdk package, run by the daemon under doze and by recall's background process standalone | decided | [standalone.md](standalone.md) §5 |
+| R102 | Standalone review is one terminal command, `doze-recall review`, a list and prompt with the dash's keys; stack files in `.recall/stack/`; no map, no query box | decided | [standalone.md](standalone.md) §7 |
 | R94 | No backend runs during the eval. Every task is scored by unit and contract tests with no services; "run and verify" tasks are out; diagnose tasks use recorded logs | decided | [eval.md](eval.md) §2, §3 |
 
 ## Open questions
@@ -187,8 +194,8 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | # | What | Why |
 |---|---|---|
 | X1 | Recall as a doze module | a module sees only its own block |
-| X2 | A `doze mcp` stdio command and shim | superseded by serving over HTTP through the proxy |
-| X3 | A separate `doze-recall` repo | superseded by R14 |
+| X2 | A `doze mcp` stdio command and shim | superseded under doze by HTTP through the proxy; standalone recall has a stdio shim of its own (R98) |
+| X3 | A separate `doze-recall` repo | rejected for R14 at first; adopted 2026-10-21 (R96, R97) |
 | X4 | Embeddings with a local model; live vector search | R16, R35, R50 |
 | X5 | Any AI call while serving | R15 |
 | X6 | AI generating graph edges freely | made-up edges, not deterministic, cost grows with code |

@@ -1,7 +1,8 @@
 # How recall fits into doze
 
-Status: design, 2026-10-20. Code references checked against `doze` at
-`142af83`.
+Status: design, 2026-10-20; revised 2026-10-21: recall is its own repository
+and binary, and also runs without doze ([standalone.md](standalone.md)). Code references checked
+against `doze` at `142af83`.
 
 Recall is doze looking at the stack, alongside the daemon, the proxy, `.doze`
 names and the dash. It is not one of the four nouns: one per stack, turned on
@@ -54,7 +55,8 @@ There is no hook for a process that `doze.hcl` doesn't declare.
 and wires it into the proxy and DNS, and services already become synthetic
 `InstanceDecl`s (`internal/config/runnable.go:326`). Recall follows the
 second pattern: when the block is present, config loading adds a synthetic
-instance named `recall`, running the `doze-recall` binary with the process
+instance named `recall`, running the pinned `doze-recall` binary (downloaded
+on the first `recall {}`, [standalone.md](standalone.md) §8) with the process
 engine, proxied at `recall.<stack>.doze`, sleeping after the idle time. It
 then gets states, crash backoff, the journal and logs with no new code.
 
@@ -93,7 +95,8 @@ chosen over the kernel watcher because kqueue on macOS holds a descriptor per
 file (`../next/phases.md`, phase 4.6). Recall needs every file of every app,
 asleep or awake. How that works is in [freshness.md](freshness.md). The feed
 is owned by the daemon and shared with `watch`, so a large repo is looked at
-once, not twice.
+once, not twice. The watcher itself is a doze-sdk package, which standalone
+recall runs on its own ([standalone.md](standalone.md) §5).
 
 ### 5. A status file for the header strip
 
@@ -112,25 +115,14 @@ decisions that don't resolve, on drifted decisions, and on secrets in them
 exception to "dash only", and `cmd/doze/parity_test.go` needs to know about
 it.
 
-### 7. Helpers recall starts
+### 7. Language servers
 
-Language servers ([graph.md](graph.md) §4.4) are hidden services that recall
-adds through the control socket's `add` once it knows an app's language. Four
-small pieces make that work:
-
-- **A `hidden` flag on an instance.** The dash rows, `doze status`,
-  `doze up` and `doze env` skip hidden instances; the Overview in recall's
-  screen shows them.
-- **`doze __lspbridge`.** A hidden subcommand, like `__fetch`. It listens on
-  the service's port and pipes one connection to the server's stdio. Servers
-  speak stdio; the proxy wakes things on a connection.
-- **Downloads that skip `doze.lock`.** The service `download` path records
-  each URL in the person's committed lock on first fetch
-  (`internal/runtime/runtime.go:347-354`). Helpers use recall's own pinned
-  table through `__fetch --sha` instead, mirrored in doze-binaries so
-  `DOZE_MIRROR` works.
-- **A gunzip fallback** in `doze-sdk/binaries/download.go`, since
-  rust-analyzer ships a gzipped binary, not a tarball.
+Recall runs its language servers itself, as child processes, whether doze
+hosts it or not ([standalone.md](standalone.md) §6; C2, revised 2026-10-21).
+doze needs nothing for them: no hidden helper services, no `__lspbridge`,
+no special download path. Their archives are still mirrored in doze-binaries
+so `DOZE_MIRROR` works, and recall's downloads never touch `doze.lock`
+(R86).
 
 ### 8. Declared resources and env provenance
 
@@ -148,8 +140,6 @@ The daemon writes the hand-off to `<ProjectDir>/recall/stack.json` on every
 config load, so recall picks up `doze.hcl` changes without the daemon
 restarting it.
 
-The helpers in §7 are part of v1: the TypeScript/JavaScript, Python and Rust
-packs need them.
 
 ## Where things live
 
@@ -164,9 +154,12 @@ packs need them.
 | Extraction caches, keyed by content hash | `~/.doze/recall/cache/` | no |
 | Logs | the log store, like any instance | no |
 
-Recall is a second Go module in this repo (`recall/`), built as its own
-binary in the same release. Contract changes land in one commit, and recall's
-dependencies (a SQLite driver, tree-sitter grammars) stay out of the daemon.
+Recall's code lives in its own repository, `doze-dev/doze-recall`, released
+on its own (R14, changed; [standalone.md](standalone.md) §8). doze pins an
+exact version and SHA-256 and downloads it on the first `recall {}`, so a
+person never manages two versions. `stack.json`'s contract version lets
+recall accept its own contract and the one before. Recall's dependencies (a
+SQLite driver, tree-sitter grammars) stay out of the daemon.
 
 ## Connecting an agent
 
@@ -182,6 +175,9 @@ every project gets whichever URL was registered last. There are two ways out:
   client's MCP roots or working directory. One registration, once, for every
   stack. It also answers the design record's open question about the address
   when `domains = false`: the daemon picks a fixed loopback port.
+
+Standalone, there is no address: the agent starts `doze-recall serve` over
+stdio ([standalone.md](standalone.md) §4).
 
 Either way, doze never edits agent files. The Connect tab shows the line to
 copy, and an optional `AGENTS.md` section that tells agents to use the
@@ -200,7 +196,8 @@ proposed starting values in [context-system.md](context-system.md) §7:
 - save-to-fresh latency.
 
 Language servers run one at a time, typically 0.1–0.7 GB while they work.
-They sleep 5 minutes after their last batch, on the normal idle timer.
+They are recall's child processes and stop 2 minutes after their last
+batch, one at a time per machine ([standalone.md](standalone.md) §6).
 
 ## Open
 

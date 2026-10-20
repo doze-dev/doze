@@ -21,7 +21,7 @@ under it changes.
 ## 1. When recall writes
 
 **Recall writes a committed file only when a person presses a key in the
-dash.** Nothing is written in the background, on index, or by an agent.
+dash**, or, standalone, in `doze-recall review`, which uses the same keys ([standalone.md](standalone.md) §7). Nothing is written in the background, on index, or by an agent.
 
 | Key, where | Writes |
 |---|---|
@@ -44,6 +44,7 @@ them, and normalizes line endings before any hash.
 |---|---|
 | `recall/` beside `doze.hcl` | the stack: notes about resources and flows across apps, the glossary, `topology.yaml` |
 | `.recall/` at an app repo's root | notes about that repo's code |
+| `.recall/stack/` at the root, standalone | the stack's files (notes across apps, the glossary, `topology.yaml`), since there is no `doze.hcl`; read like `recall/` when a `doze.hcl` sits at that root ([standalone.md](standalone.md) §7) |
 
 Code ids don't contain app names ([graph.md](graph.md) §1), so a repo's
 `.recall/` notes work in every stack that contains it. Stack ids

@@ -5,7 +5,8 @@ Status: design, started 2026-10-20. Nothing here is implemented yet.
 Doze runs your stack, so it can know your stack. Recall turns that knowledge
 into context any coding agent can use: one picture of the whole system, built
 from the code, `doze.hcl` and what people add, served over MCP to Claude Code,
-Cursor, Codex or anything else that speaks it.
+Cursor, Codex or anything else that speaks it. Recall also runs on its own,
+for people who don't use doze ([standalone.md](standalone.md)).
 
 The first exploration lives in the Doze Recall design record
 (https://claude.ai/artifact/Eyoyd1TVhFubAqyYQrp214, private to its owner). It
@@ -17,6 +18,7 @@ keep what holds up, and cut what makes recall harder to build or to use.
 | Doc | What it answers | State |
 |---|---|---|
 | [fit.md](fit.md) | How recall plugs into the daemon, proxy, journal, config and budget, and what doze lacks today | written |
+| [standalone.md](standalone.md) | Recall without doze: one binary, two hosts, apps found from manifests, inferred resources, the stdio shim, terminal review, its own repo and release | written |
 | [freshness.md](freshness.md) | How the graph and context stay current, and how staleness is shown when they are not | written |
 | [generation.md](generation.md) | How the person's own agent CLI (Claude Code, Codex, Cursor…) improves the context, and why it can't make it worse | written; scope narrows after context-system.md §10 |
 | [context-system.md](context-system.md) | What agents need from the context by evidence, how doze builds it, budgets, and decisions C1–C9 | decided |
@@ -26,7 +28,7 @@ keep what holds up, and cut what makes recall harder to build or to use.
 | [context.md](context.md) | Notes, the glossary, `topology.yaml` decisions, proposals, when recall writes, `doze recall check`, the Notes, Review and Topology tabs | written, revised after review |
 | [eval.md](eval.md) | How we prove agents do better with recall: questions and ship rules, stacks, task families and format, arms, measures, retrieval eval, cost, order | written |
 | [decisions.md](decisions.md) | Every decision, open question and rejection, keeping the design record's ids | written |
-| [phases.md](phases.md) | The build order P0–P11: units, files, exit measures and day ranges | written |
+| [phases.md](phases.md) | The build order P0–P12: units, files, exit measures and day ranges | written |
 
 ## The problem
 
@@ -114,8 +116,14 @@ Changed:
   conventions wait until the eval shows they help, because the only
   independent study of generated repo context found it hurt. Per-symbol
   descriptions are cut.
-- **A headless check for CI.** No interactive recall commands, but drift has
-  to fail a pull request, which needs `doze recall check` (fit.md).
+- **A headless check for CI.** No interactive recall commands under doze,
+  but drift has to fail a pull request, which needs `doze recall check`
+  (fit.md).
+- **Standalone as well as inside doze** (R96). Recall is its own repository
+  and binary, `doze-recall`. Without doze it finds apps from their manifests
+  and infers resources from the names code uses; with doze it gets declared
+  resources, env provenance and the dash. Standalone review happens in one
+  terminal command with the dash's keys ([standalone.md](standalone.md)).
 - **One connect line for every stack.** A per-stack URL registered once per
   user breaks with two stacks (fit.md).
 - **Headless agent CLIs before ACP** for generation (generation.md).
@@ -130,8 +138,8 @@ v1 covers **Go, TypeScript, JavaScript, Python and Rust** (R76).
 - **Go** is exact in-process through `go/types`.
 - **TypeScript/JavaScript** (one pack), **Python** and **Rust** are language
   packs: syntax plus our own resolution, made precise by a pinned
-  single-binary language server (tsc 7, ty, rust-analyzer). Doze downloads
-  each one and runs it as a hidden service that sleeps.
+  single-binary language server (tsc 7, ty, rust-analyzer). Recall downloads
+  each one and runs it as a child process that stops when idle.
 - **Java, C#, PHP, Ruby and Kotlin** can follow after v1 at syntax or scoped
   level ([graph.md](graph.md) §4.6, §10).
 
@@ -155,8 +163,8 @@ Settled by the research ([context-system.md](context-system.md) §4.3):
 
 - No SCIP indexers. Go needs neither (`go/types` runs in-process).
 - For other languages, syntax plus our own resolution gives breadth.
-- A pinned, single-binary language server that doze downloads settles the
-  doubtful references. It runs as a hidden doze service and sleeps when idle.
+- A pinned, single-binary language server that recall downloads settles the
+  doubtful references. It runs as recall's child process and stops when idle.
 
 Don't use servers from the project or from `PATH`:
 

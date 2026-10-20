@@ -210,9 +210,9 @@ contamination advantage.
   git for staleness.
 - **`doze-dev/doze-recall-eval`**, private: the task sets, the held-out quarter
   and the results. Sessions tuning recall never read the held-out folder.
-- **doze**, public: the harness (`recall/eval/run/`) and the retrieval eval's
-  code. The retrieval eval runs in `doze-recall-eval`'s CI against a pinned doze
-  build. Only summary reports, never tasks, come back to the public repo.
+- **doze-recall**, public: the harness (`eval/run/`) and the retrieval
+  eval's code. The retrieval eval runs in `doze-recall-eval`'s CI against a
+  pinned `doze-recall` build. Only summary reports, never tasks, come back to the public repositories.
 
 The doze daemon runs in every arm, so recall is reached the real way: woken
 through the proxy. Nothing connects to the modules, so they stay asleep.
@@ -385,13 +385,14 @@ checks: {fails_at_base: true, reference_passes: 5/5, partial_fails_hidden: true}
 | A2 | A1 plus the pasted lines from [answers.md](answers.md) §10 |
 | A3 | A2 with context made false before the run: stale notes, wrong `told` notes in main sections, injected `doubtful` edges |
 | A4 | A2 with a generated glossary, once generation exists |
+| A5 | Standalone recall, E2 only: A2's setup with `doze.hcl` removed, a `.env` file in each app generated from the resolved config, and recall started by the agent through `doze-recall serve` ([standalone.md](standalone.md) §9). No backend runs in any arm, so A2 − A5 is what the declarations add |
 
 **The leak check.** CodeGraph's own benchmark was contaminated when its
 baseline reached the tool through the shell, in 26 of 28 runs. Every A0
 transcript is scanned for any use of recall's files, binary or address. A run
 with a leak is void.
 
-**Same starting point.** A1–A4 index the worktree before the agent starts, so
+**Same starting point.** A1–A5 index the worktree before the agent starts, so
 first answers aren't "catching up". A0 waits the same length of time.
 
 ### Harnesses
@@ -465,7 +466,7 @@ the dash.
 |---|---|---|
 | E0 | `parcel`'s E1 slice built and audited; the task format and validity checks (built first, in P0.4); the retrieval eval in CI; 10 tasks | the retrieval eval runs in CI in report-only mode |
 | E1 | The eval stack, first slice; 20 cross-app tasks; Claude Code on Sonnet; arms A0 and A2; 2 runs each: **80 runs** | **a pilot**, with no ship decision unless V1 chooses E1 alone (§1). It shows whether recall helps a lot, measures the between-task variance that sizes E2, and measures how many runs fit in a usage window. It can't show a small effect, and can't separate the server from the pasted lines (A1 waits for E2) |
-| E2 | Cross-app tasks as sized by E1, plus the single-file and exploratory families; A0–A2, and A3 if A2 showed an effect; Claude Code, Codex and Cursor's CLI | the primary measure decides v1, when V1 chooses E2 |
+| E2 | Cross-app tasks as sized by E1, plus the single-file and exploratory families; A0–A2 and A5, and A3 if A2 showed an effect; Claude Code, Codex and Cursor's CLI | the primary measure decides v1, when V1 chooses E2 |
 | E3 | Each release: the retrieval eval in CI; a 30-task agent run on a rotating subset | **a smoke check** for breakage (adoption collapsing, crashes, cost jumps), not a statistical gate; a full E2-style run on major changes |
 
 **How many cross-app tasks E2 needs**, before E1's data. Assume pass rates
@@ -488,7 +489,7 @@ built, the honest alternative is to accept a 15-point detectable effect with
 
 ## 9. Running it, and what it costs
 
-**The harness** is bun scripts in `recall/eval/run/`, following the doze-dev
+**The harness** is bun scripts in `doze-recall/eval/run/`, following the doze-dev
 rule of bun for tooling. Each run:
 
 1. Make a fresh git worktree at `base`, apply the arm's removals or

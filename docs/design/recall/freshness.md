@@ -43,7 +43,9 @@ saved event id, in 13 ms**. On Kubernetes' 31k files, `git status` took 140 ms
 Leaning: **FSEvents on macOS, inotify on Linux, git to reconcile** (on Linux
 after sleep, and on macOS when FSEvents reports it dropped events), polling
 only for small folders outside git. The daemon owns the feed and `watch`
-subscribes to it too, so a tree is only looked at once.
+subscribes to it too, so a tree is only looked at once. The watcher is a
+doze-sdk package; standalone, recall's background process runs it itself and
+starting that process counts as waking ([standalone.md](standalone.md) §5).
 
 While recall sleeps nothing runs. It saves one event id per root; on wake it
 asks the OS what changed since then.

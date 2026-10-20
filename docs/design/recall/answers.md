@@ -21,9 +21,12 @@ billing. The real fixture's module is
 
 ## 1. The server
 
-- MCP over streamable HTTP, bound to loopback only. The `Origin` header is
-  checked on every request, as the MCP transport spec requires against DNS
-  rebinding.
+- Hosted by doze: MCP over streamable HTTP, bound to loopback only. The
+  `Origin` header is checked on every request, as the MCP transport spec
+  requires against DNS rebinding.
+- Standalone: stdio, through the `doze-recall serve` shim, with no network
+  listener at all ([standalone.md](standalone.md) §4). The shim picks the
+  root before it connects, so the stack question below doesn't arise.
 - Registered by the person as `doze-recall`; the address is decided in
   [fit.md](fit.md) ("Connecting an agent").
 - **Which stack a session talks to**, first match wins:
@@ -517,7 +520,7 @@ unverified, but if true, this file is how subagents learn recall exists.
 ## 11. Code
 
 ```
-recall/internal/serve/
+doze-recall/internal/serve/
   mcp.go          streamable HTTP, Origin check, tool registry, instructions
   session.go      which stack a session talks to (§1)
   anchor.go       parse, seed, resolve (§3.1–3.3)
