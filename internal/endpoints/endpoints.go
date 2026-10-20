@@ -16,6 +16,7 @@ import (
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/dotdoze"
 )
 
 // Endpoint is one instance's client-facing endpoint plus its connection string
@@ -196,7 +197,7 @@ func WriteManifest(path string, eps []Endpoint) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := dotdoze.Ensure(filepath.Dir(path)); err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)

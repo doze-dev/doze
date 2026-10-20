@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/dotdoze"
 )
 
 // stateVersion is bumped if the on-disk shape changes incompatibly.
@@ -86,7 +87,7 @@ func Load(path string) (*State, error) {
 // Save writes the state to path atomically (temp file + rename).
 func (s *State) Save(path string) error {
 	s.Version = stateVersion
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := dotdoze.Ensure(filepath.Dir(path)); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(s, "", "  ")
