@@ -738,6 +738,14 @@ Changes outside doze-recall for v1, unit by unit in [phases.md](phases.md):
 
 ## 12. Open
 
+- **Generated clients carry cross-app links.** The skip rule above drops
+  generated files, but a generated OpenAPI client is often the only place a
+  client's route paths appear (parcel's plan has eight storefront → orders
+  routes that live only there). Leaning: skip generated files for search
+  and symbol listing, but run the join's catalogue over them, or match the
+  client against the OpenAPI spec it was generated from. Decide before P5;
+  until then, eval tasks on those routes are reported apart.
+
 - Whether interface dispatch across apps (a shared interface, implementations
   in two apps) needs more than `scoped` callers. Measure on the eval stacks.
 - The import LRU's byte bound for Kubernetes-sized modules.

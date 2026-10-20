@@ -119,7 +119,8 @@ Two things set the size, and neither is "as small as possible".
 
 1. **It must not fit in the agent's context.** If the agent can read every
    file, it finds every consumer without help and the eval measures nothing.
-   So the E1 slice holds about **40–50k lines** of hand-written code
+   So the E1 slice holds about **40–50k lines** of hand-written code,
+   tests included, since the agent can read those too
    (about 400–500k tokens, twice Sonnet's default window), plus generated
    code (sqlc, Prisma, the OpenAPI client) on top. With the Python and Rust
    apps, E2's stack reaches about 60–80k. The argument holds only at the
@@ -386,7 +387,8 @@ hidden:                                                   # kept outside the wor
     - "cd storefront && pnpm vitest run hidden/gift-note-request.test.ts"  # writes request.json
     - "cd orders && go test -run TestHiddenGiftNote ./..."                 # reads request.json, writes event.json
     - "cd dispatch && pnpm vitest run hidden/gift-note-slip.test.ts"       # reads event.json
-  static: ["migrations: orders has a gift-note column"]
+  static:
+    - {name: "orders has a gift-note column", run: "bun hidden/check-migration.ts orders gift_note"}
 required:                                                 # path:line + symbol, by the author
   - {at: "storefront/src/routes/checkout.ts:…", symbol: "…"}             # illustrative
   - {at: "orders/api/openapi.yaml:…", symbol: "…"}
@@ -595,6 +597,7 @@ Negative and flat results are reported the same way as positive ones.
 | Agents starting modules | nothing needs them, but either arm may run `doze up`; the harness records it per run so it can be compared |
 | Tasks written to suit recall | authoring sessions that never see recall, a different model from the subject, a reviewer agent, frozen sets, a held-out quarter |
 | `.env` files holding every value | the plain-repo setting's generated `.env` files are inference's best case; E2 adds a keys-only variant of A2 and reports the gap |
+| Links denser than real code | parcel's plan has 36 cross-app links in about 47k lines; Jitsu and Hatchet have about 30–38 in 140–230k, so parcel is 2–4× denser (doze-recall-eval `stack/targets.md`). Dense links leave less code around each one to search, which helps the A0 baseline. The density is what lets the stack hold E2's tasks, so it stays, and reports state it |
 | Agents writing for agents | Sonnet writes none of the stack; stated as a limit in every report; a real ported system after E2 for external validity |
 | The baseline reaching recall | A0 strips recall; every A0 transcript is checked for leaks |
 | Model and harness drift | pin and record versions; compare arms only within one run |
