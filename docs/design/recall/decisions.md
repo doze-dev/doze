@@ -26,7 +26,7 @@ R75 onwards, alongside the series the newer documents use (C1–C9 in
 | R4 | Not built on doze-sdk; users can't change how it works. Now stronger: it imports nothing from doze or doze-sdk (R103) | decided | [running.md](running.md) |
 | R5 | No interactive recall CLI commands; actions run from the dash, MCP is the programmatic surface. **Changed:** recall has its own commands, `review`, `generate`, `status`, `connect`, `check` (R102); under doze the dash also offers them | changed | [running.md](running.md) §7 |
 | R6 | Asleep until called, woken through the proxy. **Changed:** asleep until an agent starts it over stdio; the background process exits 5 minutes after its last session. No proxy and no address (R98, R103) | changed | [running.md](running.md) §4 |
-| R7 | The name `recall` is reserved in every stack | decided | [fit.md](fit.md) §1 |
+| R7 | The name `recall` is reserved in every stack. **Changed 2026-10-21:** reserved as a block and a module type (done in `4b1baf9`, before the first release); not as an instance name, since there is no built-in instance | changed | [fit.md](fit.md) §1 |
 | R8 | Recall's dash screens are designed on their own, not as a per-kind front | decided | |
 | R9 | Recall is exempt from "every dash action has a CLI form"; `parity_test.go` knows it. Now `doze recall` gives most of them one anyway | decided | [fit.md](fit.md) §3 |
 | R10 | Read-only toward the stack in v1 | decided | |

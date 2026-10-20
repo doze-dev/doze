@@ -279,7 +279,7 @@ items in its tabs, through the local API.
 | Notes across apps, `glossary.md`, `topology.yaml` | `.recall/stack/` at the root | yes |
 | `graph.db`, `proposals.json`, `status.json`, the query log, event ids | `~/.doze-recall/projects/<root hash>/` | no |
 | Extraction caches, language servers | `~/.doze-recall/cache/`, `~/.doze-recall/servers/` | no |
-| The declared-stack file from doze | `.doze/recall/stack.json` (doze's gitignored folder) | no |
+| The declared-stack file from doze | `.doze/recall/stack.json`, in doze's project folder | no; see [fit.md](fit.md) Open on ignoring `.doze/` |
 
 Stack notes live in `.recall/stack/` so that another system that includes
 this repo as a sibling root doesn't load them as notes about the repo's

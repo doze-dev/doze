@@ -29,13 +29,17 @@ no keys: recall's settings (`include`, `exclude`, `agents`, `roots`) live in
 `.recall/recall.toml`, so they are the same with or without doze
 ([running.md](running.md) §2).
 
-`recall` joins `reservedBlocks` (`internal/config/load.go:309`), and the name
-`recall` is reserved as an instance name whether the block is there or not.
+Already done, ahead of the rest (`4b1baf9`): `recall` is in `futureBlocks`
+(`internal/config/load.go`), so today a `recall {}` block is refused with "the
+`recall` block isn't in this release of doze", and `recall` can't be a module
+type. P12 moves it to `reservedBlocks` and reads it. An app or service may
+still be called `recall`: with no built-in instance, nothing clashes.
 
 ## 2. The declared-stack file
 
-doze writes `.doze/recall/stack.json` (its own gitignored folder, beside
-`doze.hcl`):
+doze writes `.doze/recall/stack.json`, in the project's `.doze/` folder
+beside `doze.hcl` where it already keeps `endpoints.yaml` and `state.json`
+(doze's other state lives under `~/.doze/projects/<slug>/`):
 
 - on every config load, while the daemon runs;
 - on `doze recall stack`, with no daemon, built from the config in-process.
@@ -124,6 +128,13 @@ own budgets (awake and serving, indexing peak, save-to-fresh latency) are in
 CI. Writing the stack file on a config load is a few milliseconds.
 
 ## Open
+
+- Nothing makes a project's `.doze/` ignored today: doze's own repo lists
+  it in `.gitignore`, but doze writes no ignore rule into a person's
+  project, so `endpoints.yaml`, `state.json` and now the stack file could be
+  committed by accident. Leaning: doze writes `.doze/.gitignore` containing
+  `*` when it creates the folder, which needs no edit to the person's own
+  `.gitignore`. Worth doing before the first release, separately from recall.
 
 - Whether doze should write the stack file only when `recall {}` is present,
   or always (it's cheap, and a person who installs doze-recall later would

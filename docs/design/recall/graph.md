@@ -154,7 +154,7 @@ wake and whenever the file changes, and never parses HCL.
   "stack": "shop",
   "sources": [{"path": "doze.hcl", "sha256": "…"}, {"path": "doze.lock", "sha256": "…"}, {"path": "worker.env", "sha256": "…"}],
   "partial": [],
-  "logs": {"worker": [".doze/logs/worker/current.log"]},
+  "logs": {"worker": ["/Users/…/.doze/projects/shop-1a2b/logs/worker/current.log"]},
   "blocks": {"app.worker": "sha256:…", "module.cloud": "sha256:…"},
   "apps": [{
     "name": "worker", "dir": ".", "run": "go run ./cmd/worker",
