@@ -1,172 +1,325 @@
 # doze recall
 
-Status: design, started 2026-10-20. Nothing here is implemented yet.
+Status: design, 2026-10-24. Replaces the first design, now parked in
+[v1/](v1/README.md). Nothing here is implemented yet.
 
-Recall, `doze-recall`, is a code graph for systems of services: one picture
-of the whole system, built from the code and what people add, served over
-MCP to Claude Code, Cursor, Codex or anything else that speaks it. It is
-independent of doze. Where a project uses doze, `doze.hcl` adds declared
-resources and wiring, and the dash shows recall's screen
-([running.md](running.md), [fit.md](fit.md)).
+## What recall is for
 
-The first exploration lives in the Doze Recall design record
-(https://claude.ai/artifact/Eyoyd1TVhFubAqyYQrp214, private to its owner). It
-is exhaustive and got much right; these documents start again from the ground,
-keep what holds up, and cut what makes recall harder to build or to use.
+An agent should never pay twice to learn the same thing about a stack.
 
-## How to read this
+Every agent session starts cold today. It lists folders, greps, and reads the
+same large files again to work out what each app does, how the apps connect,
+how to run things and where code lives. The next session does it all again.
+Recall keeps what has been learned and hands it to the next session cheaply,
+over MCP.
 
-| Doc | What it answers | State |
-|---|---|---|
-| [fit.md](fit.md) | How doze feeds recall: the declared-stack file, the pinned copy and `doze recall`, the dash screen | rewritten 2026-10-21 |
-| [running.md](running.md) | How recall runs on its own: inputs, the root and apps, inferred resources, the stdio shim and background process, its watcher, review, release, the eval's settings | written |
-| [freshness.md](freshness.md) | How the graph and context stay current, and how staleness is shown when they are not | written |
-| [generation.md](generation.md) | How the person's own agent CLI (Claude Code, Codex, Cursor…) improves the context, and why it can't make it worse | written; scope narrows after context-system.md §10 |
-| [context-system.md](context-system.md) | What agents need from the context by evidence, how doze builds it, budgets, and decisions C1–C9 | decided |
-| [research/](research/README.md) | The seven reports and bench programs behind context-system.md and the eval stack; covers the prior art | written |
-| [graph.md](graph.md) | Ids, nodes, edges, labels, the declared-stack file, Go extraction, the join, language packs and servers, incremental updates, storage, tests, code layout | written, revised for five languages |
-| [answers.md](answers.md) | The six MCP tools, how an answer is built (anchor, expand, rank, pack, render), completeness, errors, adoption | written |
-| [context.md](context.md) | Notes, the glossary, `topology.yaml` decisions, proposals, when recall writes, `doze-recall check`, `review` and the dash tabs | written, revised after review |
-| [eval.md](eval.md) | How we prove agents do better with recall: questions and ship rules, stacks, task families and format, arms, measures, retrieval eval, cost, order | written |
-| [decisions.md](decisions.md) | Every decision, open question and rejection, keeping the design record's ids | written |
-| [phases.md](phases.md) | The build order P0–P12: units, files, exit measures and day ranges | written |
+Recall is part of doze. The stack's shape comes from `doze.hcl`, which doze
+already reads, so no guessing is needed for it.
 
-## The problem
+## What agents keep re-learning, and who supplies it
 
-Every agent session starts cold. It greps, guesses how services connect,
-invents library APIs, and misses the change in `api` that breaks `worker`. The
-next session pays the same cost again.
+| What the agent keeps re-learning | Supplied by |
+|---|---|
+| Which apps exist, how they're wired, which queues, topics, buckets and databases sit between them | **facts**: from `doze.hcl` |
+| How to run, test and see the logs of each app | **facts**: from `doze.hcl` and doze |
+| Where things are in an app: folders, entrypoints, files, the main functions and types | **facts**: from the code |
+| Which files read which env key, so which code touches which resource | **facts**: env keys doze knows, matched in the code |
+| Routes, handlers, consumers, producers | **knowledge**: written by agents |
+| What an app or module does; flows across apps ("checkout: storefront → orders → billing") | **knowledge** |
+| Conventions and gotchas ("amounts are in cents", "billing is never called synchronously") | **knowledge** |
 
-Most code graphs stop at symbols and references inside one codebase. What
-an agent misses is between services: who produces and who consumes a topic,
-a queue, a table or a route, across languages. Recall joins every app's code
-at once, and a declared stack where there is one, to give an agent the view a
-senior engineer on the team has.
+There are two layers:
 
-## Three layers, one answer
+- **Facts** are generated, exact, and never written by AI. Recall builds them
+  when it's asked, so they are always current.
+- **Knowledge** is written by agents as a side effect of their work, and
+  edited by people when they want to. It is saved, cites the files it came
+  from, and says when those files have changed since.
+
+## 1. Facts
+
+### 1.1 The stack map
+
+Built from the loaded config each time it's asked for:
+
+- **Apps:** name, folder, language, port, run and test commands, where the
+  logs are (`doze logs <app>`).
+- **Wiring:** each env key and where its value comes from, for example
+  `orders: DATABASE_URL ← postgres.orders.url` and
+  `SHIPMENTS_TOPIC ← kafka.topic.shipments`.
+- **Resources:** each queue, topic, bucket and database, and the apps wired
+  to it.
+- **Order:** dependencies and boot order.
+
+Two gaps in doze to close, both doze-side:
+
+- **Env provenance.** Which attribute fed which env key is lost after
+  evaluation. Keep the map by walking each env expression's traversals.
+- **Resources inside modules.** The queues and topics declared inside the
+  aws and kafka modules are opaque to doze core. A read-only `Declared`
+  capability in doze-sdk, implemented by doze-aws and doze-kafka, returns
+  them. It is not part of plan or sync, so it can't change what they converge.
+
+### 1.2 App trees
+
+For each app, a compact tree an agent can use instead of `ls`, `grep` and
+reading files to orient itself:
+
+- **Folders,** collapsed to a few levels with file counts.
+- **Files that matter,** each marked by role:
+  - entrypoints: `package main`, `package.json` `main` and scripts,
+    `__main__`, a Rust `main.rs` or `[[bin]]`;
+  - tests;
+  - migrations, by folder and naming convention;
+  - generated files, by banner (`Code generated … DO NOT EDIT`,
+    `@generated`), shown collapsed;
+  - config.
+- **Symbols per file:** the functions, types and methods each file defines,
+  as signatures.
+- **Env keys** each file reads, joined to the stack map: `SHIPMENTS_TOPIC` is
+  read in `internal/events/publish.go`, and it's the `shipments` topic, which
+  dispatch is also wired to.
+- **Ranked to fit a budget** in the style of Aider's repo map: a large app
+  doesn't fit a prompt, so the most-referenced symbols and the files near
+  entrypoints come first, and the agent can ask for one folder or file in
+  full.
+
+The generator does only what's the same in every codebase. It does not try
+to find routes, handlers or consumers. There are too many frameworks to keep
+correct (chi, gin, Express, Fastify, Next.js, FastAPI, Flask, axum, actix,
+four Kafka clients, SQS pollers…), and an agent recognizes them in seconds
+once it is looking at the file. Those go into knowledge (§2).
+
+### 1.3 Staying current
+
+There's no watcher and no background process. On each call:
+
+1. List files with `git ls-files` plus untracked files not ignored.
+2. Compare each file's size, mtime and content hash with the cache.
+3. Re-parse only what changed.
+4. Build the answer from the cache.
+
+The first call on a large app takes seconds; later calls take milliseconds
+and reflect the files on disk at that moment. The cache is machine state,
+under `~/.doze/projects/<slug>/recall/`.
+
+### 1.4 Parsing
+
+doze builds with `CGO_ENABLED=0` (`.goreleaser.yaml`), so the usual Go
+tree-sitter binding can't go in the doze binary. Checked 2026-10-24:
+
+| Option | What it is | For | Against |
+|---|---|---|---|
+| **gotreesitter** (`github.com/odvcencio/gotreesitter`, MIT) | Tree-sitter's runtime rewritten in pure Go; loads the same parse tables | No cgo, so it fits in the doze binary. 206 grammars. Full query language with predicates. Every benchmark fixture is checked against the C runtime's trees | About 3–5× slower than C on a full parse (geomean 4.8× on Go files). Released very often (v0.56 by Oct 2026), with a small maintainer base. Binary size not published |
+| **wazero** | Tree-sitter compiled to a WASI module, run in Go's pure-Go wasm runtime | No cgo, and the official C code | No maintained library: the one example found (`vista-forge/m-parse`) is a one-grammar spike that needs an emscripten build and a hand-written C shim because wasm can't pass tree-sitter's structs. Modules aren't reentrant, so parsing is serialized. We'd own the build of the runtime and every grammar |
+| **Official binding** (`github.com/tree-sitter/go-tree-sitter`) | cgo | Fastest, the reference | Can't be in the doze binary: needs a separate pinned binary, as v1 planned |
+| **Universal Ctags** | A separate C binary that lists symbols for 100+ languages | Zero parsing code of ours | Another binary to ship; coarser output |
+
+**Choice: gotreesitter, if the spike (S0) holds.** A 4.8× slower parse
+matters little here: the cache means only changed files are parsed, and a
+first pass over a 10k-file app still takes seconds when spread across
+cores. Grammars are loaded on first use, so doze's idle heap budget doesn't
+move. The spike measures binary growth for Go, TypeScript and TSX, Python
+and Rust, parse time on a real app, and how good the `tags.scm` output is.
+If it fails, the fallback is the official binding in a pinned helper
+binary. wazero isn't worth owning.
+
+## 2. Knowledge
+
+### 2.1 What it is
+
+Small markdown files in `.recall/` beside `doze.hcl`, committed with the
+code, one file per subject:
 
 ```
-            what an agent receives: one ranked answer, fitted to a budget,
-            every item with its evidence and how fresh it is
-                                  ▲
-   ┌──────────────────────────────┴──────────────────────────────┐
-   │ 3. proposed   the person's agent CLI fills gaps and writes   │  may lag, always labeled
-   │               flows, contracts, glossary          generation.md
-   ├──────────────────────────────────────────────────────────────┤
-   │ 2. told       notes, corrections, approvals, committed       │  pinned, flagged on drift
-   │               by people                            context.md
-   ├──────────────────────────────────────────────────────────────┤
-   │ 1. proven     code + declarations + the joins between them   │  current within seconds
-   │               (who sends to which queue, which route a       │
-   │               client calls)                          graph.md
-   └──────────────────────────────────────────────────────────────┘
+.recall/
+  apps/billing.md          what billing does, its routes and consumers, its gotchas
+  apps/orders.md
+  flows/checkout.md        a flow across apps
+  notes/money-in-cents.md  a convention or gotcha that spans apps
 ```
 
-Higher layers never outrank lower ones where they disagree: a human note beats
-a generated file, compiler facts beat both. The graph and context layers are
-the product. The dash screens, the map and the agent runner are ways in and
-out of it.
+Each file has a short header:
 
-Of the three parts inside it (what is true, what people know, what to hand
-the agent for this task), the third is easy to underrate. A correct graph
-dumped raw does not make an agent better. Ranking and packing are designed
-as carefully as extraction (answers.md).
+```markdown
+---
+about: app billing
+sources:
+  apps/billing/cmd/billing/main.go: 3f9a…
+  apps/billing/internal/http/routes.go: 81c2…
+  apps/billing/internal/queue/invoices.go: 0d4e…
+---
 
-## Principles
+Billing turns paid orders into invoices and sends them.
 
-- **Local, and an aid to whatever agent people choose.** Recall indexes on
-  the person's machine and serves over stdio to the agent that started it. Generation drives their own
-  local agent CLI with their own login: Claude Code first, then each other
-  CLI once it passes the contract test. Doze never generates code itself and
-  never ties anyone to one tool: Claude Code, Cursor, Codex or any MCP
-  client gets the same context. The eval measures it inside those real
-  tools.
-- **Simple to use, or nobody uses it.** The whole surface a person meets:
-  install one binary, paste one connect command, and optionally run
-  `generate` and `review`. No config needed, no query language, a handful of
-  tools for agents.
-- **Proven first.** Layer 1 alone has to be worth using. AI only adds.
-- **Nothing silently stale.** Every answer item says whether it is current
-  or stale since which commit (freshness.md).
-- **No AI when serving.** Answers come only from data recall already built:
-  fast, free, the same every time.
-- **Asleep by default.** Recall costs nothing until an agent or a person calls
-  it: no process runs with no session open.
-- **No edge rather than a wrong edge.** A doubtful link is labeled or sent to
-  review, never presented as fact.
-- **Build only what the eval rewards.** The retrieval eval runs from the
-  first phase and the with-and-without agent eval from its first pilot
-  ([eval.md](eval.md)); a layer stays if it moves the numbers.
+Routes: POST /invoices (routes.go:22), GET /invoices/{id} (routes.go:31).
+Consumes `orders.paid` from Kafka (queue/invoices.go:14) …
+```
 
-## Carried over from the design record
+`sources` is the list of files the piece was written from, with their content
+hashes when it was written.
 
-Kept: not built on doze-sdk; serving never calls AI; no embeddings and no local models; doze never edits
-agent files; task-shaped tools with `file:line` evidence; human notes anchored
-to the graph; `topology.yaml` with its ownership rules; generation through the
-person's own agent login; the eval.
+### 2.2 How it gets written
 
-Changed:
+Agents write it while they work, without a separate run or bill:
 
-- **The stack join matters more than beating every tool on every language.**
-  v1 covers the five languages most doze stacks mix, done well: Go,
-  TypeScript, JavaScript, Python and Rust. It doesn't spread thin over many.
-- **Generation does checkable work only** (decision C5). Edge verdicts on
-  join sites code couldn't resolve, the glossary that bridges plain words to
-  code names for search, and checks on stale notes. Flows, contracts and
-  conventions wait until the eval shows they help, because the only
-  independent study of generated repo context found it hurt. Per-symbol
-  descriptions are cut.
-- **Independent of doze** (R103). Recall is its own repository and binary,
-  started by the agent over stdio, with no proxy, address or built-in
-  instance. On code alone it finds apps from their manifests and infers
-  resources from the names code uses; a declared-stack file, which doze
-  writes, adds declared resources and env provenance. A few terminal
-  commands (`review`, `generate`, `status`, `connect`, `check`) replace
-  "dash only"; under doze the dash offers the same.
-- **One connect line for every repo.** The agent starts `doze-recall serve`,
-  which finds the root itself ([running.md](running.md) §4).
-- **Headless agent CLIs before ACP** for generation (generation.md).
+1. An agent asks recall about `billing`.
+2. Recall returns the facts and the knowledge piece, if one exists.
+3. If no piece exists, or files it cites have changed since it was written,
+   the answer says so: "No notes on billing yet. You'll be reading its code
+   anyway: when you've understood it, save what you learned with
+   `remember`." Or: "Written against an older `routes.go` and `invoices.go`.
+   Check those two and update this if it's wrong."
+4. The agent has to read that code for its own task anyway, so writing it
+   down costs a few hundred tokens. The next session gets it for almost
+   nothing.
 
-Cut from v1: the web map, observed wire traffic, module facts, per-app
-credentials, eight-language oracle corpus, data-flow analysis.
+The cost is paid once per change, inside sessions people are already
+running. When a cited file changes, only the pieces citing it are stale, and
+the answer names exactly which files to re-check rather than saying the
+whole piece is untrustworthy.
 
-## Languages
+`remember` checks what it's given:
 
-v1 covers **Go, TypeScript, JavaScript, Python and Rust** (R76).
+- every cited file exists, and recall records its current hash itself;
+- the piece stays under a size cap;
+- it doesn't contain anything that looks like a secret;
+- it lands in the file for its subject, replacing that file's contents
+  rather than appending, so files don't grow without bound.
 
-- **Go** is exact in-process through `go/types`.
-- **TypeScript/JavaScript** (one pack), **Python** and **Rust** are language
-  packs: syntax plus our own resolution, made precise by a pinned
-  single-binary language server (tsc 7, ty, rust-analyzer). Recall downloads
-  each one and runs it as a child process that stops when idle.
-- **Java, C#, PHP, Ruby and Kotlin** can follow after v1 at syntax or scoped
-  level ([graph.md](graph.md) §4.6, §10).
+Optionally, `doze recall enrich` fills the gaps in one go for a team that
+wants everything written on day one. It runs the person's own agent CLI
+headless (`claude -p`, `codex exec`) on each app with no piece yet. It uses
+their subscription, needs no API key, and nothing depends on it.
 
-The pilot runs once Go and TypeScript/JavaScript work, and Python and Rust
-are built while its runs wait ([phases.md](phases.md)).
+### 2.3 People in the loop, without the annoyance
 
-## Where precision comes from beyond Go (decided, C1)
+The rule is that recall never blocks, never asks, and never notifies.
+People step in only in ways they already work:
 
-The design record proposed SCIP indexers per language, shipped through
-doze-binaries. Running language servers on demand was the alternative:
+- **Say it in chat.** "Remember that billing must never call dispatch
+  directly." The agent calls `remember`. This is expected to be the main way
+  people correct things.
+- **Edit the file.** The pieces are plain markdown in the repo, so a person
+  can open one in their editor and fix it.
+- **See it in review.** Knowledge changes appear in the same pull request as
+  the code change that prompted them, so a reviewer sees "routes.go changed,
+  and billing.md was updated to match" in one place. Files stay small, one
+  subject each, with stable order and no timestamps, so diffs are short and
+  easy to skip.
 
-| | SCIP indexer | Language server on demand |
+Human words win, with no ceremony. Recall remembers the hash of what it last
+wrote to each file. If a file's contents differ from that, someone edited it
+by hand, so recall treats it as the person's:
+
+- agents may still read it and flag it as possibly stale;
+- `remember` won't overwrite it, and returns "billing.md was written by a
+  person: tell them what you'd change instead".
+
+Nothing to approve, no queue, no badges. The dash may later show a quiet
+list of recently written pieces, for anyone curious.
+
+## 3. The MCP server
+
+`doze recall` (stdio) is the connect line:
+
+```
+claude mcp add doze -- doze recall
+```
+
+It runs only while an agent session has it open. It starts no daemon, and it
+works whether or not the stack is up. doze's `init` adds one line to
+AGENTS.md or CLAUDE.md saying that it's there and to ask it first.
+
+Four tools:
+
+| Tool | Returns |
+|---|---|
+| `stack` | The stack map, plus the flow pieces |
+| `app <name> [path]` | The app's tree (or one folder or file in full), how to run and test it, what it's wired to, its knowledge piece and the notes that mention it |
+| `find <term>` | Where a symbol, env key, topic, queue, bucket or route name appears, with file and line, joined to the stack map |
+| `remember` | Saves or updates a piece of knowledge (§2.2) |
+
+Every answer has a default size cap (a few thousand tokens) and says what was
+cut and how to ask for it. Every knowledge item in an answer carries its
+staleness: fresh, or the list of cited files changed since.
+
+The server's instructions tell the agent to call `stack` at the start, `app`
+before exploring an app, and `remember` when it has learned something a
+later session would want. Whether agents follow that reliably is the
+biggest unknown; S0 checks it early and the eval measures it.
+
+## 4. What recall is not
+
+No language servers, call graph or impact analysis. No links between apps
+guessed from names: the wiring comes from `doze.hcl`, and the rest is
+knowledge that cites its files. No watcher or background process. No review
+workflow. No separate product outside doze for now (v1's R103 is reversed).
+
+If agents keep missing something these pieces don't cover, that's the signal
+to add more, starting with the cheapest thing that fixes it.
+
+## 5. Eval
+
+The question: with recall, do agents finish the same tasks with fewer tokens
+and tool calls, and do they keep doing so session after session?
+
+- **Stacks:** two real open-source multi-service projects with a `doze.hcl`
+  written for them. Jitsu and Hatchet were measured in v1's research.
+- **Tasks:** about 10 per stack, using the task format and checks already in
+  `doze-recall-eval/checks`.
+- **Three arms:**
+  - **A0:** no recall.
+  - **A1:** recall cold, with facts only.
+  - **A2:** recall warm, after earlier sessions on *other* tasks have
+    written knowledge.
+
+  A2 against A1 measures "doesn't repeat itself" directly.
+- **Measures:** tokens, tool calls, wall time, task success by the task's
+  tests, and how often agents called `remember` when asked to.
+- **Size:** 10 tasks × 3 arms × 3 repeats × 2 stacks is 180 runs, on a
+  subscription.
+
+`parcel` isn't needed and is parked.
+
+## 6. Order of work
+
+Estimates are working days for one person.
+
+| Step | What | Days |
 |---|---|---|
-| Shape | Batch: index the whole project, write a `.scip` file | Query: ask about one reference at a time |
-| Needs | A successful build with dependencies installed | Works on partial and broken code |
-| Protocol | A different CLI per language | One protocol for every language |
-| Good at | A complete precise graph | Settling only the references the syntax layer marks doubtful |
-| Cost | Minutes on large repos; doze distributes and pins the indexers | Startup, and gigabytes of memory for tsserver and rust-analyzer on big repos |
+| **S0** spike | gotreesitter on Go, TypeScript, Python and Rust: binary growth, parse time on a real app, quality of `tags.scm` output. A stub MCP server with `remember`: does Claude Code save a note when an answer asks it to? | 3–5 |
+| **S1** stack map | Env provenance in config; `Declared` in doze-sdk, doze-aws and doze-kafka; the map; `doze recall` with `stack` | 8–12 |
+| **S2** Go trees | File listing and cache, roles, symbols, generated files, env-key join, ranking and budget; `app` | 8–12 |
+| **S3** find | Symbols, env keys, declared resource names | 4–6 |
+| **S4** knowledge | The `.recall/` format, `remember` and its checks, staleness, hand-edit detection, the nudges in answers, the AGENTS.md line | 6–10 |
+| **S5** more languages | TypeScript and TSX, Python, Rust trees | 6–10 |
+| **S6** eval | Two stacks' `doze.hcl`, 20 tasks, 180 runs, the write-up | 8–12 |
+| **S7** optional | `doze recall enrich`, a dash view | 4–8 |
 
-Settled by the research ([context-system.md](context-system.md) §4.3):
+S0–S6 total 43–67 days, roughly 9–13 weeks. S1 alone is useful to ship
+first: a stack map over MCP needs no parsing.
 
-- No SCIP indexers. Go needs neither (`go/types` runs in-process).
-- For other languages, syntax plus our own resolution gives breadth.
-- A pinned, single-binary language server that recall downloads settles the
-  doubtful references. It runs as recall's child process and stops when idle.
+## 7. Open
 
-Don't use servers from the project or from `PATH`:
+- **Where knowledge lives.** Committed in `.recall/` (proposed: one person's
+  sessions pay for everyone's), or kept per machine for teams that don't want
+  it in the repo. A setting could allow both.
+- **Whether `recall {}` is still needed.** The block was reserved
+  (`4b1baf9`) for opting in. With the MCP server starting only when
+  connected, there may be nothing to opt into; the reservation is harmless
+  either way.
+- **The `doze-recall` repository.** If recall lives in the doze binary, the
+  public repo has no code to hold. Keep it reserved until S0 decides
+  where the parser goes.
+- **Agents writing knowledge reliably.** If S0 shows they don't call
+  `remember` when asked, `enrich` becomes the main path rather than an
+  extra.
 
-- A project's own `tsserver` runs that project's code.
-- Servers usually live inside editor extensions anyway. This machine has no
-  `gopls` on `PATH` despite being a Go machine.
+## Sources for §1.4
+
+- gotreesitter: https://github.com/odvcencio/gotreesitter, BENCH.md
+- m-parse (wazero spike): https://pkg.go.dev/github.com/vista-forge/m-parse
+- CodeGraph and Graphify, the closest prior art for app trees:
+  https://github.com/colbymchenry/codegraph,
+  https://github.com/Graphify-Labs/graphify

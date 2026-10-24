@@ -6,7 +6,7 @@ and again when v1 grew from Go to five languages (R76). Restructured
 comes first, and doze's integration is the last phase. Nothing is built.
 
 The build order for recall v1, in units small enough to review one at a time,
-in the style of [../next/phases.md](../next/phases.md). Phases are numbered
+in the style of [../../next/phases.md](../../next/phases.md). Phases are numbered
 P0–P12, so they don't collide with the decision ids (R1…) in
 [decisions.md](decisions.md).
 
