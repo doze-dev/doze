@@ -13,8 +13,19 @@ how to run things and where code lives. The next session does it all again.
 Recall keeps what has been learned and hands it to the next session cheaply,
 over MCP.
 
-Recall is part of doze. The stack's shape comes from `doze.hcl`, which doze
-already reads, so no guessing is needed for it.
+Recall is its own binary, `doze-recall`, the way doze-aws and doze-kafka are,
+with a different purpose. It runs in two ways (§3):
+
+- **In a doze stack,** declared with `recall {}` in `doze.hcl`. It's part of
+  the stack: doze runs it, wakes it when an agent connects and puts it to
+  sleep when idle, like any other instance. It knows the whole stack, because
+  doze tells it.
+- **On its own,** for one project with no doze: trees and knowledge for that
+  project, with no stack map. This is for people who just want context for a
+  codebase and know nothing about doze stacks.
+
+The stack's shape always comes from `doze.hcl`, never from guessing. With no
+`doze.hcl`, there's no stack map.
 
 ## What agents keep re-learning, and who supplies it
 
@@ -40,7 +51,9 @@ There are two layers:
 
 ### 1.1 The stack map
 
-Built from the loaded config each time it's asked for:
+In a stack only. doze writes it to `.doze/recall/stack.json` on every config
+load, and `doze-recall` reads it, so recall never parses HCL and the two can't
+disagree about what the stack is. It holds:
 
 - **Apps:** name, folder, language, port, run and test commands, where the
   logs are (`doze logs <app>`).
@@ -92,37 +105,50 @@ once it is looking at the file. Those go into knowledge (§2).
 
 ### 1.3 Staying current
 
-There's no watcher and no background process. On each call:
+Every answer is checked against the files on disk when it's asked:
 
 1. List files with `git ls-files` plus untracked files not ignored.
 2. Compare each file's size, mtime and content hash with the cache.
 3. Re-parse only what changed.
 4. Build the answer from the cache.
 
-The first call on a large app takes seconds; later calls take milliseconds
-and reflect the files on disk at that moment. The cache is machine state,
-under `~/.doze/projects/<slug>/recall/`.
+That alone keeps answers correct, in both modes. In a stack, recall is also
+awake for as long as an agent is connected (§3.1), so it can do the work
+before it's asked:
+
+- on waking, it reconciles the cache in the background, so the first answer
+  doesn't wait;
+- while awake, it watches the project's files and re-parses on save;
+- it re-reads `stack.json` when doze rewrites it.
+
+The watcher is only a head start. If it misses something, step 2 still
+catches it on the next call. The cache is machine state, under
+`~/.doze-recall/` (alone) or doze's data folder for the instance (in a
+stack).
 
 ### 1.4 Parsing
 
-doze builds with `CGO_ENABLED=0` (`.goreleaser.yaml`), so the usual Go
-tree-sitter binding can't go in the doze binary. Checked 2026-10-24:
+`doze-recall` is a separate binary, so cgo is allowed in principle. But every
+doze binary today is pure Go and fully static (`CGO_ENABLED=0` in doze's and
+doze-aws's `.goreleaser.yaml`), cross-compiled for every platform from one
+Linux runner, and downloaded by doze as one file with nothing else to
+install. Keeping recall the same keeps releases and installs the same.
+Checked 2026-10-24:
 
 | Option | What it is | For | Against |
 |---|---|---|---|
-| **gotreesitter** (`github.com/odvcencio/gotreesitter`, MIT) | Tree-sitter's runtime rewritten in pure Go; loads the same parse tables | No cgo, so it fits in the doze binary. 206 grammars. Full query language with predicates. Every benchmark fixture is checked against the C runtime's trees | About 3–5× slower than C on a full parse (geomean 4.8× on Go files). Released very often (v0.56 by Oct 2026), with a small maintainer base. Binary size not published |
+| **gotreesitter** (`github.com/odvcencio/gotreesitter`, MIT) | Tree-sitter's runtime rewritten in pure Go; loads the same parse tables | No cgo, so it builds and ships like every other doze binary. 206 grammars. Full query language with predicates. Every benchmark fixture is checked against the C runtime's trees | About 3–5× slower than C on a full parse (geomean 4.8× on Go files). Released very often (v0.56 by Oct 2026), with a small maintainer base. Binary size not published |
 | **wazero** | Tree-sitter compiled to a WASI module, run in Go's pure-Go wasm runtime | No cgo, and the official C code | No maintained library: the one example found (`vista-forge/m-parse`) is a one-grammar spike that needs an emscripten build and a hand-written C shim because wasm can't pass tree-sitter's structs. Modules aren't reentrant, so parsing is serialized. We'd own the build of the runtime and every grammar |
-| **Official binding** (`github.com/tree-sitter/go-tree-sitter`) | cgo | Fastest, the reference | Can't be in the doze binary: needs a separate pinned binary, as v1 planned |
+| **Official binding** (`github.com/tree-sitter/go-tree-sitter`) | cgo | Fastest, the reference, used by most of the ecosystem | cgo: needs a C toolchain per platform, native runners (or zig) for macOS, Linux and Windows releases, and links libc dynamically unless extra work is done. The only doze binary built that way |
 | **Universal Ctags** | A separate C binary that lists symbols for 100+ languages | Zero parsing code of ours | Another binary to ship; coarser output |
 
 **Choice: gotreesitter, if the spike (S0) holds.** A 4.8× slower parse
 matters little here: the cache means only changed files are parsed, and a
 first pass over a 10k-file app still takes seconds when spread across
-cores. Grammars are loaded on first use, so doze's idle heap budget doesn't
-move. The spike measures binary growth for Go, TypeScript and TSX, Python
-and Rust, parse time on a real app, and how good the `tags.scm` output is.
-If it fails, the fallback is the official binding in a pinned helper
-binary. wazero isn't worth owning.
+cores. The spike measures binary size with Go, TypeScript and TSX, Python
+and Rust, parse time and memory on a real app, and how good the `tags.scm`
+output is. If it fails, the fallback is the official binding, accepting a
+cgo release for this one binary. wazero isn't worth owning.
 
 ## 2. Knowledge
 
@@ -219,19 +245,71 @@ by hand, so recall treats it as the person's:
 Nothing to approve, no queue, no badges. The dash may later show a quiet
 list of recently written pieces, for anyone curious.
 
-## 3. The MCP server
+## 3. Running
 
-`doze recall` (stdio) is the connect line:
+### 3.1 In a doze stack
+
+```hcl
+recall {}
+```
+
+One per stack. It takes no keys at first. doze runs it the way it runs the
+aws engine:
+
+- **Fetched like a module.** doze fetches `doze-recall` from the signed
+  registry and pins it, the same way it fetches doze-aws and doze-kafka.
+- **An instance of the stack.** It's served at `recall.<stack>.doze`, or a
+  port in non-domains mode, and appears in `doze status`, `doze logs recall`
+  and the dash, like every other instance.
+- **Wakes on connect.** The proxy starts it when an agent connects. Waking is
+  quick: the binary is small, and the cache is on disk.
+- **Sleeps when idle.** It stays awake while agents are using it, and sleeps
+  after the stack's `idle_timeout`. Asleep, it costs nothing.
+- **Told about the stack by doze.** doze rewrites `.doze/recall/stack.json`
+  on every config load and passes recall its path and the project root.
+
+That is how it's continuous: it's awake for as long as any agent is
+connected, watching files and keeping its cache warm (§1.3), and it sleeps
+when nothing needs it. It's one server for every agent session on the stack,
+so two sessions see the same notes as soon as either writes one.
+
+MCP is served over HTTP, the transport MCP uses for a server that's already
+running. Two ways to connect, both written by `doze recall connect`:
 
 ```
-claude mcp add doze -- doze recall
+claude mcp add --transport http recall http://recall.shop.doze/mcp
+claude mcp add recall -- doze recall mcp
 ```
 
-It runs only while an agent session has it open. It starts no daemon, and it
-works whether or not the stack is up. doze's `init` adds one line to
-AGENTS.md or CLAUDE.md saying that it's there and to ask it first.
+The first is native HTTP. The second is a small stdio bridge for clients
+without HTTP support or a machine without `.doze` names: it finds the stack
+from the working folder and forwards to the instance through doze. Like any
+stack instance, recall needs the daemon (`doze up`). If the daemon isn't
+running, the bridge says so in one line.
 
-Four tools:
+`recall {}` moves from `futureBlocks` to `reservedBlocks` (`4b1baf9`
+reserved it). Without the block, doze writes no `stack.json` and runs no
+recall.
+
+### 3.2 On its own
+
+```
+cd my-project
+claude mcp add recall -- doze-recall
+```
+
+For one project, with no doze and no stack. The agent starts it over stdio
+for the length of its session. It serves trees, `find` and knowledge for the
+folder it runs in, with no stack map and no `stack` tool. It watches files
+while the session is open, the cache lives in `~/.doze-recall/`, and it
+installs with one script, like doze-aws.
+
+Knowledge is the same `.recall/` folder in both modes. A project that starts
+alone and later joins a doze stack keeps every note.
+
+### 3.3 Tools
+
+Four tools (`stack` only in a stack):
 
 | Tool | Returns |
 |---|---|
@@ -244,7 +322,8 @@ Every answer has a default size cap (a few thousand tokens) and says what was
 cut and how to ask for it. Every knowledge item in an answer carries its
 staleness: fresh, or the list of cited files changed since.
 
-The server's instructions tell the agent to call `stack` at the start, `app`
+doze's `init` adds one line to AGENTS.md or CLAUDE.md saying that recall is
+there and to ask it first. The server's instructions tell the agent to call `stack` at the start, `app`
 before exploring an app, and `remember` when it has learned something a
 later session would want. Whether agents follow that reliably is the
 biggest unknown; S0 checks it early and the eval measures it.
@@ -253,8 +332,9 @@ biggest unknown; S0 checks it early and the eval measures it.
 
 No language servers, call graph or impact analysis. No links between apps
 guessed from names: the wiring comes from `doze.hcl`, and the rest is
-knowledge that cites its files. No watcher or background process. No review
-workflow. No separate product outside doze for now (v1's R103 is reversed).
+knowledge that cites its files. No process running when no agent is
+connected. No review workflow. On its own, no stack map built by guessing
+which apps talk to which: that needs a `doze.hcl`.
 
 If agents keep missing something these pieces don't cover, that's the signal
 to add more, starting with the cheapest thing that fixes it.
@@ -289,15 +369,17 @@ Estimates are working days for one person.
 | Step | What | Days |
 |---|---|---|
 | **S0** spike | gotreesitter on Go, TypeScript, Python and Rust: binary growth, parse time on a real app, quality of `tags.scm` output. A stub MCP server with `remember`: does Claude Code save a note when an answer asks it to? | 3–5 |
-| **S1** stack map | Env provenance in config; `Declared` in doze-sdk, doze-aws and doze-kafka; the map; `doze recall` with `stack` | 8–12 |
-| **S2** Go trees | File listing and cache, roles, symbols, generated files, env-key join, ranking and budget; `app` | 8–12 |
-| **S3** find | Symbols, env keys, declared resource names | 4–6 |
-| **S4** knowledge | The `.recall/` format, `remember` and its checks, staleness, hand-edit detection, the nudges in answers, the AGENTS.md line | 6–10 |
-| **S5** more languages | TypeScript and TSX, Python, Rust trees | 6–10 |
-| **S6** eval | Two stacks' `doze.hcl`, 20 tasks, 180 runs, the write-up | 8–12 |
-| **S7** optional | `doze recall enrich`, a dash view | 4–8 |
+| **S1** stack map | Env provenance in config; `Declared` in doze-sdk, doze-aws and doze-kafka; writing `stack.json` | 6–9 |
+| **S2** recall in the stack | `doze-recall` repo: the MCP server over HTTP and stdio with `stack`; the engine plugin; `recall {}` in doze, the instance and its host, `doze recall mcp` and `connect`; registry publishing | 8–12 |
+| **S3** Go trees | File listing and cache, the watcher while awake, roles, symbols, generated files, env-key join, ranking and budget; `app` | 8–12 |
+| **S4** find | Symbols, env keys, declared resource names | 4–6 |
+| **S5** knowledge | The `.recall/` format, `remember` and its checks, staleness, hand-edit detection, the nudges in answers, the AGENTS.md line | 6–10 |
+| **S6** on its own | The standalone mode (§3.2), install script, release | 2–4 |
+| **S7** more languages | TypeScript and TSX, Python, Rust trees | 6–10 |
+| **S8** eval | Two stacks' `doze.hcl`, 20 tasks, 180 runs, the write-up | 8–12 |
+| **S9** optional | `doze recall enrich`, a dash view | 4–8 |
 
-S0–S6 total 43–67 days, roughly 9–13 weeks. S1 alone is useful to ship
+S0–S8 total 51–80 days, roughly 10–16 weeks. S1 and S2 are useful to ship
 first: a stack map over MCP needs no parsing.
 
 ## 7. Open
@@ -305,13 +387,12 @@ first: a stack map over MCP needs no parsing.
 - **Where knowledge lives.** Committed in `.recall/` (proposed: one person's
   sessions pay for everyone's), or kept per machine for teams that don't want
   it in the repo. A setting could allow both.
-- **Whether `recall {}` is still needed.** The block was reserved
-  (`4b1baf9`) for opting in. With the MCP server starting only when
-  connected, there may be nothing to opt into; the reservation is harmless
-  either way.
-- **The `doze-recall` repository.** If recall lives in the doze binary, the
-  public repo has no code to hold. Keep it reserved until S0 decides
-  where the parser goes.
+- **Live state in `stack`.** In a stack, recall could also say which
+  instances are up, asleep or crashing, from doze's control API. Useful for
+  "why is this failing", but it couples recall to a doze API. Later, if
+  agents ask for it.
+- **Keys on `recall {}`.** None at first. Candidates if needed: which
+  folders to leave out, and where knowledge lives.
 - **Agents writing knowledge reliably.** If S0 shows they don't call
   `remember` when asked, `enrich` becomes the main path rather than an
   extra.
