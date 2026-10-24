@@ -132,6 +132,11 @@ export these files, so recall vendors each one, pinned to its grammar's
 version. TypeScript's and TSX's build on JavaScript's. A signature is the
 definition node's text up to its body.
 
+Files in other languages still appear in the tree, with their roles and
+env-key mentions, but without symbols. A language is added when someone
+needs it: its grammar module, its vendored `tags.scm` checked on a real
+repo, and its entrypoint conventions, a day or two each.
+
 The binding uses cgo, so `doze-recall` is the one doze binary that isn't
 pure Go. It's built natively for each platform doze supports (macOS arm64,
 Linux arm64 and amd64), on one runner per platform, where every other
