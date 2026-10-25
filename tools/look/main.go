@@ -7,6 +7,7 @@
 //	go run ./tools/look -out /tmp/look home   where the images go
 //	go run ./tools/look -size 190x56 home     at a big window's size
 //	go run ./tools/look live -doze ./doze -home /tmp/dz-try -dir ./project -keys "down enter"
+//	DOZE_LOOK_WAKE=5s go run ./tools/look host   the splash, while a slow daemon starts
 //
 // For a scene it writes <out>/<scene>.png: the board on the left, the dash on
 // the right, both drawn by the same browser at the board's size. Read that

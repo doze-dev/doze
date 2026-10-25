@@ -247,6 +247,13 @@ func host(args []string) {
 			}
 		}
 	}
+	// a daemon slow to answer, to see the splash that fills the wait
+	var daemon control.Daemon = d
+	if v := os.Getenv("DOZE_LOOK_WAKE"); v != "" {
+		if at, err := time.ParseDuration(v); err == nil {
+			daemon = slow{Fake: d, until: time.Now().Add(at)}
+		}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	now := func() time.Time { return epoch }
@@ -265,13 +272,43 @@ func host(args []string) {
 		})
 		go drive(ctx, d, now)
 	}
-	if err := dash.Run(ctx, d, dash.Options{Now: now, Loc: time.UTC, Glyphs: dash.DetectGlyphs(), Theme: dash.DetectTheme()}); err != nil {
+	if err := dash.Run(ctx, daemon, dash.Options{Now: now, Loc: time.UTC, Glyphs: dash.DetectGlyphs(), Theme: dash.DetectTheme()}); err != nil {
 		os.Stderr.WriteString("look host: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }
 
 func awakeState(s string) bool { return s == "active" || s == "idle" }
+
+// slow is a daemon that answers nothing until a moment has passed, as one that
+// is still starting does.
+type slow struct {
+	*fakedaemon.Fake
+	until time.Time
+}
+
+func (s slow) wait(ctx context.Context) error {
+	select {
+	case <-time.After(time.Until(s.until)):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s slow) Snapshot(ctx context.Context) (control.Snapshot, error) {
+	if err := s.wait(ctx); err != nil {
+		return control.Snapshot{}, err
+	}
+	return s.Fake.Snapshot(ctx)
+}
+
+func (s slow) Subscribe(ctx context.Context, sub control.Subscription, on func(control.Frame) error) error {
+	if err := s.wait(ctx); err != nil {
+		return err
+	}
+	return s.Fake.Subscribe(ctx, sub, on)
+}
 
 // drive makes the fixture's daemon behave like one: every second each awake
 // instance's memory drifts and its cpu moves, now and then it spikes, and apps

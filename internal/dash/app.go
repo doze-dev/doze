@@ -124,6 +124,7 @@ type Model struct {
 
 	conn      connState // whether the daemon is being heard
 	waiting   bool      // no instances frame or snapshot yet: the stack is not known
+	opened    time.Time // when the dash started, for the splash (splash.go)
 	lastFrame time.Time
 	downErr   string
 	retryAt   time.Time
@@ -146,6 +147,7 @@ func New(d control.Daemon, o Options) *Model {
 		m.loc = time.Local
 	}
 	m.now = m.nowf()
+	m.opened = m.now
 	return m
 }
 
@@ -168,7 +170,7 @@ type (
 
 // Init implements tea.Model.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.snapshot(), tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) }))
+	return tea.Batch(m.snapshot(), tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) }), splashTick(splashAfter))
 }
 
 func (m *Model) snapshot() tea.Cmd {
@@ -209,6 +211,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reportTaskResult()
 		}
 		m.settle()
+	case splashMsg:
+		// redrawn while the splash is up: once to show it, then for the z's
+		if m.splashing() {
+			return m, splashTick(breathEvery)
+		}
 	case tickMsg:
 		m.fadeNotice()
 		return m, tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
@@ -623,6 +630,9 @@ func (m *Model) Render(w, h int) string {
 	}
 	if w < minW || h < minH {
 		return substitute(tooSmall(m.st, w, h), m.glyphs)
+	}
+	if m.splashing() {
+		return substitute(strings.Join(m.splash(w, h), "\n"), m.glyphs)
 	}
 	m.area = logArea{}
 	base := page(w, h)

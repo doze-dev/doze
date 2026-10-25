@@ -18,6 +18,7 @@ func TestConnectingIsNotEmpty(t *testing.T) {
 	m := New(&fakedaemon.Fake{}, Options{Plain: true, Now: func() time.Time { return epoch }, Loc: time.UTC})
 	m.conn, m.waiting = connConnecting, true
 	m.snap = control.Snapshot{Stack: "shop"}
+	m.nowf = func() time.Time { return epoch.Add(time.Second) } // past the blank moment before the splash
 	out := frame(m, 100, 24)
 	if strings.Contains(out, "Nothing is declared") {
 		t.Errorf("a stack not yet known was called empty:\n%s", out)
