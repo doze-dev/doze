@@ -108,3 +108,27 @@ func TestTheSplashInASCII(t *testing.T) {
 		t.Errorf("the ascii splash:\n%s", out)
 	}
 }
+
+// The help screen opens with the wordmark and the version, where the window has
+// room for them as well as every key.
+func TestTheHelpScreenHasTheWordmark(t *testing.T) {
+	m := board()
+	m.version = "v0.2.0"
+	m.modal = &modal{kind: modalHelp}
+	out := frame(m, 140, 56)
+	if !strings.Contains(out, strings.TrimSpace(wordmark[3])) || !strings.Contains(out, "doze v0.2.0") {
+		t.Errorf("the help screen at 140x56:\n%s", out)
+	}
+	if !strings.Contains(out, "What the meters are") {
+		t.Errorf("the keys are pushed out of sight:\n%s", out)
+	}
+	// a window the keys fill keeps them all in view, with no wordmark
+	if out := frame(m, 140, 40); strings.Contains(out, "██╗") || !strings.Contains(out, "What the meters are") {
+		t.Errorf("the help screen at 140x40:\n%s", out)
+	}
+	// and a terminal of ASCII gets none
+	m.glyphs = glyphsASCII
+	if out := frame(m, 140, 56); strings.Contains(out, "|_") || strings.Contains(out, "doze v0.2.0") {
+		t.Errorf("the help screen in ascii:\n%s", out)
+	}
+}

@@ -30,6 +30,8 @@ type Options struct {
 	// Theme names the palette (see ThemeNames); "" is the default. DetectTheme
 	// reads DOZE_THEME and the last choice.
 	Theme string
+	// Version is doze's, shown under the wordmark on the help screen.
+	Version string
 }
 
 // samples is how many meter readings are kept per instance, for the
@@ -125,6 +127,7 @@ type Model struct {
 	conn      connState // whether the daemon is being heard
 	waiting   bool      // no instances frame or snapshot yet: the stack is not known
 	opened    time.Time // when the dash started, for the splash (splash.go)
+	version   string    // doze's, for the help screen
 	lastFrame time.Time
 	downErr   string
 	retryAt   time.Time
@@ -148,6 +151,7 @@ func New(d control.Daemon, o Options) *Model {
 	}
 	m.now = m.nowf()
 	m.opened = m.now
+	m.version = o.Version
 	return m
 }
 

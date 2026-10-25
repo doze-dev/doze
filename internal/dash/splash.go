@@ -111,3 +111,27 @@ func (m *Model) wordmark() []string {
 	}
 	return out
 }
+
+// helpHead is the top of the help screen: the wordmark, centred in a box inner
+// wide, with doze's version under it. It only takes rows the keys leave spare,
+// so the help never scrolls because of it, and it is left out where the
+// terminal can't draw the wordmark.
+func (m *Model) helpHead(inner, spare int) []string {
+	lines := m.wordmark()
+	if lines == nil || inner < 40 {
+		return nil
+	}
+	pad := strings.Repeat(" ", (inner-width(lines[2]))/2)
+	out := make([]string, 0, len(lines)+3)
+	for _, l := range lines {
+		out = append(out, pad+l)
+	}
+	if m.version != "" {
+		v := "doze " + m.version
+		out = append(out, "", strings.Repeat(" ", max((inner-width(v))/2, 0))+m.st.d.Render(v))
+	}
+	if out = append(out, ""); len(out) > spare {
+		return nil
+	}
+	return out
+}

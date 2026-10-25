@@ -858,8 +858,9 @@ func (m *Model) helpBox(w, h int) []string {
 	if bw < 24 {
 		bw = max(w, 4)
 	}
-	lines := m.helpLines(bw - 4)
 	room := max(h-6, 3)
+	lines := m.helpLines(bw - 4)
+	lines = append(m.helpHead(bw-4, room-len(lines)), lines...)
 	md.off = min(max(md.off, 0), max(len(lines)-room, 0))
 	end := min(md.off+room, len(lines))
 	shown := make([]string, 0, room)
