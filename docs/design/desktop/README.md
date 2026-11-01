@@ -19,7 +19,7 @@ https://claude.ai/artifact/Uxg4UZCiEDQfYWYfm74nNK (private to its owner).
   It's built to be predictable and complete, not pretty.
 
 doze, in one line: *OrbStack runs your containers. doze runs your stack, and
-understands it.* It looks like OrbStack in shape (a light, fast Mac app with
+understands it.* It looks like OrbStack in shape (a light, fast desktop app with
 a menu bar icon and a CLI underneath), but it knows what each service is: its
 tables, queues and topics, who uses it, and why it's awake. That
 understanding is what the app has to show within a minute of opening it.
@@ -28,8 +28,8 @@ understanding is what the app has to show within a minute of opening it.
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | A desktop app, built with **Wails v3**, Mac first, Linux next | Go, so it imports doze's packages; a web view, so doze-aws's and doze-kafka's consoles embed as they are. Tauri would give the same result in Rust; GPUI (native, the herdr way) would mean hand-building every widget and no embedded consoles |
-| D2 | Shaped as a **menu bar app plus a window** | The menu bar is the ambient part: always there, about as light as the daemon. The window is opened when wanted and fully released when closed |
+| D1 | A desktop app, built with **Wails v3**, for **macOS and Linux together** from the first release | Wails is cross-platform; doze already runs on both. Go, so it imports doze's packages; a web view, so doze-aws's and doze-kafka's consoles embed as they are. Tauri would give the same result in Rust; GPUI (native, the herdr way) would mean hand-building every widget and no embedded consoles. Windows is out while doze itself doesn't support it |
+| D2 | Shaped as a **menu bar (tray) app plus a window** | The tray is the ambient part: always there, about as light as the daemon. The window is opened when wanted and fully released when closed. On Linux the window and notifications must stand on their own: see Linux |
 | D3 | It's built around **the map, inside a service, and the timeline**, on top of the TUI's daily loop | Those are what a terminal can't do, and they're where doze's position (it starts, proxies and watches everything) pays off |
 | D4 | **The TUI is retired** | Its unique value is small once the app exists, and it's about 13,500 lines of upkeep. See Retiring the TUI |
 | D5 | **The CLI stays first-class, for machines** | CI, coding agents, scripts and remote machines have no screen. It gets `--json` everywhere, meaningful exit codes, every action the app has, nothing that assumes a display or a person, and a short guide for agents. There's no investment in it as a human interface |
@@ -66,6 +66,18 @@ The RSS growth is mostly macOS frameworks being mapped in. doze's bench
 budgets the idle daemon by RSS (34 MB; the shop daemon is 24 MB), which leaves
 little room. Either the GUI's frameworks load only when the GUI starts, or the
 budget moves to footprint, which is the truer number on macOS. D0 decides.
+
+## Linux
+
+Both platforms ship together, so every step is done on both. What differs:
+
+| | macOS | Linux |
+|---|---|---|
+| Web view | WKWebView, part of the system | WebKitGTK, a library the user's system must have; packaged as a dependency (deb, rpm) or bundled (AppImage) |
+| Tray | Always shown in the menu bar | StatusNotifierItem: KDE and Ubuntu's GNOME show it; stock GNOME (Fedora, for one) hides it unless the user adds an extension. The app can't rely on it: the window opens on launch when no tray is available, and notifications carry the "needs you" moments |
+| Notifications | Notification Center, needs the app bundle | The desktop's notification service over D-Bus |
+| Global shortcut (quick panel) | Works | X11 yes; on Wayland a global shortcut needs the desktop's portal, and not every desktop offers one. Fallback: the quick panel from the tray menu and the window |
+| Packaging | `Doze.app` in a signed, notarised disk image or a Homebrew cask | AppImage, deb and rpm, each with a `.desktop` file |
 
 ## Retiring the TUI
 
@@ -105,12 +117,15 @@ The work it needs:
 
 | Step | What |
 |---|---|
-| **D0** checks | On Linux: does the no-cgo binary run headless when the GTK and WebKitGTK libraries are missing? If not, D6 needs another answer there. On macOS: the daemon's idle RSS with the GUI linked, against the bench budget |
+| **D0** checks | On Linux: does the no-cgo binary run headless when the GTK and WebKitGTK libraries are missing? If not, D6 needs another answer there. The spike run on Linux too: the tray on KDE and on GNOME, the window's memory, startup. On macOS: the daemon's idle RSS with the GUI linked, against the bench budget |
 | **D1** the shell | One binary and `Doze.app`; the menu bar (every running stack, the count, the red dot); notifications; the window opened and released; `doze open`; project folders recorded |
 | **D2** the daily loop | Home, instance pages, logs, actions with confirmations, crash, setup from a dropped folder: what the TUI does |
 | **D3** what a terminal can't do | The map, inside a service, the timeline, the quick panel; connection attribution and doze-aws's activity stream |
 | **D4** retire the TUI | Bare `doze` opens the app; then remove the dash |
-| **D5** release | Signing, notarisation, auto-update, Linux packaging |
+| **D5** release | macOS signing and notarisation; AppImage, deb and rpm; auto-update on both |
+
+Every step from D1 on is done on macOS and Linux together: a board isn't
+matched until it's been compared on both.
 
 No estimates yet: D0 can change the plan, and D2 is the size of the TUI's work
 so far. Each step is done when its boards and the built screens have been put
