@@ -29,6 +29,36 @@ jobs:
         run: |
           echo "apparmor_restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo n/a)"
           echo "unprivileged_userns_clone=$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo n/a)"
+      # Ubuntu 24.04 lets a program create user namespaces only when an
+      # AppArmor profile grants it; WebKitGTK sandboxes its web process with
+      # bubblewrap, which needs one. This installs the kind of profile doze's
+      # deb will ship (granting userns to the doze binary), here for the probe
+      # binaries, so the window test runs the way an installed doze would.
+      - name: AppArmor profile, as doze's package will install
+        run: |
+          sudo tee /etc/apparmor.d/doze-d0 >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile doze-d0 ${{ runner.temp }}/d0/win-* flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/doze-d0
       - name: Measure, and open a window
         working-directory: tools/d0probe
         run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" bash run.sh
+      # If the window still did not render, the grant is needed on bubblewrap
+      # itself, which WebKit runs to sandbox its web process: what decides the
+      # profile doze ships.
+      - name: Again, with userns granted to bubblewrap too
+        working-directory: tools/d0probe
+        run: |
+          sudo tee /etc/apparmor.d/doze-d0-bwrap >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile doze-d0-bwrap /usr/bin/bwrap flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/doze-d0-bwrap
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" bash run.sh
