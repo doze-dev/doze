@@ -117,6 +117,10 @@ func plainState(v control.InstanceView, running bool, decl *config.InstanceDecl)
 		return stateWord(v.State)
 	case running && awakeState(v.State):
 		return v.State
+	case running && (v.State == "crashing" || v.State == "failed" || v.State == "done"):
+		// A crash or a finished task is not sleep; a script reading the JSON
+		// has to be able to tell.
+		return v.State
 	default:
 		return "asleep"
 	}

@@ -34,6 +34,11 @@ func treeCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, cfgErr := loadConfig()
 			if cfgErr != nil {
+				// A script asked for data, so it gets none rather than a table
+				// it would try to parse: the error goes to stderr, exit 1.
+				if jsonOut {
+					return cfgErr
+				}
 				// A broken block must not brick the whole status view: fall back
 				// to the driver-free shallow load so the declared stack (and any
 				// live daemon state) still renders, with the error alongside.
