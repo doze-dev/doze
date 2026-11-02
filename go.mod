@@ -5,11 +5,12 @@ go 1.27.2
 require (
 	charm.land/bubbletea/v2 v2.1.0
 	charm.land/lipgloss/v2 v2.0.6
+	github.com/NimbleMarkets/ntcharts/v2 v2.8.0
 	github.com/agext/levenshtein v1.2.1
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.9
-	github.com/doze-dev/doze-names v0.1.1-0.20261010121557-dc00aeec3013
-	github.com/doze-dev/doze-sdk v0.7.1-0.20261011115536-2a1c39a9ce8a
+	github.com/doze-dev/doze-names v0.2.0
+	github.com/doze-dev/doze-sdk v0.8.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.30
@@ -21,7 +22,6 @@ require (
 
 require (
 	charm.land/bubbles/v2 v2.2.1 // indirect
-	github.com/NimbleMarkets/ntcharts/v2 v2.8.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
