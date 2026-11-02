@@ -1,0 +1,34 @@
+# D0, the desktop platform proof, on Linux: what linking Wails costs a process
+# that never opens a window, with stock Wails and with the GUI libraries loaded
+# lazily, and whether a window renders. Run by hand; see
+# docs/design/desktop/d0.md and tools/d0probe.
+name: d0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: tools/d0probe/go.mod, cache-dependency-path: tools/d0probe/go.sum }
+      - name: GTK4, WebKitGTK 6.0, Xvfb, D-Bus
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwebkitgtk-6.0-4 libgtk-4-1 xvfb xauth dbus-x11
+      - name: What the runner allows WebKit's sandbox
+        run: |
+          echo "apparmor_restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo n/a)"
+          echo "unprivileged_userns_clone=$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo n/a)"
+      - name: Measure, and open a window
+        working-directory: tools/d0probe
+        run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" bash run.sh
