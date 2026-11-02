@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +20,8 @@ func TestDogfoodStatusAndDash(t *testing.T) {
 		t.Skip("boots real processes")
 	}
 	sb := doze.NewStack("dogfood")
-	sb.AddApp("api", doze.App{Run: "sh -c 'while true; do sleep 1; done'", Port: 8080, Ready: &doze.Ready{Exec: "true"}})
+	port := freePort(t)
+	sb.AddApp("api", doze.App{Run: "sh -c 'while true; do sleep 1; done'", Port: port, Ready: &doze.Ready{Exec: "true"}})
 	sb.AddApp("worker", doze.App{Run: "sh -c 'while true; do sleep 1; done'"})
 	sess := serveTestStack(t, sb)
 
@@ -39,7 +41,7 @@ func TestDogfoodStatusAndDash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderStatus: %v", err)
 	}
-	for _, want := range []string{"api", "worker", "process", "8080"} {
+	for _, want := range []string{"api", "worker", "process", strconv.Itoa(port)} {
 		if !strings.Contains(table, want) {
 			t.Fatalf("status table missing %q:\n%s", want, table)
 		}

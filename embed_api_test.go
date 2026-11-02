@@ -3,6 +3,7 @@ package doze_test
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -31,7 +32,8 @@ func serveTestStack(t *testing.T, sb *doze.Stack) *doze.Session {
 func TestTopology(t *testing.T) {
 	// Built-in process engine only, so the test is hermetic (no module fetch).
 	sb := doze.NewStack("topo")
-	sb.AddApp("api", doze.App{Run: "sh -c 'sleep 1000'", Port: 8080})
+	port := freePort(t)
+	sb.AddApp("api", doze.App{Run: "sh -c 'sleep 1000'", Port: port})
 	sb.AddApp("worker", doze.App{Run: "sh -c 'sleep 1000'"})
 
 	if testing.Short() {
@@ -48,7 +50,7 @@ func TestTopology(t *testing.T) {
 	for _, n := range nodes {
 		byName[n.Name] = n
 	}
-	if a := byName["api"]; a.Engine != "process" || a.Port != 8080 || !a.Enabled {
+	if a := byName["api"]; a.Engine != "process" || a.Port != port || !a.Enabled {
 		t.Fatalf("api node = %+v", a)
 	}
 	if _, ok := byName["worker"]; !ok {
@@ -87,4 +89,16 @@ func TestTypedErrors(t *testing.T) {
 	// that gate requires decoding the block through the aws module — a registry
 	// fetch — so it has no hermetic unit test here. The sentinel mapping itself
 	// is covered by the cases above.
+}
+
+// freePort returns a loopback port nothing is listening on, so a test never
+// collides with a stack the developer has running.
+func freePort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("free port: %v", err)
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }
