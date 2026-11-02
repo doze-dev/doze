@@ -1,0 +1,52 @@
+# Memory and wake budgets on every PR, not nightly: a regression is caught in
+# the change that causes it. Boots the fixture stack (examples/shop) with real
+# engines and holds it to test/bench/budget.json, per OS.
+name: bench
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: Measure against the budget
+        env:
+          DOZE_BENCH_OUT: ${{ runner.temp }}/bench-${{ matrix.os }}.json
+        run: make bench
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-${{ matrix.os }}
+          path: ${{ runner.temp }}/bench-${{ matrix.os }}.json
+          if-no-files-found: ignore
+
+  # A budget only moves on purpose: a PR that changes budget.json needs the
+  # "budget" label, and its description should say why.
+  budget-change:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: A changed budget is labelled
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'budget') }}
+        run: |
+          if git diff --name-only "$BASE" HEAD | grep -qx 'test/bench/budget.json' && [ "$LABELLED" != true ]; then
+            echo "::error::test/bench/budget.json changed: add the 'budget' label and say why in the PR description"
+            exit 1
+          fi

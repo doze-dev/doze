@@ -1,9 +1,6 @@
-# Build + unit-test doze core on every PR and push. This is the base safety net:
-# it runs the existing `go test ./...` (fake-driver runtime tests, config, proxy,
-# health, tui, …) on both Linux and macOS so a regression is caught before merge.
-# The heavier end-to-end suite that boots real engine binaries is separate and
-# gated behind the `integration` build tag (see integration.yml), so it does not
-# run here. doze-sdk is a normal tagged dependency — plain single checkout.
+# Every PR and push to main: lint, module hygiene, vet, and the race-enabled
+# unit tests on Linux and macOS. The suite that boots real engines is
+# integration.yml; the memory and wake budgets are bench.yml.
 name: test
 
 on:
@@ -15,6 +12,38 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: golangci-lint
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run ./...
+
+  modules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: go.mod is tidy
+        run: go mod tidy -diff
+      # doze builds from a clean clone only when every doze-* dependency is a
+      # published tag. A pseudo-version pins a commit that may never have been
+      # pushed (doze failed to build for weeks that way).
+      - name: doze dependencies are tagged releases
+        run: |
+          bad=$(go list -m -f '{{if not .Main}}{{.Path}} {{.Version}}{{end}}' all \
+            | awk '$1 ~ /^github.com\/doze-dev\// && $2 ~ /-[0-9]{14}-[0-9a-f]{12}$/')
+          if [ -n "$bad" ]; then
+            echo "::error::doze-* dependencies must be tagged releases, not commits:"
+            echo "$bad"
+            exit 1
+          fi
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
   test:
     strategy:
       fail-fast: false
@@ -24,8 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
+        with: { go-version-file: go.mod }
       - name: Vet
         run: go vet ./...
       - name: Test

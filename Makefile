@@ -1,7 +1,7 @@
 # doze — build automation.
 
 BINARY      := doze
-PKG         := github.com/nerdmenot/doze
+PKG         := github.com/doze-dev/doze
 VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS     := -s -w -X main.version=$(VERSION)
 GOFILES     := $(shell find . -name '*.go' -not -path './vendor/*')
@@ -41,8 +41,23 @@ fmt-check: ## Fail if any file is not gofmt-clean
 	@unformatted=$$(gofmt -l $(GOFILES)); \
 	if [ -n "$$unformatted" ]; then echo "unformatted files:"; echo "$$unformatted"; exit 1; fi
 
+GOLANGCI    := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.1.4
+
+.PHONY: lint
+lint: ## Run golangci-lint (the CI lint gate)
+	$(GOLANGCI) run ./...
+
+.PHONY: vuln
+vuln: ## Report known vulnerabilities reachable from doze
+	$(GOVULNCHECK) ./...
+
+.PHONY: tidy-check
+tidy-check: ## Fail if go.mod or go.sum is not tidy
+	go mod tidy -diff
+
 .PHONY: check
-check: fmt-check vet test ## Run all checks (fmt, vet, test)
+check: fmt-check tidy-check vet lint race ## Run what CI runs on every PR (except the bench)
 
 .PHONY: clean
 clean: ## Remove build artifacts

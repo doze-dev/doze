@@ -1,3 +1,4 @@
 {
-  "darwin": { "idle_daemon_kb": 34000, "idle_tree_kb": 250000 }
+  "darwin": { "idle_daemon_kb": 34000, "idle_tree_kb": 250000, "wake_median_ms": 250 },
+  "linux": { "idle_daemon_kb": 33000, "idle_tree_kb": 210000, "wake_median_ms": 250 }
 }

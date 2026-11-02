@@ -6,6 +6,29 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A clean clone builds again: doze pins tagged releases of doze-sdk (v0.8.0)
+  and doze-names (v0.2.0) instead of an unpushed commit.
+- Two data races: live add or remove of an instance against the stats sampler
+  and handlers, and an in-process `Serve` returning before the daemon had
+  finished starting.
+- A daemon started automatically now gets the caller's `--var` overrides.
+- `doze sync` without a terminal asks for `--auto-approve` instead of
+  printing "sync cancelled" and exiting 0.
+- `doze status --json` reports `crashing`, `failed` and `done` instead of
+  "asleep", and prints nothing to stdout when the config is broken.
+- The getting-started example is a config doze accepts.
+- Reachable vulnerabilities in golang.org/x/net, grpc, golang.org/x/text and
+  the standard library (Go 1.27.3).
+
+### Changed
+
+- CI on every PR: golangci-lint, a tidy and tagged-dependency check,
+  govulncheck, and the memory and wake budgets (now enforced on Linux too).
+
+## Before the redesign (0.1.x)
+
 doze is a lazy, no-Docker local runtime for backing services — `proto` for
 databases and AWS services. A generic, engine-agnostic core drives per-engine
 drivers behind a small interface; each declared instance boots on first connect

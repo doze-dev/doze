@@ -84,6 +84,9 @@ type Latency struct {
 type Budget struct {
 	IdleDaemonKB int `json:"idle_daemon_kb"`
 	IdleTreeKB   int `json:"idle_tree_kb"`
+	// WakeMedianMS caps each module's median wake, from the journal's ready
+	// events. Zero leaves wake measured but not enforced.
+	WakeMedianMS float64 `json:"wake_median_ms"`
 }
 
 func TestFixtureStack(t *testing.T) {
@@ -231,6 +234,13 @@ func TestFixtureStack(t *testing.T) {
 	}
 	if res.Idle.TreeKB > budget.IdleTreeKB {
 		t.Errorf("the idle daemon and what it keeps alive hold %d kB; the budget is %d kB", res.Idle.TreeKB, budget.IdleTreeKB)
+	}
+	if budget.WakeMedianMS > 0 {
+		for name, w := range res.Wake {
+			if w.MedianMS > budget.WakeMedianMS {
+				t.Errorf("%s wakes in %.1f ms (median); the budget is %.0f ms", name, w.MedianMS, budget.WakeMedianMS)
+			}
+		}
 	}
 }
 
