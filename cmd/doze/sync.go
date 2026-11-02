@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/mattn/go-isatty"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -58,10 +60,8 @@ func syncCmd() *cobra.Command {
 				return nil
 			}
 			if !autoApprove {
-				// Without a terminal there is nobody to answer. Reading the
-				// empty stdin as "no" and exiting 0 made CI think it synced.
-				if !isInteractive() {
-					return fmt.Errorf("sync needs confirmation and there is no terminal to ask: pass --auto-approve")
+				if err := canAsk(isatty.IsTerminal(os.Stdin.Fd())); err != nil {
+					return err
 				}
 				if !confirm("Apply these changes?") {
 					fmt.Println("sync cancelled")
@@ -110,4 +110,15 @@ func enabledPlan(cfg *config.Config, plan state.Plan) state.Plan {
 		out.Instances = append(out.Instances, ip)
 	}
 	return out
+}
+
+// canAsk reports whether sync can ask for confirmation: only when stdin is a
+// terminal. Reading an empty, piped stdin as "no" and exiting 0 made CI think
+// it had synced. stdout may be piped (doze sync | tee log): the question
+// still reaches a person through the terminal on stdin.
+func canAsk(stdinIsTerminal bool) error {
+	if !stdinIsTerminal {
+		return fmt.Errorf("sync needs confirmation and stdin is not a terminal: pass --auto-approve")
+	}
+	return nil
 }

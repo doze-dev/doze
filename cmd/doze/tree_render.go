@@ -22,6 +22,9 @@ import (
 type statusJSON struct {
 	Daemon   statusDaemonJSON    `json:"daemon"`
 	Services []statusServiceJSON `json:"services"`
+	// Error is set when doze.hcl does not load: services are then the block
+	// headers that could still be read, with any live state, and doze exits 1.
+	Error string `json:"error,omitempty"`
 }
 
 type statusDaemonJSON struct {
@@ -44,6 +47,27 @@ type statusServiceJSON struct {
 	MemBytes   int64    `json:"memBytes"`
 	CPUPercent float64  `json:"cpuPercent"`
 	DependsOn  []string `json:"dependsOn,omitempty"`
+}
+
+// degradedStatusJSON is status --json when the config does not load: the block
+// headers the shallow pass read, any live state, and the error.
+func degradedStatusJSON(w io.Writer, decls []config.ShallowDecl, views map[string]control.InstanceView, daemonUp bool, cfgErr error) error {
+	out := statusJSON{Daemon: statusDaemonJSON{Running: daemonUp}, Services: []statusServiceJSON{}, Error: cfgErr.Error()}
+	for _, d := range decls {
+		v, running := views[d.Name]
+		s := statusServiceJSON{Name: d.Name, Engine: d.Type, Version: d.Version, Group: d.Kind, Enabled: true,
+			State: plainState(v, running, nil)}
+		if running {
+			s.Conns, s.MemBytes, s.CPUPercent = v.Conns, v.RAM, v.CPU
+		}
+		out.Services = append(out.Services, s)
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		return err
+	}
+	return exitCodeError(1)
 }
 
 func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) error {

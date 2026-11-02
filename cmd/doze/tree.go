@@ -34,15 +34,10 @@ func treeCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, cfgErr := loadConfig()
 			if cfgErr != nil {
-				// A script asked for data, so it gets none rather than a table
-				// it would try to parse: the error goes to stderr, exit 1.
-				if jsonOut {
-					return cfgErr
-				}
 				// A broken block must not brick the whole status view: fall back
 				// to the driver-free shallow load so the declared stack (and any
 				// live daemon state) still renders, with the error alongside.
-				return degradedStatus(cfgErr)
+				return degradedStatus(cfgErr, jsonOut)
 			}
 			daemonUp := daemonRunning(cfg)
 			if watch {
@@ -87,7 +82,7 @@ func treeCmd() *cobra.Command {
 // headers from a shallow load, joined with live state from a running daemon
 // (found via the default project dir). The load error prints after the table
 // so the user sees both their stack and what's wrong with it.
-func degradedStatus(cfgErr error) error {
+func degradedStatus(cfgErr error, jsonOut bool) error {
 	sc, serr := config.LoadShallow(configPath)
 	if serr != nil {
 		return cfgErr // not even parseable — the full error is the answer
@@ -103,6 +98,9 @@ func degradedStatus(cfgErr error) error {
 		}
 	}
 
+	if jsonOut {
+		return degradedStatusJSON(os.Stdout, sc.Decls, views, daemonUp, cfgErr)
+	}
 	fmt.Println(ui.Fail("config has errors") + ui.Muted(" — showing declared blocks; details below") + "\n")
 	t := ui.NewTable("NAME", "ENGINE", "STATE", "ENDPOINT")
 	for _, d := range sc.Decls {
