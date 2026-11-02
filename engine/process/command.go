@@ -19,7 +19,7 @@ func (Driver) CommandConfig(c runspec.Command) (engine.EngineConfig, error) {
 		Dir: c.Dir, Run: c.Run, Env: c.Env, EnvFile: c.EnvFile,
 		Setup: c.Setup, OnReady: c.OnReady, Stop: c.Stop,
 		Ready: c.Ready, ReadyTimeout: c.ReadyTimeout,
-		Sleep: c.Sleep, Front: c.Front, Console: c.Console, QuietLogs: c.QuietLogs,
+		Sleep: c.Sleep, Console: c.Console,
 		Service: c.Service, Task: c.Task, Inputs: c.Inputs, Manual: c.Manual,
 		Download: c.Download, dirSet: c.DirSet,
 		Restart: Restart{Policy: engine.RestartOnFailure, Backoff: defaultBackoff, MaxRetries: defaultMaxRetries},

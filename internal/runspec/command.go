@@ -27,10 +27,8 @@ type Command struct {
 	RestartBackoff    time.Duration
 	RestartMaxRetries int
 
-	Sleep     Sleep
-	Front     string
-	Console   string
-	QuietLogs bool
+	Sleep   Sleep
+	Console string
 
 	// Download is the URL to fetch before the first run, by platform: the keys
 	// mac, mac_intel, linux, linux_arm, or the single key "" for all. DirSet is

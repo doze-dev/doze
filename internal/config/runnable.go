@@ -48,9 +48,7 @@ type ServiceDecl struct {
 	ReadyTimeout time.Duration
 	Restart      RestartDecl
 	Sleep        runspec.Sleep
-	Front        string
 	Console      string
-	QuietLogs    bool
 	After        []Ref
 	Refs         []Ref // what the body references, in source order
 
@@ -259,7 +257,14 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 	s.Run, s.Env, s.Dir = raw.Run, raw.Env, resolveAgainst(baseDir, raw.Dir)
 	s.DirSet = raw.Dir != ""
 	s.After, s.Refs = after, refs
-	s.Front, s.Console = raw.Front, raw.Console
+	if raw.Front != "" || raw.Logs != "" {
+		arg := "front"
+		if raw.Front == "" {
+			arg = "logs"
+		}
+		return fail(fmt.Errorf("`%s` is no longer an argument: it was never acted on; delete it", arg))
+	}
+	s.Console = raw.Console
 	if raw.EnvFile != "" {
 		s.EnvFile = resolveAgainst(baseDir, raw.EnvFile)
 	}
@@ -285,9 +290,6 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 		return fail(err)
 	}
 	if s.Sleep, err = runspec.ParseSleep(raw.Sleep); err != nil {
-		return fail(err)
-	}
-	if s.QuietLogs, err = runspec.ParseLogs(raw.Logs); err != nil {
 		return fail(err)
 	}
 	if err := runspec.CheckConsole(raw.Console); err != nil {
@@ -316,7 +318,7 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 		Setup: s.Setup, OnReady: s.OnReady, Stop: s.Stop,
 		Ready: s.Ready, ReadyTimeout: s.ReadyTimeout,
 		RestartPolicy: s.Restart.Policy, RestartBackoff: s.Restart.Backoff, RestartMaxRetries: s.Restart.MaxRetries,
-		Sleep: s.Sleep, Front: s.Front, Console: s.Console, QuietLogs: s.QuietLogs,
+		Sleep: s.Sleep, Console: s.Console,
 		Service:  true,
 		Download: s.Download, DirSet: s.DirSet,
 	})

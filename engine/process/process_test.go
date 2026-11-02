@@ -128,22 +128,21 @@ func TestSettings(t *testing.T) {
 	c, err := decode(t, `
 		run     = "x"
 		sleep   = "10m"
-		logs    = "quiet"
 		console = "http://localhost:9000"
-		front   = "console"
 		watch   = ["**/*.go"]
 		direct  = true
 	`)
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if c.Sleep.After != 10*time.Minute || !c.QuietLogs || !c.Direct || c.Front != "console" || len(c.Watch) != 1 {
+	if c.Sleep.After != 10*time.Minute || !c.Direct || len(c.Watch) != 1 {
 		t.Fatalf("settings = %+v", c)
 	}
 	for name, src := range map[string]string{
-		"a bad sleep":   `sleep = "later"`,
-		"a bad logs":    `logs = "loud"`,
-		"a bad console": `console = "localhost:9000"`,
+		"a bad sleep":    `sleep = "later"`,
+		"front, removed": `front = "console"`,
+		"logs, removed":  `logs = "quiet"`,
+		"a bad console":  `console = "localhost:9000"`,
 	} {
 		if _, err := decode(t, "run = \"x\"\n"+src); err == nil {
 			t.Errorf("%s should be rejected", name)

@@ -162,17 +162,6 @@ func ParseReadyTimeout(s string) (time.Duration, error) {
 	return d, nil
 }
 
-// ParseLogs decodes `logs`: "normal" (the default) or "quiet".
-func ParseLogs(s string) (quiet bool, err error) {
-	switch s {
-	case "", "normal":
-		return false, nil
-	case "quiet":
-		return true, nil
-	}
-	return false, fmt.Errorf(`logs = %q: want "normal" or "quiet"`, s)
-}
-
 // CheckConsole validates a `console` URL.
 func CheckConsole(s string) error {
 	if s == "" || strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {

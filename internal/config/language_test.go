@@ -283,7 +283,6 @@ service "minio" {
   ready_timeout = "90s"
   sleep         = "10m"
   console       = "http://localhost:9001"
-  logs          = "quiet"
   restart {
     policy = "always"
   }
@@ -293,7 +292,7 @@ service "minio" {
 	if len(s.Download) != 2 || len(s.Setup) != 1 || len(s.OnReady) != 2 || len(s.Stop) != 1 {
 		t.Fatalf("service = %+v", s)
 	}
-	if s.Ready == nil || s.Ready.Kind != "http" || s.ReadyTimeout.Seconds() != 90 || !s.QuietLogs || s.Restart.Policy != "always" {
+	if s.Ready == nil || s.Ready.Kind != "http" || s.ReadyTimeout.Seconds() != 90 || s.Restart.Policy != "always" {
 		t.Fatalf("service = %+v", s)
 	}
 

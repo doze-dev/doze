@@ -42,14 +42,11 @@ type Config struct {
 
 	// Sleep is the app's own idle time (see IdleAfter) and Direct opts out of
 	// the proxy. Console is fronted as a second port, and Watch restarts the app
-	// when its files change (runtime/watch.go). Front and QuietLogs are parsed
-	// and validated but not acted on yet.
-	Sleep     runspec.Sleep
-	Front     string
-	Console   string
-	QuietLogs bool
-	Watch     []string
-	Direct    bool
+	// when its files change (runtime/watch.go).
+	Sleep   runspec.Sleep
+	Console string
+	Watch   []string
+	Direct  bool
 
 	// Download is by platform, as in runspec.Command; root is where the fetched
 	// archive was unpacked, and the command runs there unless dirSet.
@@ -91,9 +88,7 @@ type hclConfig struct {
 	Stop         cty.Value         `hcl:"stop,optional"`
 	Restart      *restartBlock     `hcl:"restart,block"`
 	Sleep        string            `hcl:"sleep,optional"`
-	Front        string            `hcl:"front,optional"`
 	Console      string            `hcl:"console,optional"`
-	Logs         string            `hcl:"logs,optional"`
 	Watch        []string          `hcl:"watch,optional"`
 	Direct       bool              `hcl:"direct,optional"`
 }
@@ -125,6 +120,8 @@ var removed = []struct {
 	{name: "ingress", now: "nothing: an app with a `port` is named automatically"},
 	{name: "hooks", now: "`setup`, `on_ready` and `stop`", block: true},
 	{name: "health", now: "`ready`, e.g. ready = http(\"/healthz\")", block: true},
+	{name: "front", now: "nothing: it was never acted on; delete it"},
+	{name: "logs", now: "nothing: it was never acted on; delete it"},
 }
 
 func checkRemoved(body hcl.Body) error {
@@ -179,7 +176,6 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 		Run:     raw.Run,
 		Env:     raw.Env,
 		Dir:     resolveDir(baseDir, raw.Dir),
-		Front:   raw.Front,
 		Console: raw.Console,
 		Watch:   raw.Watch,
 		Direct:  raw.Direct,
@@ -204,9 +200,6 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 		return nil, err
 	}
 	if c.Sleep, err = runspec.ParseSleep(raw.Sleep); err != nil {
-		return nil, err
-	}
-	if c.QuietLogs, err = runspec.ParseLogs(raw.Logs); err != nil {
 		return nil, err
 	}
 	if err := runspec.CheckConsole(raw.Console); err != nil {
