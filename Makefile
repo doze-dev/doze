@@ -42,7 +42,7 @@ fmt-check: ## Fail if any file is not gofmt-clean
 	if [ -n "$$unformatted" ]; then echo "unformatted files:"; echo "$$unformatted"; exit 1; fi
 
 GOLANGCI    := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
-GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.1.4
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
 .PHONY: lint
 lint: ## Run golangci-lint (the CI lint gate)
