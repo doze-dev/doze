@@ -6,14 +6,16 @@ import (
 )
 
 // The daemon must load the config with the same --var overrides as the command
-// that started it, or it runs a different stack.
-func TestDaemonArgsCarryVars(t *testing.T) {
-	got := daemonArgs("/p/doze.hcl", map[string]string{"domains": "false", "pg": "16"})
-	want := []string{"__daemon", "--config", "/p/doze.hcl", "--var", "domains=false", "--var", "pg=16"}
+// that started it, or it runs a different stack. They travel in the
+// environment, after anything inherited, so the override wins.
+func TestDaemonEnvCarriesVars(t *testing.T) {
+	base := []string{"PATH=/bin", "DOZE_VAR_pg=15"}
+	got := daemonEnv(base, map[string]string{"pg": "16", "domains": "false"})
+	want := []string{"PATH=/bin", "DOZE_VAR_pg=15", "DOZE_VAR_domains=false", "DOZE_VAR_pg=16"}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("daemonArgs = %q, want %q", got, want)
+		t.Fatalf("daemonEnv = %q, want %q", got, want)
 	}
-	if got := daemonArgs("/p/doze.hcl", nil); !reflect.DeepEqual(got, []string{"__daemon", "--config", "/p/doze.hcl"}) {
+	if got := daemonEnv(base, nil); !reflect.DeepEqual(got, base) {
 		t.Fatalf("no vars: %q", got)
 	}
 }

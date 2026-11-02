@@ -69,7 +69,8 @@ func Start(cfg *config.Config, self, absConfigPath string, vars map[string]strin
 	// ours, so closing it has nothing to report.
 	defer func() { _ = logFile.Close() }()
 
-	c := exec.Command(self, daemonArgs(absConfigPath, vars)...)
+	c := exec.Command(self, "__daemon", "--config", absConfigPath)
+	c.Env = daemonEnv(os.Environ(), vars)
 	c.Stdout = logFile
 	c.Stderr = logFile
 	c.Stdin = nil
@@ -96,19 +97,21 @@ func Start(cfg *config.Config, self, absConfigPath string, vars map[string]strin
 	return fmt.Errorf("daemon did not come up within 10s; recent log:\n%s\n(full log: %s)", TailLog(cfg, 15), logPath)
 }
 
-// daemonArgs is the daemon's command line: the config, then each --var in
-// name order so the same overrides always give the same command.
-func daemonArgs(absConfigPath string, vars map[string]string) []string {
-	args := []string{"__daemon", "--config", absConfigPath}
+// daemonEnv is the daemon's environment: this process's, with each --var
+// override as DOZE_VAR_<name>, which the config reads. The values go in the
+// environment rather than on the command line, where ps would show them to
+// every user; a --var is a common way to pass a secret.
+func daemonEnv(base []string, vars map[string]string) []string {
 	names := make([]string, 0, len(vars))
 	for n := range vars {
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	env := append([]string{}, base...)
 	for _, n := range names {
-		args = append(args, "--var", n+"="+vars[n])
+		env = append(env, "DOZE_VAR_"+n+"="+vars[n])
 	}
-	return args
+	return env
 }
 
 // Stop signals the daemon to shut down (which reaps every backend) and waits up
