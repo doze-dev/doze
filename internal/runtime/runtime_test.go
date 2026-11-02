@@ -66,8 +66,6 @@ func (depDriver) Type() string { return "tdep" }
 
 func TestDependencyBootAndHold(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(leafDriver{})
-	engine.Register(depDriver{})
 
 	cfg, err := config.Parse([]byte(`
 module tleaf "base" { version = 1 }
@@ -114,7 +112,6 @@ module tdep "app" {
 // failure, so the next connect re-boots cleanly.
 func TestBackendCrashDetected(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(leafDriver{})
 
 	cfg, err := config.Parse([]byte("module tleaf \"solo\" { version = 1 }\n"), "", nil)
 	if err != nil {
@@ -172,7 +169,6 @@ func (loopDriver) RestartPolicy(engine.Instance) engine.RestartSpec {
 // while a restart is pending — and `failed` once the budget is spent.
 func TestCrashLoopIsCrashingThenFailed(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(loopDriver{})
 	cfg, err := config.Parse([]byte("module tloop \"api\" { version = 1 }\n"), "", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -224,8 +220,6 @@ func TestCrashLoopIsCrashingThenFailed(t *testing.T) {
 // counting down to stop it.
 func TestAlwaysOnIsActiveWithNoConnections(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(steadyDriver{})
-	engine.Register(leafDriver{})
 	cfg, err := config.Parse([]byte("module tsteady \"web\" { version = 1 }\nmodule tleaf \"db\" { version = 1 }\n"), "", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -261,8 +255,6 @@ func (steadyDriver) Supervised(engine.Instance) bool { return true }
 // connections — with the dependants' own holds not counted as clients.
 func TestHolders(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(leafDriver{})
-	engine.Register(depDriver{})
 	cfg, err := config.Parse([]byte(`
 module tleaf "db" { version = 1 }
 module tdep "api" {
@@ -325,8 +317,6 @@ module tdep "api" {
 // trace, as far as declared references go.
 func TestJournalRecordsCauseAndDuration(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(leafDriver{})
-	engine.Register(depDriver{})
 	cfg, err := config.Parse([]byte(`
 module tleaf "db" { version = 1 }
 module tdep "api" {
@@ -411,7 +401,6 @@ func (shDriver) Plan(context.Context, engine.Instance, engine.Toolchain) (engine
 // the process is gone.
 func TestOutputIsKeptAfterTheProcessExits(t *testing.T) {
 	t.Setenv("DOZE_HOME", t.TempDir())
-	engine.Register(shDriver{})
 	cfg, err := config.Parse([]byte("module tsh \"job\" { version = 1 }\n"), "", nil)
 	if err != nil {
 		t.Fatal(err)
