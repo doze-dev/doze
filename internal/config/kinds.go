@@ -162,6 +162,50 @@ func exprText(parser *hclparse.Parser, rng hcl.Range) string {
 	return `"…"`
 }
 
+// coreArguments are the arguments of a module block that doze reads itself and
+// a module never sees. A module decodes strictly, so one it does not know is
+// an error; a module built before doze added the argument would reject every
+// block that uses it. (doze-sdk strips count, for_each, depends_on, enabled,
+// version, listen and port on the module side; these came later.)
+var coreArguments = map[string]bool{"after": true, "sleep": true, "wakes_on": true}
+
+// blankCoreArguments overwrites each core argument in a module block with
+// spaces, keeping its newlines, so the module never sees it and every line
+// and column it reports still points at the same place in the user's file.
+func blankCoreArguments(src []byte, filename string) []byte {
+	f, diags := hclsyntax.ParseConfig(src, filename, hcl.InitialPos)
+	if diags.HasErrors() {
+		return src
+	}
+	body, ok := f.Body.(*hclsyntax.Body)
+	if !ok {
+		return src
+	}
+	var out []byte
+	for _, blk := range body.Blocks {
+		if blk.Type != KindModule || len(blk.Labels) != 2 {
+			continue
+		}
+		for name, attr := range blk.Body.Attributes {
+			if !coreArguments[name] {
+				continue
+			}
+			if out == nil {
+				out = append([]byte(nil), src...)
+			}
+			for i := attr.SrcRange.Start.Byte; i < attr.SrcRange.End.Byte && i < len(out); i++ {
+				if out[i] != '\n' {
+					out[i] = ' '
+				}
+			}
+		}
+	}
+	if out == nil {
+		return src
+	}
+	return out
+}
+
 // pluginSource rewrites `module <type> "<name>" { … }` to the bare
 // `<type> "<name>" { … }` a plugin looks for. An out-of-process module decodes
 // its own block by re-parsing the file and finding it by type and name
@@ -169,6 +213,7 @@ func exprText(parser *hclparse.Parser, rng hcl.Range) string {
 // keyword. Only headers change, so every line number a plugin reports still
 // points at the user's file.
 func pluginSource(src []byte, filename string) []byte {
+	src = blankCoreArguments(src, filename)
 	f, diags := hclwrite.ParseConfig(src, filename, hcl.InitialPos)
 	if diags.HasErrors() {
 		return src
