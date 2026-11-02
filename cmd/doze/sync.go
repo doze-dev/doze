@@ -57,9 +57,16 @@ func syncCmd() *cobra.Command {
 			if dryRun || plan.Empty() {
 				return nil
 			}
-			if !autoApprove && !confirm("Apply these changes?") {
-				fmt.Println("sync cancelled")
-				return nil
+			if !autoApprove {
+				// Without a terminal there is nobody to answer. Reading the
+				// empty stdin as "no" and exiting 0 made CI think it synced.
+				if !isInteractive() {
+					return fmt.Errorf("sync needs confirmation and there is no terminal to ask: pass --auto-approve")
+				}
+				if !confirm("Apply these changes?") {
+					fmt.Println("sync cancelled")
+					return nil
+				}
 			}
 
 			ctx := context.Background()
