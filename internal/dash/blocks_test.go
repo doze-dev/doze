@@ -108,7 +108,7 @@ func TestAModuleExtendsTheGenericOverview(t *testing.T) {
 	m.tab = 0
 	got := frame(m, 136, 42)
 	vitals, databases, recent := strings.Index(got, "vitals"), strings.Index(got, "databases"), strings.Index(got, "recent")
-	if vitals < 0 || databases < 0 || recent < 0 || !(vitals < databases && databases < recent) {
+	if vitals < 0 || databases < 0 || recent < 0 || vitals >= databases || databases >= recent {
 		t.Errorf("databases is not between vitals and recent (%d %d %d):\n%s", vitals, databases, recent, got)
 	}
 	for _, want := range []string{"shop_test", "38 MB", "postgres"} {

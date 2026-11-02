@@ -8,9 +8,6 @@ package daemon
 
 import (
 	"context"
-	"errors"
-	"net"
-	"syscall"
 
 	names "github.com/doze-dev/doze-names"
 
@@ -79,12 +76,4 @@ func (d *Daemon) ingressRoutes(eps []endpoints.Endpoint, plan *bindPlan) map[str
 		routes[ep.Domain] = target
 	}
 	return routes
-}
-
-func isAddrInUse(err error) bool {
-	var op *net.OpError
-	if errors.As(err, &op) {
-		return errors.Is(op.Err, syscall.EADDRINUSE)
-	}
-	return errors.Is(err, syscall.EADDRINUSE)
 }

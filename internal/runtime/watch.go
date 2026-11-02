@@ -84,13 +84,3 @@ func (r *Runtime) startWatch(name string, decl *config.InstanceDecl, drv engine.
 		}
 	})
 }
-
-func (r *Runtime) stopWatch(name string) {
-	r.mu.Lock()
-	cancel := r.watchers[name]
-	delete(r.watchers, name)
-	r.mu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
-}

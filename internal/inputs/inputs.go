@@ -134,7 +134,7 @@ func Hash(dir string, patterns []string) (string, int, error) {
 		}
 		fh := sha256.New()
 		_, cerr := io.Copy(fh, f)
-		f.Close()
+		_ = f.Close()
 		if cerr != nil {
 			continue
 		}

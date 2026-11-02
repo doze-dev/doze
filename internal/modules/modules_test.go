@@ -116,8 +116,12 @@ func tarGzPlugin(t *testing.T, name, version string) []byte {
 	if _, err := tw.Write(body); err != nil {
 		t.Fatal(err)
 	}
-	tw.Close()
-	gz.Close()
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
 	return buf.Bytes()
 }
 
@@ -328,7 +332,9 @@ func TestRejectUnsignedIndex(t *testing.T) {
 			keep = append(keep, ln)
 		}
 	}
-	os.WriteFile(idxPath, []byte(strings.Join(keep, "\n")), 0o644)
+	if err := os.WriteFile(idxPath, []byte(strings.Join(keep, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	m := newTestManager(t, base)
 	if _, err := m.Resolve(context.Background(), "valkey"); err == nil {
@@ -349,7 +355,9 @@ func TestRejectTamperedMetadata(t *testing.T) {
 	if tampered == string(body) {
 		t.Fatal("fixture: engines list not found to tamper")
 	}
-	os.WriteFile(idxPath, []byte(tampered), 0o644)
+	if err := os.WriteFile(idxPath, []byte(tampered), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	m := newTestManager(t, base)
 	m.Require("postgres", "19")

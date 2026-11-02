@@ -322,7 +322,7 @@ func Scan(dir string) (Result, error) {
 		for sc.Scan() {
 			text.WriteString(sc.Text() + "\n")
 		}
-		f.Close()
+		_ = f.Close()
 		for _, m := range reMakeRule.FindAllStringSubmatch(text.String(), -1) {
 			if taskTargets[m[1]] {
 				res.Tasks = append(res.Tasks, Task{
@@ -347,9 +347,7 @@ func Scan(dir string) (Result, error) {
 			res.Modules = append(res.Modules, *m)
 		}
 	}
-	for _, s := range sortedServices(svcs) {
-		res.Services = append(res.Services, s)
-	}
+	res.Services = append(res.Services, sortedServices(svcs)...)
 	return res, nil
 }
 

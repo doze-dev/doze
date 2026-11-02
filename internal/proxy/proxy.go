@@ -125,7 +125,7 @@ func (p *Proxy) ServeInstance(ctx context.Context, ln net.Listener, name string,
 
 // handle processes one client connection end to end.
 func (p *Proxy) handle(ctx context.Context, raw net.Conn, name string, drv engine.Driver) {
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 
 	client := raw
 	var replay []byte
@@ -183,7 +183,7 @@ func (p *Proxy) handle(ctx context.Context, raw net.Conn, name string, drv engin
 		writeError(drv, client, "08006", "doze: backend unreachable: "+err.Error())
 		return
 	}
-	defer upstream.Close()
+	defer func() { _ = upstream.Close() }()
 
 	if len(replay) > 0 {
 		if _, err := upstream.Write(replay); err != nil {
@@ -339,7 +339,7 @@ func (p *Proxy) ServeForward(ctx context.Context, ln net.Listener, name string, 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			if _, err := p.bootBackend(ctx, name, drv); err != nil {
 				p.logf("wake %q for its second port failed: %v", name, err)
 				return
@@ -349,7 +349,7 @@ func (p *Proxy) ServeForward(ctx context.Context, ln net.Listener, name string, 
 				p.logf("dial %s (a second port of %q) failed: %v", target, name, err)
 				return
 			}
-			defer upstream.Close()
+			defer func() { _ = upstream.Close() }()
 			p.router.Acquire(name)
 			defer p.router.Release(name)
 			splice(conn, upstream, upstream)

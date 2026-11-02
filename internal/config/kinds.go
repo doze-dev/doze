@@ -124,7 +124,7 @@ func checkOldForms(parser *hclparse.Parser, files []*hcl.File) error {
 				return posErr(parser, rng, fmt.Sprintf("unknown block %q", blk.Type), fmt.Sprintf("did you mean %q?", kw))
 			}
 			if len(blk.Labels) == 1 {
-				return posErr(parser, rng, fmt.Sprintf("a module block starts with `module`"),
+				return posErr(parser, rng, "a module block starts with `module`",
 					fmt.Sprintf("write: module %s %q { … }", blk.Type, label))
 			}
 			return posErr(parser, rng, fmt.Sprintf("unknown block %q", blk.Type),

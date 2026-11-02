@@ -76,20 +76,20 @@ func (c *Client) Dial(ctx context.Context) (*Conn, error) {
 
 	_ = nc.SetDeadline(time.Now().Add(5 * time.Second))
 	if err := cn.enc.Encode(Request{Hello: &Hello{Proto: ProtoVersion, Client: name}}); err != nil {
-		nc.Close()
+		_ = nc.Close()
 		return nil, err
 	}
 	var hello Frame
 	if err := dec.Decode(&hello); err != nil {
-		nc.Close()
+		_ = nc.Close()
 		return nil, fmt.Errorf("the daemon did not answer the hello (it may be an older doze — run `doze down` and try again): %w", err)
 	}
 	if hello.Error != "" {
-		nc.Close()
+		_ = nc.Close()
 		return nil, errors.New(hello.Error)
 	}
 	if hello.Hello == nil || hello.Hello.Proto != ProtoVersion {
-		nc.Close()
+		_ = nc.Close()
 		return nil, fmt.Errorf("the daemon speaks a different control protocol than this doze (%d) — run `doze down` and try again", ProtoVersion)
 	}
 	_ = nc.SetDeadline(time.Time{})
@@ -262,7 +262,7 @@ func (c *Client) DoContext(ctx context.Context, req Request) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
-	defer cn.Close()
+	defer func() { _ = cn.Close() }()
 	return cn.Do(ctx, req)
 }
 
@@ -273,7 +273,7 @@ func (c *Client) Stream(ctx context.Context, req Request, onLine func(LogFrame))
 	if err != nil {
 		return err
 	}
-	defer cn.Close()
+	defer func() { _ = cn.Close() }()
 	return cn.Stream(ctx, req, func(f Frame) error {
 		if f.Log != nil {
 			onLine(*f.Log)
@@ -289,7 +289,7 @@ func (c *Client) StreamEvents(ctx context.Context, onEvent func(EventFrame)) err
 	if err != nil {
 		return err
 	}
-	defer cn.Close()
+	defer func() { _ = cn.Close() }()
 	return cn.Stream(ctx, Request{Op: "events"}, func(f Frame) error {
 		for _, inst := range f.Instances {
 			onEvent(EventFrame{Instance: inst})

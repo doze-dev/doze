@@ -68,7 +68,9 @@ func TestScheduleRestartSupersedes(t *testing.T) {
 	if !r.pendingRestart("api") {
 		t.Fatal("expected exactly one pending restart")
 	}
-	r.Stop(context.Background(), "api")
+	if err := r.Stop(context.Background(), "api"); err != nil {
+		t.Fatal(err)
+	}
 	if r.pendingRestart("api") {
 		t.Fatal("Stop must clear the superseding restart too")
 	}

@@ -253,7 +253,10 @@ func TestHangingUpEndsSubscriptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go cn.Subscribe(context.Background(), Subscription{Topics: []string{TopicStats}}, func(Frame) error { return nil })
+	// Hanging up below is what ends this subscription, so its error is expected.
+	go func() {
+		_ = cn.Subscribe(context.Background(), Subscription{Topics: []string{TopicStats}}, func(Frame) error { return nil })
+	}()
 	<-h.subscribed
 	cn.Close()
 	deadline := time.Now().Add(2 * time.Second)

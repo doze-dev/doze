@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -277,7 +278,7 @@ func TestAProxiedAppListensOnItsPrivatePort(t *testing.T) {
 	if !(Driver{}).Proxied(inst) {
 		t.Fatal("an app with a port is proxied")
 	}
-	plan, err := Driver{}.Plan(nil, engine.Instance{Name: "api", Port: 51234, DataDir: t.TempDir(), Spec: c}, engine.Toolchain{})
+	plan, err := Driver{}.Plan(context.Background(), engine.Instance{Name: "api", Port: 51234, DataDir: t.TempDir(), Spec: c}, engine.Toolchain{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +308,7 @@ func TestADirectAppBindsItsOwnPort(t *testing.T) {
 	if (Driver{}).Proxied(inst) {
 		t.Fatal("direct = true opts out of the proxy")
 	}
-	plan, err := Driver{}.Plan(nil, inst, engine.Toolchain{})
+	plan, err := Driver{}.Plan(context.Background(), inst, engine.Toolchain{})
 	if err != nil {
 		t.Fatal(err)
 	}

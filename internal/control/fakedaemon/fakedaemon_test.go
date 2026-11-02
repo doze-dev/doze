@@ -33,8 +33,8 @@ func TestHoldKeepsTheStreamOpen(t *testing.T) {
 		done <- f.Subscribe(ctx, control.Subscription{Topics: []string{control.TopicStats}}, func(control.Frame) error { return nil })
 	}()
 	select {
-	case <-done:
-		t.Fatal("a held subscription ended by itself")
+	case err := <-done:
+		t.Fatalf("a held subscription ended by itself: %v", err)
 	case <-time.After(20 * time.Millisecond):
 	}
 	cancel()

@@ -37,7 +37,7 @@ func Modules(opts Options) (*ModuleSet, error) {
 	}
 	mgr := host.Modules()
 	if mgr == nil {
-		host.Close()
+		_ = host.Close()
 		return nil, fmt.Errorf("doze: modules are disabled in this environment")
 	}
 	seen := map[string]bool{}

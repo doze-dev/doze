@@ -518,7 +518,7 @@ func tailSegment(instance string, sg segment, n int) ([]Line, int64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
 	if err != nil {
 		return nil, 0, err
@@ -580,7 +580,7 @@ func readSegment(instance string, sg segment, offset int64, max int) ([]Line, in
 	if err != nil {
 		return nil, offset, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return nil, offset, err
 	}

@@ -188,11 +188,6 @@ func (m *Model) streamAll(v control.InstanceView, min int, onlyRun int) []string
 	return out
 }
 
-// logLines is Home's bottom box: everything, newest last.
-func (m *Model) logLines(v control.InstanceView, _, h int) []string {
-	return m.stream(v, h, lvDebug, 0)
-}
-
 // --- the frame ---
 
 const (

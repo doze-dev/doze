@@ -61,7 +61,7 @@ func (w *frameWriter) send(f Frame) error {
 }
 
 func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	dec := json.NewDecoder(bufio.NewReader(conn))
 	w := &frameWriter{enc: json.NewEncoder(conn)}
 

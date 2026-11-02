@@ -121,9 +121,16 @@ func TestTornLastLineIsSkipped(t *testing.T) {
 	j := open(t, path, 0)
 	j.Append(Event{Kind: Wake, Instance: "db"})
 	j.Close()
-	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
-	f.WriteString(`{"seq":2,"kind":"rea`)
-	f.Close()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(`{"seq":2,"kind":"rea`); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	j2 := open(t, path, 0)
 	if e := j2.Append(Event{Kind: Ready, Instance: "db"}); e.Seq != 2 {

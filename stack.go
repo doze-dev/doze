@@ -415,7 +415,7 @@ func hclStringMap(m map[string]string) string {
 func hclIdent(k string) string {
 	bare := k != ""
 	for _, r := range k {
-		if !(r == '_' || r == '-' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+		if r != '_' && r != '-' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
 			bare = false
 			break
 		}

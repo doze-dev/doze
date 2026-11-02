@@ -117,7 +117,7 @@ func probeHTTP(ctx context.Context, target string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("GET %s returned %d", target, resp.StatusCode)
 	}

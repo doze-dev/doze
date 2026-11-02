@@ -143,7 +143,7 @@ func plot(vs []float64, cells, rows int, lo, hi float64, bright, dim lipgloss.St
 // chart under its line. A plain style has no colour to dim.
 func (s styles) dimmed(st lipgloss.Style) lipgloss.Style {
 	fg := st.GetForeground()
-	if _, none := fg.(lipgloss.NoColor); none || fg == nil {
+	if _, none := fg.(lipgloss.NoColor); none {
 		return st
 	}
 	hex := func(c color.Color) string {

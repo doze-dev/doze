@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -142,7 +143,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.logf("journal: %v (nothing will be recorded)", err)
 	} else {
 		d.rt.SetJournal(j)
-		defer j.Close()
+		defer func() {
+			if err := j.Close(); err != nil {
+				d.logf("journal: closing: %v (the last events may not be on disk)", err)
+			}
+		}()
 	}
 	// Reclaim any backends orphaned by a previous crash before we rebind their
 	// sockets (macOS has no PDEATHSIG to do this for us).
@@ -298,7 +303,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o644); err != nil {
 		return fmt.Errorf("writing pidfile: %w", err)
 	}
-	defer os.Remove(pidPath)
+	defer func() {
+		if err := os.Remove(pidPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			d.logf("removing pidfile: %v", err)
+		}
+	}()
 
 	go d.rt.RunReaper(ctx)
 	go d.rt.RunHealthProber(ctx)

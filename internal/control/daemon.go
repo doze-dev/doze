@@ -82,7 +82,7 @@ func (d socketDaemon) Subscribe(ctx context.Context, sub Subscription, on func(F
 	if err != nil {
 		return err
 	}
-	defer cn.Close()
+	defer func() { _ = cn.Close() }()
 	return cn.Subscribe(ctx, sub, on)
 }
 

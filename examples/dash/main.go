@@ -33,7 +33,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sess.Close()
+	defer func() {
+		if err := sess.Close(); err != nil {
+			log.Print(err)
+		}
+	}()
 
 	// Bring the stack up in the background; watch it come alive via Events.
 	go func() {
@@ -88,6 +92,6 @@ func render(ctx context.Context, sess *doze.Session) {
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", n.Name, n.Engine, state, pid, ram, ep, deps)
 	}
-	w.Flush()
+	_ = w.Flush() // stdout, like the Fprintf calls feeding it
 	fmt.Println("\nCtrl-C to detach (services keep running)")
 }

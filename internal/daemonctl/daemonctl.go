@@ -65,7 +65,9 @@ func Start(cfg *config.Config, self, absConfigPath string, vars map[string]strin
 	if err != nil {
 		return err
 	}
-	defer logFile.Close()
+	// The child inherits its own descriptor; this process never writes through
+	// ours, so closing it has nothing to report.
+	defer func() { _ = logFile.Close() }()
 
 	c := exec.Command(self, daemonArgs(absConfigPath, vars)...)
 	c.Stdout = logFile

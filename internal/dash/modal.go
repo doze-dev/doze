@@ -423,15 +423,6 @@ func overlay(base, modal []string, x, y int) []string {
 	return out
 }
 
-// dim draws a page as the board dims it behind a modal: colour gone.
-func (m *Model) dim(lines []string) []string {
-	out := make([]string, len(lines))
-	for i, l := range lines {
-		out[i] = m.st.d.Render(ansi.Strip(l))
-	}
-	return out
-}
-
 // withModal draws the open modal over the page lines.
 func (m *Model) withModal(base []string, w, h int) []string {
 	if m.modal == nil {
@@ -594,10 +585,10 @@ func (m *Model) buttons(names []string, cur int, off int) string {
 	s := m.st
 	var parts []string
 	for i, n := range names {
-		switch {
-		case i == off:
+		switch i {
+		case off:
 			parts = append(parts, s.pillQ.Foreground(s.d.GetForeground()).Render(n))
-		case i == cur:
+		case cur:
 			parts = append(parts, s.pill.Render(n))
 		default:
 			parts = append(parts, s.pillQ.Render(n))

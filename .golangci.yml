@@ -1,0 +1,35 @@
+# Lint gate for doze. Starts with the checks that find real bugs (unchecked
+# errors, staticcheck, dead code, ineffective assignments); style rules are
+# added only once the tree is clean under them.
+version: "2"
+run:
+  timeout: 5m
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  settings:
+    errcheck:
+      exclude-functions:
+        # Terminal/report output: a failed write to stdout, stderr, a hash or
+        # a tabwriter has no recovery path at the call site.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Print
+        - fmt.Printf
+        - fmt.Println
+  exclusions:
+    rules:
+      # Test cleanup: removing temp dirs and closing handles carries no
+      # assertion, and test output writes have nothing to recover.
+      - path: _test\.go
+        linters: [errcheck]
+        text: "Error return value of `(os\\.RemoveAll|[\\w.]+\\.Close|fmt\\.Fprint\\w*)` is not checked"
+formatters:
+  enable:
+    - gofmt

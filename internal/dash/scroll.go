@@ -10,9 +10,6 @@ import (
 // scrolled back; then it holds still, whatever arrives, and says how many newer
 // lines there are. G (or scrolling to the end) follows again.
 
-// scrollable says whether the screen is one of lines that scroll.
-func (m *Model) scrollable() bool { return m.selectable() && !m.selecting }
-
 // window is the page of lines to draw out of all of them, h tall, and how many
 // newer lines there are below it (0 when following).
 func (m *Model) window(all []string, h int) (lines []string, newer int) {

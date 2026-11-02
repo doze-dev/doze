@@ -55,7 +55,7 @@ func EngineSchema(opts Options, engineType string) (Schema, error) {
 	if err != nil {
 		return Schema{}, err
 	}
-	defer host.Close()
+	defer func() { _ = host.Close() }()
 	path, env, ok := host.ResolvePlugin(engineType)
 	if !ok {
 		return Schema{}, fmt.Errorf("doze: unknown engine %q (no module provides it)", engineType)

@@ -1,7 +1,6 @@
 package doze_test
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -84,9 +83,5 @@ func TestMissingConfig(t *testing.T) {
 	_, err = doze.Load(doze.Options{ConfigPath: filepath.Join(base, "does-not-exist.hcl")})
 	if err == nil {
 		t.Fatal("expected an error for a missing config")
-	}
-	// Not a typed sentinel necessarily, but must be a real error.
-	if errors.Is(err, doze.ErrNotFound) {
-		// fine if it maps, but not required
 	}
 }

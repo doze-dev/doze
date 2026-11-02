@@ -8,8 +8,10 @@ import (
 
 // luminance and ratio are WCAG 2.1's.
 func luminance(hex string) float64 {
-	var c [3]int
-	fmt.Sscanf(hex, "#%02x%02x%02x", &c[0], &c[1], &c[2])
+	c, ok := rgb(hex)
+	if !ok {
+		panic("not a #rrggbb colour: " + hex)
+	}
 	f := func(v int) float64 {
 		x := float64(v) / 255
 		if x <= 0.03928 {
@@ -76,9 +78,11 @@ func readable(t *testing.T, p palette) {
 // not the failure colour, and a warning is not the accent.
 func TestThemeColoursStayApart(t *testing.T) {
 	dist := func(a, b string) float64 {
-		var x, y [3]int
-		fmt.Sscanf(a, "#%02x%02x%02x", &x[0], &x[1], &x[2])
-		fmt.Sscanf(b, "#%02x%02x%02x", &y[0], &y[1], &y[2])
+		x, okx := rgb(a)
+		y, oky := rgb(b)
+		if !okx || !oky {
+			t.Fatalf("not #rrggbb colours: %q, %q", a, b)
+		}
 		d := 0.0
 		for i := range x {
 			d += math.Abs(float64(x[i] - y[i]))

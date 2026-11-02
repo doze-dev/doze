@@ -2,6 +2,7 @@ package doze
 
 import (
 	"context"
+	"errors"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemonctl"
@@ -243,12 +244,13 @@ func (s *Session) Events(ctx context.Context, emit func(Instance)) error {
 // mode it also stops the in-process daemon; in Attach mode the background daemon
 // keeps running (use Shutdown to stop it).
 func (s *Session) Close() error {
+	var runErr error
 	if s.served != nil {
 		s.serveCancel()
-		<-s.serveDone
+		runErr = <-s.serveDone
 		s.served = nil
 	}
-	return s.host.Close()
+	return errors.Join(runErr, s.host.Close())
 }
 
 // Shutdown stops the daemon and then closes the session. In Serve mode it stops

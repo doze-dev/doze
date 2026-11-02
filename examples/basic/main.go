@@ -30,7 +30,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sess.Close()
+	defer func() {
+		if err := sess.Close(); err != nil {
+			log.Print(err)
+		}
+	}()
 
 	fmt.Printf("stack %q: %v\n", sess.StackName(), sess.Services())
 

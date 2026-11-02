@@ -84,7 +84,7 @@ func realMain() int {
 		return 1
 	}
 	activeHost = host
-	defer host.Close()
+	defer func() { _ = host.Close() }()
 
 	if err := rootCmd().Execute(); err != nil {
 		// exitCodeError is also the silent-error sentinel: commands that have

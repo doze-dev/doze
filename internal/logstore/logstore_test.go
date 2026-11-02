@@ -227,7 +227,7 @@ func TestFollowBeforeTheFirstRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	got := make(chan string, 1)
-	go s.Follow(ctx, "api", Cursor{}, func(l Line) error { got <- l.Text; return nil })
+	go func() { _ = s.Follow(ctx, "api", Cursor{}, func(l Line) error { got <- l.Text; return nil }) }() // ends when the test cancels ctx
 
 	time.Sleep(20 * time.Millisecond)
 	begin(t, s, "api").Line(Stdout, "hello")

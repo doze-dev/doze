@@ -69,11 +69,10 @@ type Model struct {
 	page1        int                // how many lines the logs showed last, for paging
 	search       string             // /: on a logs tab, only the lines that hold it
 	all          []control.LogFrame // the stack's lines, for the logs page
-	allCancel    context.CancelFunc
-	paused       bool     // the logs page holds still
-	timeRel      bool     // t: log times as how long ago, not the clock
-	shown        []string // the lines of the logs the last frame drew
-	selecting    bool     // v: some of them are selected, to copy
+	paused       bool               // the logs page holds still
+	timeRel      bool               // t: log times as how long ago, not the clock
+	shown        []string           // the lines of the logs the last frame drew
+	selecting    bool               // v: some of them are selected, to copy
 	dragging     bool
 	selA, selB   int
 	frozen       []string // what was shown when the selection began
@@ -137,7 +136,6 @@ type Model struct {
 	statAt    map[string][]time.Time        // when each instance's readings were taken, when the daemon said
 	chartInst string                        // whose readings the charts being drawn are, to find their times
 	cache     map[string][]control.LogFrame // every instance's kept lines, by name
-	cancel    context.CancelFunc
 }
 
 // New builds the dash around a daemon. Init and Run start it listening.

@@ -222,8 +222,6 @@ func noteCell(v control.InstanceView, idle time.Duration) string {
 	return ui.Muted(text)
 }
 
-func firstLine(s string) string { return display.FirstLine(s) }
-
 // --- cell renderers ---
 
 // stateDot renders the state glyph in the shared CLI/TUI vocabulary:

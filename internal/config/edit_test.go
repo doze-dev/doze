@@ -53,8 +53,9 @@ func TestAddingABlockKeepsWhatIsThere(t *testing.T) {
 func TestAnEmptyFileTakesAStackNameFirst(t *testing.T) {
 	e, _ := config.OpenEdit(nil)
 	e.SetStack("demo")
-	if err := e.AppendBlock(`app "api" { run = "x" }`); err == nil {
-		// single-line blocks hold one argument; run alone is fine
+	// Single-line blocks hold one argument; run alone is fine.
+	if err := e.AppendBlock(`app "api" { run = "x" }`); err != nil {
+		t.Fatal(err)
 	}
 	out := string(e.Bytes())
 	if !strings.HasPrefix(out, "stack = \"demo\"\n") {

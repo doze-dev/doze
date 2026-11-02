@@ -75,34 +75,38 @@ func Attach(ctx context.Context, opts Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	// On the error paths below the host is released with `_ =`: Host.Close only
+	// drops a ref-count (it cannot fail), and the original error is the one
+	// worth returning.
+	//
 	// A config-less (Stack-built) Attach needs the config on disk, because the
 	// background daemon is a separate process that reads --config. Materialize
 	// the rendered HCL to the work dir (also handy as the equivalent file).
 	if s.stack != nil {
 		if err := s.materialize(); err != nil {
-			s.host.Close()
+			_ = s.host.Close()
 			return nil, err
 		}
 	}
 	if !daemonctl.Running(s.cfg) {
 		if opts.NoSpawn {
-			s.host.Close()
+			_ = s.host.Close()
 			return nil, fmt.Errorf("doze daemon is not running for %s (NoSpawn set)", s.cfg.Path())
 		}
 		bin := opts.DozeBinary
 		if bin == "" {
 			if bin, err = os.Executable(); err != nil {
-				s.host.Close()
+				_ = s.host.Close()
 				return nil, err
 			}
 		}
 		abs, err := filepath.Abs(s.cfg.Path())
 		if err != nil {
-			s.host.Close()
+			_ = s.host.Close()
 			return nil, err
 		}
 		if err := daemonctl.Start(s.cfg, bin, abs, opts.Vars); err != nil {
-			s.host.Close()
+			_ = s.host.Close()
 			return nil, err
 		}
 	}
@@ -128,12 +132,12 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 		return nil, err
 	}
 	if daemonctl.Running(s.cfg) {
-		s.host.Close()
+		_ = s.host.Close()
 		return nil, fmt.Errorf("a doze daemon is already running for %s — use Attach", s.cfg.Path())
 	}
 	d, err := daemon.New(s.cfg, s.logf, s.host.ConfigHooks())
 	if err != nil {
-		s.host.Close()
+		_ = s.host.Close()
 		return nil, err
 	}
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -156,15 +160,17 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 		case <-d.Ready():
 			return s, nil
 		case runErr := <-done:
-			s.host.Close()
+			_ = s.host.Close()
 			if runErr != nil {
 				return nil, fmt.Errorf("daemon exited during startup: %w", runErr)
 			}
 			return nil, fmt.Errorf("daemon exited during startup")
 		case <-readyCtx.Done():
 			cancel()
-			<-done
-			s.host.Close()
+			// Wait for Run to unwind; the timeout is the error to report, and
+			// whatever Run returns after our cancel adds nothing to it.
+			_ = <-done //nolint:staticcheck // S1005: errcheck needs the discard spelled out
+			_ = s.host.Close()
 			return nil, fmt.Errorf("daemon did not come up: %w", readyCtx.Err())
 		}
 	}
@@ -214,12 +220,12 @@ func loadHostAndConfig(opts Options) (cfg *config.Config, host *hostboot.Host, w
 	} else {
 		cfg, err = config.LoadWithVars(configPath, opts.Vars, host.ConfigHooks())
 		if err != nil && os.IsNotExist(err) {
-			host.Close()
+			_ = host.Close()
 			return nil, nil, "", fmt.Errorf("no doze config found (looked for %q) — set Options.ConfigPath or Options.Stack", firstNonEmpty(configPath, "doze.hcl"))
 		}
 	}
 	if err != nil {
-		host.Close()
+		_ = host.Close()
 		return nil, nil, "", err
 	}
 	return cfg, host, workDir, nil

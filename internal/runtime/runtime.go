@@ -825,11 +825,6 @@ func (r *Runtime) convergedMarkerPath(name string) string {
 	return filepath.Join(r.cfg.ClusterDir(name), ".doze-converged")
 }
 
-func (r *Runtime) isConverged(name string) bool {
-	_, ok := r.convergedFingerprint(name)
-	return ok
-}
-
 // convergedFingerprint returns the spec fingerprint persisted at the last
 // successful converge and whether the marker exists at all. A pre-existing empty
 // marker (written before fingerprints were stored) returns ("", true) — treated as

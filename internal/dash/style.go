@@ -66,14 +66,20 @@ func fadedStyles(plain bool, p palette) styles {
 
 // mix is fg at alpha over bg, as hex.
 func mix(fg, bg string, alpha float64) string {
-	var f, b [3]int
-	fmt.Sscanf(fg, "#%02x%02x%02x", &f[0], &f[1], &f[2])
-	fmt.Sscanf(bg, "#%02x%02x%02x", &b[0], &b[1], &b[2])
+	f, _ := rgb(fg)
+	b, _ := rgb(bg)
 	var o [3]int
 	for i := range o {
 		o[i] = int(float64(f[i])*alpha + float64(b[i])*(1-alpha))
 	}
 	return fmt.Sprintf("#%02x%02x%02x", o[0], o[1], o[2])
+}
+
+// rgb splits a "#rrggbb" colour into its channels. The palettes are constants,
+// so ok is false only for a typo, which the contrast tests fail on.
+func rgb(hex string) (c [3]int, ok bool) {
+	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &c[0], &c[1], &c[2])
+	return c, err == nil && n == 3
 }
 
 func build(plain bool, p palette, tint func(string) string) styles {
@@ -198,9 +204,6 @@ func box(border lipgloss.Style, left, rt string, lines []string, w, h int) []str
 // bgSGR is the escape that sets the background of st, or "" when it has none.
 func bgSGR(st lipgloss.Style) string {
 	c := st.GetBackground()
-	if c == nil {
-		return ""
-	}
 	if _, none := c.(lipgloss.NoColor); none {
 		return ""
 	}
@@ -279,8 +282,8 @@ func (s styles) on(st lipgloss.Style) lipgloss.Style {
 // lift swaps the dim colour for the lighter one that reads on a selection: dim
 // was tuned against the page, and on the selection it is 3.2.
 func (s styles) lift(st lipgloss.Style) lipgloss.Style {
-	if fg, ok := st.GetForeground().(color.Color); ok && s.dimHex != "" {
-		r1, g1, b1, _ := fg.RGBA()
+	if s.dimHex != "" {
+		r1, g1, b1, _ := st.GetForeground().RGBA()
 		r2, g2, b2, _ := lipgloss.Color(s.dimHex).RGBA()
 		if r1 == r2 && g1 == g2 && b1 == b2 {
 			return st.Foreground(lipgloss.Color(s.dimOnHex))

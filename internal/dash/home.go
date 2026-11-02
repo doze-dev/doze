@@ -212,7 +212,7 @@ func short(run string) string {
 // firstUnmet is the first thing v needs that is not up yet.
 func (m *Model) firstUnmet(v control.InstanceView) string {
 	for _, n := range v.Needs {
-		if o, ok := m.find(n); ok && !awake(o) && !(o.Task != nil && o.Task.Result == "done") {
+		if o, ok := m.find(n); ok && !awake(o) && (o.Task == nil || o.Task.Result != "done") {
 			return n
 		}
 	}
@@ -253,54 +253,6 @@ func (m *Model) home(w, h int) []string {
 		return m.homeNarrow(w, h)
 	}
 	return m.homeTable(w, h)
-}
-
-func (m *Model) header(w int) string {
-	s := m.st
-	var awakeN, dozing, asleep, need int
-	var ram int64
-	for _, r := range rows(m.snap) {
-		switch {
-		case troubled(r.v):
-			need++
-		case r.v.State == "active":
-			awakeN++
-		case r.v.State == "idle":
-			dozing++
-		case r.v.Kind != "task":
-			asleep++
-		}
-		ram += r.v.RAM
-	}
-	l := s.pill.Render("doze")
-	if m.snap.Stack != "" {
-		l += " " + s.b.Render(m.snap.Stack)
-	}
-	if m.snap.Dir != "" {
-		l += " " + s.d.Render(tilde(m.snap.Dir))
-	}
-	var parts []string
-	if need > 0 {
-		parts = append(parts, s.pillR.Render(fmt.Sprintf("%d needs you", need)))
-	}
-	parts = append(parts, s.g.Render("●")+fmt.Sprintf(" %d awake", awakeN))
-	if dozing > 0 {
-		parts = append(parts, s.y.Render("◐")+fmt.Sprintf(" %d dozing", dozing))
-	}
-	parts = append(parts, s.d.Render(fmt.Sprintf("· %d asleep", asleep)))
-	parts = append(parts, s.b.Render("≈ "+mb(ram))+" "+s.d.Render("resident"))
-	r := strings.Join(parts, "  ")
-	if width(l)+width(r)+2 > w && m.snap.Dir != "" {
-		l = s.pill.Render("doze")
-		if m.snap.Stack != "" {
-			l += " " + s.b.Render(m.snap.Stack)
-		}
-	}
-	gap := w - width(l) - width(r)
-	if gap < 1 {
-		gap = 1
-	}
-	return l + strings.Repeat(" ", gap) + r
 }
 
 // stack is the left box: groups of rows in the board's five columns.
