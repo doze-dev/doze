@@ -13,3 +13,4 @@
 /state.json
 /telemetry.json
 /.look/
+.DS_Store

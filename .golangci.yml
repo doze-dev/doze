@@ -4,6 +4,10 @@
 version: "2"
 run:
   timeout: 5m
+  # The integration and bench suites are code too.
+  build-tags:
+    - integration
+    - bench
 linters:
   default: none
   enable:

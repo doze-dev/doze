@@ -57,7 +57,7 @@ tidy-check: ## Fail if go.mod or go.sum is not tidy
 	go mod tidy -diff
 
 .PHONY: check
-check: fmt-check tidy-check vet lint race ## Run what CI runs on every PR (except the bench)
+check: fmt-check tidy-check vet lint vuln race ## The PR checks that run locally (CI adds the coverage floor, the tagged-deps check and the bench)
 
 .PHONY: clean
 clean: ## Remove build artifacts

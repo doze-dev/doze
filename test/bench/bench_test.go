@@ -93,6 +93,10 @@ func TestFixtureStack(t *testing.T) {
 	for _, p := range fixturePorts {
 		ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(p))
 		if err != nil {
+			// In CI a skip would pass the budget gate having measured nothing.
+			if os.Getenv("CI") != "" {
+				t.Fatalf("port %d is in use; the fixture stack cannot start, so nothing would be measured", p)
+			}
 			t.Skipf("port %d is in use; the fixture stack cannot start here", p)
 		}
 		ln.Close()

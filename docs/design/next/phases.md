@@ -130,8 +130,8 @@ Two things the baseline says:
 - Every wake had a one-second floor: the readiness check probed once, missed,
   and slept a full interval. `internal/health` now backs off from 10 ms.
 
-Linux has no budget yet: the nightly bench job records it, and the first
-result sets it.
+Linux has a budget since 2026-11-02, calibrated from fourteen runs, and the
+bench now runs on every PR (bench.yml) rather than nightly.
 
 Status, 2026-10-10: **done**, all nine units. Measured against the exit:
 

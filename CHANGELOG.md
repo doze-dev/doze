@@ -13,21 +13,29 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Two data races: live add or remove of an instance against the stats sampler
   and handlers, and an in-process `Serve` returning before the daemon had
   finished starting.
-- A daemon started automatically now gets the caller's `--var` overrides.
-- `doze sync` without a terminal asks for `--auto-approve` instead of
+- A daemon started automatically now gets the caller's `--var` overrides,
+  through its environment (`DOZE_VAR_<name>`), not its command line, where
+  `ps` would show them.
+- `doze sync` with no terminal on stdin asks for `--auto-approve` instead of
   printing "sync cancelled" and exiting 0.
 - `doze status --json` reports `crashing`, `failed` and `done` instead of
-  "asleep", and prints nothing to stdout when the config is broken.
+  "asleep". With a broken config it still prints JSON: the blocks it could
+  read, any live state, and an `error` field, and exits 1.
 - The getting-started example is a config doze accepts.
 - Reachable vulnerabilities in golang.org/x/net, grpc, golang.org/x/text and
   the standard library (Go 1.27.3).
 
 ### Changed
 
-- CI on every PR: golangci-lint, a tidy and tagged-dependency check,
-  govulncheck, and the memory and wake budgets (now enforced on Linux too).
+- `Session.Close` (the Go API) returns the in-process daemon's `Run` error
+  as well as the host's.
+- CI on every PR: golangci-lint (including the integration and bench suites),
+  a tidy check, a check that doze-* dependencies are tags, a build from the
+  public module proxy, govulncheck, a coverage floor, and the memory and wake
+  budgets, which moved from the nightly run to every PR and now hold on Linux
+  too (calibrated from fourteen runs).
 
-## Before the redesign (0.1.x)
+## Unreleased before the redesign
 
 doze is a lazy, no-Docker local runtime for backing services — `proto` for
 databases and AWS services. A generic, engine-agnostic core drives per-engine

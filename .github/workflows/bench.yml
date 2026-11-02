@@ -32,21 +32,3 @@ jobs:
           name: bench-${{ matrix.os }}
           path: ${{ runner.temp }}/bench-${{ matrix.os }}.json
           if-no-files-found: ignore
-
-  # A budget only moves on purpose: a PR that changes budget.json needs the
-  # "budget" label, and its description should say why.
-  budget-change:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: A changed budget is labelled
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'budget') }}
-        run: |
-          if git diff --name-only "$BASE" HEAD | grep -qx 'test/bench/budget.json' && [ "$LABELLED" != true ]; then
-            echo "::error::test/bench/budget.json changed: add the 'budget' label and say why in the PR description"
-            exit 1
-          fi

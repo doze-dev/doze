@@ -129,8 +129,12 @@ func lintFence(f fence) error {
 	return fmt.Errorf("gave up standing in undeclared references")
 }
 
-// moduleHeader opens a module block; needsVersion reads the block that follows.
-var moduleHeader = regexp.MustCompile(`(?m)^\s*module\s+(\w+)\s+"([^"]+)"\s*\{`)
+// moduleHeader opens a module block; needsVersion reads the block that follows
+// for a versionLine.
+var (
+	versionLine  = regexp.MustCompile(`(?m)^\s*version\s*=`)
+	moduleHeader = regexp.MustCompile(`(?m)^\s*module\s+(\w+)\s+"([^"]+)"\s*\{`)
+)
 
 // needsVersion checks every versioned module in an example has a version. The
 // offline pass stands one in when it is missing, so the parsed config cannot
@@ -154,7 +158,7 @@ func needsVersion(src string) error {
 				break
 			}
 		}
-		if !regexp.MustCompile(`(?m)^\s*version\s*=`).MatchString(src[m[1]:end]) {
+		if !versionLine.MatchString(src[m[1]:end]) {
 			return fmt.Errorf("module %s %q: a %s module needs a version", typ, name, typ)
 		}
 	}

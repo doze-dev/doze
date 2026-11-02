@@ -41,7 +41,11 @@ func newProject(t *testing.T, config string) *project {
 	if err := os.WriteFile(filepath.Join(p.dir, "doze.hcl"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { p.run("down") })
+	t.Cleanup(func() {
+		if out, err := p.run("down"); err != nil {
+			t.Logf("doze down: %v\n%s", err, out)
+		}
+	})
 	return p
 }
 

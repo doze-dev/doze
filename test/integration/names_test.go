@@ -87,7 +87,9 @@ func newZone(t *testing.T, config string) *zone {
 	}
 	z.env = append(z.env, "NO_COLOR=1", "DOZE_MODULES=off")
 	t.Cleanup(func() {
-		z.run("down")
+		if out, err := z.run("down"); err != nil {
+			t.Logf("doze down: %v\n%s", err, out)
+		}
 		_ = os.RemoveAll(root)
 	})
 	return z
@@ -212,8 +214,10 @@ func startStandalone(t *testing.T, z *zone, owner, service, stack string) *stand
 		t.Fatal(err)
 	}
 	s := &standalone{reg: names.Open(z.home, owner)}
-	s.http = &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "this is "+owner) })}
-	go s.http.Serve(ln)
+	s.http = &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "this is "+owner) // a client that hangs up early is not this test's concern
+	})}
+	go func() { _ = s.http.Serve(ln) }() // returns when the test closes the server
 	if s.lease, err = s.reg.Claim(names.Qualified(service, stack)); err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +358,11 @@ func TestNamesThroughTheSystemResolver(t *testing.T) {
 			out, err := cmd.CombinedOutput()
 			return string(out), err
 		}
-		t.Cleanup(func() { run("down") })
+		t.Cleanup(func() {
+			if out, err := run("down"); err != nil {
+				t.Logf("doze down in %s: %v\n%s", dir, err, out)
+			}
+		})
 		if out, err := run("up"); err != nil {
 			t.Fatalf("doze up in %s: %v\n%s", dir, err, out)
 		}

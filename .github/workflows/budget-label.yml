@@ -1,0 +1,33 @@
+# A budget only moves on purpose: a PR that changes test/bench/budget.json needs
+# the "budget" label and a "budget:" line in its description saying why. It
+# runs on label changes too, so adding the label re-checks without a new push.
+name: budget-label
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  budget-change:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: A changed budget is labelled and explained
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'budget') }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git diff --name-only "$BASE" HEAD | grep -qx 'test/bench/budget.json' || exit 0
+          if [ "$LABELLED" != true ]; then
+            echo "::error::test/bench/budget.json changed: add the 'budget' label"
+            exit 1
+          fi
+          if ! printf '%s\n' "$BODY" | grep -qi '^budget:'; then
+            echo "::error::say why the budget moves in a 'budget: …' line in the PR description"
+            exit 1
+          fi
