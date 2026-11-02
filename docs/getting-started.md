@@ -28,19 +28,23 @@ doze init
 
 `doze init` scaffolds a `doze.hcl` in the current directory (interactively when
 run in a terminal; a starter file otherwise). A minimal one looks like this —
-each block is one instance, and the `port` is the stable address your app
-connects to:
+each block is one instance, the `version` picks the engine, and the `port` is
+the stable address your app connects to. A Postgres database is named after its
+block (`app` here); a `role` with a password is how your app logs in:
 
 ```hcl
 module postgres "app" {
-  port     = 5432
-  database = "app"
-  user     = "app"
-  password = "app"
+  version = 18
+  port    = 5432
+
+  role "app" {
+    password = "app"
+  }
 }
 
 module valkey "cache" {
-  port = 6379
+  version = 9
+  port    = 6379
 }
 ```
 

@@ -72,6 +72,9 @@ func fencesIn(t *testing.T, path string) []fence {
 	return out
 }
 
+// versionless modules take no version: one block is the whole engine.
+var versionless = map[string]bool{"aws": true, "httpd": true}
+
 // published are the modules in the doze registry. The offline pass cannot know
 // them, so the docs check does: an example for a module that is not there
 // would never start.
@@ -87,6 +90,9 @@ var published = map[string]bool{
 // example references but does not show.
 func lintFence(f fence) error {
 	src := f.src
+	if err := needsVersion(src); err != nil {
+		return err
+	}
 	for range 20 {
 		cfg, err := config.ParseShape([]byte(src), filepath.Join(filepath.Dir(f.file), "doze.hcl"))
 		if err == nil {
@@ -94,6 +100,7 @@ func lintFence(f fence) error {
 				if d.Kind == config.KindModule && d.Type != "standin" && !published[d.Type] {
 					return fmt.Errorf("%s: the registry has no %q module", d.Title(), d.Type)
 				}
+
 			}
 			return nil
 		}
@@ -120,6 +127,38 @@ func lintFence(f fence) error {
 		return err
 	}
 	return fmt.Errorf("gave up standing in undeclared references")
+}
+
+// moduleHeader opens a module block; needsVersion reads the block that follows.
+var moduleHeader = regexp.MustCompile(`(?m)^\s*module\s+(\w+)\s+"([^"]+)"\s*\{`)
+
+// needsVersion checks every versioned module in an example has a version. The
+// offline pass stands one in when it is missing, so the parsed config cannot
+// tell; the text can.
+func needsVersion(src string) error {
+	for _, m := range moduleHeader.FindAllStringSubmatchIndex(src, -1) {
+		typ, name := src[m[2]:m[3]], src[m[4]:m[5]]
+		if !published[typ] || versionless[typ] {
+			continue
+		}
+		depth, end := 1, len(src)
+		for i := m[1]; i < len(src); i++ {
+			switch src[i] {
+			case '{':
+				depth++
+			case '}':
+				depth--
+			}
+			if depth == 0 {
+				end = i
+				break
+			}
+		}
+		if !regexp.MustCompile(`(?m)^\s*version\s*=`).MatchString(src[m[1]:end]) {
+			return fmt.Errorf("module %s %q: a %s module needs a version", typ, name, typ)
+		}
+	}
+	return nil
 }
 
 func TestDocExamplesParse(t *testing.T) {
