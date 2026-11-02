@@ -101,7 +101,7 @@ func Attach(ctx context.Context, opts Options) (*Session, error) {
 			s.host.Close()
 			return nil, err
 		}
-		if err := daemonctl.Start(s.cfg, bin, abs); err != nil {
+		if err := daemonctl.Start(s.cfg, bin, abs, opts.Vars); err != nil {
 			s.host.Close()
 			return nil, err
 		}

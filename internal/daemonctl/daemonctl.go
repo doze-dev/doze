@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -51,9 +52,11 @@ func Alive(pid int) bool {
 // Start launches the daemon (the hidden `doze __daemon` self-exec) as a detached
 // background process whose output is redirected to the daemon log file, then
 // waits for its control socket to accept. self is the doze executable path and
-// absConfigPath the resolved --config path. On a startup failure it returns an
-// error whose text includes the tail of the daemon log.
-func Start(cfg *config.Config, self, absConfigPath string) error {
+// absConfigPath the resolved --config path. vars are the --var overrides the
+// caller loaded the config with; the daemon is given the same ones, or it would
+// run a different stack from the one the caller described. On a startup failure
+// it returns an error whose text includes the tail of the daemon log.
+func Start(cfg *config.Config, self, absConfigPath string, vars map[string]string) error {
 	if err := os.MkdirAll(cfg.RunDir(), 0o700); err != nil {
 		return err
 	}
@@ -64,7 +67,7 @@ func Start(cfg *config.Config, self, absConfigPath string) error {
 	}
 	defer logFile.Close()
 
-	c := exec.Command(self, "__daemon", "--config", absConfigPath)
+	c := exec.Command(self, daemonArgs(absConfigPath, vars)...)
 	c.Stdout = logFile
 	c.Stderr = logFile
 	c.Stdin = nil
@@ -89,6 +92,21 @@ func Start(cfg *config.Config, self, absConfigPath string) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return fmt.Errorf("daemon did not come up within 10s; recent log:\n%s\n(full log: %s)", TailLog(cfg, 15), logPath)
+}
+
+// daemonArgs is the daemon's command line: the config, then each --var in
+// name order so the same overrides always give the same command.
+func daemonArgs(absConfigPath string, vars map[string]string) []string {
+	args := []string{"__daemon", "--config", absConfigPath}
+	names := make([]string, 0, len(vars))
+	for n := range vars {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		args = append(args, "--var", n+"="+vars[n])
+	}
+	return args
 }
 
 // Stop signals the daemon to shut down (which reaps every backend) and waits up

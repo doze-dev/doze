@@ -75,7 +75,11 @@ func startDaemon(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	return daemonctl.Start(cfg, self, absConfig)
+	vars, err := parseVarFlags(varFlags)
+	if err != nil {
+		return err
+	}
+	return daemonctl.Start(cfg, self, absConfig, vars)
 }
 
 func daemonRunning(cfg *config.Config) bool { return daemonctl.Running(cfg) }
