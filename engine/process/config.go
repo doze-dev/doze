@@ -41,8 +41,9 @@ type Config struct {
 	Restart      Restart
 
 	// Sleep is the app's own idle time (see IdleAfter) and Direct opts out of
-	// the proxy. The rest are parsed and validated, not acted on yet: the dash's
-	// front tab, console link and log volume, and file watching.
+	// the proxy. Console is fronted as a second port, and Watch restarts the app
+	// when its files change (runtime/watch.go). Front and QuietLogs are parsed
+	// and validated but not acted on yet.
 	Sleep     runspec.Sleep
 	Front     string
 	Console   string
