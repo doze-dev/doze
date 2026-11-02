@@ -176,10 +176,10 @@ func (r *Runtime) runTask(ctx context.Context, name string, decl *config.Instanc
 	case werr = <-waited:
 	case <-ctx.Done():
 		_ = p.Stop(context.Background())
-		// Reap the process; we stopped it, so its exit status is just the
-		// signal, and the cancellation is the error to report.
-		_ = <-waited //nolint:staticcheck // S1005: errcheck needs the discard spelled out
-		return fail(fmt.Errorf("task %q was stopped: %w", name, ctx.Err()), 0)
+		// Reap the process. We stopped it, so the cancellation is the error;
+		// how the process ended goes alongside it.
+		how := <-waited
+		return fail(fmt.Errorf("task %q was stopped (%v): %w", name, how, ctx.Err()), 0)
 	}
 	if werr != nil {
 		code := -1

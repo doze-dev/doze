@@ -2,6 +2,7 @@ package doze
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -155,24 +156,21 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 	// the timeout.
 	readyCtx, readyCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer readyCancel()
-	for {
-		select {
-		case <-d.Ready():
-			return s, nil
-		case runErr := <-done:
-			_ = s.host.Close()
-			if runErr != nil {
-				return nil, fmt.Errorf("daemon exited during startup: %w", runErr)
-			}
-			return nil, fmt.Errorf("daemon exited during startup")
-		case <-readyCtx.Done():
-			cancel()
-			// Wait for Run to unwind; the timeout is the error to report, and
-			// whatever Run returns after our cancel adds nothing to it.
-			_ = <-done //nolint:staticcheck // S1005: errcheck needs the discard spelled out
-			_ = s.host.Close()
-			return nil, fmt.Errorf("daemon did not come up: %w", readyCtx.Err())
+	select {
+	case <-d.Ready():
+		return s, nil
+	case runErr := <-done:
+		_ = s.host.Close()
+		if runErr != nil {
+			return nil, fmt.Errorf("daemon exited during startup: %w", runErr)
 		}
+		return nil, fmt.Errorf("daemon exited during startup")
+	case <-readyCtx.Done():
+		cancel()
+		// Wait for Run to unwind; anything it returned joins the timeout.
+		runErr := <-done
+		_ = s.host.Close()
+		return nil, fmt.Errorf("daemon did not come up: %w", errors.Join(readyCtx.Err(), runErr))
 	}
 }
 
