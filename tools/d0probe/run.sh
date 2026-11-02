@@ -37,14 +37,14 @@ pss() {
   local pids=$1 queue=$1 p kids total=0 kb
   while [ -n "$queue" ]; do
     p=${queue%% *}; queue=${queue#"$p"}; queue=${queue# }
-    kids=$(ps -o pid= --ppid "$p" | tr -d ' ' | tr '\n' ' ')
+    kids=$( (ps -o pid= --ppid "$p" || true) | tr -d " " | tr "\n" " ")
     queue="$queue $kids"; queue=${queue# }; pids="$pids $kids"
   done
   for p in $pids; do
     [ -r "/proc/$p/smaps_rollup" ] || continue
     kb=$(awk '/^Pss:/ {print $2}' "/proc/$p/smaps_rollup")
     total=$((total + kb))
-    echo "    $(cat "/proc/$p/comm"): ${kb} kB"
+    echo "    $(cat "/proc/$p/comm" 2>/dev/null || echo "pid $p"): ${kb} kB"
   done
   echo "    total PSS: $((total / 1024)) MB"
 }
