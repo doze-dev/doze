@@ -42,7 +42,7 @@ func Modules(opts Options) (*ModuleSet, error) {
 	}
 	seen := map[string]bool{}
 	var types []string
-	for _, d := range cfg.Instances {
+	for _, d := range cfg.Decls() {
 		if !seen[d.Type] {
 			seen[d.Type] = true
 			types = append(types, d.Type)

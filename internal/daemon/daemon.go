@@ -94,6 +94,10 @@ type Daemon struct {
 	instWG     *sync.WaitGroup
 	running    map[string]*instHandle // proxied instances with a live listener
 	resolveMap map[string]net.IP      // live view of domain -> IP (mutated on add/remove)
+	// ready is closed once Run has finished starting up, just before the
+	// control socket serves. An in-process caller waits on it, so its first
+	// call happens after everything Run set up.
+	ready chan struct{}
 }
 
 // instHandle tracks a live proxy listener so it can be torn down on Remove.
@@ -111,8 +115,11 @@ func New(cfg *config.Config, logf func(string, ...any), hooks *config.Hooks) (*D
 		return nil, err
 	}
 	rt.SetLogger(logf)
-	return &Daemon{cfg: cfg, rt: rt, logf: logf, hooks: hooks}, nil
+	return &Daemon{cfg: cfg, rt: rt, logf: logf, hooks: hooks, ready: make(chan struct{})}, nil
 }
+
+// Ready is closed once Run has started everything and is about to serve.
+func (d *Daemon) Ready() <-chan struct{} { return d.ready }
 
 // Runtime exposes the underlying runtime.
 func (d *Daemon) Runtime() *runtime.Runtime { return d.rt }
@@ -205,7 +212,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// the shared :80 ingress; register their hosts in the resolver.
 	awsRoutes := d.buildAWSRoutes(plan)
 	if d.cfg.Defaults.Domains {
-		for _, decl := range d.cfg.Instances {
+		for _, decl := range d.cfg.Decls() {
 			if !decl.Enabled || decl.Type != "process" {
 				continue
 			}
@@ -219,7 +226,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		}
 	}
 	disabled := map[string]bool{}
-	for _, decl := range d.cfg.Instances {
+	for _, decl := range d.cfg.Decls() {
 		if !decl.Enabled {
 			disabled[decl.Name] = true
 		}
@@ -295,6 +302,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	go d.rt.RunReaper(ctx)
 	go d.rt.RunHealthProber(ctx)
+	close(d.ready)
 	go ctrl.Serve(ctx)
 
 	<-ctx.Done()

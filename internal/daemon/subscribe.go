@@ -192,7 +192,7 @@ func (h *handler) subJournal(ctx context.Context, since uint64, send func(contro
 // subLogs sends the recent lines of each named instance and then follows it.
 func (h *handler) subLogs(ctx context.Context, names []string, backlog int, send func(control.Frame) error) {
 	if len(names) == 0 {
-		for _, d := range h.d.cfg.Instances {
+		for _, d := range h.d.cfg.Decls() {
 			names = append(names, d.Name)
 		}
 	}

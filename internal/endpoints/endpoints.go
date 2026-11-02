@@ -35,8 +35,8 @@ type Endpoint struct {
 
 // For computes the endpoints for every declared instance.
 func For(cfg *config.Config) ([]Endpoint, error) {
-	out := make([]Endpoint, 0, len(cfg.Instances))
-	for _, decl := range cfg.Instances {
+	out := make([]Endpoint, 0, len(cfg.Decls()))
+	for _, decl := range cfg.Decls() {
 		addr, err := cfg.InstanceAddr(decl)
 		if err != nil {
 			return nil, err

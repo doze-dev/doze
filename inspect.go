@@ -38,8 +38,8 @@ func (in *Inspection) StackName() string { return in.cfg.Stack() }
 
 // Services returns the declared instance names, in declaration order.
 func (in *Inspection) Services() []string {
-	out := make([]string, 0, len(in.cfg.Instances))
-	for _, d := range in.cfg.Instances {
+	out := make([]string, 0, len(in.cfg.Decls()))
+	for _, d := range in.cfg.Decls() {
 		out = append(out, d.Name)
 	}
 	return out
@@ -142,8 +142,8 @@ func actionName(k state.ChangeKind) string {
 
 // topologyOf projects the declared graph (shared by Inspection and Session).
 func topologyOf(cfg *config.Config) []Node {
-	out := make([]Node, 0, len(cfg.Instances))
-	for _, d := range cfg.Instances {
+	out := make([]Node, 0, len(cfg.Decls()))
+	for _, d := range cfg.Decls() {
 		deps := make([]string, 0, len(d.Deps))
 		for _, dep := range d.Deps {
 			deps = append(deps, dep.Name)

@@ -167,7 +167,7 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 		d.mu.Unlock()
 		return "", fmt.Errorf("an instance named %q already exists", decl.Name)
 	}
-	decl.Index = len(d.cfg.Instances)
+	decl.Index = len(d.cfg.Decls())
 	d.cfg.Add(decl)
 
 	// Compute this instance's endpoint (address + domain). A portless background

@@ -73,7 +73,7 @@ func (p Plan) Counts() (add, change, destroy int) {
 // Desired returns the objects each declared instance currently manages, by name.
 func Desired(cfg *config.Config) map[string][]engine.Object {
 	out := map[string][]engine.Object{}
-	for _, decl := range cfg.Instances {
+	for _, decl := range cfg.Decls() {
 		drv, ok := engine.Lookup(decl.Type)
 		if !ok {
 			continue
@@ -98,7 +98,7 @@ func BuildPlan(cfg *config.Config, prior *State) Plan {
 	desired := Desired(cfg)
 	var plan Plan
 	seen := map[string]bool{}
-	for _, decl := range cfg.Instances {
+	for _, decl := range cfg.Decls() {
 		seen[decl.Name] = true
 		changes := diff(prior.Objects(decl.Name), desired[decl.Name])
 		if len(changes) > 0 {

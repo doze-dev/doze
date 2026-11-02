@@ -16,7 +16,7 @@ import (
 // to publish, host → target.
 func (d *Daemon) buildAWSRoutes(plan *bindPlan) map[string]string {
 	host := "aws." + d.cfg.Stack() + "." + config.DomainSuffix
-	for _, decl := range d.cfg.Instances {
+	for _, decl := range d.cfg.Decls() {
 		if !decl.Enabled || decl.Type != config.AWSUnifiedType {
 			continue
 		}

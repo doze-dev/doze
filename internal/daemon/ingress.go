@@ -60,7 +60,7 @@ func (d *Daemon) ingressRoutes(eps []endpoints.Endpoint, plan *bindPlan) map[str
 		byName[ep.Name] = ep
 	}
 	routes := map[string]string{}
-	for _, decl := range d.cfg.Instances {
+	for _, decl := range d.cfg.Decls() {
 		if !decl.Enabled {
 			continue
 		}

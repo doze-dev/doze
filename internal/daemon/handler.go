@@ -66,7 +66,7 @@ func (h *handler) snapshot() []control.InstanceView {
 		out = append(out, h.view(inst, eps))
 		seen[inst.Name] = true
 	}
-	for _, decl := range h.d.cfg.Instances {
+	for _, decl := range h.d.cfg.Decls() {
 		if seen[decl.Name] {
 			continue
 		}
@@ -215,7 +215,7 @@ func (h *handler) Restart(ctx context.Context, name string) error {
 
 func (h *handler) Up(ctx context.Context, name string) error {
 	if name == "" {
-		for _, decl := range h.d.cfg.Instances {
+		for _, decl := range h.d.cfg.Decls() {
 			if !decl.Enabled {
 				continue // paused: skip disabled instances on a whole-stack up
 			}
@@ -310,7 +310,7 @@ func ReadLog(store *logstore.Store, q control.LogQuery) ([]control.LogFrame, err
 // log store wakes each follower when a line is written; nothing polls.
 func (h *handler) StreamLogs(ctx context.Context, names []string, emit func(control.LogFrame) error) error {
 	if len(names) == 0 {
-		for _, d := range h.d.cfg.Instances {
+		for _, d := range h.d.cfg.Decls() {
 			names = append(names, d.Name)
 		}
 	}

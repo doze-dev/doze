@@ -145,16 +145,16 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 	// and other clients can attach.)
 	s.backend = directBackend{h: d.Handler()}
 
-	// Wait for the control socket to accept before returning, so the first
-	// lifecycle call doesn't race the listener. Bail out promptly if the daemon
-	// exits during startup (a bind failure) rather than spinning forever.
+	// Wait for the daemon to finish starting before returning, so the first
+	// lifecycle call happens after everything Run set up. Bail out promptly if
+	// the daemon exits during startup (a bind failure) rather than waiting out
+	// the timeout.
 	readyCtx, readyCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer readyCancel()
 	for {
-		if s.client.Available() {
-			return s, nil
-		}
 		select {
+		case <-d.Ready():
+			return s, nil
 		case runErr := <-done:
 			s.host.Close()
 			if runErr != nil {
@@ -166,7 +166,6 @@ func Serve(ctx context.Context, opts Options) (*Session, error) {
 			<-done
 			s.host.Close()
 			return nil, fmt.Errorf("daemon did not come up: %w", readyCtx.Err())
-		case <-time.After(50 * time.Millisecond):
 		}
 	}
 }

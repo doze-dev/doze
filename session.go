@@ -12,8 +12,8 @@ func (s *Session) StackName() string { return s.cfg.Stack() }
 
 // Services returns the names of every declared instance, in declaration order.
 func (s *Session) Services() []string {
-	out := make([]string, 0, len(s.cfg.Instances))
-	for _, d := range s.cfg.Instances {
+	out := make([]string, 0, len(s.cfg.Decls()))
+	for _, d := range s.cfg.Decls() {
 		out = append(out, d.Name)
 	}
 	return out
@@ -25,7 +25,7 @@ func (s *Session) Services() []string {
 func (s *Session) Up(ctx context.Context, names ...string) error {
 	targets := names
 	if len(targets) == 0 {
-		for _, d := range s.cfg.Instances {
+		for _, d := range s.cfg.Decls() {
 			if d.Enabled {
 				targets = append(targets, d.Name)
 			}

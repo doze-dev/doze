@@ -190,8 +190,8 @@ func (r *Runtime) targetNames(name string) []string {
 	if name != "" {
 		return []string{name}
 	}
-	names := make([]string, 0, len(r.cfg.Instances))
-	for _, decl := range r.cfg.Instances {
+	names := make([]string, 0, len(r.cfg.Decls()))
+	for _, decl := range r.cfg.Decls() {
 		names = append(names, decl.Name)
 	}
 	return names

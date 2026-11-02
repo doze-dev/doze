@@ -96,7 +96,7 @@ func (d *Daemon) noteHeld(held *names.ErrHeld) {
 	if d.heldNames == nil {
 		d.heldNames = map[string]string{}
 	}
-	for _, decl := range d.cfg.Instances {
+	for _, decl := range d.cfg.Decls() {
 		if d.cfg.DomainFor(decl.Name) == held.Host || (held.Host == awsHost && decl.Type == config.AWSUnifiedType) {
 			d.heldNames[decl.Name] = who
 		}

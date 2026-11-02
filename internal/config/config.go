@@ -8,6 +8,7 @@
 package config
 
 import (
+	"sync"
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
@@ -50,7 +51,13 @@ type Config struct {
 	Outputs     map[string]Output
 	OutputOrder []string
 
-	path  string
+	path string
+
+	// mu guards Instances and index once the config is live: the daemon adds
+	// and removes instances at runtime while other goroutines read them.
+	// Add and Remove replace the Instances slice rather than editing it, so a
+	// slice returned by Decls never changes under a reader.
+	mu    sync.RWMutex
 	index map[string]*InstanceDecl
 }
 
@@ -113,31 +120,51 @@ type InstanceDecl struct {
 }
 
 // Lookup returns the declared instance by name, or nil.
-func (c *Config) Lookup(name string) *InstanceDecl { return c.index[name] }
+func (c *Config) Lookup(name string) *InstanceDecl {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.index[name]
+}
+
+// Decls returns the instances as they are now. Code that runs while the daemon
+// is live reads them through Decls rather than the Instances field, which a
+// live Add or Remove replaces.
+func (c *Config) Decls() []*InstanceDecl {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Instances
+}
 
 // Add registers an additional instance at runtime, for synthetic instances that
 // are not declared in the config file.
 func (c *Config) Add(decl *InstanceDecl) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.index == nil {
 		c.index = map[string]*InstanceDecl{}
 	}
-	c.Instances = append(c.Instances, decl)
+	next := make([]*InstanceDecl, len(c.Instances), len(c.Instances)+1)
+	copy(next, c.Instances)
+	c.Instances = append(next, decl)
 	c.index[decl.Name] = decl
 }
 
 // Remove deletes a runtime-added (or declared) instance by name, returning
 // whether it was present. Used by live Remove.
 func (c *Config) Remove(name string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if _, ok := c.index[name]; !ok {
 		return false
 	}
 	delete(c.index, name)
-	for i, d := range c.Instances {
-		if d.Name == name {
-			c.Instances = append(c.Instances[:i], c.Instances[i+1:]...)
-			break
+	next := make([]*InstanceDecl, 0, len(c.Instances))
+	for _, d := range c.Instances {
+		if d.Name != name {
+			next = append(next, d)
 		}
 	}
+	c.Instances = next
 	return true
 }
 
