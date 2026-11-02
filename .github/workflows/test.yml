@@ -57,4 +57,14 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Test
-        run: go test -race ./...
+        run: go test -race -coverprofile=cover.out ./...
+      # Coverage may rise but not fall: test/coverage-floor.txt is the floor.
+      # Raise it when coverage improves; never lower it to make a PR pass.
+      - name: Coverage floor
+        if: runner.os == 'Linux'
+        run: |
+          total=$(go tool cover -func=cover.out | awk '/^total:/ {sub("%","",$3); print $3}')
+          floor=$(cat test/coverage-floor.txt)
+          echo "coverage $total% (floor $floor%)"
+          awk -v t="$total" -v f="$floor" 'BEGIN { exit !(t+0 >= f+0) }' || {
+            echo "::error::coverage $total% is below the floor of $floor%"; exit 1; }
