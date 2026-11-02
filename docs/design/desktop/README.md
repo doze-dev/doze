@@ -52,7 +52,7 @@ its control socket. The app is a client of those daemons, as the TUI is, so
 | D6 | **One binary**: the CLI, the app and the daemon are the same file | One artifact per platform; nothing to keep in step. See One binary |
 | D7 | Built **without cgo**, using Wails' `purego` mode | It keeps doze's release as it is: pure Go, cross-compiled from one Linux runner |
 | D8 | Notifications only for a crash, a failed task, or an instance stuck waking | Anything more trains people to ignore them |
-| D9 | `doze.hcl` stays a text file | The app opens it in your editor and never edits it through forms |
+| D9 | `doze.hcl` stays a text file, and it's final | The app opens it in your editor and never edits it through forms. It's declarative: the app never offers a way to pick which declared instances start, at setup or at Up. A change is a change to the file |
 | D10 | Remote stacks over SSH are later, not first | Worth doing; not needed to prove the app |
 | D11 | **One instance of the app; each stack is a tab** in its one window | Opening doze again, or `doze open` in another project, brings the window forward and opens that stack's tab. See One window |
 | D12 | **Installed by drag and drop, then set up in the app on first launch**: one admin prompt for the command line and `.doze` names | As OrbStack does it. The same flow repairs the setup later and works on Linux, where an AppImage has no install step. See Installing |
