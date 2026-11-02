@@ -50,9 +50,16 @@ pss() {
 }
 
 echo "## One window, rendered"
-for v in stock lazy; do
+# lazy+nocomp is the lazy build with WebKit's compositing turned off, which
+# trades GPU and compositing memory for CPU.
+for v in stock lazy lazy+nocomp; do
   log="$out/win-$v.log"
-  "$out/win-$v" >"$log" 2>&1 &
+  bin="$out/win-${v%+*}"
+  if [ "$v" = lazy+nocomp ]; then
+    WEBKIT_DISABLE_COMPOSITING_MODE=1 "$bin" >"$log" 2>&1 &
+  else
+    "$bin" >"$log" 2>&1 &
+  fi
   pid=$!
   for _ in $(seq 120); do
     grep -q 'rendered after\|timeout\|run:' "$log" && break

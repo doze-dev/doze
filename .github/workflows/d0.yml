@@ -47,18 +47,3 @@ jobs:
       - name: Measure, and open a window
         working-directory: tools/d0probe
         run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" bash run.sh
-      # If the window still did not render, the grant is needed on bubblewrap
-      # itself, which WebKit runs to sandbox its web process: what decides the
-      # profile doze ships.
-      - name: Again, with userns granted to bubblewrap too
-        working-directory: tools/d0probe
-        run: |
-          sudo tee /etc/apparmor.d/doze-d0-bwrap >/dev/null <<EOF
-          abi <abi/4.0>,
-          include <tunables/global>
-          profile doze-d0-bwrap /usr/bin/bwrap flags=(unconfined) {
-            userns,
-          }
-          EOF
-          sudo apparmor_parser -r /etc/apparmor.d/doze-d0-bwrap
-          dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" bash run.sh
