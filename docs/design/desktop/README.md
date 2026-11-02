@@ -44,7 +44,7 @@ its control socket. The app is a client of those daemons, as the TUI is, so
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | A desktop app, built with **Wails v3**, for **macOS and Linux together** from the first release | Wails is cross-platform; doze already runs on both. Go, so it imports doze's packages; a web view, so doze-aws's and doze-kafka's consoles embed as they are. Tauri would give the same result in Rust; GPUI (native, the herdr way) would mean hand-building every widget and no embedded consoles. Windows is out while doze itself doesn't support it |
+| D1 | A desktop app, built with **Wails v3**, for **macOS and Linux together** from the first release | Wails is cross-platform; doze already runs on both. Go, so it imports doze's packages; a web view, so doze-aws's and doze-kafka's consoles open in it as they are. Tauri would give the same result in Rust; GPUI (native, the herdr way) would mean hand-building every widget and no consoles inside the app. Windows is out while doze itself doesn't support it |
 | D2 | Shaped as a **menu bar (tray) app plus one window** | The tray is the ambient part: always there, about as light as the daemon. The window is opened when wanted and fully released when closed. On Linux the window and notifications must stand on their own: see Linux |
 | D3 | It's built around **the map, inside a service, and the timeline**, on top of the TUI's daily loop | Those are what a terminal can't do, and they're where doze's position (it starts, proxies and watches everything) pays off |
 | D4 | **The TUI is retired** | Its unique value is small once the app exists, and it's about 13,500 lines of upkeep. See Retiring the TUI |
@@ -57,7 +57,7 @@ its control socket. The app is a client of those daemons, as the TUI is, so
 | D10 | Remote stacks over SSH are later, not first | Worth doing; not needed to prove the app |
 | D11 | **One instance of the app; each stack is a tab** in its one window | Opening doze again, or `doze open` in another project, brings the window forward and opens that stack's tab. See One window |
 | D12 | **Installed by drag and drop, then set up in the app on first launch**: one admin prompt for the command line and `.doze` names | As OrbStack does it. The same flow repairs the setup later and works on Linux, where an AppImage has no install step. See Installing |
-| D13 | **doze-aws's and doze-kafka's consoles stay in their modules** and gain an embedded mode | They're standalone products and keep working in a browser. In the app they lose their top bar, take the app's theme, and link both ways. See The consoles |
+| D13 | **doze-aws's and doze-kafka's consoles get a whole tab**, unchanged; or the browser, by setting | They're standalone products with their own top bar and rail, and they need the space. A full tab shows them as they are; links into them are their existing URLs; the only module work is taking the theme from the address. See The consoles |
 | D14 | **Light by rule, checked in CI**: one web view, no frontend framework, live data only for what's on screen, the window released when closed | WebKit can't be avoided; abusing it can. See Staying light |
 
 ## One binary
@@ -164,37 +164,47 @@ System Settings). It needs a signed app, so it's for after D5, if at all.
 
 doze-aws and doze-kafka each serve their own console: Go templates, htmx and
 Alpine, about 1 MB of assets each, with a top bar, a services rail and
-light and dark themes set by `data-theme`. They stay in their modules.
+light and dark themes set by `data-theme`. They stay in their modules,
+unchanged.
 
-**How they meet the app:**
+**A console gets a whole tab.** It opens as its own tab in the tab strip,
+right after its stack's tab (`shop`, then `cloud`), and fills the window
+below it: its own top bar, rail, pages and keys, exactly as in a browser.
+The app adds nothing inside the tab. ⌘W closes it; the service keeps
+running. Instance pages for these services have an **Open console** button
+instead of a console tab.
+
+**Or the browser,** by choice: a setting, "Open consoles in doze / in your
+browser". The links are the same either way, because they're plain URLs.
+
+**How a console is found:**
 - **As a module** (`module = "aws"` in `doze.hcl`): doze runs and sleeps it
-  like any instance. It's a row in the stack's tab, and its page has the
-  console.
+  like any instance. Opening its console wakes it first.
 - **Standalone** (`doze-aws` run on its own): it registers its names in the
   shared doze-names registry, where each entry says its owner (`doze-aws`,
-  `doze-kafka`). The app lists those under Standalone and opens their
-  consoles. It can't sleep or wake them, because doze isn't running them.
-- **Without the app:** the consoles work in a browser, as today.
+  `doze-kafka`). The app lists those under Standalone, and their tab stands
+  alone, with no stack before it. It can't sleep or wake them, because doze
+  isn't running them.
 
-**Embedded mode,** turned on by the app when it loads a console:
-- the console drops its top bar; its rail stays, since it carries the
-  console's own status dots and is how you move around it;
-- it takes the app's theme through the `data-theme` both consoles already
-  have;
-- the console's address appears nowhere; "Open in browser" is in the app's
-  header.
+**Links:**
+- **Into a console** are its own routes, which exist today: the `orders`
+  queue on the map or in the timeline opens `/sqs/orders` (doze-aws) or
+  `/topics/orders` (doze-kafka) in the console's tab.
+- **Out of a console** ("worker received this" opening `worker` in doze) need
+  a `doze://` link the app registers. A console shows them only when the app
+  opened it. Optional, and later.
 
-**Links both ways:** the app opens a console at a page (the `orders` queue
-from the map or the timeline); the console asks the app to open an instance
-("worker received this"). A small message between the page and the app.
+**Theme:** the app passes light or dark, and the console uses it for that
+tab. Both consoles already switch on `data-theme`; they need to accept it
+from the address, not only from their own toggle and the system setting.
 
-**Loading it lightly:** the app passes console requests through its own asset
-handler, so the console is part of the app's one page process rather than a
-second site. It loads when its page is opened and is dropped after a few
-minutes unused.
+**Loading it lightly:** the tab holds the console in a frame inside the app's
+one web view. It loads when the tab opens and is released when the tab closes
+or has been unused for a few minutes. WebKit may give a frame from another
+address its own process; D1 measures it.
 
-The work, in each module: embedded mode, links that keep working when served
-under the app's path, and the deep links.
+The work, in each module: accept the theme from the address. Everything else
+the consoles already have.
 
 ## Staying light
 
@@ -253,8 +263,8 @@ The work it needs:
 - **A terminal pane** (xterm.js), and the module's own `psql` found from its
   toolchain.
 - **`doze open`.**
-- **Embedded mode in doze-aws and doze-kafka:** no top bar, the host's theme,
-  serving under the app's path, deep links in and out.
+- **The consoles take the theme from the address** (doze-aws, doze-kafka);
+  `doze://` links out of them are optional and later.
 - **The first-launch setup:** the admin prompt (macOS dialog, polkit on
   Linux) running doze-names' existing script.
 - **Resource budgets** for the app in CI.
@@ -267,7 +277,7 @@ The work it needs:
 | **D0** checks | On Linux: does the no-cgo binary run headless when the GTK and WebKitGTK libraries are missing? If not, D6 needs another answer there. The spike run on Linux too: the tray on KDE and on GNOME, the window's memory, startup. On macOS: the daemon's idle RSS with the GUI linked, against the bench budget |
 | **D1** the shell | One binary and `Doze.app`; one instance, a tab per stack; the first-launch setup; the menu bar (every running stack, the count, the red dot); notifications; the window opened and released; `doze open`; project folders recorded; the resource budgets in CI |
 | **D2** the daily loop | Home, instance pages, logs, actions with confirmations, crash, setup from a dropped folder: what the TUI does |
-| **D3** what a terminal can't do | The map, inside a service (with embedded mode in doze-aws and doze-kafka, and standalone ones listed), the timeline, the quick panel; connection attribution and doze-aws's activity stream |
+| **D3** what a terminal can't do | The map, inside a service (console tabs for doze-aws and doze-kafka, and standalone ones listed), the timeline, the quick panel; connection attribution and doze-aws's activity stream |
 | **D4** retire the TUI | Bare `doze` opens the app; then remove the dash |
 | **D5** release | macOS signing and notarisation; AppImage, deb and rpm; auto-update on both |
 
