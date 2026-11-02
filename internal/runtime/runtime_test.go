@@ -451,3 +451,51 @@ func TestOutputIsKeptAfterTheProcessExits(t *testing.T) {
 		t.Fatalf("runs = %+v, want one finished run", runs)
 	}
 }
+
+// A module block's own sleep decides whether the reaper may stop it: "never"
+// keeps it on, a duration replaces the stack's idle_timeout.
+func TestModuleSleepSetsItsIdlePolicy(t *testing.T) {
+	t.Setenv("DOZE_HOME", t.TempDir())
+	cfg, err := config.Parse([]byte(`
+module tleaf "kept" {
+  version = 1
+  sleep   = "never"
+}
+module tleaf "quick" {
+  version = 1
+  sleep   = "30s"
+}
+module tleaf "plain" { version = 1 }
+`), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for _, n := range []string{"kept", "quick", "plain"} {
+		if _, err := rt.Boot(ctx, n); err != nil {
+			t.Fatalf("boot %s: %v", n, err)
+		}
+	}
+	t.Cleanup(func() { rt.StopAll(context.Background()) })
+	for _, tc := range []struct {
+		name      string
+		alwaysOn  bool
+		idleAfter time.Duration
+	}{
+		{"kept", true, 0},
+		{"quick", false, 30 * time.Second},
+		{"plain", false, 0},
+	} {
+		in, ok := rt.Registry().Get(tc.name)
+		if !ok {
+			t.Fatalf("%s not registered", tc.name)
+		}
+		if in.AlwaysOn != tc.alwaysOn || in.IdleAfter != tc.idleAfter {
+			t.Errorf("%s: AlwaysOn=%v IdleAfter=%s, want %v %s", tc.name, in.AlwaysOn, in.IdleAfter, tc.alwaysOn, tc.idleAfter)
+		}
+	}
+}

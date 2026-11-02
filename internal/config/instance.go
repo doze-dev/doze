@@ -14,6 +14,7 @@ import (
 	"github.com/doze-dev/doze-sdk/engine"
 
 	"github.com/doze-dev/doze/internal/detect"
+	"github.com/doze-dev/doze/internal/runspec"
 )
 
 // expandInstanceBlock turns one module or app block into one or more pending
@@ -93,6 +94,29 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 	}
 	declRanges[name] = block.DefRange
 
+	// A module's `sleep` is doze's, not the module's: it is read here and taken
+	// out of the body, so the module's strict decode never sees it. (An app
+	// reads its own `sleep` through its engine.)
+	var sleep runspec.Sleep
+	if head.kind == KindModule {
+		content, rest, diags := restBody.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "sleep"}}})
+		if diags.HasErrors() {
+			return nil, diagError(parser, diags)
+		}
+		if attr, ok := content.Attributes["sleep"]; ok {
+			var raw string
+			if diags := gohcl.DecodeExpression(attr.Expr, stampCtx, &raw); diags.HasErrors() {
+				return nil, diagError(parser, diags)
+			}
+			s, err := runspec.ParseSleep(raw)
+			if err != nil {
+				return nil, posErr(parser, attr.Range, fmt.Sprintf("%s: %v", what, err), "")
+			}
+			sleep = s
+		}
+		restBody = rest
+	}
+
 	var c common
 	if diags := gohcl.DecodeBody(restBody, stampCtx, &c); diags.HasErrors() {
 		return nil, diagError(parser, diags)
@@ -145,6 +169,7 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 		Listen:  c.Listen,
 		Port:    c.Port,
 		Index:   len(cfg.Instances),
+		Sleep:   sleep,
 	}
 	cfg.index[name] = inst
 	cfg.Instances = append(cfg.Instances, inst)

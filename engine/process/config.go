@@ -407,14 +407,19 @@ func (c *Config) ConsoleTarget() (hostport, path string, ok bool) {
 }
 
 // IdleAfter is how long the app may sit with nothing holding it before doze
-// puts it to sleep, when it asked for that with `sleep = "10m"`. An app that
-// did not, or said "never", runs until it is stopped.
+// puts it to sleep. An app doze fronts sleeps when idle by default, after the
+// stack's idle_timeout or its own `sleep`: a request wakes it. A service
+// does too. An app with no fronted port has nothing that could wake it, so it
+// runs until it is stopped; so does anything that says sleep = "never".
 func (c *Config) IdleAfter() (time.Duration, bool) {
-	if c.Sleep.Set && !c.Sleep.Never {
+	if c.Sleep.Never {
+		return 0, false
+	}
+	if c.Sleep.Set {
 		return c.Sleep.After, true
 	}
-	if c.Service && !c.Sleep.Never {
-		return 0, true // asleep when idle, after the stack's default time
+	if c.Service || c.Proxied() {
+		return 0, true // after the stack's default time
 	}
 	return 0, false
 }

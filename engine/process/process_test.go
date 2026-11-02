@@ -356,9 +356,43 @@ func TestSleepNeedsDozeToHoldThePort(t *testing.T) {
 	}
 	never, _ := decode(t, "run = \"x\"\nsleep = \"never\"")
 	if _, set := never.IdleAfter(); set {
-		t.Fatal(`sleep = "never" is the default: always on`)
+		t.Fatal(`sleep = "never" keeps the app on`)
 	}
 	if err := never.BindPort(0); err != nil {
 		t.Fatalf(`a portless app with sleep = "never": %v`, err)
+	}
+}
+
+// An app doze fronts sleeps when idle by default, after the stack's
+// idle_timeout: a request wakes it. One with no fronted port has nothing that
+// could wake it, so it stays on, as does one that says sleep = "never".
+func TestAFrontedAppSleepsByDefault(t *testing.T) {
+	fronted, _ := decode(t, "run = \"x\"")
+	if err := fronted.BindPort(8080); err != nil {
+		t.Fatal(err)
+	}
+	if d, set := fronted.IdleAfter(); !set || d != 0 {
+		t.Fatalf("fronted app: IdleAfter = %s, %v; want the stack default", d, set)
+	}
+	worker, _ := decode(t, "run = \"x\"")
+	if err := worker.BindPort(0); err != nil {
+		t.Fatal(err)
+	}
+	if _, set := worker.IdleAfter(); set {
+		t.Fatal("a portless app must stay on: nothing could wake it")
+	}
+	direct, _ := decode(t, "run = \"x\"\ndirect = true")
+	if err := direct.BindPort(8080); err != nil {
+		t.Fatal(err)
+	}
+	if _, set := direct.IdleAfter(); set {
+		t.Fatal("a direct app binds its own port: doze cannot wake it, so it stays on")
+	}
+	kept, _ := decode(t, "run = \"x\"\nsleep = \"never\"")
+	if err := kept.BindPort(8080); err != nil {
+		t.Fatal(err)
+	}
+	if _, set := kept.IdleAfter(); set {
+		t.Fatal(`sleep = "never" keeps a fronted app on`)
 	}
 }

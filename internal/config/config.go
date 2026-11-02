@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
+
+	"github.com/doze-dev/doze/internal/runspec"
 )
 
 // Defaults for fields the user did not specify.
@@ -117,6 +119,10 @@ type InstanceDecl struct {
 	// of any kind — Deps holds only the ones that are instances.
 	After []Ref
 	Refs  []Ref
+	// Sleep is a module block's own `sleep`: unset follows the stack's
+	// idle_timeout, "never" keeps it on, a duration replaces the timeout. An
+	// app's sleep lives in its engine config.
+	Sleep runspec.Sleep
 }
 
 // Lookup returns the declared instance by name, or nil.

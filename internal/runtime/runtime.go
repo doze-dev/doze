@@ -422,6 +422,16 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 			alwaysOn, idleAfter = false, d
 		}
 	}
+	// A module block's own sleep decides last: "never" keeps it on (even a
+	// module that would sleep), a duration makes it sleep after that long
+	// (even one that would stay on).
+	if decl.Sleep.Set {
+		if decl.Sleep.Never {
+			alwaysOn, idleAfter = true, 0
+		} else {
+			alwaysOn, idleAfter = false, decl.Sleep.After
+		}
+	}
 	r.reg.SetIdlePolicy(name, alwaysOn, idleAfter)
 	r.reg.MarkRunning(name, inst.SocketDir, inst.Port, proc.PID())
 	r.writePidfile(name, proc.PID()) // for orphan reconciliation after a daemon crash
