@@ -50,16 +50,16 @@ pss() {
 }
 
 echo "## One window, rendered"
-# lazy+nocomp is the lazy build with WebKit's compositing turned off, which
-# trades GPU and compositing memory for CPU.
-for v in stock lazy lazy+nocomp; do
+# Each variant is a build and the environment it runs with. lazy+nocomp turns
+# WebKit's compositing off; lazy+cairo also has GTK draw with cairo instead of
+# OpenGL, which on a machine with no GPU is software GL either way.
+for spec in "stock|" "lazy|" "lazy+nocomp|WEBKIT_DISABLE_COMPOSITING_MODE=1" \
+            "lazy+cairo|WEBKIT_DISABLE_COMPOSITING_MODE=1 GSK_RENDERER=cairo"; do
+  v=${spec%%|*}; envs=${spec#*|}
   log="$out/win-$v.log"
   bin="$out/win-${v%+*}"
-  if [ "$v" = lazy+nocomp ]; then
-    WEBKIT_DISABLE_COMPOSITING_MODE=1 "$bin" >"$log" 2>&1 &
-  else
-    "$bin" >"$log" 2>&1 &
-  fi
+  # shellcheck disable=SC2086
+  env $envs "$bin" >"$log" 2>&1 &
   pid=$!
   for _ in $(seq 120); do
     grep -q 'rendered after\|timeout\|run:' "$log" && break
