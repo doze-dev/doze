@@ -70,7 +70,9 @@ func TestALogBurstIsBoundedInMemoryAndCost(t *testing.T) {
 	if len(m.cache["svc03"]) > logsKept || len(m.all) > allKept {
 		t.Errorf("not bounded: %d, %d", len(m.cache["svc03"]), len(m.all))
 	}
-	if worst > 250*time.Millisecond {
+	// The frame budget holds without the race detector; under it, every
+	// memory access is instrumented and the time measures the detector.
+	if worst > 250*time.Millisecond && !raceEnabled {
 		t.Errorf("a frame took %v", worst)
 	}
 }
