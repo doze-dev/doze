@@ -111,12 +111,12 @@ func (m *Manager) mirrorBase(eng string) string {
 
 // fetchManifest fetches and memoizes the engine's index.json (each engine's
 // release serves its own).
-func (m *Manager) fetchManifest(eng string) (*Manifest, error) {
+func (m *Manager) fetchManifest(ctx context.Context, eng string) (*Manifest, error) {
 	if man, ok := m.manifests[eng]; ok {
 		return man, nil
 	}
 	url := strings.TrimRight(m.mirrorBase(eng), "/") + "/index.yaml"
-	body, err := m.get(url)
+	body, err := m.get(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("fetching mirror manifest %s: %w", url, err)
 	}
@@ -132,12 +132,12 @@ func (m *Manager) fetchManifest(eng string) (*Manifest, error) {
 // per-engine mirror override (DOZE_<ENGINE>_MIRROR) when set; pass "" for the
 // default mirror.
 func (m *Manager) Manifest(engineHint string) (*Manifest, error) {
-	return m.fetchManifest(engineHint)
+	return m.fetchManifest(context.Background(), engineHint)
 }
 
 // ResolveMajor returns the full version the mirror maps a major to.
 func (m *Manager) ResolveMajor(eng, major string) (string, error) {
-	man, err := m.fetchManifest(eng)
+	man, err := m.fetchManifest(context.Background(), eng)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +165,7 @@ func (m *Manager) Ensure(ctx context.Context, eng, full string, plat engine.Plat
 		return cached(eng, full, plat, contentDir, binDir, expectedSHA)
 	}
 
-	man, err := m.fetchManifest(eng)
+	man, err := m.fetchManifest(ctx, eng)
 	if err != nil {
 		return "", "", err
 	}
@@ -177,7 +177,7 @@ func (m *Manager) Ensure(ctx context.Context, eng, full string, plat engine.Plat
 	if !strings.Contains(url, "://") {
 		url = strings.TrimRight(m.mirrorBase(eng), "/") + "/" + strings.TrimLeft(url, "/")
 	}
-	return m.ensureDownload(eng, full, plat, url, art.SHA256, art.Sig, expectedSHA)
+	return m.ensureDownload(ctx, eng, full, plat, url, art.SHA256, art.Sig, expectedSHA)
 }
 
 // EnsureArtifact makes a module archive present in the cache for (name, full)
@@ -185,13 +185,13 @@ func (m *Manager) Ensure(ctx context.Context, eng, full string, plat engine.Plat
 // engine manifest: the caller (the module fetcher) has already picked the
 // artifact record out of a verified modindex.Index, so url/sha256/sig arrive
 // explicitly and url must be absolute.
-func (m *Manager) EnsureArtifact(_ context.Context, name, full string, plat engine.Platform, url, sha256Hex, sig, expectedSHA string) (binDir, digest string, err error) {
+func (m *Manager) EnsureArtifact(ctx context.Context, name, full string, plat engine.Platform, url, sha256Hex, sig, expectedSHA string) (binDir, digest string, err error) {
 	contentDir := filepath.Join(m.Home, name, full+"-"+plat.Triple)
 	binDir = filepath.Join(contentDir, "bin")
 	if dirHasFiles(binDir) {
 		return cached(name, full, plat, contentDir, binDir, expectedSHA)
 	}
-	return m.ensureDownload(name, full, plat, url, sha256Hex, sig, expectedSHA)
+	return m.ensureDownload(ctx, name, full, plat, url, sha256Hex, sig, expectedSHA)
 }
 
 // cached answers a cache hit. The archive is gone by now, so the check is
@@ -209,14 +209,14 @@ func cached(eng, full string, plat engine.Platform, contentDir, binDir, expected
 
 // ensureDownload downloads, verifies (checksum, lock pin, publisher signature
 // when a SigningKey is set), extracts, and caches one archive.
-func (m *Manager) ensureDownload(eng, full string, plat engine.Platform, url, wantSHA, sig, expectedSHA string) (binDir, digest string, err error) {
+func (m *Manager) ensureDownload(ctx context.Context, eng, full string, plat engine.Platform, url, wantSHA, sig, expectedSHA string) (binDir, digest string, err error) {
 	contentDir := filepath.Join(m.Home, eng, full+"-"+plat.Triple)
 	binDir = filepath.Join(contentDir, "bin")
 
 	// "module v%s" so the module's own version can't be misread as the engine's
 	// (a postgres module v0.2.3 ships Postgres 16, not "postgres 0.2.3").
 	m.logf("downloading %s module v%s (%s)…", eng, full, plat.Triple)
-	archive, err := m.get(url)
+	archive, err := m.get(ctx, url)
 	if err != nil {
 		return "", "", fmt.Errorf("downloading %s: %w", url, err)
 	}
@@ -278,14 +278,20 @@ func (m *Manager) ensureDownload(eng, full string, plat engine.Platform, url, wa
 // Fetch retrieves a URL through the same transport Ensure uses, including the
 // file:// shortcut for local/dev mirrors. The registry fetcher uses it to pull a
 // module index and the catalog.
-func (m *Manager) Fetch(url string) ([]byte, error) { return m.get(url) }
+func (m *Manager) Fetch(url string) ([]byte, error) { return m.get(context.Background(), url) }
 
-func (m *Manager) get(url string) ([]byte, error) {
+// get reads url. A download runs in the daemon now (modules fetch through
+// it), so it stops when ctx does rather than outliving the boot that asked.
+func (m *Manager) get(ctx context.Context, url string) ([]byte, error) {
 	// A file:// mirror (or a self-hosted mirror on a local path) is read directly.
 	if path, ok := strings.CutPrefix(url, "file://"); ok {
 		return os.ReadFile(path)
 	}
-	resp, err := m.HTTP.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := m.HTTP.Do(req)
 	if err != nil {
 		return nil, err
 	}

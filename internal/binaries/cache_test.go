@@ -2,10 +2,14 @@ package binaries
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
 )
@@ -56,5 +60,33 @@ func TestCacheHitHonoursTheLock(t *testing.T) {
 				t.Fatalf("digest = %q, want %q", digest, tc.recorded)
 			}
 		})
+	}
+}
+
+// A download stops when the boot that asked for it is cancelled: it runs in
+// the long-lived daemon, so it must not run on to the end by itself.
+func TestADownloadStopsWithItsContext(t *testing.T) {
+	started := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done() // never answers until the client gives up
+	}))
+	defer srv.Close()
+	m := NewManager(t.TempDir())
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := m.EnsureArtifact(ctx, "slow", "1.0.0", engine.Platform{Triple: "x"}, srv.URL+"/a.tar.gz", "00", "", "")
+		done <- err
+	}()
+	<-started
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("err = %v, want context canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the download kept going after its context was cancelled")
 	}
 }
