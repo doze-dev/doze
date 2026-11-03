@@ -13,9 +13,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stdout, on failure too, with nothing else there. `up`, `wake`, `sleep`,
   `restart`, `reset`, `pin`, `task`, `down`, `url`, `lint`, `version` gain
   JSON, and `logs` gives its lines (`logs -f` streams NDJSON ending with an
-  `end` line); `status`, `env` and `doctor` move theirs into `data` (status's
-  `error` field is now the envelope's). A command with no result refuses
-  `--json` (exit 2).
+  `end` line). `status`, `env` and `doctor` move theirs into `data` (status's
+  `error` field is now the envelope's), and `status` carries each running
+  instance's full live view as `live`: holders, pid, restarts, last error,
+  idle policy. A command with no result refuses `--json` (exit 2).
 - `doze pin` pins; `--off` unpins; `--toggle` flips, as the dash does. It was
   a toggle, so running it twice undid itself. Each result says whether it
   changed.

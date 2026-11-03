@@ -38,10 +38,10 @@ func TestStatusJSONWithABrokenConfig(t *testing.T) {
 	if env.OK || env.Error.Code != fault.Invalid || env.Error.Exit != 5 || !got.Daemon.Running || len(got.Services) != 2 {
 		t.Fatalf("got %+v", got)
 	}
-	if db := got.Services[0]; db.State != "active" || db.Conns != 2 {
+	if db := got.Services[0]; db.State != "active" || db.Conns != 2 || db.Live == nil || db.Live.Name != "db" {
 		t.Fatalf("db = %+v, want live state", db)
 	}
-	if api := got.Services[1]; api.State != "asleep" {
+	if api := got.Services[1]; api.State != "asleep" || api.Live != nil {
 		t.Fatalf("api = %+v, want asleep", api)
 	}
 }

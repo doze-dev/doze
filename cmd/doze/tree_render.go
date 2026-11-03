@@ -42,6 +42,9 @@ type statusServiceJSON struct {
 	MemBytes   int64    `json:"memBytes"`
 	CPUPercent float64  `json:"cpuPercent"`
 	DependsOn  []string `json:"dependsOn,omitempty"`
+	// Live is everything the daemon knows about the instance (holders, pid,
+	// restarts, the last error, its idle policy), when it is running.
+	Live *control.InstanceView `json:"live,omitempty"`
 }
 
 // degradedStatusJSON is status --json when the config does not load: the block
@@ -55,6 +58,8 @@ func degradedStatusJSON(decls []config.ShallowDecl, views map[string]control.Ins
 			State: plainState(v, running, nil)}
 		if running {
 			s.Conns, s.MemBytes, s.CPUPercent = v.Conns, v.RAM, v.CPU
+			live := v
+			s.Live = &live
 		}
 		out.Services = append(out.Services, s)
 	}
@@ -116,6 +121,8 @@ func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView,
 		}
 		if running {
 			s.Conns, s.MemBytes, s.CPUPercent = v.Conns, v.RAM, v.CPU
+			live := v
+			s.Live = &live
 		}
 		out.Services = append(out.Services, s)
 	}
