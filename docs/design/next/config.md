@@ -1,5 +1,10 @@
 # Contract 1: the config language
 
+> **Superseded in part (2026-11).** `front` and `logs` were removed, apps
+> with a `port` sleep by default, and `sleep` works on modules. The current
+> rules are in
+> [the configuration reference](../../../website/src/content/docs/reference/configuration.md).
+
 Tier: core. Built in phase 1. Background in
 [gap-analysis.md](gap-analysis.md#config).
 

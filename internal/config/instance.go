@@ -94,10 +94,22 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 	}
 	declRanges[name] = block.DefRange
 
+	// `wakes_on` is a later release's (waking a worker when work is queued for
+	// it). Until that ships it is refused, not ignored: ignored, its references
+	// would still make the named blocks dependencies, booted and held.
+	if content, _, _ := restBody.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "wakes_on"}}}); content != nil {
+		if attr, ok := content.Attributes["wakes_on"]; ok {
+			return nil, posErr(parser, attr.Range,
+				fmt.Sprintf("%s: `wakes_on` isn't in this release", what),
+				"delete it; until it ships, a worker with no port stays on")
+		}
+	}
+
 	// A module's `sleep` is doze's, not the module's: it is read here and taken
 	// out of the body, so the module's strict decode never sees it. (An app
 	// reads its own `sleep` through its engine.)
 	var sleep runspec.Sleep
+	var sleepRange hcl.Range
 	if head.kind == KindModule {
 		content, rest, diags := restBody.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "sleep"}}})
 		if diags.HasErrors() {
@@ -112,7 +124,7 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 			if err != nil {
 				return nil, posErr(parser, attr.Range, fmt.Sprintf("%s: %v", what, err), "")
 			}
-			sleep = s
+			sleep, sleepRange = s, attr.Range
 		}
 		restBody = rest
 	}
@@ -183,6 +195,7 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 		// The count/for_each base; a plugin locates the source block by this, not
 		// the expanded name.
 		blockLabel: head.label,
+		sleepRange: sleepRange,
 		// Relative paths (extension bundles, lambda code dirs, an app's dir)
 		// resolve against the file that declared the block. Absolute, because
 		// module-decoded paths travel to plugin servers and the processes they

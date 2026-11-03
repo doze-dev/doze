@@ -206,3 +206,15 @@ module valkey "b" { version = 9 }
 		t.Fatalf("two valkeys on the one default port should be a port conflict, got %v", err)
 	}
 }
+
+// A module doze does not front can't sleep: nothing would wake it. "never" is
+// still fine, since that is what it does anyway.
+func TestUnfrontedModuleCannotSleep(t *testing.T) {
+	_, err := Parse([]byte("module fakeproc \"worker\" {\n  port  = 9090\n  sleep = \"5m\"\n}\n"), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "can't sleep") || !strings.Contains(err.Error(), "line 3") {
+		t.Fatalf("sleep on an unfronted module: %v", err)
+	}
+	if _, err := Parse([]byte("module fakeproc \"worker\" {\n  port  = 9090\n  sleep = \"never\"\n}\n"), "doze.hcl", nil); err != nil {
+		t.Fatalf("sleep = never: %v", err)
+	}
+}

@@ -483,7 +483,9 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		}
 	}
 	if len(why) == 0 {
-		if awake(v) {
+		if v.AlwaysOn {
+			why = append(why, s.d.Render("nothing: it runs until stopped"))
+		} else if awake(v) {
 			why = append(why, s.d.Render("nothing: it sleeps when the idle time is up"))
 		} else {
 			why = append(why, s.d.Render("asleep: it costs nothing until something connects"))
@@ -493,7 +495,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	if v.IdleAfter > 0 {
 		idle = v.IdleAfter
 	}
-	if idle > 0 && awake(v) {
+	if idle > 0 && awake(v) && !v.AlwaysOn {
 		why = append(why, s.d.Render("sleeps "+clock(idle)+" after the last closes · ")+s.cap("p", "pin awake"))
 	}
 

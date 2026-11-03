@@ -414,7 +414,8 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	r.procs[name] = proc
 	r.deps[name] = held
 	r.mu.Unlock()
-	// An app runs until it is stopped, unless it asked to sleep when idle.
+	// A supervised instance (an app) stays on unless its spec says when it
+	// sleeps: an app doze fronts sleeps by default, a portless one does not.
 	alwaysOn := r.isSupervised(drv, inst)
 	var idleAfter time.Duration
 	if s, ok := decl.Spec.(interface{ IdleAfter() (time.Duration, bool) }); ok {
@@ -1010,9 +1011,10 @@ func (r *Runtime) RunReaper(ctx context.Context) {
 	}
 }
 
-// supervised reports whether an instance's engine marks it as a long-lived,
-// always-on process (engine.Lifecycle) — exempt from the idle reaper. The process
-// engine implements it; lazy DB/AWS backends do not.
+// supervised reports whether an instance's engine runs it as a long-lived
+// process it watches and restarts (engine.Lifecycle), rather than a backend
+// behind a proxy. The process engine does; lazy DB/AWS backends do not.
+// Whether it sleeps is its idle policy's call, not this.
 func (r *Runtime) supervised(name string) bool {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {

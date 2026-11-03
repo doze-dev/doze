@@ -73,8 +73,9 @@ type Instance struct {
 	// due. Both are set only while the instance is Crashing.
 	RestartMax  int
 	NextRestart time.Time
-	// AlwaysOn marks an instance the idle reaper never stops (an app). Running
-	// with no connections, it is Active, not Idle: nothing is counting down.
+	// AlwaysOn marks an instance the idle reaper never stops: a portless app,
+	// or a block with sleep = "never". Running with no connections, it is
+	// Active, not Idle: nothing is counting down.
 	AlwaysOn bool
 	// IdleAfter is this instance's own idle time before it is put to sleep. Zero
 	// means the stack's default.

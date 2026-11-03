@@ -226,15 +226,15 @@ func (m *Model) because(v control.InstanceView) string {
 		switch {
 		case len(by) > 0:
 			return strings.Join(by, " · ")
+		case v.AlwaysOn:
+			return "runs until stopped"
 		case v.State == "idle":
 			if h := m.hint(v); h != "" {
 				return h
 			}
 			return "idle: sleeps soon"
-		case v.Kind == "module":
-			return "nothing holds it"
 		}
-		return "runs until stopped"
+		return "nothing holds it"
 	}
 	switch v.Kind {
 	case "module":

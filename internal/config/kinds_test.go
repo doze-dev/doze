@@ -47,16 +47,15 @@ func TestPluginSourceLeavesOtherFilesUntouched(t *testing.T) {
 func TestPluginSourceBlanksCoreArguments(t *testing.T) {
 	const src = `module postgres "db" {
   version = 16
-  after   = [task.migrate]
-  sleep   = "never"
-  wakes_on = [
-    module.events.topic.orders,
+  after   = [
+    task.migrate,
   ]
+  sleep   = "never"
   role "app" {}
 }
 `
 	got := string(pluginSource([]byte(src), "doze.hcl"))
-	for _, gone := range []string{"after", "sleep", "wakes_on", "task.migrate", "module.events"} {
+	for _, gone := range []string{"after", "sleep", "task.migrate", "never"} {
 		if strings.Contains(got, gone) {
 			t.Errorf("%q reached the module:\n%s", gone, got)
 		}

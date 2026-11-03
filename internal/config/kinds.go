@@ -167,7 +167,7 @@ func exprText(parser *hclparse.Parser, rng hcl.Range) string {
 // an error; a module built before doze added the argument would reject every
 // block that uses it. (doze-sdk strips count, for_each, depends_on, enabled,
 // version, listen and port on the module side; these came later.)
-var coreArguments = map[string]bool{"after": true, "sleep": true, "wakes_on": true}
+var coreArguments = map[string]bool{"after": true, "sleep": true}
 
 // blankCoreArguments overwrites each core argument in a module block with
 // spaces, keeping its newlines, so the module never sees it and every line
@@ -210,8 +210,9 @@ func blankCoreArguments(src []byte, filename string) []byte {
 // `<type> "<name>" { … }` a plugin looks for. An out-of-process module decodes
 // its own block by re-parsing the file and finding it by type and name
 // (doze-sdk plugin/server.go), and the plugin protocol predates the `module`
-// keyword. Only headers change, so every line number a plugin reports still
-// points at the user's file.
+// keyword. Only headers change, and doze's own arguments are blanked in place
+// (blankCoreArguments), so every line and column a plugin reports still points
+// at the user's file.
 func pluginSource(src []byte, filename string) []byte {
 	src = blankCoreArguments(src, filename)
 	f, diags := hclwrite.ParseConfig(src, filename, hcl.InitialPos)

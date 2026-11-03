@@ -26,7 +26,8 @@ type pendingInstance struct {
 	explicitDeps map[string]engine.Condition // explicit depends_on: instance name -> condition
 	after        *hcl.Attribute              // the block's `after`, nil if unset
 	defRange     hcl.Range
-	blockLabel   string // the source block's label (the count/for_each base, e.g. "assets")
+	blockLabel   string    // the source block's label (the count/for_each base, e.g. "assets")
+	sleepRange   hcl.Range // a module's `sleep`, for errors about it
 	baseDir      string
 }
 
@@ -243,7 +244,22 @@ func (l *loader) decodeBody(cfg *Config, p *pendingInstance, ctx, decodeCtx *hcl
 		}
 		p.decl.Spec = spec
 	}
-	return nil
+	return l.checkSleep(p)
+}
+
+// checkSleep refuses a sleep duration on a module doze does not front: with no
+// proxy in front of it, nothing would wake it once it slept.
+func (l *loader) checkSleep(p *pendingInstance) error {
+	if p.decl.Kind != KindModule || !p.decl.Sleep.Set || p.decl.Sleep.Never {
+		return nil
+	}
+	lc, ok := p.drv.(engine.Lifecycle)
+	if !ok || !lc.Supervised(engine.Instance{Name: p.decl.Name, Type: p.decl.Type, Spec: p.decl.Spec}) {
+		return nil
+	}
+	return posErr(l.parser, p.sleepRange,
+		p.decl.Title()+" can't sleep: doze doesn't sit in front of it, so nothing would wake it",
+		`delete sleep, or set sleep = "never"`)
 }
 
 // referencedModuleAttrs collects, per module name, every attribute the config

@@ -99,9 +99,7 @@ type hclService struct {
 	ReadyTimeout string            `hcl:"ready_timeout,optional"`
 	Restart      *hclRestart       `hcl:"restart,block"`
 	Sleep        string            `hcl:"sleep,optional"`
-	Front        string            `hcl:"front,optional"`
 	Console      string            `hcl:"console,optional"`
-	Logs         string            `hcl:"logs,optional"`
 }
 
 type hclTask struct {
@@ -243,6 +241,14 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 	if err != nil {
 		return err
 	}
+	if gone, _, _ := rest.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "front"}, {Name: "logs"}}}); gone != nil {
+		for _, arg := range []string{"front", "logs"} {
+			if attr, ok := gone.Attributes[arg]; ok {
+				return posErr(l.parser, attr.NameRange,
+					fmt.Sprintf("%s: `%s` is no longer an argument: it was never acted on; delete it", title(KindService, "", s.Name), arg), "")
+			}
+		}
+	}
 	var raw hclService
 	if diags := gohcl.DecodeBody(rest, ctx, &raw); diags.HasErrors() {
 		return diagError(l.parser, diags)
@@ -257,13 +263,6 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 	s.Run, s.Env, s.Dir = raw.Run, raw.Env, resolveAgainst(baseDir, raw.Dir)
 	s.DirSet = raw.Dir != ""
 	s.After, s.Refs = after, refs
-	if raw.Front != "" || raw.Logs != "" {
-		arg := "front"
-		if raw.Front == "" {
-			arg = "logs"
-		}
-		return fail(fmt.Errorf("`%s` is no longer an argument: it was never acted on; delete it", arg))
-	}
 	s.Console = raw.Console
 	if raw.EnvFile != "" {
 		s.EnvFile = resolveAgainst(baseDir, raw.EnvFile)

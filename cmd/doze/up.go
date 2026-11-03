@@ -64,7 +64,7 @@ func upCmd() *cobra.Command {
 			return runUp(cfg, targets, follow)
 		},
 	}
-	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "stream logs after waking (Ctrl-C detaches; services keep running)")
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "stream logs after waking (Ctrl-C detaches; the stack keeps running)")
 	cmd.Flags().BoolVar(&detach, "detach", false, "deprecated: up is always detached")
 	_ = cmd.Flags().MarkHidden("detach")
 	return cmd
@@ -73,7 +73,7 @@ func upCmd() *cobra.Command {
 // runUp ensures the daemon is up and boots the dependency closure of the targets
 // in order, with progress. It then returns — the daemon supervises everything in
 // the background. With follow, it additionally streams the process logs until
-// Ctrl-C, which only detaches the stream (the services keep running).
+// Ctrl-C, which only detaches the stream (the stack keeps running).
 func runUp(cfg *config.Config, targets []string, follow bool) error {
 	if !daemonRunning(cfg) {
 		if err := startDaemon(cfg); err != nil {
@@ -110,7 +110,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	fmt.Println(ui.Muted("streaming logs — press Ctrl-C to detach (services keep running)"))
+	fmt.Println(ui.Muted("streaming logs — press Ctrl-C to detach (the stack keeps running)"))
 	streamErr := make(chan error, 1)
 	go func() {
 		streamErr <- client.Stream(ctx, control.Request{Op: "logs", Follow: true, Names: procs}, printLogLine)
@@ -123,7 +123,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 		}
 	}
 	stop()
-	fmt.Println("\n" + ui.Muted("detached — services keep running. doze down to stop"))
+	fmt.Println("\n" + ui.Muted("detached — the stack keeps running. doze down to stop"))
 	return nil
 }
 

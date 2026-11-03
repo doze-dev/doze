@@ -113,6 +113,7 @@ const (
 var removed = []struct {
 	name, now string
 	block     bool
+	gone      bool // nothing replaces it: now says why it can go
 }{
 	{name: "command", now: "`run`"},
 	{name: "cwd", now: "`dir`"},
@@ -120,8 +121,8 @@ var removed = []struct {
 	{name: "ingress", now: "nothing: an app with a `port` is named automatically"},
 	{name: "hooks", now: "`setup`, `on_ready` and `stop`", block: true},
 	{name: "health", now: "`ready`, e.g. ready = http(\"/healthz\")", block: true},
-	{name: "front", now: "nothing: it was never acted on; delete it"},
-	{name: "logs", now: "nothing: it was never acted on; delete it"},
+	{name: "front", now: "it was never acted on; delete it", gone: true},
+	{name: "logs", now: "it was never acted on; delete it", gone: true},
 }
 
 func checkRemoved(body hcl.Body) error {
@@ -138,6 +139,9 @@ func checkRemoved(body hcl.Body) error {
 		return nil
 	}
 	for _, r := range removed {
+		if attr, ok := content.Attributes[r.name]; ok && r.gone {
+			return fmt.Errorf("%s: `%s` is no longer an argument: %s", attr.NameRange, r.name, r.now)
+		}
 		if attr, ok := content.Attributes[r.name]; ok {
 			return fmt.Errorf("%s: `%s` is no longer an argument; use %s", attr.NameRange, r.name, r.now)
 		}

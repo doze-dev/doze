@@ -13,16 +13,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   or with `direct = true`, still runs until it is stopped. `sleep = "never"`
   keeps any app on.
 - Module blocks take `sleep` too: `"never"` keeps the module on, a duration
-  replaces `idle_timeout` for it.
+  replaces `idle_timeout` for it. A module doze doesn't sit in front of, such
+  as `temporal`, refuses a duration, since nothing would wake it.
+- `wakes_on` is refused as not in this release, instead of being accepted and
+  ignored.
+- `doze status --json` marks an instance that never sleeps with `always_on`,
+  and the dashboard no longer counts one down to sleep.
 - `front` and `logs` on apps and services are gone; they were parsed and never
   acted on. A config that sets either is told to delete it.
 
 ### Fixed
 
 - `after` on a module block works: every published module rejected it, because
-  the module decoded doze's own arguments. doze now keeps `after`, `sleep`
-  and `wakes_on` to itself.
-
+  the module decoded doze's own arguments. doze now keeps `after` and
+  `sleep` to itself.
 - A clean clone builds again: doze pins tagged releases of doze-sdk (v0.8.0)
   and doze-names (v0.2.0) instead of an unpushed commit.
 - Two data races: live add or remove of an instance against the stats sampler

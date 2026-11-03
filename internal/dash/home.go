@@ -162,7 +162,7 @@ func (m *Model) what(v control.InstanceView) string {
 		} else if by := holderNamed(v); by != "" {
 			extra = "woken by " + by
 		}
-	case v.State == "idle" && !v.IdleSince.IsZero():
+	case v.State == "idle" && !v.IdleSince.IsZero() && !v.AlwaysOn:
 		after := m.snap.IdleTimeout
 		if v.IdleAfter > 0 {
 			after = v.IdleAfter
