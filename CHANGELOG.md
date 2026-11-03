@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Modules download engine binaries through doze** (doze-sdk v0.10.0): the
+  mirror, the cache and their checks live in doze alone, so changing them
+  rebuilds no module. Modules built with an older SDK keep downloading for
+  themselves and still work.
 - **`doze up` remembers.** What was started, and what was awake at `doze
   down`, is kept in the project's state folder (`project.json`). When it was
   less than everything, a bare `up` asks whether to start the same again;
