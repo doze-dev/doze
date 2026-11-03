@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/doze-dev/doze/internal/fault"
 )
@@ -257,5 +258,49 @@ func TestNoEnvelopeWhereNoCommandRan(t *testing.T) {
 	}
 	if code, out, _ := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "url", "--badflag"); code != 2 || !strings.Contains(out, `"schema"`) {
 		t.Errorf("DOZE_JSON=1 url --badflag: exit %d, out %q", code, out)
+	}
+}
+
+// Piped, doze never writes terminal control codes and never waits for an
+// answer, whatever TERM, CI or NO_COLOR say. (A terminal is the other case;
+// these runs have none on any stream.)
+func TestPipedOutputIsPlain(t *testing.T) {
+	stack := t.TempDir()
+	if err := os.WriteFile(filepath.Join(stack, "doze.hcl"), []byte("app \"api\" {\n  run  = \"sleep 60\"\n  port = 4712\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	envs := [][]string{
+		{"TERM=xterm-256color", "CLICOLOR_FORCE=1", "FORCE_COLOR=1"},
+		{"TERM=dumb"},
+		{"CI=true"},
+	}
+	commands := [][]string{
+		{"status"}, {"lint"}, {"env"}, {"url", "api"}, {"logs", "api"}, {"version"},
+		{"reset", "api"}, // must refuse, not wait for an answer
+		{"status", "--json"},
+	}
+	for _, env := range envs {
+		for _, args := range commands {
+			done := make(chan struct{})
+			var code int
+			var out, stderr string
+			go func() {
+				defer close(done)
+				code, out, stderr = dozeRun(t, stack, env, args...)
+			}()
+			select {
+			case <-done:
+			case <-time.After(20 * time.Second):
+				t.Fatalf("%v %v: still running after 20s (waiting for input?)", env, args)
+			}
+			for name, s := range map[string]string{"stdout": out, "stderr": stderr} {
+				if strings.ContainsAny(s, "\x1b\r") {
+					t.Errorf("%v %v: %s has control codes: %q", env, args, name, s)
+				}
+			}
+			if args[0] == "reset" && code != 9 {
+				t.Errorf("%v reset with no terminal: exit %d, want 9", env, code)
+			}
+		}
 	}
 }
