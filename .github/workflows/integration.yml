@@ -35,6 +35,20 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: doze/go.mod
+          cache-dependency-path: |
+            doze/go.sum
+            doze-modules/go.sum
+      # The suite builds doze and the plugins itself, where a proxy hiccup
+      # fails every test at once. Download first, with retries.
+      - name: Download modules
+        run: |
+          for dir in doze doze-modules; do
+            for try in 1 2 3; do
+              (cd "$dir" && go mod download) && break
+              [ "$try" = 3 ] && exit 1
+              sleep $((try * 10))
+            done
+          done
       - name: Run e2e suite
         working-directory: doze
         env:
