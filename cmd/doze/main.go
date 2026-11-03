@@ -16,6 +16,7 @@ import (
 
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/hostboot"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -59,12 +60,6 @@ func main() {
 	os.Exit(realMain())
 }
 
-// exitCodeError carries a child process's exit code up to main without
-// bypassing deferred cleanup the way a raw os.Exit would.
-type exitCodeError int
-
-func (e exitCodeError) Error() string { return fmt.Sprintf("exit code %d", int(e)) }
-
 func realMain() int {
 	// Wire the process-global engine host (module manager, plugin manager, engine
 	// resolver, config decode hooks). The exact same wiring backs the embeddable
@@ -87,15 +82,13 @@ func realMain() int {
 	defer func() { _ = host.Close() }()
 
 	if err := rootCmd().Execute(); err != nil {
-		// exitCodeError is also the silent-error sentinel: commands that have
-		// already printed a styled report return it so the failure isn't
-		// echoed twice, while the exit code still lands.
-		var code exitCodeError
-		if errors.As(err, &code) {
-			return int(code)
+		// A command that already reported the failure in its own words
+		// (shown), or a child's exit code (doze run), prints nothing more.
+		var child exitCodeError
+		if !errors.As(err, new(shownError)) && !errors.As(err, &child) {
+			fmt.Fprintln(os.Stderr, ui.ErrFail("error:")+" "+err.Error())
 		}
-		fmt.Fprintln(os.Stderr, ui.ErrFail("error:")+" "+err.Error())
-		return 1
+		return codeOf(err)
 	}
 	return 0
 }
@@ -184,6 +177,7 @@ func rootCmd() *cobra.Command {
 		mutating(daemonCmd()),
 		fetchCmd(),
 	)
+	markUsageErrors(root)
 	return root
 }
 
@@ -318,7 +312,7 @@ func loadConfig() (*config.Config, error) {
 // noConfigError replaces a stat error: the very first command in a new project
 // shouldn't greet anyone with one — point at the way in.
 func noConfigError() error {
-	return fmt.Errorf("no %s in this directory or any parent — run doze init to scaffold one, or point --config at your config", configPath)
+	return fault.With(fault.NoConfig, fmt.Errorf("no %s in this directory or any parent — run doze init to scaffold one, or point --config at your config", configPath))
 }
 
 // parseVarFlags turns repeated --var name=value flags into a map.
@@ -330,7 +324,7 @@ func parseVarFlags(flags []string) (map[string]string, error) {
 	for _, f := range flags {
 		name, val, ok := strings.Cut(f, "=")
 		if !ok || name == "" {
-			return nil, fmt.Errorf("invalid --var %q: expected name=value", f)
+			return nil, fault.With(fault.Usage, fmt.Errorf("invalid --var %q: expected name=value", f))
 		}
 		out[name] = val
 	}
@@ -374,9 +368,9 @@ func instanceNotFound(cfg *config.Config, name string) error {
 		names = append(names, d.Name)
 	}
 	if len(names) == 0 {
-		return fmt.Errorf("instance %q is not declared (no instances in %s)", name, configLabel(cfg))
+		return fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared (no instances in %s)", name, configLabel(cfg)))
 	}
-	return fmt.Errorf("instance %q is not declared; declared: %s (see doze status)", name, strings.Join(names, ", "))
+	return fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared; declared: %s (see doze status)", name, strings.Join(names, ", ")))
 }
 
 func configLabel(cfg *config.Config) string {
@@ -384,4 +378,20 @@ func configLabel(cfg *config.Config) string {
 		return p
 	}
 	return "the config"
+}
+
+// markUsageErrors gives every command-line mistake exit code 2: a bad flag,
+// and a wrong number or kind of arguments (which includes an unknown command).
+func markUsageErrors(root *cobra.Command) {
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError(err) })
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		if args := c.Args; args != nil {
+			c.Args = func(cmd *cobra.Command, a []string) error { return usageError(args(cmd, a)) }
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
 }

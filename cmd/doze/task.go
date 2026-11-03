@@ -82,7 +82,7 @@ func runTask(ctx context.Context, cfg *config.Config, d control.Daemon, out *os.
 	start := time.Now()
 	if err := d.Do(ctx, control.Verb{Name: control.VerbTask, Target: name}); err != nil {
 		fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
-		return exitCodeError(1)
+		return shown(err)
 	}
 	fmt.Fprintf(out, "%s %s done in %s\n", ui.OK("✓"), name, time.Since(start).Round(time.Millisecond))
 	return nil

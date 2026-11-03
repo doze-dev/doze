@@ -3,14 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/mattn/go-isatty"
 	"os"
+
+	"github.com/mattn/go-isatty"
 
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemon"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/runtime"
 	"github.com/doze-dev/doze/internal/state"
 	"github.com/doze-dev/doze/internal/ui"
@@ -118,7 +120,7 @@ func enabledPlan(cfg *config.Config, plan state.Plan) state.Plan {
 // still reaches a person through the terminal on stdin.
 func canAsk(stdinIsTerminal bool) error {
 	if !stdinIsTerminal {
-		return fmt.Errorf("sync needs confirmation and stdin is not a terminal: pass --auto-approve")
+		return fault.With(fault.NeedConfirm, fmt.Errorf("sync needs confirmation and stdin is not a terminal: pass --auto-approve"))
 	}
 	return nil
 }

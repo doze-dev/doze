@@ -201,8 +201,11 @@ type InstanceView struct {
 
 // Response is the daemon's reply.
 type Response struct {
-	OK          bool           `json:"ok"`
-	Error       string         `json:"error,omitempty"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+	// Code is the error's kind (fault.Kind: "not_found", "timeout", …) when
+	// it has one more precise than "failed".
+	Code        string         `json:"code,omitempty"`
 	Listen      string         `json:"listen,omitempty"`
 	IdleTimeout time.Duration  `json:"idle_timeout,omitempty"` // reap window, for the countdown
 	Stack       string         `json:"stack,omitempty"`        // the stack's name

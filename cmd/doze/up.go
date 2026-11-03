@@ -88,10 +88,10 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	defer took.stop()
 	for _, name := range bootClosure(cfg, targets) {
 		if err := bootOne(client, cfg, name, took); err != nil {
-			// The styled line is the report; exitCodeError keeps main from
-			// printing the same failure a second time.
+			// The styled line is the report; shown keeps main from printing
+			// the same failure a second time.
 			fmt.Println(ui.Fail("✗") + " " + name + ": " + err.Error())
-			return exitCodeError(1)
+			return shown(err)
 		}
 	}
 

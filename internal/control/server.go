@@ -13,6 +13,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/doze-dev/doze/internal/fault"
 )
 
 // Server listens on a unix socket and dispatches requests to a Handler.
@@ -191,6 +193,9 @@ func (s *Server) unary(ctx context.Context, req Request) Response {
 	done := func(err error) Response {
 		if err != nil {
 			resp.Error = err.Error()
+			if k := fault.Of(err); k != fault.Failed {
+				resp.Code = string(k)
+			}
 		} else {
 			resp.OK = true
 		}

@@ -67,7 +67,7 @@ func degradedStatusJSON(w io.Writer, decls []config.ShallowDecl, views map[strin
 	if err := enc.Encode(out); err != nil {
 		return err
 	}
-	return exitCodeError(1)
+	return shown(cfgErr)
 }
 
 func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) error {

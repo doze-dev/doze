@@ -12,6 +12,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/doze-dev/doze/internal/fault"
 )
 
 // Client dials a daemon's control socket.
@@ -177,7 +179,7 @@ func (cn *Conn) Do(ctx context.Context, req Request) (Response, error) {
 			return Response{}, fmt.Errorf("the daemon answered %q with no response", req.Op)
 		}
 		if f.Response.Error != "" {
-			return *f.Response, errors.New(f.Response.Error)
+			return *f.Response, responseError(f.Response)
 		}
 		return *f.Response, nil
 	case <-ctx.Done():
@@ -211,7 +213,7 @@ func (cn *Conn) Stream(ctx context.Context, req Request, on func(Frame) error) e
 					return fmt.Errorf("the daemon answered %q with no acknowledgement", req.Op)
 				}
 				if f.Response.Error != "" {
-					return errors.New(f.Response.Error)
+					return responseError(f.Response)
 				}
 				acked = true
 			case f.End:
@@ -314,5 +316,14 @@ func (c *Client) Add(ctx context.Context, block string) (InstanceView, error) {
 // Remove tears an instance down (optionally wiping its data).
 func (c *Client) Remove(ctx context.Context, name string, wipe bool) error {
 	_, err := c.DoContext(ctx, Request{Op: "remove", DB: name, Wipe: wipe})
+	return err
+}
+
+// responseError is the daemon's error as the caller sees it, keeping its kind.
+func responseError(r *Response) error {
+	err := errors.New(r.Error)
+	if r.Code != "" {
+		return fault.With(fault.Kind(r.Code), err)
+	}
 	return err
 }

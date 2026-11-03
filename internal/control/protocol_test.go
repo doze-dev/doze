@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/doze-dev/doze/internal/fault"
 )
 
 // stub is a Handler whose slow operations and streams the tests steer.
@@ -27,8 +29,11 @@ type stub struct {
 
 func (s *stub) Status() Response { return Response{Listen: "here"} }
 func (s *stub) Up(_ context.Context, name string) error {
-	if name == "nope" {
+	switch name {
+	case "nope":
 		return errors.New("no instance called nope")
+	case "missing":
+		return fault.With(fault.NotFound, errors.New("instance \"missing\" is not declared"))
 	}
 	return nil
 }
@@ -91,6 +96,19 @@ func TestUnaryRoundTrip(t *testing.T) {
 	}
 	if _, err := c.Do(Request{Op: "frobnicate"}); err == nil || !strings.Contains(err.Error(), "unknown op") {
 		t.Fatalf("unknown op: %v", err)
+	}
+}
+
+// An error's kind crosses the socket with it, so the CLI can exit 4 for a name
+// the daemon doesn't know without reading the message.
+func TestAnErrorKeepsItsKind(t *testing.T) {
+	c := serve(t, &stub{})
+	_, err := c.Do(Request{Op: "up", DB: "missing"})
+	if fault.Of(err) != fault.NotFound || !strings.Contains(err.Error(), "not declared") {
+		t.Fatalf("got %v (kind %q)", err, fault.Of(err))
+	}
+	if _, err := c.Do(Request{Op: "up", DB: "nope"}); fault.Of(err) != fault.Failed {
+		t.Fatalf("an error with no kind stays failed, got %q", fault.Of(err))
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/agext/levenshtein"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 )
@@ -50,7 +51,7 @@ func diagError(parser *hclparse.Parser, diags hcl.Diagnostics) error {
 	var buf bytes.Buffer
 	wr := hcl.NewDiagnosticTextWriter(&buf, parser.Files(), 0, false)
 	_ = wr.WriteDiagnostics(diags)
-	return fmt.Errorf("invalid config —\n\n%s", strings.TrimRight(buf.String(), "\n \t"))
+	return fault.With(fault.Invalid, fmt.Errorf("invalid config —\n\n%s", strings.TrimRight(buf.String(), "\n \t")))
 }
 
 // dedupeDiags drops diagnostics that repeat the same summary, detail, and source

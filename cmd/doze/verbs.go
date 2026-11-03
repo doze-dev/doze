@@ -15,6 +15,7 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemon"
 	"github.com/doze-dev/doze/internal/endpoints"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -93,7 +94,7 @@ func runWake(ctx context.Context, d control.Daemon, out io.Writer, names []strin
 		cancel()
 		if err != nil {
 			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
-			return exitCodeError(1)
+			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" awake"+took.suffix(name, verbTook))
 	}
@@ -138,7 +139,7 @@ func runSleep(ctx context.Context, d control.Daemon, out io.Writer, names []stri
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbSleep, Target: name}); err != nil {
 			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
-			return exitCodeError(1)
+			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" asleep")
 	}
@@ -180,7 +181,7 @@ func runRestart(ctx context.Context, d control.Daemon, out io.Writer, names []st
 		cancel()
 		if err != nil {
 			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
-			return exitCodeError(1)
+			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" restarted"+took.suffix(name, verbTook))
 	}
@@ -207,7 +208,7 @@ func resetCmd() *cobra.Command {
 			}
 			if !yes {
 				if !isInteractive() {
-					return fmt.Errorf("reset deletes data and will not guess: pass --yes to confirm")
+					return fault.With(fault.NeedConfirm, fmt.Errorf("reset deletes data and will not guess: pass --yes to confirm"))
 				}
 				if !confirm(fmt.Sprintf("Reset %s? The data is deleted and provisioned fresh on the next wake.", strings.Join(args, ", "))) {
 					fmt.Println(ui.Muted("nothing was reset"))
@@ -230,7 +231,7 @@ func runReset(ctx context.Context, d control.Daemon, out io.Writer, names []stri
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbReset, Target: name}); err != nil {
 			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
-			return exitCodeError(1)
+			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" reset — its data is gone; the next wake provisions it fresh")
 	}
@@ -269,7 +270,7 @@ func runPin(ctx context.Context, d control.Daemon, out io.Writer, names []string
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbPin, Target: name}); err != nil {
 			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
-			return exitCodeError(1)
+			return shown(err)
 		}
 	}
 	// A pin is a toggle, so say which way each one went.

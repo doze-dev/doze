@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/runspec"
@@ -123,7 +124,7 @@ func (r *Runtime) runStopSteps(ctx context.Context, name string, p engine.Proces
 func (r *Runtime) rerunOnReady(ctx context.Context, name string) (engine.Endpoint, error) {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
-		return engine.Endpoint{}, fmt.Errorf("instance %q is not declared", name)
+		return engine.Endpoint{}, fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared", name))
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/inputs"
 	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/logstore"
@@ -71,7 +72,7 @@ func (r *Runtime) taskOf(decl *config.InstanceDecl, drv engine.Driver) (runspec.
 func (r *Runtime) RunTask(ctx context.Context, name string) error {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
-		return fmt.Errorf("task %q is not declared in %s", name, configName(r.cfg))
+		return fault.With(fault.NotFound, fmt.Errorf("task %q is not declared in %s", name, configName(r.cfg)))
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {

@@ -17,6 +17,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemon"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -75,7 +76,7 @@ func logsCmd() *cobra.Command {
 				return fmt.Errorf("-f follows the newest run; it cannot be combined with --run")
 			}
 			if !daemonRunning(cfg) {
-				return fmt.Errorf("-f follows a running stack, and the daemon is not running (doze up starts it)")
+				return fault.With(fault.DaemonDown, fmt.Errorf("-f follows a running stack, and the daemon is not running (doze up starts it)"))
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()

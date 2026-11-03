@@ -223,7 +223,8 @@ name that is taken is refused, and what would be written has to parse.
 ### `doze lint`
 
 Validate the config without touching the daemon or any data: schema, references,
-ports, engine-version gates. Exit 1 on problems (CI-friendly).
+ports, engine-version gates. Exit 5 on problems, 6 with no config (CI-friendly;
+see [exit codes](#exit-codes)).
 
 ### `doze doctor [--fix]`
 
@@ -269,6 +270,27 @@ the modules themselves.
 ### `doze version`
 
 Print the doze version.
+
+## Exit codes
+
+A script can branch on how doze exited. Each code is one kind of failure, and
+the same kind is the `code` the daemon sends with an error. Codes are added,
+never renumbered.
+
+| Code | Kind | Meaning |
+|---|---|---|
+| 0 | | It worked. |
+| 1 | `failed` | It failed, for a reason with no code of its own. |
+| 2 | `usage` | The command line is wrong: an unknown command or flag, a missing argument. |
+| 4 | `not_found` | The stack declares no instance or task by that name. |
+| 5 | `config_invalid` | The config doesn't load: an error in it, or a module it names won't fetch or start. |
+| 6 | `no_config` | There is no doze.hcl here or in any parent directory. |
+| 7 | `daemon_down` | The command needs a running stack and doze isn't running. |
+| 8 | `timeout` | It took longer than allowed. |
+| 9 | `needs_confirmation` | It needs a yes and there is no terminal to ask: pass the flag the message names (`--yes`, `--auto-approve`). |
+| 130 | `interrupted` | It was interrupted (Ctrl-C). |
+
+`doze run` exits with its command's own code instead.
 
 ## Environment variables
 

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/state"
 )
 
@@ -63,7 +64,7 @@ func (r *Runtime) hasStructure(name string) bool {
 func (r *Runtime) reconcileObjects(ctx context.Context, name string, st *state.State) error {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
-		return fmt.Errorf("instance %q is not declared", name)
+		return fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared", name))
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
@@ -170,7 +171,7 @@ func (r *Runtime) ResetData(ctx context.Context, name string) error {
 		return fmt.Errorf("reset needs an instance name")
 	}
 	if r.cfg.Lookup(name) == nil {
-		return fmt.Errorf("instance %q is not declared", name)
+		return fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared", name))
 	}
 	if err := r.Stop(ctx, name); err != nil {
 		return fmt.Errorf("stopping %q: %w", name, err)

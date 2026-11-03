@@ -28,6 +28,7 @@ import (
 	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/netutil"
@@ -227,7 +228,7 @@ func (r *Runtime) bootCond(ctx context.Context, name string, cond engine.Conditi
 func (r *Runtime) AdminFor(name string) (engine.Admin, engine.Instance, error) {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
-		return nil, engine.Instance{}, fmt.Errorf("instance %q is not declared", name)
+		return nil, engine.Instance{}, fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared", name))
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
@@ -240,7 +241,7 @@ func (r *Runtime) AdminFor(name string) (engine.Admin, engine.Instance, error) {
 func (r *Runtime) endpointFor(name string) (engine.Endpoint, error) {
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
-		return engine.Endpoint{}, fmt.Errorf("instance %q is not declared", name)
+		return engine.Endpoint{}, fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared", name))
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
@@ -270,7 +271,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
-		return engine.Endpoint{}, fmt.Errorf("instance %q is not declared in %s", name, configName(r.cfg))
+		return engine.Endpoint{}, fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared in %s", name, configName(r.cfg)))
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {

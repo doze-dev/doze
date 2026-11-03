@@ -15,6 +15,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/endpoints"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/logstore"
 	"github.com/doze-dev/doze/internal/registry"
@@ -278,7 +279,7 @@ func (h *handler) Logs(name string) ([]string, error) {
 // stream and run.
 func (h *handler) LogLines(q control.LogQuery) ([]control.LogFrame, error) {
 	if h.d.cfg.Lookup(q.Instance) == nil {
-		return nil, fmt.Errorf("instance %q is not declared", q.Instance)
+		return nil, fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared", q.Instance))
 	}
 	return ReadLog(h.d.rt.Logs(), q)
 }

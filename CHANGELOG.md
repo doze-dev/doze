@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Exit codes mean something.** 2 for a usage mistake, 4 for a name the stack
+  doesn't declare, 5 for a config that doesn't load, 6 for no config, 7 when
+  the command needs a running stack, 8 for a timeout, 9 when a yes is needed
+  and there is no terminal, 130 when interrupted. They were all 1. The daemon
+  sends the kind with each error (`code` in the control protocol), so the CLI
+  never reads message text. Listed in the CLI reference.
 - **An app with a `port` now sleeps when idle**, after the stack's
   `idle_timeout` or its own `sleep`: a request wakes it. An app with no port,
   or with `direct = true`, still runs until it is stopped. `sleep = "never"`

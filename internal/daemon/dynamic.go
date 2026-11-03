@@ -12,6 +12,7 @@ import (
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/endpoints"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/proxy"
 )
 
@@ -223,7 +224,7 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 // name, drops it from the config, and (when wipe) deletes its data.
 func (d *Daemon) RemoveInstance(ctx context.Context, name string, wipe bool) error {
 	if d.cfg.Lookup(name) == nil {
-		return fmt.Errorf("no instance named %q", name)
+		return fault.With(fault.NotFound, fmt.Errorf("no instance named %q", name))
 	}
 	// Stop the backend first (outside the lock — Stop can block on a slow exit).
 	if err := d.rt.Stop(ctx, name); err != nil {

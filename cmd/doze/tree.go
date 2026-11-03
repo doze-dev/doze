@@ -14,6 +14,7 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemon"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -45,7 +46,7 @@ func treeCmd() *cobra.Command {
 					return fmt.Errorf("-w redraws the table; it cannot be combined with --json or --graph")
 				}
 				if !daemonUp {
-					return fmt.Errorf("-w watches a running stack, and the daemon is not running (doze up starts it)")
+					return fault.With(fault.DaemonDown, fmt.Errorf("-w watches a running stack, and the daemon is not running (doze up starts it)"))
 				}
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
@@ -118,7 +119,7 @@ func degradedStatus(cfgErr error, jsonOut bool) error {
 	fmt.Println(t.String())
 	fmt.Println()
 	fmt.Println(cfgErr.Error())
-	return exitCodeError(1)
+	return shown(cfgErr)
 }
 
 // watchStatus keeps the status table current: it draws the stack, then draws

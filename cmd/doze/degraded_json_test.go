@@ -8,6 +8,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/fault"
 )
 
 // With a broken doze.hcl, status --json still gives a script JSON: the blocks
@@ -19,11 +20,10 @@ func TestStatusJSONWithABrokenConfig(t *testing.T) {
 	}
 	views := map[string]control.InstanceView{"db": {Name: "db", State: "active", Conns: 2}}
 	var buf bytes.Buffer
-	err := degradedStatusJSON(&buf, decls, views, true, errors.New("doze.hcl:4: Unsupported argument"))
+	err := degradedStatusJSON(&buf, decls, views, true, fault.With(fault.Invalid, errors.New("doze.hcl:4: Unsupported argument")))
 
-	var code exitCodeError
-	if !errors.As(err, &code) || code != 1 {
-		t.Fatalf("err = %v, want exit code 1", err)
+	if codeOf(err) != 5 || !errors.As(err, new(shownError)) {
+		t.Fatalf("err = %v (code %d), want exit code 5, already shown", err, codeOf(err))
 	}
 	var got statusJSON
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {

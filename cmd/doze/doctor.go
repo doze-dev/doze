@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -172,7 +173,7 @@ func doctorCmd() *cobra.Command {
 					return err
 				}
 				if !ok {
-					return exitCodeError(1)
+					return shown(errors.New("some checks need attention"))
 				}
 				return nil
 			}
@@ -186,7 +187,7 @@ func doctorCmd() *cobra.Command {
 				return nil
 			}
 			fmt.Println(ui.Fail("✗") + " some checks need attention (see ✗ above)")
-			return exitCodeError(1)
+			return shown(errors.New("some checks need attention"))
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit machine-readable JSON instead of the table")

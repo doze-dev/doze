@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -56,8 +57,23 @@ func LoadShape(path string, cliVars map[string]string) (*Config, error) {
 func load(path string, cliVars map[string]string, l *loader) (*Config, error) {
 	files, primary, err := gatherConfigFiles(path)
 	if err != nil {
-		return nil, err
+		return nil, err // a missing file stays as it is: callers test os.IsNotExist
 	}
+	cfg, err := l.loadFiles(path, files, primary, cliVars)
+	return cfg, invalid(err)
+}
+
+// invalid marks a load error as the config's (fault.Invalid) unless it
+// already has a kind: whatever stopped the load, a typo or a module that
+// won't fetch or start, the config as written doesn't load.
+func invalid(err error) error {
+	if err == nil || fault.Of(err) != fault.Failed {
+		return err
+	}
+	return fault.With(fault.Invalid, err)
+}
+
+func (l *loader) loadFiles(path string, files []string, primary string, cliVars map[string]string) (*Config, error) {
 	l.parser = hclparse.NewParser()
 	for _, f := range files {
 		hf, diags := l.parser.ParseHCLFile(f)
@@ -144,7 +160,8 @@ func parse(src []byte, filename string, l *loader) (*Config, error) {
 		return nil, diagError(l.parser, diags)
 	}
 	l.files = []*hcl.File{file}
-	return l.buildConfig(file.Body, filename, nil)
+	cfg, err := l.buildConfig(file.Body, filename, nil)
+	return cfg, invalid(err)
 }
 
 // buildConfig validates a (possibly merged) HCL body into a Config.

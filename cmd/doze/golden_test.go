@@ -188,9 +188,8 @@ func TestGoldenWake(t *testing.T) {
 	failing := &fakedaemon.Fake{Fail: map[string]error{"wake events": errors.New("events not ready: did not become ready within 1m0s")}}
 	out.Reset()
 	err := runWake(context.Background(), slow{failing}, &out, []string{"db", "events", "api"})
-	var code exitCodeError
-	if !errors.As(err, &code) || int(code) != 1 {
-		t.Fatalf("a failed wake must exit 1, got %v", err)
+	if codeOf(err) != 1 || !errors.As(err, new(shownError)) {
+		t.Fatalf("a failed wake must exit 1 without printing twice, got %v", err)
 	}
 	golden(t, "wake-failed", out.Bytes())
 	if len(failing.Done()) != 2 {

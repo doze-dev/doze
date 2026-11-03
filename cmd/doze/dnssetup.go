@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -62,7 +63,7 @@ func namesCheck() error {
 		return nil
 	}
 	fmt.Println("\nrun " + ui.Title("doze doctor --fix") + " to set it up (one sudo)")
-	return exitCodeError(1)
+	return shown(errors.New("names are not set up"))
 }
 
 // namesFix runs the setup, or prints its script.
