@@ -87,7 +87,10 @@ type verbResult struct {
 	Name   string `json:"name"`
 	State  string `json:"state,omitempty"`   // what it is now: awake, asleep, restarted, reset, pinned, unpinned, done
 	TookMS int64  `json:"took_ms,omitempty"` // how long it took to become ready, by the daemon's journal
-	Error  string `json:"error,omitempty"`
+	// Changed says whether this run changed anything, for a verb that can
+	// know (pin); absent when it can't.
+	Changed *bool  `json:"changed,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // verbReport prints each outcome as it happens and keeps it for --json.
@@ -276,13 +279,15 @@ func runReset(ctx context.Context, d control.Daemon, out, errw io.Writer, names 
 }
 
 func pinCmd() *cobra.Command {
-	return &cobra.Command{
+	var off, toggle bool
+	cmd := &cobra.Command{
 		Use:     "pin <name…>",
 		Aliases: []string{"keepawake"},
-		Short:   "Keep a service awake past its idle time (run again to unpin)",
+		Short:   "Keep a service awake past its idle time (--off to unpin)",
 		Long: "pin exempts the named services from the idle timer, so they stay awake with\n" +
-			"nobody connected. It is a toggle: pin a pinned service to unpin it. A pin\n" +
-			"lasts until the daemon stops.",
+			"nobody connected; --off lets them sleep again. Running it twice changes\n" +
+			"nothing the second time, so a script can say what it wants. --toggle flips\n" +
+			"each one, as the dash's key does. A pin lasts until the daemon stops.",
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: instanceCompletion,
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -293,40 +298,99 @@ func pinCmd() *cobra.Command {
 			if _, err := targetsOrAll(cfg, args); err != nil {
 				return err
 			}
+			if off && toggle {
+				return usageError(fmt.Errorf("--off and --toggle ask for different things; pick one"))
+			}
+			want := pinOn
+			switch {
+			case off:
+				want = pinOff
+			case toggle:
+				want = pinToggle
+			}
 			if !daemonRunning(cfg) {
+				if want == pinOff {
+					// Nothing runs, so nothing is pinned.
+					r := newVerbReport(os.Stdout, os.Stderr)
+					for _, name := range args {
+						r.pin(name, false, false)
+					}
+					return nil
+				}
 				if err := startDaemon(cfg); err != nil {
 					return err
 				}
 			}
-			return runPin(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
+			return runPin(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args, want)
 		},
 	}
+	cmd.Flags().BoolVar(&off, "off", false, "unpin: let them sleep again when idle")
+	cmd.Flags().BoolVar(&toggle, "toggle", false, "flip each one, as the dash's p key does")
+	return cmd
 }
 
-func runPin(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
+type pinWant int
+
+const (
+	pinOn pinWant = iota
+	pinOff
+	pinToggle
+)
+
+// runPin brings each name to the pin state asked for. The daemon's verb is a
+// toggle, so it is sent only to the ones that differ, and the result says
+// whether each changed.
+func runPin(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string, want pinWant) error {
 	r := newVerbReport(out, errw)
+	pinned, err := pinStates(ctx, d)
+	if err != nil {
+		return err
+	}
+	var flip []string
 	for _, name := range names {
+		if want == pinToggle || pinned[name] != (want == pinOn) {
+			flip = append(flip, name)
+		}
+	}
+	for _, name := range flip {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbPin, Target: name}); err != nil {
 			return r.fail(name, err)
 		}
 	}
-	// A pin is a toggle, so say which way each one went.
-	snap, err := d.Snapshot(ctx)
+	// Report what the daemon says now, not what was asked for.
+	now, err := pinStates(ctx, d)
 	if err != nil {
 		return err
+	}
+	for _, name := range names {
+		r.pin(name, now[name], now[name] != pinned[name])
+	}
+	return nil
+}
+
+func pinStates(ctx context.Context, d control.Daemon) (map[string]bool, error) {
+	snap, err := d.Snapshot(ctx)
+	if err != nil {
+		return nil, err
 	}
 	pinned := map[string]bool{}
 	for _, v := range snap.Instances {
 		pinned[v.Name] = v.KeepAwake
 	}
-	for _, name := range names {
-		if pinned[name] {
-			r.ok(name, "pinned", "pinned — it stays awake until unpinned or the daemon stops", 0)
-		} else {
-			r.ok(name, "unpinned", "unpinned — it sleeps again when idle", 0)
-		}
+	return pinned, nil
+}
+
+// pin records one instance's pin state and whether this run changed it.
+func (r *verbReport) pin(name string, pinned, changed bool) {
+	state, line := "unpinned", "unpinned — it sleeps again when idle"
+	if pinned {
+		state, line = "pinned", "pinned — it stays awake until unpinned or the daemon stops"
 	}
-	return nil
+	if !changed {
+		line = "already " + state
+	}
+	r.Results = append(r.Results, verbResult{Name: name, State: state, Changed: &changed})
+	fmt.Fprintln(r.out, ui.OK("✓")+" "+name+" "+line)
 }
 
 // readyWatch collects, from the journal, how long each instance took to

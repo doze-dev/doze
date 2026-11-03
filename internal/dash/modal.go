@@ -86,11 +86,11 @@ func (m *Model) actions() []action {
 				add(action{label: "sleep " + n, cli: "doze sleep " + n, run: func(m *Model) tea.Cmd { return m.askSleep(n) }})
 				add(action{label: "restart " + n, cli: "doze restart " + n, run: func(m *Model) tea.Cmd { return m.askRestart(n) }})
 			}
-			pin := "pin " + n + " awake"
+			pin, cli := "pin "+n+" awake", "doze pin "+n
 			if v.KeepAwake {
-				pin = "unpin " + n
+				pin, cli = "unpin "+n, "doze pin --off "+n
 			}
-			add(action{label: pin, cli: "doze pin " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbPin, n) }})
+			add(action{label: pin, cli: cli, run: func(m *Model) tea.Cmd { return m.do(control.VerbPin, n) }})
 			add(action{label: "reset " + n, note: "wipes its data · asks first", bad: true, cli: "doze reset " + n,
 				run: func(m *Model) tea.Cmd { m.modal = &modal{kind: modalReset, target: n, btn: 1}; return nil }})
 		}

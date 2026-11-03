@@ -153,10 +153,12 @@ With no name it lists every task, when it last ran, how that went and why it
 ran. A task also runs by itself when something that lists it in `after` starts
 and it has never succeeded or its `inputs` changed.
 
-### `doze pin <name…>`
+### `doze pin <name…> [--off | --toggle]`
 
-Keep a service awake past its idle time. It is a toggle: pin again to unpin.
-A pin lasts until the daemon stops.
+Keep a service awake past its idle time; `--off` lets it sleep again. Running
+it twice changes nothing the second time, and the result says whether each one
+changed (`changed` in `--json`). `--toggle` flips each one, as the dash's key
+does. A pin lasts until the daemon stops.
 
 ### `doze logs [name…] [-f] [--run N] [-n N] [--since T]`
 

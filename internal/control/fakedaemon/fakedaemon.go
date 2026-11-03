@@ -241,6 +241,17 @@ func (f *Fake) Do(_ context.Context, verb control.Verb) error {
 	}
 	hook := f.OnDo
 	f.mu.Unlock()
+	if err == nil && verb.Name == control.VerbPin {
+		// The daemon's pin is a toggle; the fake keeps the same state, so a
+		// caller reading the snapshot afterwards sees what the daemon would say.
+		f.Mutate(func(s *control.Snapshot) {
+			for i := range s.Instances {
+				if s.Instances[i].Name == verb.Target {
+					s.Instances[i].KeepAwake = !s.Instances[i].KeepAwake
+				}
+			}
+		})
+	}
 	if err == nil && hook != nil {
 		hook(verb)
 	}

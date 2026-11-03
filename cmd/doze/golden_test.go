@@ -223,14 +223,15 @@ func TestGoldenSleepRestartResetPin(t *testing.T) {
 	must(runSleep(ctx, d, &out, &out, nil))
 	must(runRestart(ctx, slow{d}, &out, &out, []string{"api"}))
 	must(runReset(ctx, d, &out, &out, []string{"db"}))
-	// events is pinned in the snapshot and cache is not: pin reports each as it now stands.
-	must(runPin(ctx, d, &out, &out, []string{"events", "cache"}))
+	// events is pinned in the snapshot and cache is not: pin leaves events be,
+	// pins cache, and says which changed.
+	must(runPin(ctx, d, &out, &out, []string{"events", "cache"}, pinOn))
 	golden(t, "sleep-restart-reset-pin", out.Bytes())
 
 	want := []control.Verb{
 		{Name: "sleep", Target: "cache"}, {Name: "sleep", Target: "web"}, {Name: "sleep"},
 		{Name: "restart", Target: "api"}, {Name: "reset", Target: "db"},
-		{Name: "pin", Target: "events"}, {Name: "pin", Target: "cache"},
+		{Name: "pin", Target: "cache"},
 	}
 	got := d.Done()
 	if len(got) != len(want) {
@@ -308,4 +309,40 @@ func TestGoldenLogs(t *testing.T) {
 		t.Fatal(err)
 	}
 	golden(t, "logs-nothing-yet", none.Bytes())
+}
+
+// pin says what it wants, so running it twice changes nothing the second
+// time; --toggle flips; each result says whether this run changed it.
+func TestPinIsIdempotent(t *testing.T) {
+	d := &fakedaemon.Fake{Snap: shopSnapshot()} // events is pinned, cache is not
+	ctx := context.Background()
+	var out bytes.Buffer
+	changed := func(want ...bool) {
+		t.Helper()
+		r := result.(*verbReport)
+		for i, w := range want {
+			if c := r.Results[i].Changed; c == nil || *c != w {
+				t.Fatalf("result %d = %+v, want changed %v", i, r.Results[i], w)
+			}
+		}
+	}
+	names := []string{"events", "cache"}
+	if err := runPin(ctx, d, &out, &out, names, pinOff); err != nil {
+		t.Fatal(err)
+	}
+	changed(true, false)
+	if err := runPin(ctx, d, &out, &out, names, pinOff); err != nil {
+		t.Fatal(err)
+	}
+	changed(false, false)
+	if err := runPin(ctx, d, &out, &out, names, pinToggle); err != nil {
+		t.Fatal(err)
+	}
+	changed(true, true)
+	if r := result.(*verbReport); r.Results[0].State != "pinned" || r.Results[1].State != "pinned" {
+		t.Fatalf("after toggling two unpinned: %+v", r.Results)
+	}
+	if n := len(d.Done()); n != 3 {
+		t.Fatalf("pin verbs sent: %d, want 3 (one off, two toggles)", n)
+	}
 }

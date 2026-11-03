@@ -15,6 +15,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   JSON; `status`, `env` and `doctor` move theirs into `data` (status's
   `error` field is now the envelope's). A command with no result refuses
   `--json` (exit 2).
+- `doze pin` pins; `--off` unpins; `--toggle` flips, as the dash does. It was
+  a toggle, so running it twice undid itself. Each result says whether it
+  changed.
 - Global `-q`, `-y/--yes` (`DOZE_YES=1`), `--timeout` and `--no-color`.
   `-y` replaces `sync --auto-approve`, `reset --yes` and `init --yes`;
   `--timeout` replaces the fixed five-minute boot budget.
