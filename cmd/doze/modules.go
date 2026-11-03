@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/doze-dev/doze-sdk/binaries"
+	"github.com/doze-dev/doze/internal/binaries"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/modules"
 	"github.com/doze-dev/doze/internal/ui"

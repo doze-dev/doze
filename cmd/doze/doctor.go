@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	names "github.com/doze-dev/doze-names"
-	"github.com/doze-dev/doze-sdk/binaries"
+	"github.com/doze-dev/doze/internal/binaries"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/portholder"
 	"github.com/doze-dev/doze/internal/ui"

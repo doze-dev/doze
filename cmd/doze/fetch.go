@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/doze-dev/doze-sdk/binaries"
+	"github.com/doze-dev/doze/internal/binaries"
 )
 
 // fetchCmd is the hidden helper the daemon re-execs to download a service's

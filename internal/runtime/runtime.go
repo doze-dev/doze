@@ -25,8 +25,8 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/binaries"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/journal"

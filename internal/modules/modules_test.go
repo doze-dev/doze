@@ -16,9 +16,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze-sdk/modindex"
 	dozeplugin "github.com/doze-dev/doze-sdk/plugin"
+	"github.com/doze-dev/doze/internal/binaries"
 )
 
 // registryKeys maps a test registry's root directory to the key it is signed

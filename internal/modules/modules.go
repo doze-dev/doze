@@ -1,6 +1,6 @@
 // Package modules fetches out-of-process engine plugins ("modules") from the doze
 // module registry, reusing the same download / verify / content-addressed cache
-// machinery as engine binaries (doze-sdk/binaries). A module is one plugin
+// machinery as engine binaries (internal/binaries). A module is one plugin
 // executable published at a registry source address <namespace>/<name>. doze maps
 // an engine type to the source doze/<type> and accepts an index or artifact only
 // if it carries a valid signature from the registry key compiled into doze.
@@ -21,10 +21,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/doze-dev/doze-sdk/binaries"
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze-sdk/modindex"
 	dozeplugin "github.com/doze-dev/doze-sdk/plugin"
+	"github.com/doze-dev/doze/internal/binaries"
 )
 
 // RegistryBase is the doze registry: the one place modules come from. A module
