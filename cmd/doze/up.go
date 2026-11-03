@@ -90,7 +90,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 		if err := bootOne(client, cfg, name, took); err != nil {
 			// The styled line is the report; shown keeps main from printing
 			// the same failure a second time.
-			fmt.Println(ui.Fail("✗") + " " + name + ": " + err.Error())
+			fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" "+name+": "+err.Error())
 			return shown(err)
 		}
 	}
@@ -130,14 +130,15 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 // bootOne wakes a single instance and keeps the terminal honest while it does:
 // the daemon's own progress (engine downloads can dominate a first boot) goes
 // to its log file, so we tail that file and relay download/verify lines here,
-// plus an elapsed-time tick on the waking line when stdout is a terminal.
+// plus an elapsed-time tick on the waking line when stderr is a terminal.
+// Progress is stderr's; the "awake" line that ends it is the result, on stdout.
 func bootOne(client *control.Client, cfg *config.Config, name string, took *readyWatch) error {
-	statusLine := ui.Muted("→") + " " + name + " waking…"
-	tty := stdoutIsTerminal()
+	statusLine := ui.ErrMuted("→") + " " + name + " waking…"
+	tty := isTerminal(os.Stderr)
 	if tty {
-		fmt.Print(statusLine)
+		fmt.Fprint(os.Stderr, statusLine)
 	} else {
-		fmt.Println(statusLine)
+		fmt.Fprintln(os.Stderr, statusLine)
 	}
 
 	done := make(chan struct{})
@@ -156,7 +157,7 @@ func bootOne(client *control.Client, cfg *config.Config, name string, took *read
 	close(done)
 	wg.Wait()
 	if tty {
-		fmt.Print("\r\033[K") // clear the ticking line; the result line replaces it
+		fmt.Fprint(os.Stderr, "\r\033[K") // clear the ticking line; the result line replaces it
 	}
 	if err != nil {
 		return err
@@ -193,16 +194,16 @@ func relayBootProgress(logPath, statusLine string, tty bool, done <-chan struct{
 			for _, p := range []string{"doze: ", "› ", "→ ", "✓ ", "✗ "} {
 				line = strings.TrimPrefix(line, p)
 			}
-			msg := "  " + ui.Muted("› "+line)
+			msg := "  " + ui.ErrMuted("› "+line)
 			if tty {
-				fmt.Print("\r\033[K" + msg + "\n")
+				fmt.Fprint(os.Stderr, "\r\033[K"+msg+"\n")
 			} else {
-				fmt.Println(msg)
+				fmt.Fprintln(os.Stderr, msg)
 			}
 		}
 		if tty {
 			if elapsed := time.Since(start); elapsed >= 3*time.Second {
-				fmt.Print("\r\033[K" + statusLine + ui.Muted(fmt.Sprintf(" %ds", int(elapsed.Seconds()))))
+				fmt.Fprint(os.Stderr, "\r\033[K"+statusLine+ui.ErrMuted(fmt.Sprintf(" %ds", int(elapsed.Seconds()))))
 			}
 		}
 	}

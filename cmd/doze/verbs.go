@@ -76,14 +76,14 @@ func wakeCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runWake(context.Background(), daemonFor(cfg), os.Stdout, bootClosure(cfg, targets))
+			return runWake(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, bootClosure(cfg, targets))
 		},
 	}
 }
 
 // runWake wakes each name in order, one line each, with how long the daemon
 // says it took.
-func runWake(ctx context.Context, d control.Daemon, out io.Writer, names []string) error {
+func runWake(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	took := watchReady(ctx, d)
 	defer took.stop()
 	for _, name := range names {
@@ -93,7 +93,7 @@ func runWake(ctx context.Context, d control.Daemon, out io.Writer, names []strin
 		verbTook := time.Since(start)
 		cancel()
 		if err != nil {
-			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
+			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
 			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" awake"+took.suffix(name, verbTook))
@@ -123,12 +123,12 @@ func sleepCmd() *cobra.Command {
 				fmt.Println(ui.Muted("nothing is awake (the daemon is not running)"))
 				return nil
 			}
-			return runSleep(context.Background(), daemonFor(cfg), os.Stdout, args)
+			return runSleep(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 }
 
-func runSleep(ctx context.Context, d control.Daemon, out io.Writer, names []string) error {
+func runSleep(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	if len(names) == 0 {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbSleep}); err != nil {
 			return err
@@ -138,7 +138,7 @@ func runSleep(ctx context.Context, d control.Daemon, out io.Writer, names []stri
 	}
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbSleep, Target: name}); err != nil {
-			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
+			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
 			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" asleep")
@@ -165,12 +165,12 @@ func restartCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runRestart(context.Background(), daemonFor(cfg), os.Stdout, args)
+			return runRestart(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 }
 
-func runRestart(ctx context.Context, d control.Daemon, out io.Writer, names []string) error {
+func runRestart(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	took := watchReady(ctx, d)
 	defer took.stop()
 	for _, name := range names {
@@ -180,7 +180,7 @@ func runRestart(ctx context.Context, d control.Daemon, out io.Writer, names []st
 		verbTook := time.Since(start)
 		cancel()
 		if err != nil {
-			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
+			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
 			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" restarted"+took.suffix(name, verbTook))
@@ -220,17 +220,17 @@ func resetCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runReset(context.Background(), daemonFor(cfg), os.Stdout, args)
+			return runReset(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "do not ask")
 	return cmd
 }
 
-func runReset(ctx context.Context, d control.Daemon, out io.Writer, names []string) error {
+func runReset(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbReset, Target: name}); err != nil {
-			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
+			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
 			return shown(err)
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" "+name+" reset — its data is gone; the next wake provisions it fresh")
@@ -261,15 +261,15 @@ func pinCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runPin(context.Background(), daemonFor(cfg), os.Stdout, args)
+			return runPin(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 }
 
-func runPin(ctx context.Context, d control.Daemon, out io.Writer, names []string) error {
+func runPin(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbPin, Target: name}); err != nil {
-			fmt.Fprintln(out, ui.Fail("✗")+" "+name+": "+err.Error())
+			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
 			return shown(err)
 		}
 	}

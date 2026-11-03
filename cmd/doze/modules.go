@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -130,7 +131,7 @@ func modulesUpgradeCmd() *cobra.Command {
 			}
 			fmt.Println(table.String())
 			for _, d := range failDetails {
-				fmt.Println(ui.Fail("✗") + " " + d)
+				fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" "+d)
 			}
 			if failures > 0 {
 				return fmt.Errorf("%d module(s) failed", failures)

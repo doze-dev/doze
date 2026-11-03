@@ -176,7 +176,7 @@ func TestGoldenWake(t *testing.T) {
 		ready(6, "api", 2*time.Minute+5*time.Second),
 	}}
 	var out bytes.Buffer
-	if err := runWake(context.Background(), slow{d}, &out, []string{"db", "events", "api"}); err != nil {
+	if err := runWake(context.Background(), slow{d}, &out, &out, []string{"db", "events", "api"}); err != nil {
 		t.Fatal(err)
 	}
 	golden(t, "wake", out.Bytes())
@@ -187,7 +187,7 @@ func TestGoldenWake(t *testing.T) {
 	// A wake that fails stops there, says why, and exits 1.
 	failing := &fakedaemon.Fake{Fail: map[string]error{"wake events": errors.New("events not ready: did not become ready within 1m0s")}}
 	out.Reset()
-	err := runWake(context.Background(), slow{failing}, &out, []string{"db", "events", "api"})
+	err := runWake(context.Background(), slow{failing}, &out, &out, []string{"db", "events", "api"})
 	if codeOf(err) != 1 || !errors.As(err, new(shownError)) {
 		t.Fatalf("a failed wake must exit 1 without printing twice, got %v", err)
 	}
@@ -219,12 +219,12 @@ func TestGoldenSleepRestartResetPin(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	must(runSleep(ctx, d, &out, []string{"cache", "web"}))
-	must(runSleep(ctx, d, &out, nil))
-	must(runRestart(ctx, slow{d}, &out, []string{"api"}))
-	must(runReset(ctx, d, &out, []string{"db"}))
+	must(runSleep(ctx, d, &out, &out, []string{"cache", "web"}))
+	must(runSleep(ctx, d, &out, &out, nil))
+	must(runRestart(ctx, slow{d}, &out, &out, []string{"api"}))
+	must(runReset(ctx, d, &out, &out, []string{"db"}))
 	// events is pinned in the snapshot and cache is not: pin reports each as it now stands.
-	must(runPin(ctx, d, &out, []string{"events", "cache"}))
+	must(runPin(ctx, d, &out, &out, []string{"events", "cache"}))
 	golden(t, "sleep-restart-reset-pin", out.Bytes())
 
 	want := []control.Verb{

@@ -71,7 +71,7 @@ func initCmd() *cobra.Command {
 
 			if doLint {
 				if cfg, err := loadConfig(); err != nil {
-					fmt.Println(ui.Fail("✗") + " " + err.Error())
+					fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" "+err.Error())
 				} else {
 					fmt.Printf("%s looks good — %d service(s)\n", ui.OK("✓"), len(cfg.Instances))
 				}
