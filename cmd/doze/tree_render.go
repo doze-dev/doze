@@ -3,10 +3,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -22,9 +20,6 @@ import (
 type statusJSON struct {
 	Daemon   statusDaemonJSON    `json:"daemon"`
 	Services []statusServiceJSON `json:"services"`
-	// Error is set when doze.hcl does not load: services are then the block
-	// headers that could still be read, with any live state, and doze exits 1.
-	Error string `json:"error,omitempty"`
 }
 
 type statusDaemonJSON struct {
@@ -50,9 +45,10 @@ type statusServiceJSON struct {
 }
 
 // degradedStatusJSON is status --json when the config does not load: the block
-// headers the shallow pass read, any live state, and the error.
-func degradedStatusJSON(w io.Writer, decls []config.ShallowDecl, views map[string]control.InstanceView, daemonUp bool, cfgErr error) error {
-	out := statusJSON{Daemon: statusDaemonJSON{Running: daemonUp}, Services: []statusServiceJSON{}, Error: cfgErr.Error()}
+// headers the shallow pass read, with any live state, as the result, and the
+// config's error as the command's error (exit 5).
+func degradedStatusJSON(decls []config.ShallowDecl, views map[string]control.InstanceView, daemonUp bool, cfgErr error) error {
+	out := statusJSON{Daemon: statusDaemonJSON{Running: daemonUp}, Services: []statusServiceJSON{}}
 	for _, d := range decls {
 		v, running := views[d.Name]
 		s := statusServiceJSON{Name: d.Name, Engine: d.Type, Version: d.Version, Group: d.Kind, Enabled: true,
@@ -62,15 +58,11 @@ func degradedStatusJSON(w io.Writer, decls []config.ShallowDecl, views map[strin
 		}
 		out.Services = append(out.Services, s)
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(out); err != nil {
-		return err
-	}
-	return shown(cfgErr)
+	setResult(out)
+	return cfgErr
 }
 
-func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) error {
+func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) {
 	out := statusJSON{Daemon: statusDaemonJSON{Running: daemonUp}, Services: []statusServiceJSON{}}
 	for _, d := range cfg.Instances {
 		v, running := views[d.Name]
@@ -127,9 +119,7 @@ func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView,
 		}
 		out.Services = append(out.Services, s)
 	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	setResult(out)
 }
 
 // plainState is stateText without terminal styling — for JSON.

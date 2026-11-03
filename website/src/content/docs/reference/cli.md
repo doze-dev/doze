@@ -5,7 +5,8 @@ title: "CLI reference"
 
 The global flag `-c, --config <path>` selects the config (default `doze.hcl`,
 which auto-merges sibling `*.doze.hcl` files; a directory merges its `*.hcl`).
-`--var name=value` (repeatable) overrides a config variable.
+`--var name=value` (repeatable) overrides a config variable. The rest of the
+global flags are for scripts and agents; see [scripting doze](#scripting-doze).
 
 doze has two surfaces that do the same things. The [dash](/cli/dashboard/) is
 the one to live in: every verb is a key or a `:` palette row there. The CLI
@@ -91,7 +92,7 @@ Every module and app: state, endpoint, connections, memory, CPU, and a note.
 The note is the one thing worth knowing beyond the state: `held by api`,
 `pinned`, `sleeps in 4m12s`, or the error. `-w` keeps the table on screen and
 redraws it as things change. `--graph` draws the dependency tree. `--json` is
-for scripts, and keeps the daemon's own state words (`active`, `idle`,
+for scripts (see [scripting doze](#scripting-doze)), and keeps the daemon's own state words (`active`, `idle`,
 `booting`, `reaped`).
 
 ### `doze env`
@@ -271,6 +272,42 @@ the modules themselves.
 
 Print the doze version.
 
+## Scripting doze
+
+stdout carries what a command produced; stderr carries progress, warnings and
+errors. So `doze up > log` holds the results and `doze url db | pbcopy` copies
+one line.
+
+| Flag | Environment | What it does |
+|---|---|---|
+| `--json` | `DOZE_JSON=1` | Print the result as one JSON envelope on stdout, on success and on failure. |
+| `-q, --quiet` | | Print nothing on stdout; the exit code is the answer. |
+| `-y, --yes` | `DOZE_YES=1` | Answer yes to every question. Without it and without a terminal, a command that must ask exits 9. |
+| `--timeout <d>` | | How long one service may take to become ready (default `5m`). |
+| `--no-color` | `NO_COLOR=1` | No colour. |
+
+The envelope has the same shape for every command:
+
+```json
+{
+  "schema": "doze/v1",
+  "command": "doze wake",
+  "ok": false,
+  "data": { "results": [
+    { "name": "db", "state": "awake", "took_ms": 412 },
+    { "name": "events", "error": "events not ready: did not become ready within 5m0s" }
+  ] },
+  "error": { "code": "failed", "message": "events not ready: did not become ready within 5m0s", "exit": 1 }
+}
+```
+
+`data` is the command's result: `results` for `up`, `wake`, `sleep`,
+`restart`, `reset`, `pin` and `task <name>`; the services for `status`; the
+variables for `env`; `{name, url}` for `url`; and so on. `error.code` is the
+kind of failure, the same word as in the table below. Commands with no single
+result (`logs`, `run`, `sync`, `init`, `add`, the dash) refuse `--json` and
+exit 2; `DOZE_JSON=1` leaves them as they are.
+
 ## Exit codes
 
 A script can branch on how doze exited. Each code is one kind of failure, and
@@ -287,7 +324,7 @@ never renumbered.
 | 6 | `no_config` | There is no doze.hcl here or in any parent directory. |
 | 7 | `daemon_down` | The command needs a running stack and doze isn't running. |
 | 8 | `timeout` | It took longer than allowed. |
-| 9 | `needs_confirmation` | It needs a yes and there is no terminal to ask: pass the flag the message names (`--yes`, `--auto-approve`). |
+| 9 | `needs_confirmation` | It needs a yes and there is no terminal to ask: pass `--yes`. |
 | 130 | `interrupted` | It was interrupted (Ctrl-C). |
 
 `doze run` exits with its command's own code instead.

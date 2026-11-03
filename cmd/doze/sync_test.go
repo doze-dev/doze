@@ -9,8 +9,8 @@ import (
 // the empty input as "no" and exit 0.
 func TestSyncCannotAskWithoutATerminal(t *testing.T) {
 	err := canAsk(false)
-	if err == nil || !strings.Contains(err.Error(), "--auto-approve") {
-		t.Fatalf("canAsk(false) = %v, want an error naming --auto-approve", err)
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("canAsk(false) = %v, want an error naming --yes", err)
 	}
 	if err := canAsk(true); err != nil {
 		t.Fatalf("canAsk(true) = %v, want nil", err)

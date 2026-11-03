@@ -19,7 +19,7 @@ import (
 )
 
 func syncCmd() *cobra.Command {
-	var dryRun, autoApprove bool
+	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "sync [service]",
 		Short: "Reconcile the stack with the config — create new, update changed, prune removed",
@@ -61,7 +61,7 @@ func syncCmd() *cobra.Command {
 			if dryRun || plan.Empty() {
 				return nil
 			}
-			if !autoApprove {
+			if !assumeYes {
 				if err := canAsk(isatty.IsTerminal(os.Stdin.Fd())); err != nil {
 					return err
 				}
@@ -96,7 +96,6 @@ func syncCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the changes without making them")
-	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "skip the confirmation prompt")
 	return cmd
 }
 
@@ -120,7 +119,7 @@ func enabledPlan(cfg *config.Config, plan state.Plan) state.Plan {
 // still reaches a person through the terminal on stdin.
 func canAsk(stdinIsTerminal bool) error {
 	if !stdinIsTerminal {
-		return fault.With(fault.NeedConfirm, fmt.Errorf("sync needs confirmation and stdin is not a terminal: pass --auto-approve"))
+		return fault.With(fault.NeedConfirm, fmt.Errorf("sync needs confirmation and stdin is not a terminal: pass --yes"))
 	}
 	return nil
 }

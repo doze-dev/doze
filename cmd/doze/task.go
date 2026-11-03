@@ -78,18 +78,21 @@ func taskCompletion(_ *cobra.Command, args []string, _ string) ([]string, cobra.
 
 // runTask asks the daemon to run a task and says how it went.
 func runTask(ctx context.Context, cfg *config.Config, d control.Daemon, out *os.File, name string) error {
-	fmt.Fprintln(out, ui.Muted("→")+" "+name+" running…")
+	r := newVerbReport(out, os.Stderr)
+	fmt.Fprintln(os.Stderr, ui.ErrMuted("→")+" "+name+" running…")
 	start := time.Now()
 	if err := d.Do(ctx, control.Verb{Name: control.VerbTask, Target: name}); err != nil {
-		fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" "+name+": "+err.Error())
-		return shown(err)
+		return r.fail(name, err)
 	}
-	fmt.Fprintf(out, "%s %s done in %s\n", ui.OK("✓"), name, time.Since(start).Round(time.Millisecond))
+	r.ok(name, "done", "done", time.Since(start).Round(time.Millisecond))
 	return nil
 }
 
 func listTasks(cfg *config.Config, out *os.File) error {
 	if len(cfg.Tasks) == 0 {
+		setResult(struct {
+			Tasks []string `json:"tasks"`
+		}{[]string{}})
 		fmt.Fprintln(out, ui.Muted("no tasks declared"))
 		return nil
 	}
@@ -102,9 +105,20 @@ func listTasks(cfg *config.Config, out *os.File) error {
 		names = append(names, t.Name)
 	}
 	sort.Strings(names)
+	type taskView struct {
+		Name   string            `json:"name"`
+		Manual bool              `json:"manual,omitempty"`
+		Last   *state.TaskRecord `json:"last,omitempty"` // nil: it never ran
+	}
+	views := []taskView{}
 	for _, name := range names {
 		rec, ran := st.Tasks[name]
 		task := cfg.Task(name)
+		v := taskView{Name: name, Manual: task.Manual}
+		if ran {
+			v.Last = &rec
+		}
+		views = append(views, v)
 		switch {
 		case !ran && task.Manual:
 			fmt.Fprintf(out, "%-14s %s\n", name, ui.Muted("manual — never run"))
@@ -118,6 +132,9 @@ func listTasks(cfg *config.Config, out *os.File) error {
 				since(rec.RanAt), rec.ExitCode, rec.Why)))
 		}
 	}
+	setResult(struct {
+		Tasks []taskView `json:"tasks"`
+	}{views})
 	return nil
 }
 

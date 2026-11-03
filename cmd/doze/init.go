@@ -33,7 +33,7 @@ var initSeed = []initEngine{
 }
 
 func initCmd() *cobra.Command {
-	var force, wizard, yes bool
+	var force, wizard bool
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Write a doze.hcl for this project — from what it finds, or a wizard",
@@ -48,14 +48,14 @@ func initCmd() *cobra.Command {
 				return fmt.Errorf("%s already exists (use --force to overwrite)", configPath)
 			}
 			if !wizard {
-				if done, err := initFromDetection(yes); done || err != nil {
+				if done, err := initFromDetection(assumeYes); done || err != nil {
 					return err
 				}
 			}
 
 			offers := gatherOffers()
 			picks, app, doLint := []string{offers[0].key}, "", false
-			if isInteractive() {
+			if canPrompt() && !assumeYes {
 				picks, app, doLint = runWizard(offers)
 			}
 			if len(picks) == 0 && app == "" {
@@ -81,7 +81,6 @@ func initCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing config")
 	cmd.Flags().BoolVar(&wizard, "wizard", false, "ask instead of reading the project")
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "write what was found without asking")
 	return cmd
 }
 

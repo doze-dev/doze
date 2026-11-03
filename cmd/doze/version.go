@@ -29,6 +29,12 @@ func versionCmd() *cobra.Command {
 		Short: "Print the doze version",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
+			setResult(struct {
+				Version string `json:"version"`
+				OS      string `json:"os"`
+				Arch    string `json:"arch"`
+				Go      string `json:"go"`
+			}{version, runtime.GOOS, runtime.GOARCH, runtime.Version()})
 			fmt.Printf("doze %s (%s/%s, %s)\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
 		},
 	}

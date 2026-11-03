@@ -23,6 +23,9 @@ func stopDaemon(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	setResult(struct {
+		Stopped bool `json:"stopped"` // false: it wasn't running
+	}{stopped})
 	if !stopped {
 		fmt.Println(ui.Muted("doze is not running"))
 		return nil

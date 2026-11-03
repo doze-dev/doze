@@ -19,11 +19,6 @@ import (
 	"github.com/doze-dev/doze/internal/ui"
 )
 
-// bootBudget caps how long a single instance may take to come up (a process whose
-// command must compile first can be slow), well beyond the control client's
-// default 60s reply deadline.
-const bootBudget = 5 * time.Minute
-
 func upCmd() *cobra.Command {
 	var follow, detach bool
 	cmd := &cobra.Command{
@@ -75,6 +70,9 @@ func upCmd() *cobra.Command {
 // the background. With follow, it additionally streams the process logs until
 // Ctrl-C, which only detaches the stream (the stack keeps running).
 func runUp(cfg *config.Config, targets []string, follow bool) error {
+	if follow && jsonMode {
+		return usageError(fmt.Errorf("-f streams logs; it can't be combined with --json"))
+	}
 	if !daemonRunning(cfg) {
 		if err := startDaemon(cfg); err != nil {
 			return err
@@ -86,13 +84,13 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 	// stopwatch here: it is the daemon's number, the same one the dash shows.
 	took := watchReady(context.Background(), client.Daemon())
 	defer took.stop()
+	r := newVerbReport(os.Stdout, os.Stderr)
 	for _, name := range bootClosure(cfg, targets) {
-		if err := bootOne(client, cfg, name, took); err != nil {
-			// The styled line is the report; shown keeps main from printing
-			// the same failure a second time.
-			fmt.Fprintln(os.Stderr, ui.ErrFail("✗")+" "+name+": "+err.Error())
-			return shown(err)
+		d, err := bootOne(client, cfg, name, took)
+		if err != nil {
+			return r.fail(name, err)
 		}
+		r.ok(name, "awake", "awake", d)
 	}
 
 	if !follow {
@@ -132,7 +130,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 // to its log file, so we tail that file and relay download/verify lines here,
 // plus an elapsed-time tick on the waking line when stderr is a terminal.
 // Progress is stderr's; the "awake" line that ends it is the result, on stdout.
-func bootOne(client *control.Client, cfg *config.Config, name string, took *readyWatch) error {
+func bootOne(client *control.Client, cfg *config.Config, name string, took *readyWatch) (time.Duration, error) {
 	statusLine := ui.ErrMuted("→") + " " + name + " waking…"
 	tty := isTerminal(os.Stderr)
 	if tty {
@@ -160,10 +158,9 @@ func bootOne(client *control.Client, cfg *config.Config, name string, took *read
 		fmt.Fprint(os.Stderr, "\r\033[K") // clear the ticking line; the result line replaces it
 	}
 	if err != nil {
-		return err
+		return 0, err
 	}
-	fmt.Println(ui.OK("✓") + " " + name + " awake" + took.suffix(name, verbTook))
-	return nil
+	return took.of(name, verbTook), nil
 }
 
 // relayBootProgress tails the daemon log from its current end until done,

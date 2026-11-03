@@ -81,9 +81,49 @@ func wakeCmd() *cobra.Command {
 	}
 }
 
+// verbResult is what a verb did to one instance: the --json result is a list
+// of them, in the order they ran.
+type verbResult struct {
+	Name   string `json:"name"`
+	State  string `json:"state,omitempty"`   // what it is now: awake, asleep, restarted, reset, pinned, unpinned, done
+	TookMS int64  `json:"took_ms,omitempty"` // how long it took to become ready, by the daemon's journal
+	Error  string `json:"error,omitempty"`
+}
+
+// verbReport prints each outcome as it happens and keeps it for --json.
+type verbReport struct {
+	out, errw io.Writer
+	Results   []verbResult `json:"results"`
+}
+
+func newVerbReport(out, errw io.Writer) *verbReport {
+	r := &verbReport{out: out, errw: errw, Results: []verbResult{}}
+	setResult(r)
+	return r
+}
+
+// ok records name in state, and prints "✓ <name> <line>" with how long it took.
+func (r *verbReport) ok(name, state, line string, took time.Duration) {
+	r.Results = append(r.Results, verbResult{Name: name, State: state, TookMS: took.Milliseconds()})
+	suffix := ""
+	if took > 0 {
+		suffix = ui.Muted(" in " + roundDuration(took))
+	}
+	fmt.Fprintln(r.out, ui.OK("✓")+" "+name+" "+line+suffix)
+}
+
+// fail records why name failed, prints it on the error stream, and returns
+// the error as already shown.
+func (r *verbReport) fail(name string, err error) error {
+	r.Results = append(r.Results, verbResult{Name: name, Error: err.Error()})
+	fmt.Fprintln(r.errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
+	return shown(err)
+}
+
 // runWake wakes each name in order, one line each, with how long the daemon
 // says it took.
 func runWake(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
+	r := newVerbReport(out, errw)
 	took := watchReady(ctx, d)
 	defer took.stop()
 	for _, name := range names {
@@ -93,10 +133,9 @@ func runWake(ctx context.Context, d control.Daemon, out, errw io.Writer, names [
 		verbTook := time.Since(start)
 		cancel()
 		if err != nil {
-			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
-			return shown(err)
+			return r.fail(name, err)
 		}
-		fmt.Fprintln(out, ui.OK("✓")+" "+name+" awake"+took.suffix(name, verbTook))
+		r.ok(name, "awake", "awake", took.of(name, verbTook))
 	}
 	return nil
 }
@@ -129,6 +168,7 @@ func sleepCmd() *cobra.Command {
 }
 
 func runSleep(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
+	r := newVerbReport(out, errw)
 	if len(names) == 0 {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbSleep}); err != nil {
 			return err
@@ -138,10 +178,9 @@ func runSleep(ctx context.Context, d control.Daemon, out, errw io.Writer, names 
 	}
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbSleep, Target: name}); err != nil {
-			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
-			return shown(err)
+			return r.fail(name, err)
 		}
-		fmt.Fprintln(out, ui.OK("✓")+" "+name+" asleep")
+		r.ok(name, "asleep", "asleep", 0)
 	}
 	return nil
 }
@@ -171,6 +210,7 @@ func restartCmd() *cobra.Command {
 }
 
 func runRestart(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
+	r := newVerbReport(out, errw)
 	took := watchReady(ctx, d)
 	defer took.stop()
 	for _, name := range names {
@@ -180,16 +220,14 @@ func runRestart(ctx context.Context, d control.Daemon, out, errw io.Writer, name
 		verbTook := time.Since(start)
 		cancel()
 		if err != nil {
-			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
-			return shown(err)
+			return r.fail(name, err)
 		}
-		fmt.Fprintln(out, ui.OK("✓")+" "+name+" restarted"+took.suffix(name, verbTook))
+		r.ok(name, "restarted", "restarted", took.of(name, verbTook))
 	}
 	return nil
 }
 
 func resetCmd() *cobra.Command {
-	var yes bool
 	cmd := &cobra.Command{
 		Use:   "reset <name…>",
 		Short: "Delete a service's data; it is provisioned fresh on its next wake",
@@ -206,8 +244,8 @@ func resetCmd() *cobra.Command {
 			if _, err := targetsOrAll(cfg, args); err != nil {
 				return err
 			}
-			if !yes {
-				if !isInteractive() {
+			if !assumeYes {
+				if !canPrompt() {
 					return fault.With(fault.NeedConfirm, fmt.Errorf("reset deletes data and will not guess: pass --yes to confirm"))
 				}
 				if !confirm(fmt.Sprintf("Reset %s? The data is deleted and provisioned fresh on the next wake.", strings.Join(args, ", "))) {
@@ -223,17 +261,16 @@ func resetCmd() *cobra.Command {
 			return runReset(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "do not ask")
 	return cmd
 }
 
 func runReset(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
+	r := newVerbReport(out, errw)
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbReset, Target: name}); err != nil {
-			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
-			return shown(err)
+			return r.fail(name, err)
 		}
-		fmt.Fprintln(out, ui.OK("✓")+" "+name+" reset — its data is gone; the next wake provisions it fresh")
+		r.ok(name, "reset", "reset — its data is gone; the next wake provisions it fresh", 0)
 	}
 	return nil
 }
@@ -267,10 +304,10 @@ func pinCmd() *cobra.Command {
 }
 
 func runPin(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
+	r := newVerbReport(out, errw)
 	for _, name := range names {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbPin, Target: name}); err != nil {
-			fmt.Fprintln(errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
-			return shown(err)
+			return r.fail(name, err)
 		}
 	}
 	// A pin is a toggle, so say which way each one went.
@@ -284,9 +321,9 @@ func runPin(ctx context.Context, d control.Daemon, out, errw io.Writer, names []
 	}
 	for _, name := range names {
 		if pinned[name] {
-			fmt.Fprintln(out, ui.OK("✓")+" "+name+" pinned — it stays awake until unpinned or the daemon stops")
+			r.ok(name, "pinned", "pinned — it stays awake until unpinned or the daemon stops", 0)
 		} else {
-			fmt.Fprintln(out, ui.OK("✓")+" "+name+" unpinned — it sleeps again when idle")
+			r.ok(name, "unpinned", "unpinned — it sleeps again when idle", 0)
 		}
 	}
 	return nil
@@ -325,11 +362,12 @@ func watchReady(ctx context.Context, d control.Daemon) *readyWatch {
 	return w
 }
 
-// suffix renders " in 38ms" for name. The verb's reply and the journal frame
-// travel on different connections, so it waits briefly for the frame — unless
-// the verb itself returned at once (verbTook), which means nothing was started
-// and there is no frame to wait for.
-func (w *readyWatch) suffix(name string, verbTook time.Duration) string {
+// of is how long name took to become ready, or 0 when the journal didn't say.
+// The verb's reply and the journal frame travel on different connections, so
+// it waits briefly for the frame — unless the verb itself returned at once
+// (verbTook), which means nothing was started and there is no frame to wait
+// for.
+func (w *readyWatch) of(name string, verbTook time.Duration) time.Duration {
 	wait := 150 * time.Millisecond
 	if verbTook < 5*time.Millisecond {
 		wait = 0
@@ -341,20 +379,17 @@ func (w *readyWatch) suffix(name string, verbTook time.Duration) string {
 		delete(w.took, name)
 		w.mu.Unlock()
 		if ok {
-			return ui.Muted(" in " + roundDuration(d))
+			return d
 		}
 		select {
 		case <-w.seen:
 		case <-w.done:
 			w.mu.Lock()
-			d, ok := w.took[name]
+			d := w.took[name]
 			w.mu.Unlock()
-			if ok {
-				return ui.Muted(" in " + roundDuration(d))
-			}
-			return ""
+			return d
 		case <-deadline:
-			return ""
+			return 0
 		}
 	}
 }
@@ -411,6 +446,10 @@ func urlCmd() *cobra.Command {
 				if line == "" {
 					return fmt.Errorf("%s has no address: it declares no port", args[0])
 				}
+				setResult(struct {
+					Name string `json:"name"`
+					URL  string `json:"url"`
+				}{args[0], line})
 				fmt.Println(line)
 				return nil
 			}

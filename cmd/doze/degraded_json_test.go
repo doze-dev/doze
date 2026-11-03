@@ -19,17 +19,23 @@ func TestStatusJSONWithABrokenConfig(t *testing.T) {
 		{Kind: config.KindApp, Type: config.AppEngine, Name: "api"},
 	}
 	views := map[string]control.InstanceView{"db": {Name: "db", State: "active", Conns: 2}}
-	var buf bytes.Buffer
-	err := degradedStatusJSON(&buf, decls, views, true, fault.With(fault.Invalid, errors.New("doze.hcl:4: Unsupported argument")))
-
-	if codeOf(err) != 5 || !errors.As(err, new(shownError)) {
-		t.Fatalf("err = %v (code %d), want exit code 5, already shown", err, codeOf(err))
+	err := degradedStatusJSON(decls, views, true, fault.With(fault.Invalid, errors.New("doze.hcl:4: Unsupported argument")))
+	if codeOf(err) != 5 {
+		t.Fatalf("err = %v (code %d), want exit code 5", err, codeOf(err))
 	}
-	var got statusJSON
-	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+	var buf bytes.Buffer
+	ranCommand = "doze status"
+	writeEnvelope(&buf, err)
+	var env struct {
+		OK    bool       `json:"ok"`
+		Data  statusJSON `json:"data"`
+		Error errorBody  `json:"error"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, buf.String())
 	}
-	if got.Error == "" || !got.Daemon.Running || len(got.Services) != 2 {
+	got := env.Data
+	if env.OK || env.Error.Code != fault.Invalid || env.Error.Exit != 5 || !got.Daemon.Running || len(got.Services) != 2 {
 		t.Fatalf("got %+v", got)
 	}
 	if db := got.Services[0]; db.State != "active" || db.Conns != 2 {

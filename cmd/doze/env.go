@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -30,7 +29,7 @@ func envAssignments(cfg *config.Config, only []string) ([]endpoints.EnvPair, err
 }
 
 func envCmd() *cobra.Command {
-	var jsonOut, dotenv bool
+	var dotenv bool
 	cmd := &cobra.Command{
 		Use:               "env [service…]",
 		ValidArgsFunction: instanceCompletion,
@@ -55,10 +54,11 @@ func envCmd() *cobra.Command {
 				return err
 			}
 			switch {
-			case jsonOut:
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(pairs)
+			case jsonMode:
+				if pairs == nil {
+					pairs = []endpoints.EnvPair{}
+				}
+				setResult(pairs)
 			case dotenv:
 				for _, p := range pairs {
 					fmt.Printf("%s=%s\n", p.Var, p.Value)
@@ -79,7 +79,6 @@ func envCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit machine-readable JSON instead of export lines")
 	cmd.Flags().BoolVar(&dotenv, "dotenv", false, "emit KEY=value lines for a .env file")
 	return cmd
 }

@@ -19,7 +19,7 @@ import (
 )
 
 func treeCmd() *cobra.Command {
-	var graph, jsonOut, watch bool
+	var graph, watch bool
 	cmd := &cobra.Command{
 		Use:     "status",
 		Aliases: []string{"tree", "ls", "ps"},
@@ -38,11 +38,11 @@ func treeCmd() *cobra.Command {
 				// A broken block must not brick the whole status view: fall back
 				// to the driver-free shallow load so the declared stack (and any
 				// live daemon state) still renders, with the error alongside.
-				return degradedStatus(cfgErr, jsonOut)
+				return degradedStatus(cfgErr)
 			}
 			daemonUp := daemonRunning(cfg)
 			if watch {
-				if jsonOut || graph {
+				if jsonMode || graph {
 					return fmt.Errorf("-w redraws the table; it cannot be combined with --json or --graph")
 				}
 				if !daemonUp {
@@ -63,8 +63,8 @@ func treeCmd() *cobra.Command {
 				}
 			}
 			switch {
-			case jsonOut:
-				return renderStatusJSON(cfg, views, daemonUp)
+			case jsonMode:
+				renderStatusJSON(cfg, views, daemonUp)
 			case graph:
 				renderGraph(cfg, views, daemonUp)
 			default:
@@ -74,7 +74,6 @@ func treeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&graph, "graph", false, "draw the dependency tree instead of the table")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit machine-readable JSON instead of the table")
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "keep the table on screen and redraw it as things change (Ctrl-C to stop)")
 	return cmd
 }
@@ -83,7 +82,7 @@ func treeCmd() *cobra.Command {
 // headers from a shallow load, joined with live state from a running daemon
 // (found via the default project dir). The load error prints after the table
 // so the user sees both their stack and what's wrong with it.
-func degradedStatus(cfgErr error, jsonOut bool) error {
+func degradedStatus(cfgErr error) error {
 	sc, serr := config.LoadShallow(configPath)
 	if serr != nil {
 		return cfgErr // not even parseable — the full error is the answer
@@ -99,8 +98,8 @@ func degradedStatus(cfgErr error, jsonOut bool) error {
 		}
 	}
 
-	if jsonOut {
-		return degradedStatusJSON(os.Stdout, sc.Decls, views, daemonUp, cfgErr)
+	if jsonMode {
+		return degradedStatusJSON(sc.Decls, views, daemonUp, cfgErr)
 	}
 	fmt.Println(ui.Fail("config has errors") + ui.Muted(" — showing declared blocks; details below") + "\n")
 	t := ui.NewTable("NAME", "ENGINE", "STATE", "ENDPOINT")

@@ -81,7 +81,17 @@ func realMain() int {
 	activeHost = host
 	defer func() { _ = host.Close() }()
 
-	if err := rootCmd().Execute(); err != nil {
+	err = rootCmd().Execute()
+	// --json speaks one envelope on success and failure alike. A flag error
+	// stops cobra before any command ran; DOZE_JSON=1 still gets an envelope.
+	if jsonMode || (ranCommand == "" && os.Getenv("DOZE_JSON") == "1") {
+		if ranCommand == "" {
+			ranCommand = "doze"
+		}
+		writeEnvelope(stdout, err)
+		return codeOf(err)
+	}
+	if err != nil {
 		// A command that already reported the failure in its own words
 		// (shown), or a child's exit code (doze run), prints nothing more.
 		var child exitCodeError
@@ -118,7 +128,10 @@ func rootCmd() *cobra.Command {
 			}
 			return treeCmd().RunE(cmd, nil)
 		},
-		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := applyOutputFlags(cmd); err != nil {
+				return err
+			}
 			lockWritesAllowed = cmd.Annotations[lockWritesKey] == "true"
 			// A dry run must leave doze.lock byte-identical, whatever the
 			// command's usual annotation says.
@@ -131,8 +144,10 @@ func rootCmd() *cobra.Command {
 			if cmd.Name() != "init" {
 				resolveConfigPath()
 			}
+			return nil
 		},
 	}
+	addOutputFlags(root)
 	root.PersistentFlags().StringVarP(&configPath, "config", "c", "doze.hcl", "path to doze.hcl")
 	root.PersistentFlags().StringArrayVar(&varFlags, "var", nil, "set a config variable: --var name=value (repeatable)")
 
@@ -147,32 +162,32 @@ func rootCmd() *cobra.Command {
 	)
 	root.AddCommand(
 		// Automation core: scriptable stack lifecycle
-		grouped(groupCore, mutating(upCmd())),
-		grouped(groupCore, downCmd()),
+		grouped(groupCore, jsonCapable(mutating(upCmd()))),
+		grouped(groupCore, jsonCapable(downCmd())),
 		grouped(groupCore, mutating(syncCmd())),
-		grouped(groupCore, treeCmd()),
-		grouped(groupCore, envCmd()),
+		grouped(groupCore, jsonCapable(treeCmd())),
+		grouped(groupCore, jsonCapable(envCmd())),
 		grouped(groupCore, mutating(runCmd())),
 		// One service at a time: what the dash's keys do
-		grouped(groupOne, mutating(wakeCmd())),
-		grouped(groupOne, sleepCmd()),
-		grouped(groupOne, mutating(restartCmd())),
-		grouped(groupOne, mutating(resetCmd())),
-		grouped(groupOne, mutating(taskCmd())),
-		grouped(groupOne, pinCmd()),
+		grouped(groupOne, jsonCapable(mutating(wakeCmd()))),
+		grouped(groupOne, jsonCapable(sleepCmd())),
+		grouped(groupOne, jsonCapable(mutating(restartCmd()))),
+		grouped(groupOne, jsonCapable(mutating(resetCmd()))),
+		grouped(groupOne, jsonCapable(mutating(taskCmd()))),
+		grouped(groupOne, jsonCapable(pinCmd())),
 		grouped(groupOne, logsCmd()),
-		grouped(groupOne, urlCmd()),
+		grouped(groupOne, jsonCapable(urlCmd())),
 		// Before-the-dash tools
-		grouped(groupTools, lintCmd()),
+		grouped(groupTools, jsonCapable(lintCmd())),
 		grouped(groupTools, addCmd()),
 		grouped(groupTools, initCmd()),
-		grouped(groupTools, doctorCmd()),
+		grouped(groupTools, jsonCapable(doctorCmd())),
 		grouped(groupTools, dnsSetupCmd()),
 		// The dash, explicitly (also the default command)
 		grouped(groupDash, dashCmd()),
 		// Lockfile maintenance (CI)
 		grouped(groupLock, modulesCmd()),
-		versionCmd(),
+		jsonCapable(versionCmd()),
 		// Hidden: the daemon self-exec entry point
 		mutating(daemonCmd()),
 		fetchCmd(),

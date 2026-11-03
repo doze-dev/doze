@@ -63,6 +63,9 @@ var (
 	errEnabled = colorEnabledFor(os.Stderr)
 )
 
+// DisableColor turns styling off on both streams (--no-color).
+func DisableColor() { enabled, errEnabled = false, false }
+
 func colorEnabledFor(f *os.File) bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false

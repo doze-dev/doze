@@ -8,6 +8,16 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **One JSON envelope for every command that has a result**: `--json` (or
+  `DOZE_JSON=1`) prints `{schema, command, ok, data, warnings, error}` on
+  stdout, on failure too, with nothing else there. `up`, `wake`, `sleep`,
+  `restart`, `reset`, `pin`, `task`, `down`, `url`, `lint`, `version` gain
+  JSON; `status`, `env` and `doctor` move theirs into `data` (status's
+  `error` field is now the envelope's). A command with no result refuses
+  `--json` (exit 2).
+- Global `-q`, `-y/--yes` (`DOZE_YES=1`), `--timeout` and `--no-color`.
+  `-y` replaces `sync --auto-approve`, `reset --yes` and `init --yes`;
+  `--timeout` replaces the fixed five-minute boot budget.
 - **Exit codes mean something.** 2 for a usage mistake, 4 for a name the stack
   doesn't declare, 5 for a config that doesn't load, 6 for no config, 7 when
   the command needs a running stack, 8 for a timeout, 9 when a yes is needed

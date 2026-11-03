@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -30,7 +29,7 @@ type doctorCheck struct {
 }
 
 func doctorCmd() *cobra.Command {
-	var jsonOut, fix, printFix bool
+	var fix, printFix bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose the doze environment and configuration",
@@ -163,17 +162,13 @@ func doctorCmd() *cobra.Command {
 				ok = ok && c.OK
 			}
 
-			if jsonOut {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				if err := enc.Encode(struct {
+			if jsonMode {
+				setResult(struct {
 					OK     bool          `json:"ok"`
 					Checks []doctorCheck `json:"checks"`
-				}{OK: ok, Checks: checks}); err != nil {
-					return err
-				}
+				}{OK: ok, Checks: checks})
 				if !ok {
-					return shown(errors.New("some checks need attention"))
+					return errors.New("some checks need attention")
 				}
 				return nil
 			}
@@ -190,7 +185,6 @@ func doctorCmd() *cobra.Command {
 			return shown(errors.New("some checks need attention"))
 		},
 	}
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit machine-readable JSON instead of the table")
 	cmd.Flags().BoolVar(&fix, "fix", false, "run the one-time machine setup for .doze names (one sudo)")
 	cmd.Flags().BoolVar(&printFix, "print-fix", false, "print the setup script instead of running it")
 	return cmd
