@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/doze-dev/doze-names v0.2.0
-	github.com/doze-dev/doze-sdk v0.8.0
+	github.com/doze-dev/doze-sdk v0.9.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.30

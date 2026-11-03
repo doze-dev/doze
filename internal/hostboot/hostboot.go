@@ -111,6 +111,13 @@ func Init(opts Options) (*Host, error) {
 	// DOZE_<TYPE>_PLUGIN override first, then a fetched-from-doze-modules module),
 	// keep it warm for config eval + boot, and reap it when the host closes.
 	resolvers := []plugin.Resolver{plugin.EnvResolver()}
+	// A module whose advertised capability fails on a call that has no error
+	// to return (a connection string, a socket path) says so here, instead of
+	// handing back an empty value with no explanation.
+	plugin.SetReporter(func(engineType, call string, err error) {
+		warnf(opts, "doze: module %s: %s failed: %v", engineType, call, err)
+	})
+	var pluginMgr *plugin.Manager
 	var modMgr *modules.Manager
 	var hooks *config.Hooks
 	if mgr, err := modules.NewManager(opts.Home); err != nil {
@@ -125,8 +132,13 @@ func Init(opts Options) (*Host, error) {
 		hooks = &config.Hooks{
 			RequireEngine: modMgr.Require,
 			CheckSupport:  modMgr.CheckSupport,
-			LookupError:   modMgr.LastError,
-			EngineNames:   modMgr.KnownTypes,
+			LookupError: func(engineType string) error {
+				if err := modMgr.LastError(engineType); err != nil {
+					return err
+				}
+				return pluginMgr.LaunchError(engineType)
+			},
+			EngineNames: modMgr.KnownTypes,
 			RemoteDecodeHint: func(engineType string) string {
 				pin, source, ok := modMgr.Pinned(engineType)
 				if !ok {
@@ -142,7 +154,7 @@ func Init(opts Options) (*Host, error) {
 		resolvers = append(resolvers, modMgr.Lookup)
 	}
 	chain := plugin.Chain(resolvers...)
-	pluginMgr := plugin.NewManager(chain)
+	pluginMgr = plugin.NewManager(chain)
 	engine.SetPluginResolver(pluginMgr.Lookup)
 
 	current = &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr, resolver: chain, hooks: hooks}
@@ -166,6 +178,7 @@ func (h *Host) Close() error {
 		return nil
 	}
 	h.pluginMgr.Close()
+	plugin.SetReporter(nil)
 	current = nil
 	refcount = 0
 	return nil
