@@ -193,7 +193,9 @@ func (s *Server) unary(ctx context.Context, req Request) Response {
 	done := func(err error) Response {
 		if err != nil {
 			resp.Error = err.Error()
-			if k := fault.Of(err); k != fault.Failed {
+			// Interrupted here is the daemon's own context ending (it is
+			// shutting down), not the caller's Ctrl-C, so it isn't sent.
+			if k := fault.Of(err); k != fault.Failed && k != fault.Interrupted {
 				resp.Code = string(k)
 			}
 		} else {

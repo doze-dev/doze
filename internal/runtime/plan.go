@@ -71,7 +71,11 @@ func (r *Runtime) executePlan(ctx context.Context, name string, plan engine.Spaw
 
 		if err := health.WaitReady(ctx, spec.Ready, p.Alive, p.Logs); err != nil {
 			stopAll()
-			return nil, fmt.Errorf("%s not ready: %w\n%s", spec.Name, err, strings.Join(p.Logs(), "\n"))
+			msg := fmt.Errorf("%s not ready: %w", spec.Name, err)
+			if logs := strings.TrimSpace(strings.Join(p.Logs(), "\n")); logs != "" {
+				msg = fmt.Errorf("%w\n%s", msg, logs)
+			}
+			return nil, msg
 		}
 		for _, hook := range spec.Hooks {
 			hc := exec.CommandContext(ctx, "sh", "-c", hook)

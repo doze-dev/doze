@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/fault"
 )
 
 const (
@@ -73,7 +74,7 @@ func WaitReady(ctx context.Context, spec *engine.Ready, alive func() bool, logs 
 		}
 		wait = min(wait*2, interval, maxBackoff)
 	}
-	return fmt.Errorf("did not become ready within %s", time.Duration(retries)*interval)
+	return fault.With(fault.Timeout, fmt.Errorf("did not become ready within %s", time.Duration(retries)*interval))
 }
 
 // Probe runs the spec's check once, returning nil when it passes. logs is consulted

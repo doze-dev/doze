@@ -25,7 +25,7 @@ var exitCodes = []struct {
 	{7, fault.DaemonDown, "the command needs a running stack and doze isn't running"},
 	{8, fault.Timeout, "it took longer than allowed"},
 	{9, fault.NeedConfirm, "it needs a yes and there is no terminal to ask: pass the flag the message names"},
-	{130, fault.Interrupted, "it was interrupted (Ctrl-C)"},
+	{130, fault.Interrupted, "it was interrupted (Ctrl-C or SIGTERM)"},
 }
 
 // codeOf is the exit code for err.

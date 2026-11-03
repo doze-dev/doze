@@ -92,9 +92,9 @@ func Save(dir string, p Project) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name()) // a no-op once renamed
+	defer func() { _ = os.Remove(tmp.Name()) }() // a no-op once renamed
 	if _, err := tmp.Write(append(b, '\n')); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err := tmp.Close(); err != nil {

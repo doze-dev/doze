@@ -70,7 +70,7 @@ func logsCmd() *cobra.Command {
 			d := logSource(cfg)
 			prefix := len(names) > 1
 			if !follow {
-				return printLogs(context.Background(), d, os.Stdout, names, control.LogQuery{Run: run, Tail: tail, Since: from}, prefix)
+				return printLogs(commandContext(), d, os.Stdout, names, control.LogQuery{Run: run, Tail: tail, Since: from}, prefix)
 			}
 			if run != 0 {
 				return fmt.Errorf("-f follows the newest run; it cannot be combined with --run")
@@ -78,7 +78,7 @@ func logsCmd() *cobra.Command {
 			if !daemonRunning(cfg) {
 				return fault.With(fault.DaemonDown, fmt.Errorf("-f follows a running stack, and the daemon is not running (doze up starts it)"))
 			}
-			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			ctx, stop := signal.NotifyContext(commandContext(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			return followLogs(ctx, d, os.Stdout, names, prefix, tail, from)
 		},

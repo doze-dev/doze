@@ -12,6 +12,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/state"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -45,23 +46,23 @@ func taskCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runTask(context.Background(), cfg, daemonFor(cfg), os.Stdout, name)
+			return runTask(commandContext(), cfg, daemonFor(cfg), os.Stdout, name)
 		},
 	}
 }
 
 func taskNotFound(cfg *config.Config, name string) error {
 	if d := cfg.Lookup(name); d != nil {
-		return fmt.Errorf("%s is not a task: `doze wake %s` starts it", d.Title(), name)
+		return fault.With(fault.NotFound, fmt.Errorf("%s is not a task: `doze wake %s` starts it", d.Title(), name))
 	}
 	var names []string
 	for _, t := range cfg.Tasks {
 		names = append(names, t.Name)
 	}
 	if len(names) == 0 {
-		return fmt.Errorf("no task called %q: this stack declares no tasks", name)
+		return fault.With(fault.NotFound, fmt.Errorf("no task called %q: this stack declares no tasks", name))
 	}
-	return fmt.Errorf("no task called %q: the tasks are %s", name, strings.Join(names, ", "))
+	return fault.With(fault.NotFound, fmt.Errorf("no task called %q: the tasks are %s", name, strings.Join(names, ", ")))
 }
 
 func taskCompletion(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {

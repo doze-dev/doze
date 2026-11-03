@@ -4,11 +4,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -81,16 +85,17 @@ func realMain() int {
 	activeHost = host
 	defer func() { _ = host.Close() }()
 
-	err = rootCmd().Execute()
-	// --json speaks one envelope on success and failure alike. A flag error
-	// stops cobra before any command ran; DOZE_JSON=1 still gets an envelope.
-	if jsonMode || (ranCommand == "" && os.Getenv("DOZE_JSON") == "1") {
-		if ranCommand == "" {
-			ranCommand = "doze"
-		}
-		if !streamed {
-			writeEnvelope(stdout, err)
-		}
+	// Ctrl-C and SIGTERM end the command through its context: it returns,
+	// the deferred plugin reaping runs, and the exit is 130.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	root := rootCmd()
+	err = root.ExecuteContext(ctx)
+	if err != nil && ctx.Err() != nil {
+		err = fault.With(fault.Interrupted, errors.New("interrupted"))
+	}
+	if wantsEnvelope(root, err) {
+		writeEnvelope(stdout, err)
 		return codeOf(err)
 	}
 	if err != nil {
@@ -411,4 +416,31 @@ func markUsageErrors(root *cobra.Command) {
 		}
 	}
 	walk(root)
+}
+
+// wantsEnvelope reports whether main ends with the JSON envelope. A command
+// that ran in JSON mode always does, unless it streamed. Help and completion
+// never do: they ran no command. A flag error stops cobra before any command
+// ran, so the command line itself says whether JSON was asked for.
+func wantsEnvelope(root *cobra.Command, err error) bool {
+	if streamed {
+		return false
+	}
+	if commandRan {
+		return jsonMode
+	}
+	if err == nil {
+		return false // help, or a usage page
+	}
+	args := os.Args[1:]
+	if slices.Contains(args, "--json") {
+		ranCommand = "doze"
+		return true
+	}
+	cmd, _, ferr := root.Find(args)
+	if ferr != nil || cmd == nil || cmd.Annotations[jsonKey] != "true" || os.Getenv("DOZE_JSON") != "1" {
+		return false
+	}
+	ranCommand = cmd.CommandPath()
+	return true
 }

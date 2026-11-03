@@ -82,7 +82,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 
 	// How long each one took comes from the daemon's journal, not from a
 	// stopwatch here: it is the daemon's number, the same one the dash shows.
-	took := watchReady(context.Background(), client.Daemon())
+	took := watchReady(commandContext(), client.Daemon())
 	defer took.stop()
 	r := newVerbReport(os.Stdout, os.Stderr)
 	for _, name := range bootClosure(cfg, targets) {
@@ -90,7 +90,11 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 		if err != nil {
 			return r.fail(name, err)
 		}
-		r.ok(name, "awake", "awake", d)
+		if cfg.Task(name) != nil {
+			r.ok(name, "done", "done", d)
+		} else {
+			r.ok(name, "awake", "awake", d)
+		}
 	}
 
 	if !follow {
@@ -106,7 +110,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 		fmt.Println(ui.Muted("up — no process services to follow; the dash (doze) has the backend logs"))
 		return nil
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(commandContext(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	fmt.Println(ui.Muted("streaming logs — press Ctrl-C to detach (the stack keeps running)"))
 	streamErr := make(chan error, 1)
@@ -147,7 +151,7 @@ func bootOne(client *control.Client, cfg *config.Config, name string, took *read
 		relayBootProgress(daemon.LogFilePath(cfg), statusLine, tty, done)
 	}()
 
-	bootCtx, cancel := context.WithTimeout(context.Background(), bootBudget)
+	bootCtx, cancel := context.WithTimeout(commandContext(), bootBudget)
 	start := time.Now()
 	_, err := client.DoContext(bootCtx, control.Request{Op: "up", DB: name}) // boot + converge
 	verbTook := time.Since(start)

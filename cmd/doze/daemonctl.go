@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -55,7 +54,7 @@ func daemonCmd() *cobra.Command {
 // runDaemonForeground runs the listener daemon in this terminal (the old
 // `serve`): proxy listeners, idle reaper, and control socket, until SIGINT/TERM.
 func runDaemonForeground(cfg *config.Config) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(commandContext(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	d, err := daemon.New(cfg, stderrLogger, activeHost.ConfigHooks())
 	if err != nil {

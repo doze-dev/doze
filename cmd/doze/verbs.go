@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -76,7 +77,7 @@ func wakeCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runWake(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, bootClosure(cfg, targets))
+			return runWake(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, bootClosure(cfg, targets))
 		},
 	}
 }
@@ -118,8 +119,12 @@ func (r *verbReport) ok(name, state, line string, took time.Duration) {
 // fail records why name failed, prints it on the error stream, and returns
 // the error as already shown.
 func (r *verbReport) fail(name string, err error) error {
-	r.Results = append(r.Results, verbResult{Name: name, Error: err.Error()})
-	fmt.Fprintln(r.errw, ui.ErrFail("✗")+" "+name+": "+err.Error())
+	msg := err.Error()
+	if errors.Is(err, context.Canceled) {
+		msg = "interrupted"
+	}
+	r.Results = append(r.Results, verbResult{Name: name, Error: msg})
+	fmt.Fprintln(r.errw, ui.ErrFail("✗")+" "+name+": "+msg)
 	return shown(err)
 }
 
@@ -162,10 +167,11 @@ func sleepCmd() *cobra.Command {
 				return err
 			}
 			if !daemonRunning(cfg) {
+				newVerbReport(os.Stdout, os.Stderr) // nothing was awake: no results
 				fmt.Println(ui.Muted("nothing is awake (the daemon is not running)"))
 				return nil
 			}
-			return runSleep(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
+			return runSleep(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 }
@@ -173,8 +179,20 @@ func sleepCmd() *cobra.Command {
 func runSleep(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	r := newVerbReport(out, errw)
 	if len(names) == 0 {
+		// Name what was awake, so the result says what was put to sleep.
+		var awake []string
+		if snap, err := d.Snapshot(ctx); err == nil {
+			for _, v := range snap.Instances {
+				if v.State == "active" || v.State == "idle" || v.State == "booting" {
+					awake = append(awake, v.Name)
+				}
+			}
+		}
 		if err := d.Do(ctx, control.Verb{Name: control.VerbSleep}); err != nil {
 			return err
+		}
+		for _, n := range awake {
+			r.Results = append(r.Results, verbResult{Name: n, State: "asleep"})
 		}
 		fmt.Fprintln(out, ui.OK("✓")+" everything is asleep")
 		return nil
@@ -207,7 +225,7 @@ func restartCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runRestart(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
+			return runRestart(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 }
@@ -261,7 +279,7 @@ func resetCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runReset(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args)
+			return runReset(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, args)
 		},
 	}
 	return cmd
@@ -321,7 +339,7 @@ func pinCmd() *cobra.Command {
 					return err
 				}
 			}
-			return runPin(context.Background(), daemonFor(cfg), os.Stdout, os.Stderr, args, want)
+			return runPin(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, args, want)
 		},
 	}
 	cmd.Flags().BoolVar(&off, "off", false, "unpin: let them sleep again when idle")
@@ -352,8 +370,12 @@ func runPin(ctx context.Context, d control.Daemon, out, errw io.Writer, names []
 			flip = append(flip, name)
 		}
 	}
-	for _, name := range flip {
+	for i, name := range flip {
 		if err := d.Do(ctx, control.Verb{Name: control.VerbPin, Target: name}); err != nil {
+			// The ones before it did change: say so before the failure.
+			for _, done := range flip[:i] {
+				r.pin(done, !pinned[done], true)
+			}
 			return r.fail(name, err)
 		}
 	}

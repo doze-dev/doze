@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -71,7 +70,7 @@ func syncCmd() *cobra.Command {
 				}
 			}
 
-			ctx := context.Background()
+			ctx := commandContext()
 			client := control.NewClient(daemon.ControlSocketPath(cfg))
 			if client.Available() {
 				if _, err := client.Do(control.Request{Op: "apply", DB: target}); err != nil {

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -57,6 +59,7 @@ var (
 	result     any
 	warnings   []string
 	ranCommand string // the command path, e.g. "doze status"
+	commandRan bool   // the command's own pre-run happened (not help or completion)
 )
 
 // setResult records what the command produced. In text mode it is unused.
@@ -132,17 +135,23 @@ func addOutputFlags(root *cobra.Command) {
 	f.BoolVarP(&quiet, "quiet", "q", false, "print nothing on stdout; the exit code is the answer")
 	f.BoolVar(&noColor, "no-color", false, "no colour (NO_COLOR=1)")
 	f.BoolVarP(&assumeYes, "yes", "y", false, "answer yes to every question (DOZE_YES=1)")
-	f.DurationVar(&bootBudget, "timeout", bootBudget, "how long one service may take to become ready")
+	f.DurationVar(&bootBudget, "timeout", bootBudget, "how long to wait for one service to become ready (its own ready_timeout still applies)")
 }
 
 // applyOutputFlags runs before every command: environment equivalents, the
 // combinations that make no sense, and the side effects of each flag.
 func applyOutputFlags(cmd *cobra.Command) error {
-	ranCommand = cmd.CommandPath()
+	if strings.HasPrefix(cmd.Name(), "__complete") {
+		jsonMode = false // completion has its own protocol on stdout
+		return nil
+	}
+	ranCommand, commandRan = cmd.CommandPath(), true
+	runCtx = cmd.Context()
 	// DOZE_JSON=1 asks for JSON wherever there is a result to give; it never
 	// breaks a command that has none (run, logs, the dash). Only an explicit
 	// --json is refused there.
-	if !cmd.Flags().Changed("json") && os.Getenv("DOZE_JSON") == "1" && cmd.Annotations[jsonKey] == "true" {
+	// An explicit -q wins over the environment's JSON.
+	if !cmd.Flags().Changed("json") && !cmd.Flags().Changed("quiet") && os.Getenv("DOZE_JSON") == "1" && cmd.Annotations[jsonKey] == "true" {
 		jsonMode = true
 	}
 	if !cmd.Flags().Changed("yes") && os.Getenv("DOZE_YES") == "1" {
@@ -168,6 +177,17 @@ func applyOutputFlags(cmd *cobra.Command) error {
 		os.Stdout = devnull
 	}
 	return nil
+}
+
+// runCtx is the running command's context: done on Ctrl-C or SIGTERM.
+var runCtx context.Context
+
+// commandContext is the context a command does its work under.
+func commandContext() context.Context {
+	if runCtx != nil {
+		return runCtx
+	}
+	return context.Background()
 }
 
 // canPrompt reports whether a command may ask a question: only on a terminal,

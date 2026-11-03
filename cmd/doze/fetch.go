@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -25,7 +24,7 @@ func fetchCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			m := binaries.NewManager(home)
 			m.Logf = func(format string, args ...any) { fmt.Fprintf(os.Stderr, format+"\n", args...) }
-			dir, digest, err := m.EnsureDownload(context.Background(), url, sha)
+			dir, digest, err := m.EnsureDownload(commandContext(), url, sha)
 			if err != nil {
 				return err
 			}

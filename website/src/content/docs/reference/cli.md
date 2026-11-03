@@ -284,8 +284,8 @@ one line.
 |---|---|---|
 | `--json` | `DOZE_JSON=1` | Print the result as one JSON envelope on stdout, on success and on failure. |
 | `-q, --quiet` | | Print nothing on stdout; the exit code is the answer. |
-| `-y, --yes` | `DOZE_YES=1` | Answer yes to every question. Without it and without a terminal, a command that must ask exits 9. |
-| `--timeout <d>` | | How long one service may take to become ready (default `5m`). |
+| `-y, --yes` | `DOZE_YES=1` | Answer yes to every question, `reset`'s included: with `DOZE_YES=1` set, `doze reset db` deletes its data without asking. Without it and without a terminal, a command that must ask exits 9. |
+| `--timeout <d>` | | How long to wait for one service to become ready (default `5m`). Its own `ready_timeout` still applies, so this can shorten the wait but not lengthen it. |
 | `--no-color` | `NO_COLOR=1` | No colour. |
 
 The envelope has the same shape for every command:
@@ -297,9 +297,9 @@ The envelope has the same shape for every command:
   "ok": false,
   "data": { "results": [
     { "name": "db", "state": "awake", "took_ms": 412 },
-    { "name": "events", "error": "events not ready: did not become ready within 5m0s" }
+    { "name": "events", "error": "events not ready: did not become ready within 1m0s" }
   ] },
-  "error": { "code": "failed", "message": "events not ready: did not become ready within 5m0s", "exit": 1 }
+  "error": { "code": "timeout", "message": "events not ready: did not become ready within 1m0s", "exit": 8 }
 }
 ```
 
@@ -336,7 +336,7 @@ never renumbered.
 | 7 | `daemon_down` | The command needs a running stack and doze isn't running. |
 | 8 | `timeout` | It took longer than allowed. |
 | 9 | `needs_confirmation` | It needs a yes and there is no terminal to ask: pass `--yes`. |
-| 130 | `interrupted` | It was interrupted (Ctrl-C). |
+| 130 | `interrupted` | It was interrupted (Ctrl-C or SIGTERM). |
 
 `doze run` exits with its command's own code instead.
 

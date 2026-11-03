@@ -21,6 +21,15 @@ func modulesCmd() *cobra.Command {
 		Long: "modules maintains the engine-plugin pins in doze.lock — the lockfile CI\n" +
 			"and teammates resolve against. Browsing what each engine is provided by\n" +
 			"(and module docs) lives in the dash.",
+		// A parent with no command of its own: a name it doesn't know is a
+		// usage mistake, not a help page and exit 0.
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("unknown command %q for \"doze modules\" (doze modules upgrade is the one)", args[0])
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
 	cmd.AddCommand(mutating(modulesUpgradeCmd()))
 	return cmd

@@ -48,14 +48,14 @@ func treeCmd() *cobra.Command {
 				if !daemonUp {
 					return fault.With(fault.DaemonDown, fmt.Errorf("-w watches a running stack, and the daemon is not running (doze up starts it)"))
 				}
-				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+				ctx, stop := signal.NotifyContext(commandContext(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
 				return watchStatus(ctx, daemonFor(cfg), os.Stdout, cfg, stdoutIsTerminal())
 			}
 			views := map[string]control.InstanceView{}
 			var idle time.Duration
 			if daemonUp {
-				if snap, err := daemonFor(cfg).Snapshot(context.Background()); err == nil {
+				if snap, err := daemonFor(cfg).Snapshot(commandContext()); err == nil {
 					idle = snap.IdleTimeout
 					for _, v := range snap.Instances {
 						views[v.Name] = v

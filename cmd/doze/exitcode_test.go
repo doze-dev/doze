@@ -22,12 +22,26 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// cleanEnv is this process's environment without what would change the CLI's
+// behaviour under test: DOZE_JSON or DOZE_YES in a developer's shell must not
+// turn a refusal into a real reset.
+func cleanEnv() []string {
+	var out []string
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "DOZE_") || strings.HasPrefix(kv, "NO_COLOR=") || strings.HasPrefix(kv, "CI=") {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
+}
+
 // doze runs the CLI in dir and returns its exit code and stderr.
 func doze(t *testing.T, dir string, args ...string) (int, string) {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "DOZE_EXITCODE_CHILD=1", "DOZE_HOME="+t.TempDir(), "NO_COLOR=1")
+	cmd.Env = append(cleanEnv(), "DOZE_EXITCODE_CHILD=1", "DOZE_HOME="+t.TempDir(), "NO_COLOR=1")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -67,6 +81,8 @@ func TestExitCodes(t *testing.T) {
 		{"no config anywhere", empty, []string{"lint"}, 6},
 		{"following a stack that isn't running", stack, []string{"logs", "-f"}, 7},
 		{"reset with no terminal to ask", stack, []string{"reset", "api"}, 9},
+		{"an undeclared task", stack, []string{"task", "nosuch"}, 4},
+		{"an unknown modules command", stack, []string{"modules", "nosuch"}, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			code, stderr := doze(t, tc.dir, tc.args...)
@@ -112,7 +128,7 @@ func dozeRun(t *testing.T, dir string, env []string, args ...string) (int, strin
 	t.Helper()
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.Dir = dir
-	cmd.Env = append(append(os.Environ(), "DOZE_EXITCODE_CHILD=1", "DOZE_HOME="+t.TempDir(), "NO_COLOR=1"), env...)
+	cmd.Env = append(append(cleanEnv(), "DOZE_EXITCODE_CHILD=1", "DOZE_HOME="+t.TempDir(), "NO_COLOR=1"), env...)
 	var stdout, stderr strings.Builder
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()
@@ -209,5 +225,37 @@ func TestOutputFlags(t *testing.T) {
 		if code, _, _ := dozeRun(t, stack, nil, args...); code != 2 {
 			t.Errorf("doze %v: exit %d, want 2", args, code)
 		}
+	}
+}
+
+// Help and completion run no command, so they get no envelope even with
+// --json; an explicit -q beats DOZE_JSON=1; a flag error on a command with no
+// JSON result stays text under DOZE_JSON=1.
+func TestNoEnvelopeWhereNoCommandRan(t *testing.T) {
+	stack := t.TempDir()
+	if err := os.WriteFile(filepath.Join(stack, "doze.hcl"), []byte("app \"api\" {\n  run = \"sleep 60\"\n  port = 4711\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		env  []string
+		args []string
+	}{
+		{nil, []string{"--json", "version", "--help"}},
+		{[]string{"DOZE_JSON=1"}, []string{"--help"}},
+		{nil, []string{"--json", "__complete", "wa"}},
+	} {
+		code, out, _ := dozeRun(t, stack, tc.env, tc.args...)
+		if code != 0 || strings.Contains(out, `"schema"`) {
+			t.Errorf("%v %v: exit %d, stdout has an envelope:\n%s", tc.env, tc.args, code, out)
+		}
+	}
+	if code, out, _ := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "-q", "url", "api"); code != 0 || out != "" {
+		t.Errorf("DOZE_JSON=1 -q: exit %d, out %q", code, out)
+	}
+	if code, out, _ := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "run", "--badflag"); code != 2 || strings.Contains(out, `"schema"`) {
+		t.Errorf("DOZE_JSON=1 run --badflag: exit %d, out %q", code, out)
+	}
+	if code, out, _ := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "url", "--badflag"); code != 2 || !strings.Contains(out, `"schema"`) {
+		t.Errorf("DOZE_JSON=1 url --badflag: exit %d, out %q", code, out)
 	}
 }
