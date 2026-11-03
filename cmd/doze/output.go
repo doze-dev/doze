@@ -53,7 +53,7 @@ var (
 	// stdout is the real standard output. In JSON and quiet modes os.Stdout is
 	// swapped for /dev/null, so a command's text lines can't reach a program
 	// reading the envelope; the envelope itself goes here.
-	stdout     = os.Stdout
+	stdout     io.Writer = os.Stdout
 	result     any
 	warnings   []string
 	ranCommand string // the command path, e.g. "doze status"
@@ -61,6 +61,42 @@ var (
 
 // setResult records what the command produced. In text mode it is unused.
 func setResult(v any) { result = v }
+
+// streamed is set by a command that wrote an NDJSON stream instead of a
+// result (logs -f): its lines, ending with an "end" line, are the output, and
+// main writes no envelope after them.
+var streamed bool
+
+// writeStream writes one NDJSON line to the real stdout: {"type": typ, …the
+// fields of v}. The last line of a stream has type "end".
+func writeStream(typ string, v any) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	// The type goes first, then the value's own fields.
+	line := append([]byte(`{"type":`+fmt.Sprintf("%q", typ)), ',')
+	if string(b) == "{}" || string(b) == "null" {
+		line = append(line[:len(line)-1], '}')
+	} else {
+		line = append(line, b[1:]...)
+	}
+	_, err = stdout.Write(append(line, '\n'))
+	return err
+}
+
+// endStream ends an NDJSON stream with how it ended.
+func endStream(err error) {
+	streamed = true
+	end := struct {
+		OK    bool       `json:"ok"`
+		Error *errorBody `json:"error,omitempty"`
+	}{OK: err == nil}
+	if err != nil {
+		end.Error = &errorBody{Code: fault.Of(err), Message: err.Error(), Exit: codeOf(err)}
+	}
+	_ = writeStream("end", end)
+}
 
 // envelope is --json's one shape for every command.
 type envelope struct {

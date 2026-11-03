@@ -3,10 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -344,5 +347,38 @@ func TestPinIsIdempotent(t *testing.T) {
 	}
 	if n := len(d.Done()); n != 3 {
 		t.Fatalf("pin verbs sent: %d, want 3 (one off, two toggles)", n)
+	}
+}
+
+// logs -f --json is NDJSON: one {"type":"log",…} per line, then an end line.
+func TestFollowLogsAsNDJSON(t *testing.T) {
+	d := &fakedaemon.Fake{Frames: []control.Frame{
+		{Topic: control.TopicLogs, Log: &control.LogFrame{Instance: "api", Line: "listening on :3000", Stream: "o", Run: 2}},
+		{Topic: control.TopicLogs, Log: &control.LogFrame{Instance: "api", Line: "boom", Stream: "e", Run: 2}},
+	}}
+	var buf bytes.Buffer
+	saved, savedJSON := stdout, jsonMode
+	stdout, jsonMode = &buf, true
+	t.Cleanup(func() { stdout, jsonMode, streamed = saved, savedJSON, false })
+
+	if err := followLogs(context.Background(), d, io.Discard, []string{"api"}, false, 0, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("want 2 log lines and an end line, got:\n%s", buf.String())
+	}
+	var first struct {
+		Type, Instance, Line, Stream string
+		Run                          int
+	}
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil || first.Type != "log" || first.Line != "listening on :3000" || first.Run != 2 {
+		t.Fatalf("first line = %s (%v)", lines[0], err)
+	}
+	if lines[2] != `{"type":"end","ok":true}` {
+		t.Fatalf("end line = %s", lines[2])
+	}
+	if !streamed {
+		t.Fatal("a stream must stop main writing an envelope after it")
 	}
 }

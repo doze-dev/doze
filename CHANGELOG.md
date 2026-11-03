@@ -12,7 +12,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `DOZE_JSON=1`) prints `{schema, command, ok, data, warnings, error}` on
   stdout, on failure too, with nothing else there. `up`, `wake`, `sleep`,
   `restart`, `reset`, `pin`, `task`, `down`, `url`, `lint`, `version` gain
-  JSON; `status`, `env` and `doctor` move theirs into `data` (status's
+  JSON, and `logs` gives its lines (`logs -f` streams NDJSON ending with an
+  `end` line); `status`, `env` and `doctor` move theirs into `data` (status's
   `error` field is now the envelope's). A command with no result refuses
   `--json` (exit 2).
 - `doze pin` pins; `--off` unpins; `--toggle` flips, as the dash does. It was

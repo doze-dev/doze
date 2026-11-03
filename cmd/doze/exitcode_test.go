@@ -158,7 +158,8 @@ func TestJSONEnvelope(t *testing.T) {
 		{"DOZE_JSON=1", stack, []string{"DOZE_JSON=1"}, []string{"version"}, 0, "doze version", "", `"version"`},
 		{"a failure", broken, nil, []string{"--json", "lint"}, 5, "doze lint", fault.Invalid, ""},
 		{"a usage mistake", stack, nil, []string{"--json", "nosuch"}, 2, "doze", fault.Usage, ""},
-		{"a command with no JSON result", stack, nil, []string{"--json", "logs"}, 2, "doze logs", fault.Usage, ""},
+		{"a command with no JSON result", stack, nil, []string{"--json", "init"}, 2, "doze init", fault.Usage, ""},
+		{"logs", stack, nil, []string{"--json", "logs", "api"}, 0, "doze logs", "", `"lines": []`},
 		{"an undeclared name", stack, nil, []string{"--json", "url", "nosuch"}, 4, "doze url", fault.NotFound, ""},
 		{"env", stack, nil, []string{"--json", "env"}, 0, "doze env", "", `[]`},
 	} {
@@ -198,8 +199,8 @@ func TestOutputFlags(t *testing.T) {
 	if code, out, _ := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "url", "nosuch"); code != 4 || !strings.HasPrefix(out, "{") {
 		t.Errorf("DOZE_JSON=1 url: exit %d, out %q", code, out)
 	}
-	if code, out, stderr := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "logs", "nosuch"); code != 4 || strings.HasPrefix(out, "{") || !strings.Contains(stderr, "not declared") {
-		t.Errorf("DOZE_JSON=1 logs: exit %d, out %q, stderr %q", code, out, stderr)
+	if code, out, stderr := dozeRun(t, stack, []string{"DOZE_JSON=1"}, "init"); code == 2 || strings.HasPrefix(out, "{") {
+		t.Errorf("DOZE_JSON=1 init: exit %d, out %q, stderr %q", code, out, stderr)
 	}
 	if code, out, _ := dozeRun(t, stack, nil, "-q", "url", "api"); code != 0 || out != "" {
 		t.Errorf("-q url: exit %d, out %q", code, out)

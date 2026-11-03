@@ -305,10 +305,19 @@ The envelope has the same shape for every command:
 
 `data` is the command's result: `results` for `up`, `wake`, `sleep`,
 `restart`, `reset`, `pin` and `task <name>`; the services for `status`; the
-variables for `env`; `{name, url}` for `url`; and so on. `error.code` is the
-kind of failure, the same word as in the table below. Commands with no single
-result (`logs`, `run`, `sync`, `init`, `add`, the dash) refuse `--json` and
-exit 2; `DOZE_JSON=1` leaves them as they are.
+variables for `env`; `{name, url}` for `url`; `lines` for `logs`; and so on.
+`error.code` is the kind of failure, the same word as in the table below.
+
+A command that follows something as it happens (`logs -f`) prints NDJSON
+instead: one object per line, each with a `type`, and an `end` line last.
+
+```json
+{"type":"log","instance":"api","line":"listening on :3000","stream":"o","run":2,"time":"…"}
+{"type":"end","ok":true}
+```
+
+Commands with no result to give (`run`, `sync`, `init`, `add`, the dash)
+refuse `--json` and exit 2; `DOZE_JSON=1` leaves them as they are.
 
 ## Exit codes
 

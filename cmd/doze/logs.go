@@ -126,6 +126,12 @@ func printLogs(ctx context.Context, d control.Daemon, out io.Writer, names []str
 		all = append(all, lines...)
 	}
 	sort.SliceStable(all, func(i, j int) bool { return all[i].Time.Before(all[j].Time) })
+	if all == nil {
+		all = []control.LogFrame{}
+	}
+	setResult(struct {
+		Lines []control.LogFrame `json:"lines"`
+	}{all})
 	if len(all) == 0 && len(names) == 1 {
 		fmt.Fprintln(out, ui.Muted(names[0]+" has not printed anything yet"))
 		return nil
@@ -142,12 +148,23 @@ func printLogs(ctx context.Context, d control.Daemon, out io.Writer, names []str
 // from one subscription, so no line falls between them.
 func followLogs(ctx context.Context, d control.Daemon, out io.Writer, names []string, prefix bool, backlog int, since time.Time) error {
 	width := nameWidth(names)
-	return d.Subscribe(ctx, control.Subscription{Topics: []string{control.TopicLogs}, Names: names, Backlog: backlog}, func(f control.Frame) error {
-		if f.Log != nil && (since.IsZero() || !f.Log.Time.Before(since)) {
-			fmt.Fprintln(out, formatLogLine(*f.Log, prefix, width))
+	err := d.Subscribe(ctx, control.Subscription{Topics: []string{control.TopicLogs}, Names: names, Backlog: backlog}, func(f control.Frame) error {
+		if f.Log == nil || (!since.IsZero() && f.Log.Time.Before(since)) {
+			return nil
 		}
+		if jsonMode {
+			return writeStream("log", f.Log)
+		}
+		fmt.Fprintln(out, formatLogLine(*f.Log, prefix, width))
 		return nil
 	})
+	if ctx.Err() != nil {
+		err = nil // Ctrl-C is how a follow ends
+	}
+	if jsonMode {
+		endStream(err)
+	}
+	return err
 }
 
 func nameWidth(names []string) int {

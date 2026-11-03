@@ -88,7 +88,9 @@ func realMain() int {
 		if ranCommand == "" {
 			ranCommand = "doze"
 		}
-		writeEnvelope(stdout, err)
+		if !streamed {
+			writeEnvelope(stdout, err)
+		}
 		return codeOf(err)
 	}
 	if err != nil {
@@ -175,7 +177,7 @@ func rootCmd() *cobra.Command {
 		grouped(groupOne, jsonCapable(mutating(resetCmd()))),
 		grouped(groupOne, jsonCapable(mutating(taskCmd()))),
 		grouped(groupOne, jsonCapable(pinCmd())),
-		grouped(groupOne, logsCmd()),
+		grouped(groupOne, jsonCapable(logsCmd())),
 		grouped(groupOne, jsonCapable(urlCmd())),
 		// Before-the-dash tools
 		grouped(groupTools, jsonCapable(lintCmd())),
