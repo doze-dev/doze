@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -42,8 +44,8 @@ func treeCmd() *cobra.Command {
 			}
 			daemonUp := daemonRunning(cfg)
 			if watch {
-				if jsonMode || graph {
-					return fmt.Errorf("-w redraws the table; it cannot be combined with --json or --graph")
+				if graph {
+					return usageError(fmt.Errorf("-w redraws the table; it cannot be combined with --graph"))
 				}
 				if !daemonUp {
 					return fault.With(fault.DaemonDown, fmt.Errorf("-w watches a running stack, and the daemon is not running (doze up starts it)"))
@@ -133,7 +135,17 @@ func watchStatus(ctx context.Context, d control.Daemon, out io.Writer, cfg *conf
 	for _, v := range snap.Instances {
 		views[v.Name] = v
 	}
+	var last []byte
 	draw := func() {
+		if jsonMode {
+			// One status line per change, never a repeat.
+			data := statusData(cfg, views, true)
+			if b, _ := json.Marshal(data); !bytes.Equal(b, last) {
+				last = b
+				_ = writeStream("status", data)
+			}
+			return
+		}
 		if tty {
 			fmt.Fprint(out, "\033[H\033[2J")
 		}
@@ -144,7 +156,7 @@ func watchStatus(ctx context.Context, d control.Daemon, out io.Writer, cfg *conf
 	}
 	draw()
 	sub := control.Subscription{Topics: []string{control.TopicInstances, control.TopicStats}}
-	return d.Subscribe(ctx, sub, func(f control.Frame) error {
+	err = d.Subscribe(ctx, sub, func(f control.Frame) error {
 		switch f.Topic {
 		case control.TopicInstances:
 			if f.Snapshot {
@@ -180,4 +192,11 @@ func watchStatus(ctx context.Context, d control.Daemon, out io.Writer, cfg *conf
 		draw()
 		return nil
 	})
+	if ctx.Err() != nil {
+		err = nil // Ctrl-C is how a watch ends
+	}
+	if jsonMode {
+		endStream(err)
+	}
+	return err
 }

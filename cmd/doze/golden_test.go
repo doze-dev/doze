@@ -382,3 +382,30 @@ func TestFollowLogsAsNDJSON(t *testing.T) {
 		t.Fatal("a stream must stop main writing an envelope after it")
 	}
 }
+
+// status -w --json is NDJSON: a status line for the first view and for each
+// change (never a repeat), then an end line.
+func TestStatusWatchAsNDJSON(t *testing.T) {
+	fixClock(t)
+	cfg, snap := shopConfig(t), shopSnapshot()
+	recovered := snap.Instances[4]
+	recovered.State, recovered.PID, recovered.LastError, recovered.RestartMax = "active", 4301, "", 0
+	d := &fakedaemon.Fake{Snap: snap, Frames: []control.Frame{
+		{Topic: control.TopicInstances, Snapshot: true, Instances: snap.Instances}, // no change
+		{Topic: control.TopicInstances, Instances: []control.InstanceView{recovered}},
+	}}
+	var buf bytes.Buffer
+	saved, savedJSON := stdout, jsonMode
+	stdout, jsonMode = &buf, true
+	t.Cleanup(func() { stdout, jsonMode, streamed = saved, savedJSON, false })
+	if err := watchStatus(context.Background(), d, io.Discard, cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], `{"type":"status","daemon"`) || !strings.HasPrefix(lines[1], `{"type":"status"`) || lines[2] != `{"type":"end","ok":true}` {
+		t.Fatalf("want two status lines and an end line, got:\n%s", buf.String())
+	}
+	if !strings.Contains(lines[1], `"pid":4301`) {
+		t.Fatalf("the second line should carry the recovered worker:\n%s", lines[1])
+	}
+}

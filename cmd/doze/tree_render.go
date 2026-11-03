@@ -68,6 +68,12 @@ func degradedStatusJSON(decls []config.ShallowDecl, views map[string]control.Ins
 }
 
 func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) {
+	setResult(statusData(cfg, views, daemonUp))
+}
+
+// statusData is status's JSON result: every declared instance, with what the
+// daemon knows about the running ones.
+func statusData(cfg *config.Config, views map[string]control.InstanceView, daemonUp bool) statusJSON {
 	out := statusJSON{Daemon: statusDaemonJSON{Running: daemonUp}, Services: []statusServiceJSON{}}
 	for _, d := range cfg.Instances {
 		v, running := views[d.Name]
@@ -126,7 +132,7 @@ func renderStatusJSON(cfg *config.Config, views map[string]control.InstanceView,
 		}
 		out.Services = append(out.Services, s)
 	}
-	setResult(out)
+	return out
 }
 
 // plainState is stateText without terminal styling — for JSON.

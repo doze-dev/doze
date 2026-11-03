@@ -315,7 +315,7 @@ The envelope has the same shape for every command:
 variables for `env`; `{name, url}` for `url`; `lines` for `logs`; and so on.
 `error.code` is the kind of failure, the same word as in the table below.
 
-A command that follows something as it happens (`logs -f`) prints NDJSON
+A command that follows something as it happens (`logs -f`, `status -w`) prints NDJSON
 instead: one object per line, each with a `type`, and an `end` line last.
 
 ```json
