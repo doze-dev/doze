@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`doze up` remembers.** What was started, and what was awake at `doze
+  down`, is kept in the project's state folder (`project.json`). When it was
+  less than everything, a bare `up` asks whether to start the same again;
+  `--last` and `--all` skip the question.
 - **One JSON envelope for every command that has a result**: `--json` (or
   `DOZE_JSON=1`) prints `{schema, command, ok, data, warnings, error}` on
   stdout, on failure too, with nothing else there. `up`, `wake`, `sleep`,
@@ -67,6 +71,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`doze up` remembers.** What was started, and what was awake at `doze
+  down`, is kept in the project's state folder (`project.json`). When it was
+  less than everything, a bare `up` asks whether to start the same again;
+  `--last` and `--all` skip the question.
 - `Session.Close` (the Go API) returns the in-process daemon's `Run` error
   as well as the host's.
 - CI on every PR: golangci-lint (including the integration and bench suites),

@@ -39,7 +39,7 @@ browser.
 
 ## The stack
 
-### `doze up [service…]`
+### `doze up [service…] [--last | --all]`
 
 Bring the stack up in the background: converge declared structure (databases,
 roles, buckets, queues, topics — everything your config declares), then wake
@@ -47,6 +47,13 @@ every service (or just the named ones and their dependencies), gated on health
 probes. Each line says how long that service took to become ready, as the
 daemon measured it. Returns when the stack is ready; the daemon keeps
 supervising.
+
+doze remembers what was started: what `up` was asked for, and at `down`,
+what was awake (services woken since count too). When that was less than
+everything, a bare `doze up` on a terminal asks whether to start the same
+again, with yes the default; `-y` says yes. Without a terminal it starts
+everything and says how to get last time's set. `--last` and `--all` decide
+without asking.
 
 ### `doze down`
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/doze-dev/doze/internal/control"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +19,14 @@ func downCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// What was awake is remembered first, so the next up can offer it.
+			var snap *control.Snapshot
+			if daemonRunning(cfg) {
+				if s, err := daemonFor(cfg).Snapshot(commandContext()); err == nil {
+					snap = &s
+				}
+			}
+			rememberDown(cfg, snap)
 			// stopDaemon handles the not-running case itself (by pid file, which
 			// also catches a daemon whose control socket has gone quiet).
 			return stopDaemon(cfg) // shutting the daemon down reaps every backend

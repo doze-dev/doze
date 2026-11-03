@@ -20,7 +20,7 @@ import (
 )
 
 func upCmd() *cobra.Command {
-	var follow, detach bool
+	var follow, detach, last, all bool
 	cmd := &cobra.Command{
 		Use:   "up [service…]",
 		Short: "Bring the stack up in the background (converge structure + wake every service)",
@@ -29,7 +29,10 @@ func upCmd() *cobra.Command {
 			"keeps supervising everything in the background; nothing stays attached to\n" +
 			"your terminal. Watch logs in the dash (`doze`), or pass `-f` to wake and\n" +
 			"stream in one step (Ctrl-C then just detaches — it does not stop anything).\n" +
-			"`doze down` stops the stack. Disabled services are skipped.",
+			"`doze down` stops the stack. Disabled services are skipped.\n\n" +
+			"With no names, up starts everything; when last time started fewer, it\n" +
+			"asks whether to start the same again (on a terminal; -y says yes).\n" +
+			"--last and --all decide without asking.",
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: instanceCompletion,
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -45,20 +48,27 @@ func upCmd() *cobra.Command {
 						return instanceNotFound(cfg, n)
 					}
 				}
+				if last || all {
+					return usageError(fmt.Errorf("--last and --all choose for a bare doze up; drop them, or the names"))
+				}
 				targets = args
 			} else {
-				for _, d := range cfg.Instances {
-					if d.Enabled {
-						targets = append(targets, d.Name)
-					}
+				if last && all {
+					return usageError(fmt.Errorf("--last and --all ask for different things; pick one"))
 				}
-				if len(targets) == 0 {
+				if len(enabledNames(cfg)) == 0 {
 					return fmt.Errorf("nothing to bring up (no enabled services declared)")
 				}
+				if targets, err = chooseUpTargets(cfg, last, all); err != nil {
+					return err
+				}
 			}
+			rememberUp(cfg, targets)
 			return runUp(cfg, targets, follow)
 		},
 	}
+	cmd.Flags().BoolVar(&last, "last", false, "start what was started last time, without asking")
+	cmd.Flags().BoolVar(&all, "all", false, "start everything, without asking")
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "stream logs after waking (Ctrl-C detaches; the stack keeps running)")
 	cmd.Flags().BoolVar(&detach, "detach", false, "deprecated: up is always detached")
 	_ = cmd.Flags().MarkHidden("detach")
