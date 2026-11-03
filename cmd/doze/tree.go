@@ -192,8 +192,8 @@ func watchStatus(ctx context.Context, d control.Daemon, out io.Writer, cfg *conf
 		draw()
 		return nil
 	})
-	if ctx.Err() != nil {
-		err = nil // Ctrl-C is how a watch ends
+	if ctx.Err() != nil || (err != nil && !daemonRunning(cfg)) {
+		err = nil // Ctrl-C, or the stack stopping, is how a watch ends
 	}
 	if jsonMode {
 		endStream(err)

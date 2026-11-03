@@ -50,3 +50,21 @@ func TestUnknownFieldsAreKept(t *testing.T) {
 		t.Fatalf("saved %s", b)
 	}
 }
+
+// A record that can't be read is set aside and replaced on the next update.
+func TestABrokenRecordIsReplaced(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, FileName), []byte(""), 0o644)
+	if _, _, err := Load(dir); err == nil {
+		t.Fatal("an empty record must not load")
+	}
+	if err := Update(dir, func(p *Project) { p.LastSet = []string{"db"} }); err != nil {
+		t.Fatal(err)
+	}
+	if p, ok, err := Load(dir); err != nil || !ok || len(p.LastSet) != 1 {
+		t.Fatalf("after update: %+v, %v, %v", p, ok, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, FileName+".bad")); err != nil {
+		t.Fatalf("the broken record should be kept aside: %v", err)
+	}
+}

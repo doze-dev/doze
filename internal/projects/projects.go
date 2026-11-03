@@ -68,7 +68,7 @@ func Load(dir string) (p Project, ok bool, err error) {
 
 // Save writes the record atomically, so a reader never sees half of it.
 func Save(dir string, p Project) error {
-	p.Schema = schema
+	p.Schema = max(p.Schema, schema) // a newer doze's record stays its version
 	b, err := json.Marshal(p)
 	if err != nil {
 		return err
@@ -103,11 +103,17 @@ func Save(dir string, p Project) error {
 	return os.Rename(tmp.Name(), filepath.Join(dir, FileName))
 }
 
-// Update loads the record in dir, applies fn, and saves it.
+// Update loads the record in dir, applies fn, and saves it. A record that
+// can't be read is set aside as project.json.bad and replaced, so one broken
+// file doesn't warn on every run forever.
 func Update(dir string, fn func(*Project)) error {
 	p, _, err := Load(dir)
 	if err != nil {
-		return err
+		f := filepath.Join(dir, FileName)
+		if rerr := os.Rename(f, f+".bad"); rerr != nil {
+			return err
+		}
+		p = Project{Schema: schema, dir: dir}
 	}
 	fn(&p)
 	return Save(dir, p)

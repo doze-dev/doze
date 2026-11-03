@@ -48,12 +48,13 @@ probes. Each line says how long that service took to become ready, as the
 daemon measured it. Returns when the stack is ready; the daemon keeps
 supervising.
 
-doze remembers what was started: what `up` was asked for, and at `down`,
-what was awake (services woken since count too). When that was less than
-everything, a bare `doze up` on a terminal asks whether to start the same
-again, with yes the default; `-y` says yes. Without a terminal it starts
-everything and says how to get last time's set. `--last` and `--all` decide
-without asking.
+doze remembers what was started: what `up` was asked for, with what was
+already running, and at `down` what was awake. A service that slept while
+idle stays in the set. When the set is less than everything, a bare `doze up`
+on a terminal asks whether to start the same again, with yes the default; `-y`
+says yes. Without a terminal it starts everything, `-y` or not, so a script
+gets the same stack whatever someone ran before, and it says how to get last
+time's set. `--last` and `--all` decide without asking.
 
 ### `doze down`
 
@@ -317,6 +318,9 @@ variables for `env`; `{name, url}` for `url`; `lines` for `logs`; and so on.
 
 A command that follows something as it happens (`logs -f`, `status -w`) prints NDJSON
 instead: one object per line, each with a `type`, and an `end` line last.
+`status -w` sends a `status` line when anything changes, which is about once a
+second while a service is busy (its memory and CPU move) and rarely when the
+stack is quiet. A watch ends `ok` on Ctrl-C and when the stack stops.
 
 ```json
 {"type":"log","instance":"api","line":"listening on :3000","stream":"o","run":2,"time":"…"}

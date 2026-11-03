@@ -47,6 +47,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `front` and `logs` on apps and services are gone; they were parsed and never
   acted on. A config that sets either is told to delete it.
 
+- `Session.Close` (the Go API) returns the in-process daemon's `Run` error
+  as well as the host's.
+- CI on every PR: golangci-lint (including the integration and bench suites),
+  a tidy check, a check that doze-* dependencies are tags, a build from the
+  public module proxy, govulncheck, a coverage floor, and the memory and wake
+  budgets, which moved from the nightly run to every PR and now hold on Linux
+  too (calibrated from fourteen runs).
+
 ### Fixed
 
 - `after` on a module block works: every published module rejected it, because
@@ -68,20 +76,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The getting-started example is a config doze accepts.
 - Reachable vulnerabilities in golang.org/x/net, grpc, golang.org/x/text and
   the standard library (Go 1.27.3).
-
-### Changed
-
-- **`doze up` remembers.** What was started, and what was awake at `doze
-  down`, is kept in the project's state folder (`project.json`). When it was
-  less than everything, a bare `up` asks whether to start the same again;
-  `--last` and `--all` skip the question.
-- `Session.Close` (the Go API) returns the in-process daemon's `Run` error
-  as well as the host's.
-- CI on every PR: golangci-lint (including the integration and bench suites),
-  a tidy check, a check that doze-* dependencies are tags, a build from the
-  public module proxy, govulncheck, a coverage floor, and the memory and wake
-  budgets, which moved from the nightly run to every PR and now hold on Linux
-  too (calibrated from fourteen runs).
 
 ## Unreleased before the redesign
 

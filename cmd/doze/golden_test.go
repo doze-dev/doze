@@ -393,6 +393,7 @@ func TestStatusWatchAsNDJSON(t *testing.T) {
 	d := &fakedaemon.Fake{Snap: snap, Frames: []control.Frame{
 		{Topic: control.TopicInstances, Snapshot: true, Instances: snap.Instances}, // no change
 		{Topic: control.TopicInstances, Instances: []control.InstanceView{recovered}},
+		{Topic: control.TopicInstances, Instances: []control.InstanceView{recovered}}, // the same again: no line
 	}}
 	var buf bytes.Buffer
 	saved, savedJSON := stdout, jsonMode

@@ -269,10 +269,12 @@ func TestPipedOutputIsPlain(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(stack, "doze.hcl"), []byte("app \"api\" {\n  run  = \"sleep 60\"\n  port = 4712\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// NO_COLOR is unset in every case (the last value of a key wins), so the
+	// only thing keeping colour off is that no stream is a terminal.
 	envs := [][]string{
-		{"TERM=xterm-256color", "CLICOLOR_FORCE=1", "FORCE_COLOR=1"},
-		{"TERM=dumb"},
-		{"CI=true"},
+		{"NO_COLOR=", "TERM=xterm-256color", "CLICOLOR_FORCE=1", "FORCE_COLOR=1"},
+		{"NO_COLOR=", "TERM=dumb"},
+		{"NO_COLOR=", "CI=true"},
 	}
 	commands := [][]string{
 		{"status"}, {"lint"}, {"env"}, {"url", "api"}, {"logs", "api"}, {"version"},

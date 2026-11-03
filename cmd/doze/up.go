@@ -31,7 +31,8 @@ func upCmd() *cobra.Command {
 			"stream in one step (Ctrl-C then just detaches — it does not stop anything).\n" +
 			"`doze down` stops the stack. Disabled services are skipped.\n\n" +
 			"With no names, up starts everything; when last time started fewer, it\n" +
-			"asks whether to start the same again (on a terminal; -y says yes).\n" +
+			"asks whether to start the same again (on a terminal; -y says yes;\n" +
+			"with no terminal it starts everything).\n" +
 			"--last and --all decide without asking.",
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: instanceCompletion,
@@ -63,7 +64,13 @@ func upCmd() *cobra.Command {
 					return err
 				}
 			}
-			rememberUp(cfg, targets)
+			var running *control.Snapshot
+			if daemonRunning(cfg) {
+				if s, err := daemonFor(cfg).Snapshot(commandContext()); err == nil {
+					running = &s
+				}
+			}
+			rememberUp(cfg, targets, running)
 			return runUp(cfg, targets, follow)
 		},
 	}

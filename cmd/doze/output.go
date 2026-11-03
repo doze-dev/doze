@@ -65,6 +65,13 @@ var (
 // setResult records what the command produced. In text mode it is unused.
 func setResult(v any) { result = v }
 
+// warn says something worth knowing that isn't a failure: on stderr, and in
+// the envelope's warnings for a program reading --json.
+func warn(msg string) {
+	warnings = append(warnings, msg)
+	fmt.Fprintln(os.Stderr, ui.ErrMuted(msg))
+}
+
 // streamed is set by a command that wrote an NDJSON stream instead of a
 // result (logs -f): its lines, ending with an "end" line, are the output, and
 // main writes no envelope after them.
