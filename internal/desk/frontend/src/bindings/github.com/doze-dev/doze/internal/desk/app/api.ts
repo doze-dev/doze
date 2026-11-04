@@ -56,6 +56,14 @@ export function Instance(key: string, name: string): $CancellablePromise<view$0.
 }
 
 /**
+ * Log is the page's line to the app's stderr: what it chose, what failed.
+ * The web view's own console is not visible from outside the window.
+ */
+export function Log(line: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Log", line);
+}
+
+/**
  * Logs is a window of an instance's lines, or of every instance's.
  */
 export function Logs(key: string, q: view$0.LogsQuery): $CancellablePromise<view$0.Logs> {
@@ -67,6 +75,13 @@ export function Logs(key: string, q: view$0.LogsQuery): $CancellablePromise<view
  */
 export function Painted(ms: number): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Painted", ms);
+}
+
+/**
+ * Pending is where the page should start: the stack doze open asked for.
+ */
+export function Pending(): $CancellablePromise<serve$0.Nav> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Pending");
 }
 
 /**

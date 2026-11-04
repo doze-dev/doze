@@ -19,6 +19,8 @@ export interface Nav {
 
 export interface Transport {
   stacks(): Promise<serve.StackSummary[]>;
+  /** pending is the stack the app asked the page to open, once; an empty key means none. */
+  pending(): Promise<Nav>;
   home(key: string): Promise<view.Home>;
   instance(key: string, name: string): Promise<view.Instance>;
   logs(key: string, q: view.LogsQuery): Promise<view.Logs>;
@@ -26,6 +28,8 @@ export interface Transport {
   blur(): Promise<void>;
   do(key: string, verb: string, target: string): Promise<void>;
   painted(ms: number): void;
+  /** log sends a line to the app's stderr (a no-op in a browser). */
+  log(line: string): void;
   /** on subscribes to a push by name; the returned function unsubscribes. */
   on<T>(event: string, fn: (data: T) => void): () => void;
 }
@@ -42,6 +46,7 @@ async function wails(): Promise<Transport> {
   ]);
   return {
     stacks: () => api.Stacks().then((s) => s ?? []),
+    pending: () => api.Pending(),
     home: (key) => api.Home(key),
     instance: (key, name) => api.Instance(key, name),
     logs: (key, q) => api.Logs(key, q),
@@ -49,6 +54,7 @@ async function wails(): Promise<Transport> {
     blur: () => api.Blur(),
     do: (key, verb, target) => api.Do(key, verb, target),
     painted: (ms) => void api.Painted(ms),
+    log: (line) => void api.Log(line),
     on: (event, fn) => Events.On(event, (e: { data: unknown }) => fn(e.data as never)),
   };
 }
@@ -79,6 +85,7 @@ function http(): Transport {
   };
   return {
     stacks: () => call("stacks", {}),
+    pending: () => call("pending", {}),
     home: (key) => call("home", { key }),
     instance: (key, name) => call("instance", { key, name }),
     logs: (key, query) => call("logs", { key, query }),
@@ -86,6 +93,7 @@ function http(): Transport {
     blur: () => call("focus", { key: "", page: "" }),
     do: (key, verb, target) => call("do", { key, verb, target }),
     painted: () => {},
+    log: (line) => console.log(line),
     on: (event, fn) => {
       const set = listeners.get(event) ?? new Set();
       const had = listeners.has(event);
@@ -104,6 +112,13 @@ let chosen: Promise<Transport> | null = null;
 
 /** transport is the page's transport, chosen once. */
 export function transport(): Promise<Transport> {
-  if (!chosen) chosen = inWails() ? wails() : Promise.resolve(http());
+  if (!chosen) {
+    chosen = (inWails() ? wails() : Promise.resolve(http())).then((t) => {
+      t.log(`transport ${inWails() ? "wails" : "http"}`);
+      window.addEventListener("error", (e) => t.log(`error ${e.message} at ${e.filename}:${e.lineno}`));
+      window.addEventListener("unhandledrejection", (e) => t.log(`rejection ${String((e as PromiseRejectionEvent).reason)}`));
+      return t;
+    });
+  }
   return chosen;
 }

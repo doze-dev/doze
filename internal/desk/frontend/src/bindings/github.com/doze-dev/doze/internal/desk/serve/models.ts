@@ -16,6 +16,15 @@ export interface Focus {
 }
 
 /**
+ * Nav is where the app asks the page to go: a stack's home, from the
+ * menu bar or a second launch.
+ */
+export interface Nav {
+    "key": string;
+    "page": string;
+}
+
+/**
  * StackSummary is one stack in the tab strip.
  */
 export interface StackSummary {

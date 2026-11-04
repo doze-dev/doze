@@ -3,5 +3,6 @@
 
 export type {
     Focus,
+    Nav,
     StackSummary
 } from "./models.js";

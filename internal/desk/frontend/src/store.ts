@@ -51,6 +51,7 @@ export async function go(where: Where) {
     if (where.page === "home") set({ home: await t.home(where.key) });
     else if (where.page === "instance" && where.instance) set({ instance: await t.instance(where.key, where.instance) });
   } catch (e) {
+    t.log(`go ${where.page} failed: ${String(e)}`);
     set({ error: String(e) });
   }
 }
@@ -88,9 +89,11 @@ export function useBoot() {
         t.on<LogsChanged>("logs", (c) => set({ logsVersion: state.logsVersion + 1, logsTotal: c.total })),
         t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home" })),
       ];
-      const stacks = await t.stacks();
+      const [stacks, pending] = await Promise.all([t.stacks(), t.pending()]);
+      t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);
       set({ stacks });
-      if (!state.where && stacks.length) await go({ key: stacks[0].key, page: "home" });
+      const first = stacks.find((s) => s.key === pending.key) ?? stacks[0];
+      if (!state.where && first) await go({ key: first.key, page: "home" });
       const onVisibility = () => {
         if (document.hidden) void t.blur();
         else if (state.where) void go(state.where);

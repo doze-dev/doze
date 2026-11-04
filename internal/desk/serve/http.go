@@ -36,6 +36,7 @@ func Handler(s *Service) http.Handler {
 		})
 	}
 	call("stacks", func(json.RawMessage) (any, error) { return s.Stacks(), nil })
+	call("pending", func(json.RawMessage) (any, error) { return s.Pending(), nil })
 	call("home", func(b json.RawMessage) (any, error) {
 		var a struct{ Key string }
 		if err := json.Unmarshal(b, &a); err != nil {

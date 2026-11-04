@@ -3,6 +3,9 @@
 package app
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/doze-dev/doze/internal/desk/serve"
@@ -20,6 +23,9 @@ type API struct {
 
 // Stacks is every stack, for the tab strip.
 func (a *API) Stacks() []serve.StackSummary { return a.s.Stacks() }
+
+// Pending is where the page should start: the stack doze open asked for.
+func (a *API) Pending() serve.Nav { return a.s.Pending() }
 
 // Home is a stack's home page.
 func (a *API) Home(key string) view.Home { return a.s.Home(key) }
@@ -44,6 +50,12 @@ func (a *API) Painted(ms int) {
 	if a.painted != nil {
 		a.painted(ms)
 	}
+}
+
+// Log is the page's line to the app's stderr: what it chose, what failed.
+// The web view's own console is not visible from outside the window.
+func (a *API) Log(line string) {
+	fmt.Fprintln(os.Stderr, "page: "+line)
 }
 
 func newService(s *serve.Service, painted func(int)) application.Service {

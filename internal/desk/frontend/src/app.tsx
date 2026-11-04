@@ -19,7 +19,10 @@ export function App() {
       requestAnimationFrame(() => {
         const ms = Math.round(performance.now());
         document.documentElement.dataset.painted = String(ms);
-        transport().then((t) => t.painted(ms));
+        transport().then((t) => {
+          t.log(`home painted ${ms}ms after the page loaded`);
+          t.painted(ms);
+        });
       });
     }
   }, [home]);

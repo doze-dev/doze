@@ -79,12 +79,13 @@ type Service struct {
 	now  func() time.Time
 	emit Emitter
 
-	mu       sync.Mutex
-	focus    Focus
-	releases []func()
-	sent     map[string]uint64 // event name → hash of what was last sent
-	dirty    bool
-	wake     chan struct{}
+	mu         sync.Mutex
+	focus      Focus
+	pendingDir string
+	releases   []func()
+	sent       map[string]uint64 // event name → hash of what was last sent
+	dirty      bool
+	wake       chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -269,14 +270,31 @@ func (s *Service) Do(key, verb, target string) error {
 	return nil
 }
 
-// Navigate asks the page to show a stack's home.
-func (s *Service) Navigate(key string) {
+// Open asks the page to show the stack at a project folder. A page that is
+// loaded is told now; one that is not asks when it boots (Pending). The
+// folder is kept, not a key: at launch the hub may not have found the stack
+// yet.
+func (s *Service) Open(dir string) {
 	s.mu.Lock()
+	s.pendingDir = dir
 	emit := s.emit
 	s.mu.Unlock()
-	if emit != nil {
+	if key := s.KeyFor(dir); key != "" && emit != nil {
 		emit(EventNav, Nav{Key: key, Page: "home"})
 	}
+}
+
+// Pending is where the page should start: the last Open, once, as a key
+// when the hub knows the stack by then.
+func (s *Service) Pending() Nav {
+	s.mu.Lock()
+	dir := s.pendingDir
+	s.pendingDir = ""
+	s.mu.Unlock()
+	if dir == "" {
+		return Nav{}
+	}
+	return Nav{Key: s.KeyFor(dir), Page: "home"}
 }
 
 // KeyFor is the hub key of the stack at a project folder, or "" when no
