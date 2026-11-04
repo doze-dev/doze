@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // The screen of a folder with no doze.hcl yet (boards/Empty.dc.html): what
@@ -38,11 +39,8 @@ type emptyModel struct {
 	w, h   int
 }
 
-var emptyChoices = [3]struct{ title, what string }{
-	{"Set it up from this repo", "reads go.mod, package.json, compose files and writes a doze.hcl"},
-	{"Add one thing", "name a module or a service: postgres, valkey, mongo, …"},
-	{"Start with an empty file", "writes a short doze.hcl, with comments, to fill in"},
-}
+// emptyChoices are display's three ways to start.
+var emptyChoices = display.EmptyChoices
 
 // Empty runs the screen and returns what was chosen.
 func Empty(o EmptyOptions) (Start, error) {
@@ -137,14 +135,14 @@ func (m *emptyModel) render(w, h int) string {
 	out = append(out, "")
 	var lines []string
 	for i, c := range emptyChoices {
-		mark, title := "  ", s.w.Render(c.title)
+		mark, title := "  ", s.w.Render(c.Title)
 		if i == m.sel {
 			mark = s.a.Render("▸ ")
-			title = s.b.Render(c.title)
+			title = s.b.Render(c.Title)
 		}
-		row := mark + title + strings.Repeat(" ", max(30-width(c.title), 1)) + s.d.Render(fit(c.what, bw-4-34))
+		row := mark + title + strings.Repeat(" ", max(30-width(c.Title), 1)) + s.d.Render(fit(c.What, bw-4-34))
 		if i == 0 && len(m.o.Found) == 0 {
-			row = mark + title + strings.Repeat(" ", max(30-width(c.title), 1)) + s.d.Render(fit("nothing recognised here; it asks instead", bw-4-34))
+			row = mark + title + strings.Repeat(" ", max(30-width(c.Title), 1)) + s.d.Render(fit(display.EmptyNothingFound, bw-4-34))
 		}
 		if i == 1 && m.typing {
 			row = s.a.Render("▸ ") + s.b.Render("Add") + "  " + s.w.Render(m.name) + s.a.Render("▏")
