@@ -7,6 +7,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"github.com/doze-dev/doze/internal/desk/prefs"
 )
 
 // The one window. It is created when asked for and destroyed when closed, so
@@ -32,7 +34,9 @@ func (d *desk) open(dir string) {
 		// A menu bar app is not brought forward by a new window on its own:
 		// it becomes a regular app (Dock icon, ⌘Tab) while the window is open.
 		activate(true)
-		d.win = d.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		// The window comes back where it was closed (D15).
+		p := prefs.Load(d.hub.Home())
+		opts := application.WebviewWindowOptions{
 			Title:            "doze",
 			Width:            960,
 			Height:           640,
@@ -45,11 +49,29 @@ func (d *desk) open(dir string) {
 				TitleBar:                application.MacTitleBarHiddenInset,
 				InvisibleTitleBarHeight: 38,
 			},
-		})
+		}
+		if p.Window.Placed() {
+			opts.Width, opts.Height = p.Window.W, p.Window.H
+			opts.X, opts.Y = p.Window.X, p.Window.Y
+			opts.InitialPosition = application.WindowXY
+		}
+		d.win = d.app.Window.NewWithOptions(opts)
 		// Window event listeners run on their own goroutine; d.win and the
 		// activation policy belong to the main thread.
 		d.win.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
 			application.InvokeSync(func() {
+				if w := d.win; w != nil {
+					// Remembered for the next open: the frame, and the project.
+					p := prefs.Load(d.hub.Home())
+					p.Window.W, p.Window.H = w.Size()
+					p.Window.X, p.Window.Y = w.Position()
+					if dir != "" {
+						p.LastDir = dir
+					}
+					if err := prefs.Save(d.hub.Home(), p); err != nil {
+						d.measure("prefs not saved: %v", err)
+					}
+				}
 				d.measure("window closed")
 				d.win = nil
 				activate(false)

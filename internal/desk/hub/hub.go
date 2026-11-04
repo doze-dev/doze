@@ -315,3 +315,6 @@ func (h *Hub) Do(ctx context.Context, key string, verb control.Verb) error {
 	}
 	return s.do(ctx, verb)
 }
+
+// Home is doze's folder: where projects, and the app's own prefs, live.
+func (h *Hub) Home() string { return h.o.Home }
