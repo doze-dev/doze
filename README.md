@@ -179,14 +179,12 @@ mise use -g ubi:doze-dev/doze
 # https://github.com/doze-dev/doze/releases
 ```
 
-Have Go 1.26+? These work too:
+Have Go 1.27+ and bun? Build from a clone (the app's page is built in, and
+the module carries one `replace`, so `go install …@latest` is not a way in):
 
 ```sh
-go install github.com/doze-dev/doze/cmd/doze@latest
-
-# Or build from a clone
 git clone https://github.com/doze-dev/doze && cd doze
-go build -o doze ./cmd/doze
+make build
 ```
 
 Engine binaries are fetched and cached automatically on first use. They're built

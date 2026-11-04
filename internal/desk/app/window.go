@@ -45,10 +45,14 @@ func (d *desk) open(dir string) {
 				InvisibleTitleBarHeight: 38,
 			},
 		})
+		// Window event listeners run on their own goroutine; d.win and the
+		// activation policy belong to the main thread.
 		d.win.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
-			d.measure("window closed")
-			d.win = nil
-			activate(false)
+			application.InvokeSync(func() {
+				d.measure("window closed")
+				d.win = nil
+				activate(false)
+			})
 		})
 		d.win.Show()
 		d.win.Focus()

@@ -23,6 +23,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.4.0" }
+      # The app's page is built into the binary; without this the release
+      # would ship the committed placeholder.
+      - name: Build the page
+        run: make frontend
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser

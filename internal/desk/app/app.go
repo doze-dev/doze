@@ -14,6 +14,8 @@ package app
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -51,6 +53,9 @@ func Run(o Options) error {
 		Mac: application.MacOptions{
 			ActivationPolicy: policy,
 		},
+		// Closing the window leaves the menu bar item; only Quit quits.
+		Linux:   application.LinuxOptions{DisableQuitOnLastWindowClosed: true},
+		Windows: application.WindowsOptions{DisableQuitOnLastWindowClosed: true},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "dev.doze.app",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
@@ -79,13 +84,23 @@ type desk struct {
 	window
 }
 
-// dirFrom is the project folder a second launch asked for: its argument,
-// else the folder it ran in.
+// dirFrom is the project folder a second launch asked for: the argument
+// after open, resolved against the folder it ran in, else that folder.
 func dirFrom(data application.SecondInstanceData) string {
 	for i, a := range data.Args {
-		if a == "open" && i+1 < len(data.Args) {
-			return data.Args[i+1]
+		if a != "open" {
+			continue
 		}
+		for _, arg := range data.Args[i+1:] {
+			if strings.HasPrefix(arg, "-") {
+				continue
+			}
+			if filepath.IsAbs(arg) {
+				return arg
+			}
+			return filepath.Join(data.WorkingDir, arg)
+		}
+		break
 	}
 	return data.WorkingDir
 }

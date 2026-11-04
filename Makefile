@@ -7,7 +7,6 @@ LDFLAGS     := -s -w -X main.version=$(VERSION)
 # Wails in purego mode needs the tag everywhere, or the GUI package does not
 # compile under CGO_ENABLED=0; the release build adds production.
 export GOFLAGS := -tags=purego
-export CGO_ENABLED := 0
 GOFILES     := $(shell find . -name '*.go' -not -path './vendor/*')
 
 .DEFAULT_GOAL := build
@@ -18,11 +17,11 @@ frontend: ## Build the app's page (React, Vite) into internal/desk/frontend/dist
 
 .PHONY: build
 build: frontend ## Build the doze binary, page included
-	go build -tags purego,production -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/doze
+	CGO_ENABLED=0 go build -tags purego,production -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/doze
 
 .PHONY: install
 install: ## Install doze into GOBIN
-	go install -tags purego,production -ldflags "$(LDFLAGS)" ./cmd/doze
+	CGO_ENABLED=0 go install -tags purego,production -ldflags "$(LDFLAGS)" ./cmd/doze
 
 .PHONY: test
 test: ## Run unit tests
@@ -67,8 +66,8 @@ tidy-check: ## Fail if go.mod or go.sum is not tidy
 .PHONY: cross
 cross: ## Prove every release target builds without cgo, and the desk tests compile on Linux
 	@for target in linux/amd64 linux/arm64 darwin/arm64; do \
-		GOOS=$${target%/*} GOARCH=$${target#*/} go build -o /dev/null ./cmd/doze || exit 1; \
-		GOOS=$${target%/*} GOARCH=$${target#*/} go test -c -o /dev/null ./internal/desk/app/ || exit 1; \
+		CGO_ENABLED=0 GOOS=$${target%/*} GOARCH=$${target#*/} go build -o /dev/null ./cmd/doze || exit 1; \
+		CGO_ENABLED=0 GOOS=$${target%/*} GOARCH=$${target#*/} go test -c -o /dev/null ./internal/desk/app/ || exit 1; \
 	done
 
 .PHONY: check

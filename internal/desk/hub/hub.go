@@ -74,11 +74,12 @@ type StackView struct {
 type Hub struct {
 	o Options
 
-	mu       sync.Mutex
-	stacks   map[string]*stack // by Key
-	stopped  map[string]projects.Project
-	onChange []func()
-	ctx      context.Context
+	mu        sync.Mutex
+	stacks    map[string]*stack // by Key
+	stopped   map[string]projects.Project
+	refreshed bool // Refresh has run once; the first run always reports
+	onChange  []func()
+	ctx       context.Context
 }
 
 // New makes a hub; Run starts it.
@@ -177,18 +178,34 @@ func (h *Hub) Refresh() {
 			changed = true
 		}
 	}
-	h.stopped = map[string]projects.Project{}
+	stopped := map[string]projects.Project{}
 	if list, err := projects.List(h.o.Home); err == nil {
 		for _, p := range list {
 			if !seen[p.Dir()] {
-				h.stopped[p.Dir()] = p
+				stopped[p.Dir()] = p
 			}
 		}
 	}
+	if !h.refreshed || !sameKeys(stopped, h.stopped) {
+		changed = true
+	}
+	h.stopped, h.refreshed = stopped, true
 	h.mu.Unlock()
 	if changed {
 		h.changed()
 	}
+}
+
+func sameKeys(a, b map[string]projects.Project) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if _, ok := b[k]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // Stacks is every stack known, running ones first, each group by name.

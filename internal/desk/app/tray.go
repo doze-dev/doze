@@ -27,8 +27,10 @@ var batIcon []byte
 type bar struct {
 	item *application.SystemTray
 
-	mu    sync.Mutex
-	shown string
+	mu      sync.Mutex
+	built   uint64 // models built, in order
+	applied uint64 // the newest model the menu shows
+	shown   string
 }
 
 func (d *desk) startTray() {
@@ -38,20 +40,32 @@ func (d *desk) startTray() {
 	d.refreshTray()
 }
 
-// refreshTray runs on the hub's goroutine; the menu is built there and
-// handed to the main thread whole.
+// refreshTray is called from the hub's goroutine and from a verb's; the
+// menu is built there and handed to the main thread whole. Calls can
+// overtake each other, so each model carries its sequence number and the
+// main thread applies only what is newer than the menu it shows.
 func (d *desk) refreshTray() {
 	m := tray.Build(d.hub.Stacks())
 	sig := fmt.Sprintf("%+v", m)
 	d.mu.Lock()
+	d.built++
+	seq := d.built
 	same := sig == d.shown
-	d.shown = sig
 	d.mu.Unlock()
 	if same {
 		return
 	}
 	menu := d.menu(m)
 	application.InvokeSync(func() {
+		d.mu.Lock()
+		stale := seq < d.applied
+		if !stale {
+			d.applied, d.shown = seq, sig
+		}
+		d.mu.Unlock()
+		if stale {
+			return
+		}
 		d.item.SetLabel(m.Label)
 		d.item.SetTooltip(m.Tooltip)
 		d.item.SetMenu(menu)

@@ -6,7 +6,7 @@ import react from "@vitejs/plugin-react";
 // the page hot-reloads against real views.
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  base: "/",
   build: {
     outDir: "dist",
     emptyOutDir: false,

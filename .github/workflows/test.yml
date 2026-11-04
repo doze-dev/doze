@@ -60,7 +60,8 @@ jobs:
             exit 1
           fi
       # Build the way a user's machine does: every module from the public
-      # proxy, no workspace, no replace, no direct fetch from GitHub.
+      # proxy, no workspace, no direct fetch from GitHub. (The one replace,
+      # the doze-dev/wails fork, is a public tag the proxy serves.)
       - name: Builds from the public module proxy
         env:
           GOWORK: "off"

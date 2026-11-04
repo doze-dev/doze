@@ -1,6 +1,6 @@
 ---
 title: "Install"
-description: One static binary — Homebrew, mise, direct download, or go install.
+description: One static binary — Homebrew, mise, direct download, or built from source.
 ---
 
 doze is **one static binary** with no runtime dependencies — no Docker, no
@@ -36,15 +36,15 @@ curl -fsSL https://github.com/doze-dev/doze/releases/latest/download/doze_0.1.1_
 
 (Checksums ship as `checksums.txt` alongside every release.)
 
-## With Go (1.26+)
+## From source (Go 1.27+ and bun)
 
 ```sh
-go install github.com/doze-dev/doze/cmd/doze@latest
-
-# or from a clone
 git clone https://github.com/doze-dev/doze && cd doze
-go build -o doze ./cmd/doze
+make build
 ```
+
+`go install …@latest` is not a way in: the module carries a `replace` for a
+patched Wails, and the app's page is built into the binary by `make build`.
 
 ## Verify
 

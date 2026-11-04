@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -124,10 +125,19 @@ func TestStoppedStacksComeFromTheProjectRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(Options{Home: home, Dial: dial})
+	var changes atomic.Int32
+	h.OnChange(func() { changes.Add(1) })
 	h.Refresh()
 	st := h.Stacks()
 	if len(st) != 1 || st[0].Running || st[0].Name != "old" || st[0].Dir != "/code/old" {
 		t.Fatalf("stacks = %+v", st)
+	}
+	if changes.Load() != 1 {
+		t.Errorf("a stopped stack found on the first refresh is reported; changes = %d", changes.Load())
+	}
+	h.Refresh()
+	if changes.Load() != 1 {
+		t.Errorf("an unchanged refresh is not reported; changes = %d", changes.Load())
 	}
 	if err := h.Do(context.Background(), st[0].Key, control.Verb{Name: control.VerbWake}); err != ErrNotRunning {
 		t.Errorf("a verb on a stopped stack = %v, want ErrNotRunning", err)
@@ -144,15 +154,15 @@ func TestAStackWhoseSocketVanishesIsDropped(t *testing.T) {
 	h := New(Options{Home: home, Dial: dial, Every: 20 * time.Millisecond})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	changes := 0
-	h.OnChange(func() { changes++ })
+	var changes atomic.Int32
+	h.OnChange(func() { changes.Add(1) })
 	go h.Run(ctx)
 	wait(t, h, func(st []StackView) bool { return len(st) == 1 })
 	if err := os.Remove(filepath.Join(home, "projects", "shop-1", "run", "doze.admin.sock")); err != nil {
 		t.Fatal(err)
 	}
 	wait(t, h, func(st []StackView) bool { return len(st) == 0 })
-	if changes == 0 {
+	if changes.Load() == 0 {
 		t.Error("OnChange was never called")
 	}
 }
