@@ -71,6 +71,21 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
+  # The app's page is built here and held to its budgets (internal/desk/web);
+  # the Go tests elsewhere pass with the committed placeholder.
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.4.0" }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: Build the page
+        run: make frontend
+      - name: Budgets
+        run: go test -v -run "Budget|GPU" ./internal/desk/web/
+
   test:
     strategy:
       fail-fast: false

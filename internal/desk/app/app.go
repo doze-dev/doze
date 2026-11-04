@@ -20,6 +20,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/doze-dev/doze/internal/desk/hub"
+	"github.com/doze-dev/doze/internal/desk/web"
 )
 
 // Options says what the app should open and how it should report.
@@ -36,12 +37,19 @@ type Options struct {
 func Run(o Options) error {
 	began := time.Now()
 	d := &desk{o: o, hub: hub.New(hub.Options{})}
+	// A menu bar app: no Dock icon, and closing the window does not quit.
+	// Asked for a project, it starts as a regular app so macOS lets it come
+	// forward at launch; the window's close puts it back in the menu bar.
+	policy := application.ActivationPolicyAccessory
+	if o.Open != "" {
+		policy = application.ActivationPolicyRegular
+	}
 	d.app = application.New(application.Options{
 		Name:        "doze",
 		Description: "doze runs your stack, and understands it",
+		Assets:      application.AssetOptions{Handler: web.Handler(), DisableLogging: true},
 		Mac: application.MacOptions{
-			// A menu bar app: no Dock icon, and closing the window does not quit.
-			ActivationPolicy: application.ActivationPolicyAccessory,
+			ActivationPolicy: policy,
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "dev.doze.app",
@@ -68,12 +76,7 @@ type desk struct {
 	app *application.App
 	hub *hub.Hub
 	bar
-}
-
-// open brings the window forward at a project. The window arrives in P1;
-// until then the tray is the app.
-func (d *desk) open(dir string) {
-	d.measure("open %s", dir)
+	window
 }
 
 // dirFrom is the project folder a second launch asked for: its argument,
