@@ -10,6 +10,19 @@ export interface Banner {
 }
 
 /**
+ * Button is one choice: the verb it runs on which targets, in order, or a
+ * cancel with no verb.
+ */
+export interface Button {
+    "label": string;
+    "verb"?: string;
+    "targets"?: string[] | null;
+    "primary"?: boolean;
+    "danger"?: boolean;
+    "cancel"?: boolean;
+}
+
+/**
  * Chart is one series ready to draw: the points, the scale and the figures
  * beside it. Points are the raw readings, oldest first.
  */
@@ -69,6 +82,77 @@ export interface Crash {
      */
     "nextIn"?: string;
     "gaveUp": boolean;
+}
+
+/**
+ * Dialog is a confirmation, as the Confirm, Dialogs and Reset boards lay
+ * them out and in the dash's words: the question, who is using it, what
+ * happens, the buttons in the dash's order, the footer. Needed is false
+ * when nothing asks: sleeping or restarting an idle service never does.
+ */
+export interface Dialog {
+    /**
+     * "sleep", "restart", "reset", "ask"
+     */
+    "kind": string;
+    "needed": boolean;
+    "title": string;
+    "danger": boolean;
+
+    /**
+     * Sentence is who is using it, with the names and figures strong.
+     */
+    "sentence"?: Span[] | null;
+
+    /**
+     * Rows are "what happens" and "data" on a sleep or restart.
+     */
+    "rows"?: KV[] | null;
+
+    /**
+     * Facts are a reset's rows: deletes, stops, then, way back.
+     */
+    "facts"?: Fact[] | null;
+
+    /**
+     * TypeName is the name a reset asks to be typed; Command is how a
+     * script does it without being asked.
+     */
+    "typeName"?: string;
+    "command"?: string;
+
+    /**
+     * Buttons in the dash's order; Default is the index Enter presses.
+     */
+    "buttons": Button[] | null;
+    "default": number;
+    "foot"?: string[] | null;
+}
+
+/**
+ * Doing is what choosing a row does.
+ */
+export interface Doing {
+    /**
+     * Kind: "verb" runs Verb on Target (a dialog first when Ask); "page"
+     * goes to Page (an instance's logs); "copy" copies Text; "recent" opens
+     * recent messages; "theme" sets Text.
+     */
+    "kind": string;
+    "verb"?: string;
+    "target"?: string;
+    "ask"?: boolean;
+    "page"?: string;
+    "text"?: string;
+}
+
+/**
+ * Fact is one row of a reset dialog.
+ */
+export interface Fact {
+    "k": string;
+    "spans": Span[] | null;
+    "tone": string;
 }
 
 /**
@@ -334,6 +418,34 @@ export interface Need {
 }
 
 /**
+ * Palette is the ⌘K list, as the Search board's Actions pane and the dash's
+ * palette lay it out: every action with the shell command beside it, the
+ * selected instance's first, then the stack's, then every other instance,
+ * awake first. Matching and ranking are the dash's (display.FuzzyMatch).
+ */
+export interface Palette {
+    "query": string;
+    "rows": PaletteRow[] | null;
+}
+
+/**
+ * PaletteRow is one action: its label with the matched runes marked, the
+ * command a script would run, a note, and what the page does when chosen.
+ */
+export interface PaletteRow {
+    "label": string;
+
+    /**
+     * At are the rune positions of the label that matched the query.
+     */
+    "at"?: number[] | null;
+    "cli"?: string;
+    "note"?: string;
+    "bad"?: boolean;
+    "do": Doing;
+}
+
+/**
  * Pill is one reason it is awake, and a word on it.
  */
 export interface Pill {
@@ -444,6 +556,15 @@ export interface Side {
      */
     "note": string;
     "trouble": boolean;
+}
+
+/**
+ * Span is a run of the sentence, strong when it is a name or a figure.
+ */
+export interface Span {
+    "text": string;
+    "strong"?: boolean;
+    "mono"?: boolean;
 }
 
 /**

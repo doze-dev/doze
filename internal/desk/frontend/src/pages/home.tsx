@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { go, run, select, useStore } from "../store";
+import { ask, copy, go, run, select, useStore } from "../store";
 import type { view } from "../transport";
 import { Vitals } from "../components/vitals";
 import { Table } from "../components/table";
@@ -36,10 +36,10 @@ export function HomePage({ home, stackKey }: { home: view.Home; stackKey: string
           if (row && !row.awake) void run(stackKey, row.kind === "task" ? "task" : "wake", row.name);
           break;
         case "s":
-          if (row && row.awake) void run(stackKey, "sleep", row.name);
+          if (row && row.awake) void ask(stackKey, row.name, "sleep");
           break;
         case "r":
-          if (row) void run(stackKey, row.kind === "task" ? "task" : "restart", row.name);
+          if (row) row.kind === "task" ? void run(stackKey, "task", row.name) : void ask(stackKey, row.name, "restart");
           break;
         case "l":
           if (row) void go({ key: stackKey, page: "logs", instance: row.name });
@@ -48,7 +48,7 @@ export function HomePage({ home, stackKey }: { home: view.Home; stackKey: string
           void go({ key: stackKey, page: "logs" });
           break;
         case "y":
-          if (row?.addr) void navigator.clipboard?.writeText(row.addr + (row.port ? ":" + row.port : ""));
+          if (row?.addr) void copy(row.addr + (row.port ? ":" + row.port : ""), `the address of ${row.name}`);
           break;
       }
     };

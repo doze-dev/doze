@@ -4,7 +4,7 @@ import { transport, type serve } from "../transport";
 // with its dot, name and a red count when something needs you, the + for a
 // new tab, and the ⌘K command button. Double-click zooms the window, as
 // any title bar does; the strip itself is the drag region.
-export function Titlebar({ stacks, current, onPick }: { stacks: serve.StackSummary[]; current: string; onPick: (key: string) => void }) {
+export function Titlebar({ stacks, current, onPick, onCommand }: { stacks: serve.StackSummary[]; current: string; onPick: (key: string) => void; onCommand: () => void }) {
   return (
     <header
       className="titlebar"
@@ -33,7 +33,7 @@ export function Titlebar({ stacks, current, onPick }: { stacks: serve.StackSumma
         </button>
       </div>
       <div className="grow" />
-      <button className="btn" title="Command palette — arrives with parity" disabled>
+      <button className="btn" title="Command palette" onClick={onCommand} disabled={stacks.length === 0}>
         <kbd>⌘K</kbd> Command
       </button>
     </header>

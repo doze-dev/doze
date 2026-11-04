@@ -811,3 +811,248 @@ button {
   text-align: center;
   color: var(--dim);
 }
+
+/* dialogs (the Confirm, Dialogs and Reset boards) */
+.scrim.top {
+  align-items: flex-start;
+  padding-top: 70px;
+}
+.dialog.danger {
+  border-color: var(--bad);
+}
+.dialog .say {
+  color: var(--text);
+  line-height: 20px;
+}
+.dialog .row2 {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px 12px;
+  line-height: 20px;
+}
+.dialog .row2 .k,
+.dialog .lines .k {
+  color: var(--dim);
+}
+.dialog .lines {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  row-gap: 8px;
+  column-gap: 12px;
+  line-height: 20px;
+}
+.dialog .typed {
+  height: 36px;
+  width: 100%;
+  border: 1px solid var(--bad);
+  border-radius: 7px;
+  background: var(--bg);
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bright);
+}
+.dialog .btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.dialog .btn.off {
+  opacity: 0.45;
+}
+.dialog .ring2 {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.dialog .foot {
+  font-size: var(--text-sm);
+  color: var(--dim);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* the ⌘K palette (the Search board's Actions pane) */
+.pal {
+  width: 720px;
+  max-width: calc(100% - 40px);
+  max-height: calc(100% - 110px);
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--side) 60%, transparent);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pal .in {
+  height: 48px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  color: var(--bright);
+}
+.pal .in input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--bright);
+}
+.pal .in input::placeholder {
+  color: var(--dim);
+}
+.pal .grp {
+  padding: 8px 16px 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.pal .none {
+  padding: 14px 16px;
+}
+.pal .list {
+  overflow: auto;
+  padding-bottom: 6px;
+}
+.pal .sr {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+.pal .sr > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.pal .sr.on {
+  background: var(--pick);
+  color: var(--bright);
+}
+.pal .sr small {
+  color: var(--dim);
+  font-size: var(--text-sm);
+}
+.pal .sr small.warn {
+  color: var(--warn);
+}
+.pal .sr .cmd {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--dim);
+}
+.pal .ft {
+  flex: none;
+  border-top: 1px solid var(--line);
+  padding: 9px 16px;
+  display: flex;
+  gap: 16px;
+  color: var(--dim);
+  font-size: var(--text-sm);
+}
+.pal .ft span {
+  white-space: nowrap;
+}
+.pal .ft span.w {
+  white-space: normal;
+}
+.pal .ft kbd {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bright);
+  background: var(--sel);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 4px;
+}
+.hl2 {
+  color: var(--bright);
+  background: color-mix(in srgb, var(--accent) 45%, var(--panel));
+  border-radius: 2px;
+}
+
+/* toasts and recent messages (the Notices board) */
+.toasts {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 420px;
+  max-width: calc(100% - 32px);
+  z-index: 6;
+}
+.toast {
+  font-size: 12.5px;
+  line-height: 18px;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--side) 40%, transparent);
+}
+.toast .x {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.msgs {
+  margin: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+.msgs .h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.msgs .h b {
+  color: var(--bright);
+}
+.msgs .l {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  border-top: 1px solid var(--line);
+}
+.msgs .l:first-of-type {
+  border-top: 0;
+}
+.dialog.sleep,
+.dialog.restart {
+  width: 500px;
+}
+.dialog.reset {
+  width: 560px;
+  gap: 14px;
+}
+.dialog .typed:focus-visible {
+  outline: none;
+  border-color: var(--bad);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 35%, transparent);
+}

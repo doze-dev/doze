@@ -70,6 +70,53 @@ func Handler(s *Service) http.Handler {
 		s.SetFocus(f)
 		return map[string]bool{"ok": true}, nil
 	})
+	call("dialog", func(b json.RawMessage) (any, error) {
+		var a struct{ Key, Name, Verb string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.Dialog(a.Key, a.Name, a.Verb), nil
+	})
+	call("palette", func(b json.RawMessage) (any, error) {
+		var a struct{ Key, Selected, Query string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.Palette(a.Key, a.Selected, a.Query), nil
+	})
+	call("recent", func(json.RawMessage) (any, error) { return s.Recent(), nil })
+	call("say", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Text string
+			Bad  bool
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		s.Say(a.Text, a.Bad)
+		return map[string]bool{"ok": true}, nil
+	})
+	call("theme", func(b json.RawMessage) (any, error) {
+		var a struct{ Theme string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		s.SetTheme(a.Theme)
+		return map[string]bool{"ok": true}, nil
+	})
+	call("doall", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Verb string
+			Targets   []string
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		if err := s.DoAll(a.Key, a.Verb, a.Targets); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+	})
 	call("do", func(b json.RawMessage) (any, error) {
 		var a struct{ Key, Verb, Target string }
 		if err := json.Unmarshal(b, &a); err != nil {

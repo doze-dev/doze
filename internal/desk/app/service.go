@@ -48,6 +48,26 @@ func (a *API) Blur() { a.s.Blur() }
 // Do runs a verb on a stack.
 func (a *API) Do(key, verb, target string) error { return a.s.Do(key, verb, target) }
 
+// DoAll runs a verb on several targets in order.
+func (a *API) DoAll(key, verb string, targets []string) error { return a.s.DoAll(key, verb, targets) }
+
+// Dialog is the confirmation for a verb on an instance.
+func (a *API) Dialog(key, name, verb string) view.Dialog { return a.s.Dialog(key, name, verb) }
+
+// Palette is the ⌘K list for a query.
+func (a *API) Palette(key, selected, query string) view.Palette {
+	return a.s.Palette(key, selected, query)
+}
+
+// Recent is the last twenty things said, newest first.
+func (a *API) Recent() []serve.Notice { return a.s.Recent() }
+
+// Say adds something the page did to the notices.
+func (a *API) Say(text string, bad bool) { a.s.Say(text, bad) }
+
+// Theme tells Go which theme the page uses.
+func (a *API) Theme(theme string) { a.s.SetTheme(theme) }
+
 // Painted reports the page's first paint, for the desk bench.
 func (a *API) Painted(ms int) {
 	if a.painted != nil {

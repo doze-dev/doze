@@ -155,3 +155,59 @@ func TestLogsWindowAndFilters(t *testing.T) {
 		t.Errorf("search = %+v", search)
 	}
 }
+
+func TestDialogsSayWhatTheDashSaid(t *testing.T) {
+	st, _, _ := stackOf(t, fixture.Shop(epoch))
+	st.Key = "shop-1"
+	sleep := DialogOf(st, "db", "sleep", epoch)
+	golden(t, "shop-db-sleep", sleep)
+	if !sleep.Needed {
+		t.Fatal("db is in use; sleeping it asks")
+	}
+	labels := func(d Dialog) []string {
+		var out []string
+		for _, b := range d.Buttons {
+			out = append(out, b.Label)
+		}
+		return out
+	}
+	if got := labels(sleep); len(got) != 3 || got[0] != "Sleep db and api" || got[1] != "Sleep db only" || got[2] != "Cancel" {
+		t.Errorf("sleep buttons = %v", got)
+	}
+	if sleep.Buttons[0].Targets[0] != "api" || sleep.Buttons[0].Targets[1] != "db" {
+		t.Errorf("sleep with dependants sleeps api first, then db: %v", sleep.Buttons[0].Targets)
+	}
+	if DialogOf(st, "web", "sleep", epoch).Needed {
+		t.Error("nothing uses web; sleeping it never asks")
+	}
+	restart := DialogOf(st, "db", "restart", epoch)
+	golden(t, "shop-db-restart", restart)
+	if got := labels(restart); len(got) != 2 || got[0] != "Restart db" {
+		t.Errorf("restart buttons = %v", got)
+	}
+	reset := DialogOf(st, "db", "reset", epoch)
+	golden(t, "shop-db-reset", reset)
+	if !reset.Danger || reset.Default != 1 || reset.TypeName != "db" || reset.Command != "doze reset db --yes" {
+		t.Errorf("reset = %+v", reset)
+	}
+	if len(reset.Facts) != 4 || reset.Facts[0].K != "deletes" || reset.Facts[3].Spans[0].Text != "none." || !reset.Facts[3].Spans[0].Strong || !reset.Facts[0].Spans[1].Mono {
+		t.Errorf("reset facts = %+v", reset.Facts)
+	}
+}
+
+func TestPaletteMatchesWordStartsAndShowsTheCommand(t *testing.T) {
+	st, _, _ := stackOf(t, fixture.Shop(epoch))
+	st.Key = "shop-1"
+	p := PaletteOf(st, "db", "dark", "sl")
+	golden(t, "shop-palette-sl", p)
+	if len(p.Rows) == 0 || p.Rows[0].Label != "sleep db" || p.Rows[0].CLI != "doze sleep db" {
+		t.Errorf("first row for \"sl\" with db selected = %+v", p.Rows)
+	}
+	all := PaletteOf(st, "db", "dark", "")
+	if all.Rows[0].Label != "sleep db" || all.Rows[len(all.Rows)-1].CLI == "" && all.Rows[len(all.Rows)-1].Do.Kind == "verb" {
+		t.Errorf("unfiltered rows start with the selected instance: %v", all.Rows[0].Label)
+	}
+	if n := PaletteOf(st, "db", "dark", "stripe"); len(n.Rows) != 0 {
+		t.Errorf("nothing does that: %v", n.Rows)
+	}
+}

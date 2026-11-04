@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { go, run } from "../store";
+import { ask, copy, go, run } from "../store";
 import type { view } from "../transport";
 import { ChartCard } from "../components/chart";
 import { KVRows } from "../components/card";
@@ -33,10 +33,10 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
           break;
         }
         case "r":
-          void run(stackKey, task ? "task" : "restart", inst.name);
+          task ? void run(stackKey, "task", inst.name) : void ask(stackKey, inst.name, "restart");
           break;
         case "s":
-          if (!task && awake) void run(stackKey, "sleep", inst.name);
+          if (!task && awake) void ask(stackKey, inst.name, "sleep");
           break;
         case "w":
           if (!task && !awake) void run(stackKey, "wake", inst.name);
@@ -46,7 +46,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
           break;
         case "y": {
           const url = inst.connect?.find((r) => r.k === "URL" || r.k === "Address")?.copy;
-          if (url) void navigator.clipboard?.writeText(url);
+          if (url) void copy(url, `the connect line of ${inst.name}`);
           break;
         }
         case "l":
@@ -101,10 +101,10 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
                 Pin awake <kbd>p</kbd>
               </button>
             )}
-            <button className="btn" onClick={() => void run(stackKey, "restart", inst.name)}>
+            <button className="btn" onClick={() => void ask(stackKey, inst.name, "restart")}>
               Restart <kbd>r</kbd>
             </button>
-            <button className="btn" onClick={() => void run(stackKey, "sleep", inst.name)}>
+            <button className="btn" onClick={() => void ask(stackKey, inst.name, "sleep")}>
               Sleep <kbd>s</kbd>
             </button>
           </>

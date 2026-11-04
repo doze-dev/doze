@@ -33,7 +33,20 @@ const (
 	EventLogs = "logs"
 	// EventNav asks the page to go somewhere: data is Nav.
 	EventNav = "nav"
+	// EventNotice is something to say to the person: data is Notice. A
+	// success fades after 4 s; a failure stays 12 s, as the TUI's did.
+	EventNotice = "notice"
 )
+
+// Notice is one thing said to the person, kept among the last twenty.
+type Notice struct {
+	At   time.Time `json:"at"`
+	Text string    `json:"text"`
+	Bad  bool      `json:"bad"`
+}
+
+// noticesKept is how many recent messages are kept, as the dash kept them.
+const noticesKept = 20
 
 // Pace is the least time between two pushes of the same view (D14: live
 // data only for what is on screen, and not faster than a person reads).
@@ -87,9 +100,13 @@ type Service struct {
 	focus      Focus
 	pendingDir string
 	releases   []func()
-	sent       map[string]uint64 // event name → hash of what was last sent
-	dirty      bool
-	wake       chan struct{}
+	notices    []Notice
+	// tasks is each task's last run as last seen, to say when one finished.
+	tasks map[string]string
+	theme string
+	sent  map[string]uint64 // event name → hash of what was last sent
+	dirty bool
+	wake  chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -147,6 +164,7 @@ func (s *Service) Run(ctx context.Context) {
 // the navigation an Open is still waiting for once its stack is known.
 func (s *Service) push() {
 	s.send(EventStacks, s.Stacks())
+	s.reportTasks()
 	s.mu.Lock()
 	f := s.focus
 	dir := s.pendingDir
@@ -304,15 +322,111 @@ func (s *Service) SetFocus(f Focus) {
 func (s *Service) Blur() { s.SetFocus(Focus{}) }
 
 // Do runs a verb on a stack. The error is the dash's sentence while the
-// daemon is not answering.
+// daemon is not answering, and a failure is also said as a notice, as the
+// dash's doneMsg was.
 func (s *Service) Do(key, verb, target string) error {
+	if verb == control.VerbTask && target != "" {
+		s.Say(display.TaskStarted(target), false)
+	}
 	err := s.hub.Do(context.Background(), key, control.Verb{Name: verb, Target: target})
 	s.hub.Refresh()
 	s.changed()
 	if err != nil {
+		what := verb
+		if target != "" {
+			what += " " + target
+		}
+		s.Say(what+" failed: "+display.Humanise(err), true)
 		return errors.New(display.Humanise(err))
 	}
 	return nil
+}
+
+// DoAll runs a verb on several targets in order, stopping at the first
+// failure: "Sleep db and api" sleeps api first, then db.
+func (s *Service) DoAll(key, verb string, targets []string) error {
+	for _, t := range targets {
+		if err := s.Do(key, verb, t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Dialog is the confirmation for a verb on an instance, in the dash's
+// words; Needed is false when it should just be done.
+func (s *Service) Dialog(key, name, verb string) view.Dialog {
+	st, _ := s.stack(key)
+	return view.DialogOf(st, name, verb, s.now())
+}
+
+// Palette is the ⌘K list for a query.
+func (s *Service) Palette(key, selected, query string) view.Palette {
+	st, _ := s.stack(key)
+	s.mu.Lock()
+	theme := s.theme
+	s.mu.Unlock()
+	return view.PaletteOf(st, selected, theme, query)
+}
+
+// SetTheme remembers the theme the page uses, for the palette's note.
+func (s *Service) SetTheme(theme string) {
+	s.mu.Lock()
+	s.theme = theme
+	s.mu.Unlock()
+}
+
+// Say tells the person something: a toast now, and a line in recent
+// messages. The page says its own ("copied …", "opened …") through it too.
+func (s *Service) Say(text string, bad bool) {
+	n := Notice{At: s.now(), Text: text, Bad: bad}
+	s.mu.Lock()
+	s.notices = append(s.notices, n)
+	if len(s.notices) > noticesKept {
+		s.notices = s.notices[len(s.notices)-noticesKept:]
+	}
+	emit := s.emit
+	s.mu.Unlock()
+	if emit != nil {
+		emit(EventNotice, n)
+	}
+}
+
+// Recent is the last twenty things said, newest first.
+func (s *Service) Recent() []Notice {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]Notice, 0, len(s.notices))
+	for i := len(s.notices) - 1; i >= 0; i-- {
+		out = append(out, s.notices[i])
+	}
+	return out
+}
+
+// reportTasks says how a task went when its record changes, as the dash's
+// reportTaskResult did.
+func (s *Service) reportTasks() {
+	for _, st := range s.hub.Stacks() {
+		for _, v := range st.Instances {
+			if v.Kind != "task" || v.Task == nil {
+				continue
+			}
+			key := st.Key + "/" + v.Name
+			sig := v.Task.RanAt.String() + v.Task.Result
+			s.mu.Lock()
+			if s.tasks == nil {
+				s.tasks = map[string]string{}
+			}
+			prev, seen := s.tasks[key]
+			s.tasks[key] = sig
+			s.mu.Unlock()
+			if seen && prev != sig {
+				if text, bad := display.TaskResult(v.Name, v.Task); text != "" {
+					s.Say(text, bad)
+				}
+			}
+		}
+	}
 }
 
 // Open asks the page to show the stack at a project folder. The folder is

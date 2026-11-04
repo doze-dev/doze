@@ -25,6 +25,15 @@ export interface Nav {
 }
 
 /**
+ * Notice is one thing said to the person, kept among the last twenty.
+ */
+export interface Notice {
+    "at": string;
+    "text": string;
+    "bad": boolean;
+}
+
+/**
  * StackSummary is one stack in the tab strip.
  */
 export interface StackSummary {

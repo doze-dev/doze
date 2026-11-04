@@ -29,6 +29,15 @@ export interface Transport {
   focus(f: serve.Focus): Promise<void>;
   blur(): Promise<void>;
   do(key: string, verb: string, target: string): Promise<void>;
+  /** doAll runs a verb on several targets in order, stopping at the first failure. */
+  doAll(key: string, verb: string, targets: string[]): Promise<void>;
+  /** dialog is the confirmation for a verb on an instance; needed is false when it should just be done. */
+  dialog(key: string, name: string, verb: string): Promise<view.Dialog>;
+  palette(key: string, selected: string, query: string): Promise<view.Palette>;
+  recent(): Promise<serve.Notice[]>;
+  /** say tells Go something the page did, so it is toasted and remembered. */
+  say(text: string, bad: boolean): Promise<void>;
+  theme(theme: string): Promise<void>;
   painted(ms: number): void;
   /** log sends a line to the app's stderr (a no-op in a browser). */
   log(line: string): void;
@@ -58,6 +67,12 @@ async function wails(): Promise<Transport> {
     focus: (f) => api.Focus(f),
     blur: () => api.Blur(),
     do: (key, verb, target) => api.Do(key, verb, target),
+    doAll: (key, verb, targets) => api.DoAll(key, verb, targets),
+    dialog: (key, name, verb) => api.Dialog(key, name, verb),
+    palette: (key, selected, query) => api.Palette(key, selected, query),
+    recent: () => api.Recent().then((r) => r ?? []),
+    say: (text, bad) => api.Say(text, bad),
+    theme: (theme) => api.Theme(theme),
     painted: (ms) => void api.Painted(ms),
     log: (line) => void api.Log(line),
     zoom: () => void Window.ToggleMaximise(),
@@ -102,6 +117,12 @@ function http(): Transport {
     focus: (f) => call("focus", f),
     blur: () => call("focus", { key: "", page: "" }),
     do: (key, verb, target) => call("do", { key, verb, target }),
+    doAll: (key, verb, targets) => call("doall", { key, verb, targets }),
+    dialog: (key, name, verb) => call("dialog", { key, name, verb }),
+    palette: (key, selected, query) => call("palette", { key, selected, query }),
+    recent: () => call<serve.Notice[] | null>("recent", {}).then((r) => r ?? []),
+    say: (text, bad) => call("say", { text, bad }),
+    theme: (theme) => call("theme", { theme }),
     painted: () => {},
     log: (line) => console.log(line),
     zoom: () => {},

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { copy } from "../store";
 import type { view } from "../transport";
 
 // A card's key/value rows with a Copy at the right (the boards' .kv and
@@ -23,7 +24,7 @@ export function Copy({ text, label = "Copy" }: { text: string; label?: string })
     <button
       className="copy"
       onClick={() => {
-        void navigator.clipboard?.writeText(text);
+        void copy(text, label === "Copy export" ? "the export line" : "the value");
         setDone(true);
         setTimeout(() => setDone(false), 1200);
       }}

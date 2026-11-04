@@ -7,12 +7,21 @@ import { useEffect } from "react";
 import { Store, useSelector } from "@tanstack/react-store";
 import { transport, type LogsChanged, type Nav, type serve, type view } from "./transport";
 
-export type Page = "home" | "instance" | "logs";
+export type Page = "home" | "instance" | "logs" | "recent";
 
 export interface Where {
   key: string;
   page: Page;
   instance?: string;
+}
+
+export type Theme = "dark" | "light" | "system";
+
+export interface Toast {
+  id: number;
+  text: string;
+  bad: boolean;
+  shownAt: number;
 }
 
 export interface State {
@@ -29,6 +38,13 @@ export interface State {
   logsVersion: number;
   logsTotal: number;
   error: string | null;
+  /** dialog is the confirmation on screen, from Go, in the dash's words. */
+  dialog: { key: string; d: view.Dialog } | null;
+  /** palette is whether ⌘K is open. */
+  palette: boolean;
+  /** toasts is what was said and has not faded yet. */
+  toasts: Toast[];
+  theme: Theme;
 }
 
 export const store = new Store<State>({
@@ -42,6 +58,10 @@ export const store = new Store<State>({
   logsVersion: 0,
   logsTotal: 0,
   error: null,
+  dialog: null,
+  palette: false,
+  toasts: [],
+  theme: "system",
 });
 
 /** set patches the store, outside React or in. */
@@ -83,7 +103,7 @@ export async function go(where: Where) {
   const t = await transport();
   const s = get();
   const sameStack = s.where?.key === where.key;
-  set({ where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null });
+  set({ where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null, dialog: null, palette: false });
   await focus(where, sameStack ? s.selected : "");
   // The first paint does not wait for a push.
   try {
@@ -113,15 +133,87 @@ export async function select(name: string) {
   await focus(s.where, name);
 }
 
-/** run sends a verb; a failure is shown, not thrown. */
+/** run sends a verb. A failure is said by Go as a toast, so here it is only logged. */
 export async function run(key: string, verb: string, target: string) {
   const t = await transport();
   try {
     await t.do(key, verb, target);
-    set({ error: null });
   } catch (e) {
-    set({ error: (e as Error).message ?? String(e) });
+    t.log(`${verb} ${target} failed: ${String(e)}`);
   }
+}
+
+/** ask runs a verb on an instance, after the dash's confirmation when one is due. */
+export async function ask(key: string, name: string, verb: string) {
+  const t = await transport();
+  try {
+    const d = await t.dialog(key, name, verb);
+    if (!d.needed) return run(key, verb, name);
+    set({ dialog: { key, d }, palette: false });
+  } catch (e) {
+    t.log(`${verb} ${name}: no dialog: ${String(e)}`);
+  }
+}
+
+/** choose presses a dialog button: its verb on its targets, in order. */
+export async function choose(b: view.Button) {
+  const s = get();
+  const dialog = s.dialog;
+  set({ dialog: null });
+  if (!dialog || !b.verb) return;
+  const t = await transport();
+  try {
+    await t.doAll(dialog.key, b.verb, b.targets ?? []);
+  } catch (e) {
+    t.log(`${b.label} failed: ${String(e)}`);
+  }
+}
+
+/** say tells Go something the page did, so it is toasted and kept in recent messages. */
+export async function say(text: string, bad = false) {
+  const t = await transport();
+  await t.say(text, bad);
+}
+
+/** copy puts text on the clipboard and says so, as the dash's y did. */
+export async function copy(text: string, what: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    await say(`copied ${what} to the clipboard`);
+  } catch {
+    await say(`could not copy ${what}`, true);
+  }
+}
+
+let toastSeq = 0;
+function toast(n: serve.Notice) {
+  set((s) => ({ toasts: [...s.toasts, { id: ++toastSeq, text: n.text, bad: n.bad, shownAt: Date.now() }].slice(-5) }));
+}
+
+const themeKey = "doze.theme";
+
+/** setTheme applies a theme to the page, remembers it, and tells Go. */
+export async function setTheme(theme: Theme) {
+  set({ theme });
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  try {
+    localStorage.setItem(themeKey, theme);
+  } catch {
+    // Private mode or a sandbox without storage: the theme lasts the window.
+  }
+  const t = await transport();
+  await t.theme(theme);
+}
+
+function storedTheme(): Theme {
+  try {
+    const v = localStorage.getItem(themeKey);
+    if (v === "dark" || v === "light") return v;
+  } catch {
+    // no storage
+  }
+  return "system";
 }
 
 /** useBoot connects the store to Go once: the stacks, the pushes, the first tab. */
@@ -129,6 +221,7 @@ export function useBoot() {
   useEffect(() => {
     let off: Array<() => void> = [];
     let gone = false;
+    void setTheme(storedTheme());
     transport().then(async (t) => {
       if (gone) return;
       off = [
@@ -148,6 +241,7 @@ export function useBoot() {
         }),
         t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
         t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home" })),
+        t.on<serve.Notice>("notice", toast),
       ];
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);

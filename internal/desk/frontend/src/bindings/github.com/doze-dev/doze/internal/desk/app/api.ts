@@ -28,10 +28,24 @@ export function Blur(): $CancellablePromise<void> {
 }
 
 /**
+ * Dialog is the confirmation for a verb on an instance.
+ */
+export function Dialog(key: string, name: string, verb: string): $CancellablePromise<view$0.Dialog> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Dialog", key, name, verb);
+}
+
+/**
  * Do runs a verb on a stack.
  */
 export function Do(key: string, verb: string, target: string): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Do", key, verb, target);
+}
+
+/**
+ * DoAll runs a verb on several targets in order.
+ */
+export function DoAll(key: string, verb: string, targets: string[] | null): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.DoAll", key, verb, targets);
 }
 
 /**
@@ -78,6 +92,13 @@ export function Painted(ms: number): $CancellablePromise<void> {
 }
 
 /**
+ * Palette is the ⌘K list for a query.
+ */
+export function Palette(key: string, selected: string, query: string): $CancellablePromise<view$0.Palette> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Palette", key, selected, query);
+}
+
+/**
  * Pending is where the page should start: the stack doze open asked for.
  */
 export function Pending(): $CancellablePromise<serve$0.Nav> {
@@ -85,10 +106,31 @@ export function Pending(): $CancellablePromise<serve$0.Nav> {
 }
 
 /**
+ * Recent is the last twenty things said, newest first.
+ */
+export function Recent(): $CancellablePromise<serve$0.Notice[] | null> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Recent");
+}
+
+/**
+ * Say adds something the page did to the notices.
+ */
+export function Say(text: string, bad: boolean): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Say", text, bad);
+}
+
+/**
  * Stacks is every stack, for the tab strip.
  */
 export function Stacks(): $CancellablePromise<serve$0.StackSummary[] | null> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Stacks");
+}
+
+/**
+ * Theme tells Go which theme the page uses.
+ */
+export function Theme(theme: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Theme", theme);
 }
 
 /**
