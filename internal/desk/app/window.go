@@ -21,6 +21,9 @@ type window struct {
 // arrives with the hub's views in P1; for now the window is the shell.
 func (d *desk) open(dir string) {
 	d.measure("open %s", dir)
+	if key := d.svc.KeyFor(dir); key != "" {
+		d.svc.Navigate(key)
+	}
 	application.InvokeSync(func() {
 		if d.win != nil {
 			d.win.Show()

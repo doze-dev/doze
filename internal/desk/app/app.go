@@ -22,6 +22,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/doze-dev/doze/internal/desk/hub"
+	"github.com/doze-dev/doze/internal/desk/serve"
 	"github.com/doze-dev/doze/internal/desk/web"
 )
 
@@ -39,6 +40,7 @@ type Options struct {
 func Run(o Options) error {
 	began := time.Now()
 	d := &desk{o: o, hub: hub.New(hub.Options{})}
+	d.svc = serve.New(d.hub, nil)
 	// A menu bar app: no Dock icon, and closing the window does not quit.
 	// Asked for a project, it starts as a regular app so macOS lets it come
 	// forward at launch; the window's close puts it back in the menu bar.
@@ -50,6 +52,9 @@ func Run(o Options) error {
 		Name:        "doze",
 		Description: "doze runs your stack, and understands it",
 		Assets:      application.AssetOptions{Handler: web.Handler(), DisableLogging: true},
+		Services: []application.Service{newService(d.svc, func(ms int) {
+			d.measure("home painted %dms after the page loaded", ms)
+		})},
 		Mac: application.MacOptions{
 			ActivationPolicy: policy,
 		},
@@ -67,7 +72,11 @@ func Run(o Options) error {
 		d.measure("tray ready %s after start", time.Since(began).Round(time.Millisecond))
 		d.startTray()
 		d.hub.OnChange(d.refreshTray)
+		d.svc.SetEmitter(func(name string, data any) {
+			d.app.Event.Emit(name, data)
+		})
 		go d.hub.Run(d.app.Context())
+		go d.svc.Run(d.app.Context())
 		if o.Open != "" {
 			d.open(o.Open)
 		}
@@ -80,6 +89,7 @@ type desk struct {
 	o   Options
 	app *application.App
 	hub *hub.Hub
+	svc *serve.Service
 	bar
 	window
 }

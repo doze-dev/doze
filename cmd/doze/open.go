@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze/internal/desk/app"
+	"github.com/doze-dev/doze/internal/desk/devserve"
 )
 
 // openCmd is `doze open [dir]`: the app, at this project. It is the only
@@ -15,6 +16,7 @@ import (
 // the daemon, and never links a window.
 func openCmd() *cobra.Command {
 	var measure bool
+	var serveAddr, fixture string
 	c := &cobra.Command{
 		Use:   "open [dir]",
 		Short: "Open the doze app at this project",
@@ -26,6 +28,11 @@ stacks running.
 With no display (SSH, CI) it prints the status table instead.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if serveAddr != "" {
+				// The page and its API over HTTP, no window: for a browser,
+				// Playwright and the Vite dev server.
+				return devserve.Run(cmd.Context(), devserve.Options{Addr: serveAddr, Fixture: fixture, Out: os.Stderr})
+			}
 			dir := ""
 			if len(args) == 1 {
 				abs, err := filepath.Abs(args[0])
@@ -57,7 +64,11 @@ With no display (SSH, CI) it prints the status table instead.`,
 		},
 	}
 	c.Flags().BoolVar(&measure, "measure", false, "print timings to stderr for the desk bench")
-	_ = c.Flags().MarkHidden("measure")
+	c.Flags().StringVar(&serveAddr, "serve", "", "serve the app's page over HTTP at this address instead of opening a window")
+	c.Flags().StringVar(&fixture, "fixture", "", "with --serve: a scripted stack (shop, crash, modules) instead of the real daemons")
+	for _, f := range []string{"measure", "serve", "fixture"} {
+		_ = c.Flags().MarkHidden(f)
+	}
 	return c
 }
 
