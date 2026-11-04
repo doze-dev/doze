@@ -4,7 +4,7 @@ import type { view } from "../transport";
 // The sidebar (the boards' .side): the View list, then the stack's
 // instances on an instance page, or the Show checkboxes on the logs page.
 export function Sidebar({ where, side, version, stacks }: { where: Where | null; side: view.Side[]; version: string; stacks: number }) {
-  const { show } = useStore();
+  const show = useStore((s) => s.show);
   const key = where?.key ?? "";
   return (
     <nav className="side" aria-label="Views">
@@ -68,7 +68,7 @@ export function Dot({ look, trouble }: { look: view.Look; trouble?: boolean }) {
 }
 
 function ShowList({ show }: { show: string[] | null }) {
-  const { home } = useStore();
+  const home = useStore((s) => s.home);
   const names = (home?.side ?? []).map((s) => s.name);
   const all = [...names, "doze"];
   const on = (n: string) => show === null || show.includes(n);

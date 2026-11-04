@@ -10,7 +10,7 @@ import { Keys } from "../components/keys";
 // four vitals, the table, the selected instance's logs in the dock, and the
 // keys bar. The keys are the TUI's.
 export function HomePage({ home, stackKey }: { home: view.Home; stackKey: string }) {
-  const { selected } = useStore();
+  const selected = useStore((s) => s.selected);
   const rows = (home.groups ?? []).flatMap((g) => g.rows ?? []);
   const row = rows.find((r) => r.name === selected);
 

@@ -27,7 +27,8 @@ export function LogsPage({
   bare?: boolean;
   inst?: view.Instance;
 }) {
-  const { logsVersion, show } = useStore();
+  const logsVersion = useStore((s) => s.logsVersion);
+  const show = useStore((s) => s.show);
   const [level, setLevel] = useState(1);
   const [search, setSearch] = useState("");
   const [runIdx, setRunIdx] = useState(0); // 0 = every run; otherwise an index into logs.runs from the newest

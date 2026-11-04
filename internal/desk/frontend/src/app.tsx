@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { go, useBoot, useStore } from "./store";
+import { go, useBoot, useSlice } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { HomePage } from "./pages/home";
@@ -12,7 +12,7 @@ import { transport } from "./transport";
 // Go; this decides only which page is mounted.
 export function App() {
   useBoot();
-  const { stacks, where, home, instance, error, version } = useStore();
+  const { stacks, where, home, instance, error, version } = useSlice((s) => ({ stacks: s.stacks, where: s.where, home: s.home, instance: s.instance, error: s.error, version: s.version }));
 
   useEffect(() => {
     // The first paint, for the desk bench: when the home page is on screen.

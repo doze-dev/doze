@@ -1,7 +1,11 @@
-// What the page holds: the stacks for the tab strip, where the user is, and
-// the view in focus, each replaced whole by Go's pushes. Go computes every
-// fact (D16); this only keeps the latest and tells React.
-import { useEffect, useSyncExternalStore } from "react";
+// What the page holds, in a Zustand store: the stacks for the tab strip,
+// where the user is, and the view in focus, each replaced whole by Go's
+// pushes. Go computes every fact (D16); this only keeps the latest and lets
+// each component subscribe to the slice it draws, so a push re-renders only
+// what it changed.
+import { useEffect } from "react";
+import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { transport, type LogsChanged, type Nav, type serve, type view } from "./transport";
 
 export type Page = "home" | "instance" | "logs";
@@ -12,7 +16,7 @@ export interface Where {
   instance?: string;
 }
 
-interface State {
+export interface State {
   stacks: serve.StackSummary[];
   version: string;
   where: Where | null;
@@ -28,7 +32,7 @@ interface State {
   error: string | null;
 }
 
-let state: State = {
+export const useStore = create<State>()(() => ({
   stacks: [],
   version: "",
   where: null,
@@ -39,22 +43,15 @@ let state: State = {
   logsVersion: 0,
   logsTotal: 0,
   error: null,
-};
-const subs = new Set<() => void>();
+}));
 
-export function set(patch: Partial<State>) {
-  state = { ...state, ...patch };
-  for (const fn of subs) fn();
-}
+/** set patches the store outside React. */
+export const set = useStore.setState;
+const get = useStore.getState;
 
-export function useStore(): State {
-  return useSyncExternalStore(
-    (fn) => {
-      subs.add(fn);
-      return () => subs.delete(fn);
-    },
-    () => state,
-  );
+/** useSlice subscribes to several fields at once, re-rendering only when one changes. */
+export function useSlice<T extends object>(pick: (s: State) => T): T {
+  return useStore(useShallow(pick));
 }
 
 // nav numbers each navigation, so a slow answer for the last page does not
@@ -71,18 +68,19 @@ async function focus(where: Where, selected: string) {
 export async function go(where: Where) {
   const n = ++nav;
   const t = await transport();
-  const sameStack = state.where?.key === where.key;
-  set({ where, home: sameStack ? state.home : null, instance: null, error: null, show: sameStack ? state.show : null });
-  await focus(where, sameStack ? state.selected : "");
+  const s = get();
+  const sameStack = s.where?.key === where.key;
+  set({ where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null });
+  await focus(where, sameStack ? s.selected : "");
   // The first paint does not wait for a push.
   try {
     if (where.page === "home") {
       const home = await t.home(where.key);
       if (n === nav) {
         const first = home.groups?.[0]?.rows?.[0]?.name ?? "";
-        const selected = sameStack && state.selected ? state.selected : first;
+        const selected = sameStack && s.selected ? s.selected : first;
         set({ home, selected });
-        if (selected !== state.selected || !sameStack) await focus(where, selected);
+        if (selected !== s.selected || !sameStack) await focus(where, selected);
       }
     } else if (where.page === "instance" && where.instance) {
       const instance = await t.instance(where.key, where.instance);
@@ -96,9 +94,10 @@ export async function go(where: Where) {
 
 /** select picks a row on home; the dock follows it. */
 export async function select(name: string) {
-  if (!state.where || state.where.page !== "home" || name === state.selected) return;
+  const s = get();
+  if (!s.where || s.where.page !== "home" || name === s.selected) return;
   set({ selected: name });
-  await focus(state.where, name);
+  await focus(s.where, name);
 }
 
 /** run sends a verb; a failure is shown, not thrown. */
@@ -122,27 +121,30 @@ export function useBoot() {
       off = [
         t.on<serve.StackSummary[]>("stacks", (stacks) => {
           set({ stacks: stacks ?? [] });
-          if (!state.where && stacks?.length) void go({ key: stacks[0].key, page: "home" });
+          if (!get().where && stacks?.length) void go({ key: stacks[0].key, page: "home" });
         }),
         // A push is for the stack and page in focus; one computed for the
         // last focus, still in flight, is dropped.
         t.on<view.Home>("home", (home) => {
-          if (state.where?.page === "home" && home.key === state.where.key) set({ home });
+          const w = get().where;
+          if (w?.page === "home" && home.key === w.key) set({ home });
         }),
         t.on<view.Instance>("instance", (instance) => {
-          if (state.where?.page === "instance" && instance.key === state.where.key && instance.name === state.where.instance) set({ instance });
+          const w = get().where;
+          if (w?.page === "instance" && instance.key === w.key && instance.name === w.instance) set({ instance });
         }),
-        t.on<LogsChanged>("logs", (c) => set({ logsVersion: state.logsVersion + 1, logsTotal: c.total })),
+        t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
         t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home" })),
       ];
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);
       set({ stacks, version });
       const first = stacks.find((s) => s.key === pending.key) ?? stacks[0];
-      if (!state.where && first) await go({ key: first.key, page: "home" });
+      if (!get().where && first) await go({ key: first.key, page: "home" });
       const onVisibility = () => {
+        const s = get();
         if (document.hidden) void t.blur();
-        else if (state.where) void focus(state.where, state.selected);
+        else if (s.where) void focus(s.where, s.selected);
       };
       if (!gone) {
         document.addEventListener("visibilitychange", onVisibility);

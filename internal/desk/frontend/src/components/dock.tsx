@@ -6,7 +6,7 @@ import { transport, type view } from "../transport";
 // instance's last lines, following. Go keeps the lines; a push says when
 // there are more.
 export function Dock({ stackKey, instance, onAllLogs }: { stackKey: string; instance: string; onAllLogs: () => void }) {
-  const { logsVersion } = useStore();
+  const logsVersion = useStore((s) => s.logsVersion);
   const [logs, setLogs] = useState<view.Logs | null>(null);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
