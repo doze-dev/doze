@@ -17,6 +17,10 @@ on:
   schedule:
     - cron: '0 6 * * *' # nightly, 06:00 UTC
 
+# Wails in purego mode needs the tag in every go invocation (see Makefile).
+env:
+  GOFLAGS: -tags=purego
+
 permissions:
   contents: read
 

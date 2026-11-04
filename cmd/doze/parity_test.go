@@ -37,9 +37,10 @@ func TestActionRegistryParity(t *testing.T) {
 		}
 	}
 
-	// Meta/plumbing commands that are legitimately not stack actions.
+	// Meta/plumbing commands that are legitimately not stack actions. `open`
+	// is the app's front door, as `dash` is the TUI's: a face, not a verb.
 	meta := map[string]bool{
-		"dash": true, "modules": true, "version": true, "dns-setup": true,
+		"dash": true, "open": true, "modules": true, "version": true, "dns-setup": true,
 		"completion": true, "help": true, "__daemon": true,
 	}
 	registered := map[string]bool{}

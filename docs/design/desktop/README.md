@@ -58,7 +58,8 @@ its control socket. The app is a client of those daemons, as the TUI is, so
 | D11 | **One instance of the app; each stack is a tab** in its one window | Opening doze again, or `doze open` in another project, brings the window forward and opens that stack's tab. See One window |
 | D12 | **Installed by drag and drop, then set up in the app on first launch**: one admin prompt for the command line and `.doze` names | As OrbStack does it. The same flow repairs the setup later and works on Linux, where an AppImage has no install step. See Installing |
 | D13 | **doze-aws's and doze-kafka's consoles get a whole tab**, unchanged; or the browser, by setting | They're standalone products with their own top bar and rail, and they need the space. A full tab shows them as they are; links into them are their existing URLs; the only module work is taking the theme from the address. See The consoles |
-| D14 | **Light by rule, checked in CI**: one web view, no frontend framework, live data only for what's on screen, the window released when closed | WebKit can't be avoided; abusing it can. See Staying light |
+| D14 | **Light by rule, checked in CI**: one web view, live data only for what's on screen, the window released when closed, the JavaScript bundle under a budget | WebKit can't be avoided; abusing it can. See Staying light |
+| D16 | **React, Vite and TypeScript render the app; Go owns every fact** (revised 2026-11-04; D14 first said no framework) | A framework's cost is noise inside WebKit's 220 MB floor, and it answers "make it more complex later" directly. Go computes typed views and pushes them; the frontend never derives a stack fact. See Staying light |
 
 ## One binary
 
@@ -94,11 +95,11 @@ Both platforms ship together, so every step is done on both. What differs:
 
 | | macOS | Linux |
 |---|---|---|
-| Web view | WKWebView, part of the system | WebKitGTK, a library the user's system must have; packaged as a dependency (deb, rpm) or bundled (AppImage) |
+| Web view | WKWebView, part of the system | WebKitGTK, a library the user's system must have; a dependency of the deb and rpm. An AppImage can't bundle it sensibly with a no-cgo binary, so there is none in the first Linux release |
 | Tray | Always shown in the menu bar | StatusNotifierItem: KDE and Ubuntu's GNOME show it; stock GNOME (Fedora, for one) hides it unless the user adds an extension. The app can't rely on it: the window opens on launch when no tray is available, and notifications carry the "needs you" moments |
 | Notifications | Notification Center, needs the app bundle | The desktop's notification service over D-Bus |
 | Global shortcut (quick panel) | Works | X11 yes; on Wayland a global shortcut needs the desktop's portal, and not every desktop offers one. Fallback: the quick panel from the tray menu and the window |
-| Packaging | `Doze.app` in a signed, notarised disk image or a Homebrew cask | AppImage, deb and rpm, each with a `.desktop` file |
+| Packaging | `Doze.app` in a signed, notarised disk image or a Homebrew cask | deb and rpm, each with a `.desktop` file, a polkit policy and an AppArmor profile; a tarball for servers. Built from the first release, published after a by-eye pass on real desktops |
 
 ## One window, a tab per stack
 
@@ -213,9 +214,14 @@ can:
 
 1. **One window, one web view.** Tabs are part of the page, not a web view
    each.
-2. **No frontend framework, no build step.** Go renders HTML, with htmx and
-   Alpine, as the consoles do. Fonts and scripts ship with the app; nothing
-   comes from the network.
+2. **Go owns state; React renders it.** `internal/desk/view` computes typed
+   view models from the daemons and pushes them over Wails events (SSE in a
+   browser); a bound Go service takes the calls, with generated TypeScript
+   types. The frontend (React, Vite, TypeScript, built with bun and embedded
+   in the binary) adds interaction state only, never a stack fact. The
+   gzipped bundle stays under 250 KB, checked in CI; heavy pieces load as
+   their own chunks. Fonts and scripts ship with the app; nothing comes from
+   the network.
 3. **Live data only for what's on screen.** Stats and logs stream for the
    tab you're looking at; a hidden window streams nothing. The menu bar talks
    to the daemons from Go, with no web view.

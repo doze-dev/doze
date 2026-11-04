@@ -165,6 +165,7 @@ func rootCmd() *cobra.Command {
 		&cobra.Group{ID: groupOne, Title: "One service:"},
 		&cobra.Group{ID: groupTools, Title: "Before-the-dash tools:"},
 		&cobra.Group{ID: groupDash, Title: "The dash:"},
+		&cobra.Group{ID: groupApp, Title: "The app:"},
 		&cobra.Group{ID: groupLock, Title: "Lockfile maintenance (CI):"},
 	)
 	root.AddCommand(
@@ -192,6 +193,8 @@ func rootCmd() *cobra.Command {
 		grouped(groupTools, dnsSetupCmd()),
 		// The dash, explicitly (also the default command)
 		grouped(groupDash, dashCmd()),
+		// The app: the only command that starts the GUI
+		grouped(groupApp, openCmd()),
 		// Lockfile maintenance (CI)
 		grouped(groupLock, modulesCmd()),
 		jsonCapable(versionCmd()),
@@ -209,6 +212,7 @@ const (
 	groupOne   = "one"
 	groupTools = "tools"
 	groupDash  = "dash"
+	groupApp   = "app"
 	groupLock  = "lock"
 )
 

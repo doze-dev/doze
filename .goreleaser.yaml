@@ -12,6 +12,8 @@ builds:
     binary: doze
     env:
       - CGO_ENABLED=0
+    flags:
+      - -tags=purego,production
     ldflags:
       - -s -w -X main.version={{ .Version }}
     goos:

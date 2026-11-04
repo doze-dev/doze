@@ -8,6 +8,7 @@ run:
   build-tags:
     - integration
     - bench
+    - purego
 linters:
   default: none
   enable:
