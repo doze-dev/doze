@@ -36,10 +36,22 @@ type stack struct {
 	instances []control.InstanceView
 	events    []journal.Event
 	seq       uint64 // the last journal sequence seen, to resume after
+	series    map[string]*Series
+	lines     map[string]lines
+	all       lines
+	// want counts the pages that need each optional topic (stats, logs);
+	// the subscription is remade when a topic's count crosses zero.
+	want map[string]int
+	// resub ends the current subscription so keep opens one with the
+	// topics wanted now. Nil between subscriptions.
+	resub context.CancelFunc
 }
 
 func newStack(key, socket string, d control.Daemon, now func() time.Time, changed func()) *stack {
-	return &stack{key: key, socket: socket, d: d, now: now, changed: changed, cancel: func() {}}
+	return &stack{
+		key: key, socket: socket, d: d, now: now, changed: changed, cancel: func() {},
+		series: map[string]*Series{}, lines: map[string]lines{}, want: map[string]int{},
+	}
 }
 
 // start opens the subscription and keeps it open until ctx ends, as the
@@ -54,8 +66,13 @@ func (s *stack) keep(ctx context.Context) {
 	wait := 500 * time.Millisecond
 	for ctx.Err() == nil {
 		s.snapshot(ctx)
+		subCtx, end := context.WithCancel(ctx)
+		s.mu.Lock()
+		s.resub = end
+		sub := s.subscription()
+		s.mu.Unlock()
 		first := true
-		err := s.d.Subscribe(ctx, s.subscription(), func(f control.Frame) error {
+		err := s.d.Subscribe(subCtx, sub, func(f control.Frame) error {
 			if first {
 				first, wait = false, 500*time.Millisecond
 				s.mu.Lock()
@@ -66,10 +83,15 @@ func (s *stack) keep(ctx context.Context) {
 			s.changed()
 			return nil
 		})
+		s.mu.Lock()
+		s.resub = nil
+		s.mu.Unlock()
 		if ctx.Err() != nil {
 			return
 		}
-		_ = err
+		if subCtx.Err() != nil && err == nil {
+			continue // ended on purpose, to change topics: straight back
+		}
 		s.mu.Lock()
 		s.conn = ConnDown
 		s.retryAt = s.now().Add(wait)
@@ -101,14 +123,48 @@ func (s *stack) snapshot(ctx context.Context) {
 	s.mu.Unlock()
 }
 
+// subscription is what to ask for: instances and the journal always; stats
+// and logs while a page wants them. Caller holds mu.
 func (s *stack) subscription() control.Subscription {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	since := control.JournalFromStart
 	if s.seq > 0 {
 		since = s.seq
 	}
-	return control.Subscription{Topics: []string{control.TopicInstances, control.TopicJournal}, Since: since}
+	sub := control.Subscription{Topics: []string{control.TopicInstances, control.TopicJournal}, Since: since}
+	if s.want[control.TopicStats] > 0 {
+		sub.Topics = append(sub.Topics, control.TopicStats)
+	}
+	if s.want[control.TopicLogs] > 0 {
+		sub.Topics = append(sub.Topics, control.TopicLogs)
+		sub.Backlog = linesKept
+	}
+	return sub
+}
+
+// watch adds a page's interest in a topic and returns what ends it. The
+// subscription is remade when the first page arrives or the last leaves.
+func (s *stack) watch(topic string) (release func()) {
+	s.mu.Lock()
+	s.want[topic]++
+	first := s.want[topic] == 1
+	end := s.resub
+	s.mu.Unlock()
+	if first && end != nil {
+		end()
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			s.mu.Lock()
+			s.want[topic]--
+			last := s.want[topic] == 0
+			end := s.resub
+			s.mu.Unlock()
+			if last && end != nil {
+				end()
+			}
+		})
+	}
 }
 
 // apply folds a frame into what the stack knows, as the dash's apply did.
@@ -142,6 +198,20 @@ func (s *stack) apply(f control.Frame) {
 			}
 			s.instances = out
 		}
+	case control.TopicStats:
+		for _, st := range f.Stats {
+			sr := s.series[st.Name]
+			if sr == nil {
+				sr = &Series{}
+				s.series[st.Name] = sr
+			}
+			sr.push(st, f.At)
+			for i := range s.instances {
+				if s.instances[i].Name == st.Name {
+					s.instances[i].RAM, s.instances[i].CPU, s.instances[i].Conns = st.RAM, st.CPU, st.Conns
+				}
+			}
+		}
 	case control.TopicJournal:
 		if f.Event != nil {
 			s.events = append(s.events, *f.Event)
@@ -150,6 +220,14 @@ func (s *stack) apply(f control.Frame) {
 			}
 			if f.Event.Seq > s.seq {
 				s.seq = f.Event.Seq
+			}
+		}
+	case control.TopicLogs:
+		if f.Log != nil {
+			before := len(s.lines[f.Log.Instance])
+			s.lines[f.Log.Instance] = s.lines[f.Log.Instance].add(*f.Log, linesKept)
+			if len(s.lines[f.Log.Instance]) != before || before == linesKept {
+				s.all = s.all.add(*f.Log, allLinesKept)
 			}
 		}
 	}
@@ -164,12 +242,27 @@ func sorted(vs []control.InstanceView) []control.InstanceView {
 func (s *stack) view() StackView {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return StackView{
+	v := StackView{
 		Key: s.key, Name: s.name, Dir: s.dir, Running: true,
 		Conn: s.conn, RetryAt: s.retryAt, LastFrame: s.lastFrame,
 		Instances: append([]control.InstanceView(nil), s.instances...),
 		Events:    append([]journal.Event(nil), s.events...),
+		Series:    map[string]Series{},
 	}
+	for name, sr := range s.series {
+		v.Series[name] = sr.clone()
+	}
+	return v
+}
+
+// logs is what an instance printed, oldest first; "" is every instance.
+func (s *stack) logs(instance string) []control.LogFrame {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if instance == "" {
+		return append([]control.LogFrame(nil), s.all...)
+	}
+	return append([]control.LogFrame(nil), s.lines[instance]...)
 }
 
 func (s *stack) do(ctx context.Context, verb control.Verb) error {

@@ -66,6 +66,8 @@ type StackView struct {
 	Instances []control.InstanceView
 	// Events is the journal kept, oldest first.
 	Events []journal.Event
+	// Series is each instance's meters over time, while a page watches stats.
+	Series map[string]Series
 	// LastUp and LastDown are from the project record, for stopped stacks.
 	LastUp, LastDown time.Time
 }
@@ -232,6 +234,32 @@ func (h *Hub) Stacks() []StackView {
 		return out[i].Key < out[j].Key
 	})
 	return out
+}
+
+// Watch says a page is showing a stack's stats or logs (control.TopicStats,
+// control.TopicLogs), so the hub streams them; the returned func says it
+// stopped. Nothing streams for a page nobody is looking at (design D14).
+// An unknown stack returns a func that does nothing.
+func (h *Hub) Watch(key, topic string) (release func()) {
+	h.mu.Lock()
+	s := h.stacks[key]
+	h.mu.Unlock()
+	if s == nil {
+		return func() {}
+	}
+	return s.watch(topic)
+}
+
+// Logs is what an instance of a stack printed, oldest first, as far back as
+// the hub keeps; "" is every instance merged. Empty for a stopped stack.
+func (h *Hub) Logs(key, instance string) []control.LogFrame {
+	h.mu.Lock()
+	s := h.stacks[key]
+	h.mu.Unlock()
+	if s == nil {
+		return nil
+	}
+	return s.logs(instance)
 }
 
 // Do runs a verb on one running stack and waits for it. While the stack's
