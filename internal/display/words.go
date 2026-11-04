@@ -72,6 +72,22 @@ func LookOf(v control.InstanceView) Look {
 // the word: a figure of memory, a column of connections.
 func AwakeNow(v control.InstanceView) bool { return v.State == "active" || v.State == "idle" }
 
+// InUse is what is using an instance right now, in a few words ("api, 3
+// connection(s)"), or "" when nothing is: the rule for whether sleeping or
+// restarting it asks first.
+func InUse(v control.InstanceView) string {
+	var by []string
+	for _, h := range v.Holders {
+		switch h.Kind {
+		case "dependant":
+			by = append(by, h.Name)
+		case "connection":
+			by = append(by, fmt.Sprintf("%d connection(s)", h.Count))
+		}
+	}
+	return strings.Join(by, ", ")
+}
+
 // Troubled says something is wrong with it: it is crashing, has failed, or is
 // a task whose last run failed.
 func Troubled(v control.InstanceView) bool {

@@ -155,7 +155,7 @@ func (m *Model) do(verb, target string) tea.Cmd {
 // askSleep sleeps target, asking first when something is using it.
 func (m *Model) askSleep(target string) tea.Cmd {
 	v, ok := m.find(target)
-	if ok && inUse(v) != "" {
+	if ok && display.InUse(v) != "" {
 		m.modal = &modal{kind: modalSleep, target: target}
 		return nil
 	}
@@ -752,7 +752,7 @@ func (m *Model) askRestart(target string) tea.Cmd {
 	if c := m.refuse(); c != nil {
 		return c
 	}
-	if display.AwakeNow(v) && v.Kind != "task" && inUse(v) != "" {
+	if display.AwakeNow(v) && v.Kind != "task" && display.InUse(v) != "" {
 		m.modal = &modal{kind: modalRestart, target: target}
 		return nil
 	}

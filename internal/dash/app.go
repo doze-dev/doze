@@ -448,20 +448,6 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 	return m, m.follow()
 }
 
-// inUse names what is holding v, or "".
-func inUse(v control.InstanceView) string {
-	var by []string
-	for _, h := range v.Holders {
-		switch h.Kind {
-		case "dependant":
-			by = append(by, h.Name)
-		case "connection":
-			by = append(by, fmt.Sprintf("%d connection(s)", h.Count))
-		}
-	}
-	return strings.Join(by, ", ")
-}
-
 func (m *Model) verb(name string) tea.Cmd {
 	v, ok := m.selected()
 	if !ok {
