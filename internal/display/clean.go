@@ -1,4 +1,4 @@
-package dash
+package display
 
 import (
 	"strings"
@@ -10,16 +10,16 @@ import (
 	"github.com/doze-dev/doze/internal/journal"
 )
 
-// What a program prints is not ours to trust on a terminal. A log line can carry
+// What a program prints is not ours to trust on a screen. A log line can carry
 // colour codes, a window-title sequence, a bell, a carriage return that a
-// progress bar uses to overwrite itself, or bytes that are not text at all, and
-// any of them, drawn raw, corrupts the screen or the person's terminal. Every
-// string that comes from outside the dash is made plain text before it is kept.
+// progress bar uses to overwrite itself, or bytes that are not text at all,
+// and any of them, drawn raw, corrupts a terminal or injects into a page.
+// Every string that comes from outside is made plain text before it is kept.
 
-// clean makes s one line of printable text: escape sequences removed, text
-// before the last carriage return dropped (what a progress bar overwrote), tabs
-// as spaces, other control bytes gone, and invalid UTF-8 replaced.
-func clean(s string) string {
+// Clean makes s one line of printable text: escape sequences removed, text
+// before the last carriage return dropped (what a progress bar overwrote),
+// tabs as spaces, other control bytes gone, and invalid UTF-8 replaced.
+func Clean(s string) string {
 	if s == "" {
 		return s
 	}
@@ -55,31 +55,32 @@ func clean(s string) string {
 	return b.String()
 }
 
-// cleanView makes the text an instance carries safe to draw.
-func cleanView(v control.InstanceView) control.InstanceView {
-	v.LastError = cleanLines(v.LastError)
+// CleanView makes the text an instance carries safe to draw.
+func CleanView(v control.InstanceView) control.InstanceView {
+	v.LastError = CleanLines(v.LastError)
 	if v.Task != nil {
 		t := *v.Task
-		t.Why = clean(t.Why)
+		t.Why = Clean(t.Why)
 		v.Task = &t
 	}
-	v.Name, v.Run, v.URL, v.Domain = clean(v.Name), clean(v.Run), clean(v.URL), clean(v.Domain)
+	v.Name, v.Run, v.URL, v.Domain = Clean(v.Name), Clean(v.Run), Clean(v.URL), Clean(v.Domain)
 	return v
 }
 
-// cleanLines is clean for text that may have several lines, which it keeps.
-func cleanLines(s string) string {
+// CleanLines is Clean for text that may have several lines, which it keeps.
+func CleanLines(s string) string {
 	if s == "" {
 		return s
 	}
 	parts := strings.Split(s, "\n")
 	for i, p := range parts {
-		parts[i] = clean(p)
+		parts[i] = Clean(p)
 	}
 	return strings.Join(parts, "\n")
 }
 
-func cleanEvent(e journal.Event) journal.Event {
-	e.Detail = clean(e.Detail)
+// CleanEvent makes a journal event's detail safe to draw.
+func CleanEvent(e journal.Event) journal.Event {
+	e.Detail = Clean(e.Detail)
 	return e
 }

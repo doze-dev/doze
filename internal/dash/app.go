@@ -209,7 +209,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.waiting = false
 			m.snap = msg.snap
 			for i := range m.snap.Instances {
-				m.snap.Instances[i] = cleanView(m.snap.Instances[i])
+				m.snap.Instances[i] = display.CleanView(m.snap.Instances[i])
 			}
 			m.reportTaskResult()
 		}
@@ -230,7 +230,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.apply(control.Frame(msg))
 		m.settle()
 	case logMsg:
-		msg.frame.Line = clean(msg.frame.Line)
+		msg.frame.Line = display.Clean(msg.frame.Line)
 		if m.cache == nil {
 			m.cache = map[string][]control.LogFrame{}
 		}
@@ -515,11 +515,11 @@ func (m *Model) apply(f control.Frame) {
 		if f.Snapshot {
 			m.snap.Instances = append([]control.InstanceView(nil), f.Instances...)
 			for i := range m.snap.Instances {
-				m.snap.Instances[i] = cleanView(m.snap.Instances[i])
+				m.snap.Instances[i] = display.CleanView(m.snap.Instances[i])
 			}
 		} else {
 			for _, v := range f.Instances {
-				v = cleanView(v)
+				v = display.CleanView(v)
 				replaced := false
 				for i := range m.snap.Instances {
 					if m.snap.Instances[i].Name == v.Name {
@@ -569,7 +569,7 @@ func (m *Model) apply(f control.Frame) {
 		}
 	case control.TopicJournal:
 		if f.Event != nil {
-			m.events = append(m.events, cleanEvent(*f.Event))
+			m.events = append(m.events, display.CleanEvent(*f.Event))
 			if len(m.events) > 300 {
 				m.events = m.events[len(m.events)-300:]
 			}
