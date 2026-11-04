@@ -1,59 +1,68 @@
 import type { view } from "../transport";
+import { Dot } from "./sidebar";
 
-// The stack as a table, in the dash's groups and columns: state, name,
-// what, because, mem, address. Every word is Go's; a click opens the
-// instance, and the two buttons send the verbs the row allows.
+// The stack as a table (the Main board's .tbl): a header row, a group row
+// per heading, and the columns Name, Engine, State, Memory, CPU%, Conn,
+// Up, Because. Every word is Go's. One row is selected; its logs fill the
+// dock under the table. Enter opens it.
+const COLS = "172px 92px 88px 76px 52px 52px 52px minmax(0,1fr)";
+
 export function Table({
   groups,
+  selected,
+  onSelect,
   onOpen,
-  onVerb,
 }: {
   groups: view.Group[];
+  selected: string;
+  onSelect: (name: string) => void;
   onOpen: (name: string) => void;
-  onVerb: (verb: string, name: string) => void;
 }) {
   return (
-    <div className="table" role="table" aria-label="Stack">
+    <div className="tbl compact" role="table" aria-label="Stack" style={{ ["--c" as string]: COLS }}>
+      <div className="tr h" role="row">
+        <span>Name</span>
+        <span>Engine</span>
+        <span>State</span>
+        <span className="r">Memory</span>
+        <span className="r">CPU%</span>
+        <span className="r">Conn</span>
+        <span className="r">Up</span>
+        <span>Because</span>
+      </div>
       {groups.map((g) => (
-        <section key={g.title} className="group">
-          <header className="group-head" role="rowgroup">
-            <span className="group-title">{g.title}</span>
-            <span className="group-what muted">{g.what}</span>
-          </header>
+        <div key={g.title} role="rowgroup">
+          <div className="tr grp" role="row">
+            {g.title}
+            <span>
+              {g.count} · {g.what}
+            </span>
+          </div>
           {(g.rows ?? []).map((r) => (
-            <Row key={r.name} row={r} onOpen={onOpen} onVerb={onVerb} />
+            <button
+              key={r.name}
+              role="row"
+              className={"tr row" + (r.name === selected ? " on" : "")}
+              aria-selected={r.name === selected}
+              onClick={() => onSelect(r.name)}
+              onDoubleClick={() => onOpen(r.name)}
+              onKeyDown={(e) => e.key === "Enter" && onOpen(r.name)}
+            >
+              <span className="n">
+                <Dot look={r.look} trouble={r.trouble} />
+                {r.name}
+              </span>
+              <span>{r.engine}</span>
+              <span className={"tone-" + r.look.tone}>{r.look.word}</span>
+              <span className="r">{r.mem}</span>
+              <span className="r">{r.cpu}</span>
+              <span className="r">{r.conns}</span>
+              <span className="r">{r.up}</span>
+              <span className={r.becauseTone}>{r.because}</span>
+            </button>
           ))}
-        </section>
+        </div>
       ))}
-    </div>
-  );
-}
-
-function Row({ row: r, onOpen, onVerb }: { row: view.Row; onOpen: (n: string) => void; onVerb: (v: string, n: string) => void }) {
-  const task = r.kind === "task";
-  return (
-    <div className={"row tone-" + r.look.tone} role="row" tabIndex={0} onClick={() => onOpen(r.name)} onKeyDown={(e) => e.key === "Enter" && onOpen(r.name)}>
-      <span className="glyph" aria-hidden>
-        {r.look.glyph}
-      </span>
-      <span className="name bright">{r.name}</span>
-      <span className="word">{r.look.word}</span>
-      <span className={"because " + (r.trouble ? "bad" : r.look.word === "dozing" || r.look.word === "waking" ? "warn" : "muted")}>{r.because}</span>
-      <span className="runs muted">{r.runs}</span>
-      <span className="mem">{r.mem}</span>
-      <span className="addr muted">
-        {r.addr}
-        {r.port && <span className="port">:{r.port}</span>}
-      </span>
-      <span className="verbs" onClick={(e) => e.stopPropagation()}>
-        {task ? (
-          <button onClick={() => onVerb("task", r.name)}>run</button>
-        ) : r.awake ? (
-          <button onClick={() => onVerb("sleep", r.name)}>sleep</button>
-        ) : (
-          <button onClick={() => onVerb("wake", r.name)}>wake</button>
-        )}
-      </span>
     </div>
   );
 }

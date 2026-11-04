@@ -33,6 +33,7 @@ type stack struct {
 	retryAt   time.Time
 	lastFrame time.Time
 	name, dir string
+	idle      time.Duration
 	instances []control.InstanceView
 	events    []journal.Event
 	seq       uint64 // the last journal sequence seen, to resume after
@@ -121,7 +122,7 @@ func (s *stack) snapshot(ctx context.Context) {
 		return
 	}
 	s.mu.Lock()
-	s.name, s.dir = snap.Stack, snap.Dir
+	s.name, s.dir, s.idle = snap.Stack, snap.Dir, snap.IdleTimeout
 	s.instances = sorted(snap.Instances)
 	s.mu.Unlock()
 }
@@ -216,7 +217,7 @@ func (s *stack) apply(f control.Frame) {
 			}
 		}
 	case control.TopicJournal:
-		if f.Event != nil {
+		if f.Event != nil && !s.seenEvent(*f.Event) {
 			s.events = append(s.events, *f.Event)
 			if len(s.events) > eventsKept {
 				s.events = s.events[len(s.events)-eventsKept:]
@@ -248,7 +249,7 @@ func (s *stack) view() StackView {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v := StackView{
-		Key: s.key, Name: s.name, Dir: s.dir, Running: true,
+		Key: s.key, Name: s.name, Dir: s.dir, IdleTimeout: s.idle, Running: true,
 		Conn: s.conn, RetryAt: s.retryAt, LastFrame: s.lastFrame,
 		Instances: append([]control.InstanceView(nil), s.instances...),
 		Events:    append([]journal.Event(nil), s.events...),
@@ -286,4 +287,23 @@ func (s *stack) do(ctx context.Context, verb control.Verb) error {
 	c, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	return s.d.Do(c, verb)
+}
+
+// seenEvent says the journal already holds e: a daemon replays its journal
+// on a resubscribe from the start (or a scripted one with no sequence
+// numbers does), and the page must not read an event twice.
+func (s *stack) seenEvent(e journal.Event) bool {
+	for i := len(s.events) - 1; i >= 0; i-- {
+		h := s.events[i]
+		if e.Seq > 0 && h.Seq > 0 {
+			if h.Seq == e.Seq {
+				return true
+			}
+			continue
+		}
+		if h.Time.Equal(e.Time) && h.Kind == e.Kind && h.Instance == e.Instance && h.Detail == e.Detail {
+			return true
+		}
+	}
+	return false
 }

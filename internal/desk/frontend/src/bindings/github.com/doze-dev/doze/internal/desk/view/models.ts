@@ -10,17 +10,21 @@ export interface Banner {
 }
 
 /**
- * Chart is one series ready to draw: the points, the scale and the two
- * figures beside it. Points are the raw readings, oldest first; the page
- * squeezes them to its width.
+ * Chart is one series ready to draw: the points, the scale and the figures
+ * beside it. Points are the raw readings, oldest first.
  */
 export interface Chart {
     "points": number[] | null;
     "lo": number;
     "hi": number;
+
+    /**
+     * Now is the latest reading, as the card's figure; Sub the word beside it.
+     */
+    "now": string;
+    "sub": string;
     "peak": string;
     "mean": string;
-    "unit": string;
 
     /**
      * Span is how long the points cover, in words ("4 min").
@@ -29,17 +33,58 @@ export interface Chart {
 }
 
 /**
+ * Conns is the connections card: open across the stack, and the tasks.
+ */
+export interface Conns {
+    "open": number;
+
+    /**
+     * "tasks ✓ 1 done · ▸ 1 ready"
+     */
+    "tasks": string;
+}
+
+/**
+ * Countdown is how long until a dozing instance sleeps.
+ */
+export interface Countdown {
+    "left": string;
+    "fraction": number;
+}
+
+/**
+ * Crash is what the Crash board shows: the error, the tries, the next try.
+ */
+export interface Crash {
+    "error": string;
+
+    /**
+     * "try 3 of 5"
+     */
+    "tries"?: string;
+    "fraction": number;
+
+    /**
+     * "4 s"
+     */
+    "nextIn"?: string;
+    "gaveUp": boolean;
+}
+
+/**
  * Group is a heading over part of the stack.
  */
 export interface Group {
     "title": string;
     "what": string;
+    "count": number;
     "rows": Row[] | null;
 }
 
 /**
- * Home is a stack's home page: the meters, then every instance under its
- * group, with the dash's columns.
+ * Home is a stack's home page, as the Main board lays it out: the four
+ * vitals cards, then every instance under its group in the table's columns,
+ * and the sidebar's instance list.
  */
 export interface Home {
     /**
@@ -51,8 +96,9 @@ export interface Home {
     "dir": string;
     "running": boolean;
     "banner": Banner;
-    "meters": Meters;
+    "vitals": Vitals4;
     "groups": Group[] | null;
+    "side": Side[] | null;
 
     /**
      * Awake and Total count the instances up and declared, tasks aside.
@@ -62,8 +108,9 @@ export interface Home {
 }
 
 /**
- * Instance is an instance's page: its state and story at the top, its tabs,
- * and what the overview tab shows (vitals, needs, the address).
+ * Instance is an instance's page, as the Instance, Cache, Mailpit, Task,
+ * AppLogs and Crash boards lay it out: the head line, the tabs, and the
+ * cards of the overview.
  */
 export interface Instance {
     "key": string;
@@ -73,36 +120,81 @@ export interface Instance {
     "engine": string;
     "version"?: string;
     "look": Look;
-    "what": string;
-    "because": string;
-    "hint"?: string;
 
     /**
-     * Up is how long it has been awake ("14m"), "" when it is not.
+     * Path is the line beside the name: "postgres 17 · awake for 14m ·
+     * pid 612", "task · done · ran 2m ago in 1.2s".
      */
+    "path": string;
+    "because": string;
+    "hint"?: string;
     "up"?: string;
     "pid"?: number;
-    "address"?: string;
-    "url"?: string;
     "run"?: string;
 
     /**
-     * InUse is who is using it right now ("api, 4 connection(s)"), the rule
-     * for whether sleep and restart ask first.
+     * Connect is the connect card's rows.
      */
-    "inUse"?: string;
+    "connect"?: KV[] | null;
+
+    /**
+     * Holders is why it is awake, as pills with a word on each; Sleeps is
+     * the sentence under them.
+     */
+    "holders"?: Pill[] | null;
+    "sleeps"?: string;
+
+    /**
+     * Dozing is set while it counts down: the clock left and the fraction
+     * of the idle time gone, for the bar.
+     */
+    "dozing"?: Countdown | null;
 
     /**
      * Web is the web console's URL when it has one.
      */
     "web"?: string;
     "tabs": Tab[] | null;
+
+    /**
+     * Needs is what it boots first, with each one's state.
+     */
     "needs"?: Need[] | null;
     "vitals"?: Vitals | null;
+
+    /**
+     * Recent is doze's own events for it, newest last.
+     */
+    "recent"?: Recent[] | null;
+
+    /**
+     * Runs is a task's history, newest first.
+     */
     "runs"?: Run[] | null;
-    "lastError"?: string;
+
+    /**
+     * Crash is set while it is crashing or has failed.
+     */
+    "crash"?: Crash | null;
+
+    /**
+     * Procs are the processes under it, for the logs page's box.
+     */
+    "procs"?: Proc[] | null;
+    "side": Side[] | null;
     "banner": Banner;
     "missing"?: boolean;
+}
+
+/**
+ * KV is one row of a card: a key, a value, and what the copy button copies.
+ */
+export interface KV {
+    "k": string;
+    "v": string;
+    "copy"?: string;
+    "mono": boolean;
+    "dim"?: boolean;
 }
 
 /**
@@ -110,17 +202,30 @@ export interface Instance {
  */
 export interface Line {
     "instance"?: string;
+
+    /**
+     * clock, local
+     */
     "time": string;
-    "ago": string;
+
+    /**
+     * relative to now: "-3m 05s"
+     */
+    "rel": string;
     "line": string;
 
     /**
-     * Level is the line's level tag ("", "info", "warn", "error"…) and Rank
-     * its number, for colour and the filter.
+     * INF, WRN, ERR, DBG, or zzz for doze's own
      */
     "level"?: string;
     "rank": number;
     "run"?: number;
+
+    /**
+     * Doze marks one of doze's own events, drawn as the Logs board draws
+     * them: the bat's zzz, in the accent.
+     */
+    "doze"?: boolean;
 }
 
 /**
@@ -141,6 +246,23 @@ export interface Logs {
      * Levels are the level filter's names, index by LogsQuery.Level.
      */
     "levels": string[] | null;
+
+    /**
+     * Counts is how many lines each level has, by rank, over the whole
+     * unfiltered list: the "levels" box.
+     */
+    "counts": number[];
+
+    /**
+     * Matches is how many lines the search matched, over every level.
+     */
+    "matches": number;
+
+    /**
+     * Instances names the instances with lines, in first-seen order, so the
+     * page colours each the same way every time.
+     */
+    "instances"?: string[] | null;
 }
 
 /**
@@ -149,6 +271,12 @@ export interface Logs {
  */
 export interface LogsQuery {
     "instance": string;
+
+    /**
+     * Show, on the merged page, keeps only these instances' lines; nil
+     * keeps every instance. "doze" is doze's own events.
+     */
+    "show"?: string[] | null;
 
     /**
      * Level keeps lines at this rank or above: 0 everything, 1 info and up,
@@ -185,21 +313,13 @@ export interface Look {
 }
 
 /**
- * Meter is one bar: shares largest first, the total as a label, and how
- * many instances were doing too little to draw.
+ * Meter is one bar card: the total as the figure, the shares as the bar,
+ * and the key line under it.
  */
 export interface Meter {
     "total": string;
     "shares": Share[] | null;
-    "idle": number;
-}
-
-/**
- * Meters are the two bars at the top: who holds how much memory and CPU.
- */
-export interface Meters {
-    "mem": Meter;
-    "cpu": Meter;
+    "key": string;
 }
 
 /**
@@ -214,22 +334,65 @@ export interface Need {
 }
 
 /**
- * Row is one instance in the table: the dash's columns, computed.
+ * Pill is one reason it is awake, and a word on it.
+ */
+export interface Pill {
+    "text": string;
+    "explain": string;
+}
+
+/**
+ * Proc is one process under an instance.
+ */
+export interface Proc {
+    "cmd": string;
+    "pid": number;
+    "mem": string;
+    "depth": number;
+}
+
+/**
+ * Recent is one of doze's events for the instance.
+ */
+export interface Recent {
+    /**
+     * clock time
+     */
+    "at": string;
+
+    /**
+     * woke, ready, idle, slept, crashed…
+     */
+    "kind": string;
+
+    /**
+     * the rest of the sentence
+     */
+    "text": string;
+    "tone": string;
+}
+
+/**
+ * Row is one instance in the table: the Main board's columns, computed.
  */
 export interface Row {
     "name": string;
     "kind": string;
     "look": Look;
+    "engine": string;
+    "mem"?: string;
+    "cpu"?: string;
+    "conns"?: string;
+    "up"?: string;
+    "because": string;
 
     /**
-     * Runs is what it runs: the command, or a module's address.
+     * BecauseTone is the because column's tone: warn while dozing or
+     * waking, bad in trouble, dim otherwise.
      */
-    "runs": string;
-    "because": string;
-    "mem"?: string;
+    "becauseTone": string;
     "addr"?: string;
     "port"?: string;
-    "hint"?: string;
     "awake": boolean;
     "trouble": boolean;
 
@@ -244,6 +407,11 @@ export interface Row {
  */
 export interface Run {
     "at": string;
+
+    /**
+     * clock time today, else the date
+     */
+    "when": string;
     "ago": string;
     "why": string;
     "took"?: string;
@@ -265,6 +433,37 @@ export interface Share {
 }
 
 /**
+ * Side is one instance in the sidebar's list: its dot and a word or figure.
+ */
+export interface Side {
+    "name": string;
+    "look": Look;
+
+    /**
+     * "84 MB", "dozing", "asleep", "done"
+     */
+    "note": string;
+    "trouble": boolean;
+}
+
+/**
+ * States counts the instances by state, tasks aside, and says when the
+ * stack sleeps.
+ */
+export interface States {
+    "awake": number;
+    "dozing": number;
+    "waking": number;
+    "asleep": number;
+
+    /**
+     * Sleeps is the sentence under the counts: "sleeps after 5:00 with
+     * nothing holding it".
+     */
+    "sleeps": string;
+}
+
+/**
  * Tab is one tab of the page.
  */
 export interface Tab {
@@ -273,10 +472,21 @@ export interface Tab {
 }
 
 /**
- * Vitals are the overview's three charts, from the instance's series.
+ * Vitals are the overview's charts, from the instance's series, with the
+ * latest reading as the figure.
  */
 export interface Vitals {
     "ram": Chart;
     "cpu": Chart;
     "conns": Chart;
+}
+
+/**
+ * Vitals4 are the four cards across the top of home.
+ */
+export interface Vitals4 {
+    "mem": Meter;
+    "cpu": Meter;
+    "state": States;
+    "conns": Conns;
 }

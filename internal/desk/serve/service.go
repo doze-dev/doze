@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"hash/fnv"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,9 +78,10 @@ type Emitter func(name string, data any)
 
 // Service is the API.
 type Service struct {
-	hub  *hub.Hub
-	now  func() time.Time
-	emit Emitter
+	hub     *hub.Hub
+	now     func() time.Time
+	emit    Emitter
+	version string
 
 	mu         sync.Mutex
 	focus      Focus
@@ -166,6 +168,9 @@ func (s *Service) push() {
 	switch f.Page {
 	case "home":
 		s.send(EventHome, s.Home(f.Key))
+		if f.Instance != "" {
+			s.sendLogs(f) // the dock under the table follows the selected row
+		}
 	case "instance":
 		s.send(EventInstance, s.Instance(f.Key, f.Instance))
 		s.sendLogs(f) // the page's logs tab
@@ -248,7 +253,20 @@ func (s *Service) Instance(key, name string) view.Instance {
 
 // Logs is a window of an instance's lines, or of every instance's.
 func (s *Service) Logs(key string, q view.LogsQuery) view.Logs {
-	return view.LogsOf(q, s.hub.Logs(key, q.Instance), s.now())
+	st, _ := s.stack(key)
+	return view.LogsOf(q, s.hub.Logs(key, q.Instance), st.Events, s.now())
+}
+
+// Version is the doze this app is, for the sidebar's foot.
+func (s *Service) Version() string { return s.version }
+
+// SetVersion says which doze this is. A dev build's long pseudo-version is
+// cut to its release part for the sidebar.
+func (s *Service) SetVersion(v string) {
+	if i := strings.IndexAny(v, "-+"); i > 0 {
+		v = v[:i]
+	}
+	s.version = v
 }
 
 // SetFocus says what the page shows. The hub streams stats for a home or
@@ -266,6 +284,9 @@ func (s *Service) SetFocus(f Focus) {
 		switch f.Page {
 		case "home":
 			s.releases = append(s.releases, s.hub.Watch(f.Key, control.TopicStats))
+			if f.Instance != "" {
+				s.releases = append(s.releases, s.hub.Watch(f.Key, control.TopicLogs))
+			}
 		case "instance":
 			s.releases = append(s.releases, s.hub.Watch(f.Key, control.TopicStats), s.hub.Watch(f.Key, control.TopicLogs))
 		case "logs":

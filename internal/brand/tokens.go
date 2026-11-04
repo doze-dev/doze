@@ -2,6 +2,9 @@
 // surface that draws them: the CLI (internal/ui), the dash, the app and the
 // site. The app's tokens.css is generated from here (go generate), and a test
 // keeps the values the CLI holds in step.
+//
+// The app's two themes are the design boards' (docs/design/desktop/boards/
+// app.css and Light.dc.html): the dash's violet palette as a native window.
 package brand
 
 import (
@@ -14,37 +17,39 @@ import (
 
 //go:generate go run ./gen -o ../desk/frontend/src/tokens.css
 
-// Theme is one set of colours.
+// Theme is one set of colours, named as the boards name them.
 type Theme struct {
 	// Name is "light" or "dark".
 	Name string
-	// Surfaces.
-	Bg, Panel, Raised, Line string
-	// Text.
-	Fg, FgMuted, FgBright string
-	// The accent (doze's violet) and the four state colours shared with the
-	// CLI and the dash.
+	// Surfaces: the window, the sidebar and title bar, cards and tables,
+	// and the two line weights.
+	Bg, Side, Panel, Line, Line2 string
+	// Text, dim text, and the brightest text (names, figures, headings).
+	Text, Dim, Bright string
+	// The accent (doze's violet) and the four state colours, shared with
+	// the CLI and the dash.
 	Accent, Good, Warn, Cool, Bad string
-	// Selection and focus.
-	Sel, Focus string
+	// Selection and the picked row.
+	Sel, Pick string
 }
 
-// Light and Dark are the app's two themes. The state colours and the accent
-// are the CLI's; the surfaces are chosen for a window, not a terminal.
+// Dark and Light are the app's two themes. Dark is the dash's palette, so
+// its state colours and accent are the CLI's dark ones; Light is the
+// board's, chosen for a window.
 var (
-	Light = Theme{
-		Name: "light",
-		Bg:   "#FFFFFF", Panel: "#F6F7F9", Raised: "#FFFFFF", Line: "#E3E6EA",
-		Fg: "#1F2328", FgMuted: ui.DimLight, FgBright: "#0B0E12",
-		Accent: ui.AccentLight, Good: ui.GoodLight, Warn: ui.WarnLight, Cool: ui.CoolLight, Bad: ui.BadLight,
-		Sel: "#EDE7F8", Focus: ui.AccentLight,
-	}
 	Dark = Theme{
 		Name: "dark",
-		Bg:   "#14161A", Panel: "#1B1E24", Raised: "#22262D", Line: "#2C313A",
-		Fg: "#D5DAE1", FgMuted: ui.DimDark, FgBright: "#F4F6F8",
+		Bg:   "#15131d", Side: "#110f18", Panel: "#1b1927", Line: "#2c2840", Line2: "#37324b",
+		Text: "#cfcbe3", Dim: "#8a85a8", Bright: "#f4f1ff",
 		Accent: ui.AccentDark, Good: ui.GoodDark, Warn: ui.WarnDark, Cool: ui.CoolDark, Bad: ui.BadDark,
-		Sel: "#2A2340", Focus: ui.AccentDark,
+		Sel: "#2b2542", Pick: "#3a3170",
+	}
+	Light = Theme{
+		Name: "light",
+		Bg:   "#fbfaff", Side: "#f3f1fa", Panel: "#ffffff", Line: "#e4e0f0", Line2: "#d4cde6",
+		Text: "#3a3550", Dim: "#6f6888", Bright: "#17141f",
+		Accent: "#7a4fe0", Good: "#1d8a4a", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#cc3550",
+		Sel: "#ece6fb", Pick: "#e3d9ff",
 	}
 )
 
@@ -54,37 +59,66 @@ const (
 	BatTile = "#F0A24B"
 )
 
-// Sizes and type, in CSS.
+// Sizes and type, in CSS, as the boards set them: Inter 13/20 for text,
+// JetBrains Mono 12 for anything a machine wrote, a 40 px title bar, a
+// 232 px sidebar, 30 px table rows.
 var sizes = map[string]string{
-	"font-ui":     `-apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif`,
-	"font-mono":   `ui-monospace, "SF Mono", Menlo, Consolas, monospace`,
-	"text-xs":     "11px",
-	"text-sm":     "12px",
-	"text-base":   "13px",
-	"text-lg":     "15px",
-	"text-xl":     "20px",
-	"space-1":     "4px",
-	"space-2":     "8px",
-	"space-3":     "12px",
-	"space-4":     "16px",
-	"space-6":     "24px",
-	"radius":      "6px",
-	"radius-lg":   "10px",
-	"tabs-height": "38px",
+	"font-ui":      `"Inter Variable", Inter, -apple-system, system-ui, sans-serif`,
+	"font-mono":    `"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, monospace`,
+	"text-xs":      "11px",
+	"text-sm":      "12px",
+	"text-base":    "13px",
+	"text-lg":      "16px",
+	"text-xl":      "20px",
+	"text-figure":  "18px",
+	"line":         "20px",
+	"space-1":      "4px",
+	"space-2":      "8px",
+	"space-3":      "12px",
+	"space-4":      "16px",
+	"space-5":      "20px",
+	"space-6":      "24px",
+	"radius":       "7px",
+	"radius-lg":    "10px",
+	"radius-xl":    "12px",
+	"titlebar":     "40px",
+	"sidebar":      "232px",
+	"row":          "30px",
+	"row-head":     "28px",
+	"row-group":    "26px",
+	"keys":         "34px",
+	"dock-caption": "32px",
 }
 
 // vars is a theme as CSS custom properties.
 func (t Theme) vars() []string {
 	return []string{
-		"--bg: " + t.Bg, "--panel: " + t.Panel, "--raised: " + t.Raised, "--line: " + t.Line,
-		"--fg: " + t.Fg, "--fg-muted: " + t.FgMuted, "--fg-bright: " + t.FgBright,
+		"--bg: " + t.Bg, "--side: " + t.Side, "--panel: " + t.Panel, "--line: " + t.Line, "--line2: " + t.Line2,
+		"--text: " + t.Text, "--dim: " + t.Dim, "--bright: " + t.Bright,
 		"--accent: " + t.Accent, "--good: " + t.Good, "--warn: " + t.Warn, "--cool: " + t.Cool, "--bad: " + t.Bad,
-		"--sel: " + t.Sel, "--focus: " + t.Focus,
+		"--sel: " + t.Sel, "--pick: " + t.Pick,
+		// Names the page's own CSS reads, for text on a filled accent or
+		// state colour, and the bar's track.
+		"--on-accent: " + t.onAccent(), "--track: " + t.track(),
 	}
 }
 
-// CSS renders tokens.css: sizes for every theme, light by default, dark when
-// the system or the page asks for it.
+func (t Theme) onAccent() string {
+	if t.Name == "light" {
+		return "#ffffff"
+	}
+	return t.Bg
+}
+
+func (t Theme) track() string {
+	if t.Name == "light" {
+		return "#ece8f5"
+	}
+	return "#262236"
+}
+
+// CSS renders tokens.css: sizes for every theme, dark by default (the dash's
+// palette), light when the system or the page asks for it.
 func CSS() string {
 	var b strings.Builder
 	b.WriteString("/* Generated by go generate ./internal/brand; do not edit. */\n:root {\n")
@@ -96,15 +130,15 @@ func CSS() string {
 	for _, k := range keys {
 		fmt.Fprintf(&b, "  --%s: %s;\n", k, sizes[k])
 	}
-	for _, v := range Light.vars() {
+	for _, v := range Dark.vars() {
 		fmt.Fprintf(&b, "  %s;\n", v)
 	}
-	b.WriteString("}\n@media (prefers-color-scheme: dark) {\n  :root:not([data-theme=\"light\"]) {\n")
-	for _, v := range Dark.vars() {
+	b.WriteString("}\n@media (prefers-color-scheme: light) {\n  :root:not([data-theme=\"dark\"]) {\n")
+	for _, v := range Light.vars() {
 		fmt.Fprintf(&b, "    %s;\n", v)
 	}
-	b.WriteString("  }\n}\n:root[data-theme=\"dark\"] {\n")
-	for _, v := range Dark.vars() {
+	b.WriteString("  }\n}\n:root[data-theme=\"light\"] {\n")
+	for _, v := range Light.vars() {
 		fmt.Fprintf(&b, "  %s;\n", v)
 	}
 	b.WriteString("}\n")

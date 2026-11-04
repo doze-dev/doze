@@ -9,10 +9,18 @@
     "glyph": "✗",
     "tone": "bad"
   },
-  "what": "try 3 of 5 · panic: STRIPE_KEY is required",
+  "path": "process · go run ./cmd/api · crashing",
   "because": "try 3 of 5 · next in 4s",
-  "address": "api.shop.doze:8080",
   "run": "go run ./cmd/api",
+  "connect": [
+    {
+      "k": "Address",
+      "v": "api.shop.doze:8080",
+      "copy": "api.shop.doze:8080",
+      "mono": true
+    }
+  ],
+  "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
   "tabs": [
     {
       "id": "logs",
@@ -311,9 +319,10 @@
       ],
       "lo": 0,
       "hi": 101222099.55,
+      "now": "84 MB",
+      "sub": "resident",
       "peak": "84 MB",
       "mean": "76 MB",
-      "unit": "bytes",
       "span": "4m"
     },
     "cpu": {
@@ -561,9 +570,10 @@
       ],
       "lo": 0,
       "hi": 13.904197608555842,
+      "now": "0.02 cores",
+      "sub": "cores · 2% of one",
       "peak": "12%",
       "mean": "2%",
-      "unit": "%",
       "span": "4m"
     },
     "conns": {
@@ -811,13 +821,142 @@
       ],
       "lo": 0,
       "hi": 2.3,
+      "now": "2",
+      "sub": "connections",
       "peak": "2",
       "mean": "2",
-      "unit": "",
       "span": "4m"
     }
   },
-  "lastError": "panic: STRIPE_KEY is required",
+  "crash": {
+    "error": "panic: STRIPE_KEY is required",
+    "tries": "try 3 of 5",
+    "fraction": 0.6,
+    "nextIn": "4 s",
+    "gaveUp": false
+  },
+  "side": [
+    {
+      "name": "api",
+      "look": {
+        "word": "crashing",
+        "glyph": "✗",
+        "tone": "bad"
+      },
+      "note": "!",
+      "trouble": true
+    },
+    {
+      "name": "web",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "213 MB",
+      "trouble": false
+    },
+    {
+      "name": "worker",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "cache",
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "note": "11 MB",
+      "trouble": false
+    },
+    {
+      "name": "cloud",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "db",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "96 MB",
+      "trouble": false
+    },
+    {
+      "name": "events",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "mailpit",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "mongo",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "148 MB",
+      "trouble": false
+    },
+    {
+      "name": "search",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "migrate",
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "note": "done",
+      "trouble": false
+    },
+    {
+      "name": "seed",
+      "look": {
+        "word": "ready",
+        "glyph": "▸",
+        "tone": "dim"
+      },
+      "note": "ready",
+      "trouble": false
+    }
+  ],
   "banner": {
     "ok": true
   }

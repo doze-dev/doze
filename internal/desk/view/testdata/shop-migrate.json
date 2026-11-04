@@ -9,62 +9,202 @@
     "glyph": "✓",
     "tone": "good"
   },
-  "what": "ran 2m ago in 1.2s",
+  "path": "task · done · ran 2m ago in 1.2s",
   "because": "ran 2m ago in 1.2s",
+  "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
   "tabs": [
     {
       "id": "last run",
       "title": "last run"
     }
   ],
+  "recent": [
+    {
+      "at": "17:34:40",
+      "kind": "woke",
+      "text": "(asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "17:34:40",
+      "kind": "ready",
+      "text": "in 900ms",
+      "tone": "good"
+    },
+    {
+      "at": "16:34:40",
+      "kind": "woke",
+      "text": "(0014_carts.sql changed)",
+      "tone": "accent"
+    },
+    {
+      "at": "16:34:40",
+      "kind": "failed",
+      "text": "in 400ms: ",
+      "tone": "bad"
+    },
+    {
+      "at": "19:32:40",
+      "kind": "woke",
+      "text": "(0015_orders_index.sql changed)",
+      "tone": "accent"
+    },
+    {
+      "at": "19:32:41",
+      "kind": "ready",
+      "text": "in 1.2s",
+      "tone": "good"
+    }
+  ],
   "runs": [
     {
       "at": "2026-10-11T14:02:40Z",
+      "when": "19:32:40",
       "ago": "2m",
       "why": "0015_orders_index.sql changed",
-      "took": "0:01",
+      "took": "1.2s",
       "ok": true,
       "done": true
     },
     {
       "at": "2026-10-11T11:04:40Z",
+      "when": "16:34:40",
       "ago": "3h",
       "why": "0014_carts.sql changed",
-      "took": "0:00",
+      "took": "400ms",
       "ok": false,
       "done": true
     },
     {
       "at": "2026-10-10T12:04:40Z",
+      "when": "Oct 10",
       "ago": "26h",
       "why": "you asked",
-      "took": "0:01",
+      "took": "900ms",
       "ok": true,
       "done": true
+    }
+  ],
+  "side": [
+    {
+      "name": "api",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "84 MB",
+      "trouble": false
     },
     {
-      "at": "2026-10-11T14:02:40Z",
-      "ago": "2m",
-      "why": "0015_orders_index.sql changed",
-      "took": "0:01",
-      "ok": true,
-      "done": true
+      "name": "web",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "213 MB",
+      "trouble": false
     },
     {
-      "at": "2026-10-11T11:04:40Z",
-      "ago": "3h",
-      "why": "0014_carts.sql changed",
-      "took": "0:00",
-      "ok": false,
-      "done": true
+      "name": "worker",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
     },
     {
-      "at": "2026-10-10T12:04:40Z",
-      "ago": "26h",
-      "why": "you asked",
-      "took": "0:01",
-      "ok": true,
-      "done": true
+      "name": "cache",
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "note": "11 MB",
+      "trouble": false
+    },
+    {
+      "name": "cloud",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "db",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "96 MB",
+      "trouble": false
+    },
+    {
+      "name": "events",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "mailpit",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "mongo",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "148 MB",
+      "trouble": false
+    },
+    {
+      "name": "search",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "migrate",
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "note": "done",
+      "trouble": false
+    },
+    {
+      "name": "seed",
+      "look": {
+        "word": "ready",
+        "glyph": "▸",
+        "tone": "dim"
+      },
+      "note": "ready",
+      "trouble": false
     }
   ],
   "banner": {

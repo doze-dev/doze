@@ -24,6 +24,8 @@ type Options struct {
 	// quits the app that long after it starts; zero means never. For the
 	// desk bench.
 	CloseAfter, QuitAfter time.Duration
+	// Version is the doze this is, shown in the sidebar.
+	Version string
 }
 
 // ErrNotBuilt is returned when this binary was built without the app.

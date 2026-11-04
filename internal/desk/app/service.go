@@ -27,6 +27,9 @@ func (a *API) Stacks() []serve.StackSummary { return a.s.Stacks() }
 // Pending is where the page should start: the stack doze open asked for.
 func (a *API) Pending() serve.Nav { return a.s.Pending() }
 
+// Version is the doze this app is, for the sidebar's foot.
+func (a *API) Version() string { return a.s.Version() }
+
 // Home is a stack's home page.
 func (a *API) Home(key string) view.Home { return a.s.Home(key) }
 

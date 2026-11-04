@@ -11,6 +11,7 @@ export type { view, serve };
 export interface LogsChanged {
   instance: string;
   total: number;
+  version: number;
 }
 export interface Nav {
   key: string;
@@ -21,6 +22,7 @@ export interface Transport {
   stacks(): Promise<serve.StackSummary[]>;
   /** pending is the stack the app asked the page to open, once; an empty key means none. */
   pending(): Promise<Nav>;
+  version(): Promise<string>;
   home(key: string): Promise<view.Home>;
   instance(key: string, name: string): Promise<view.Instance>;
   logs(key: string, q: view.LogsQuery): Promise<view.Logs>;
@@ -30,6 +32,8 @@ export interface Transport {
   painted(ms: number): void;
   /** log sends a line to the app's stderr (a no-op in a browser). */
   log(line: string): void;
+  /** zoom toggles the window between its size and the screen, as a double-click on a title bar does. */
+  zoom(): void;
   /** on subscribes to a push by name; the returned function unsubscribes. */
   on<T>(event: string, fn: (data: T) => void): () => void;
 }
@@ -40,13 +44,14 @@ export function inWails(): boolean {
 }
 
 async function wails(): Promise<Transport> {
-  const [{ Events }, api] = await Promise.all([
+  const [{ Events, Window }, api] = await Promise.all([
     import("@wailsio/runtime"),
     import("./bindings/github.com/doze-dev/doze/internal/desk/app/api"),
   ]);
   return {
     stacks: () => api.Stacks().then((s) => s ?? []),
     pending: () => api.Pending(),
+    version: () => api.Version(),
     home: (key) => api.Home(key),
     instance: (key, name) => api.Instance(key, name),
     logs: (key, q) => api.Logs(key, q),
@@ -55,6 +60,7 @@ async function wails(): Promise<Transport> {
     do: (key, verb, target) => api.Do(key, verb, target),
     painted: (ms) => void api.Painted(ms),
     log: (line) => void api.Log(line),
+    zoom: () => void Window.ToggleMaximise(),
     on: (event, fn) => Events.On(event, (e: { data: unknown }) => fn(e.data as never)),
   };
 }
@@ -89,6 +95,7 @@ function http(): Transport {
   return {
     stacks: () => call("stacks", {}),
     pending: () => call("pending", {}),
+    version: () => call("version", {}),
     home: (key) => call("home", { key }),
     instance: (key, name) => call("instance", { key, name }),
     logs: (key, query) => call("logs", { key, query }),
@@ -97,6 +104,7 @@ function http(): Transport {
     do: (key, verb, target) => call("do", { key, verb, target }),
     painted: () => {},
     log: (line) => console.log(line),
+    zoom: () => {},
     on: (event, fn) => {
       const set = listeners.get(event) ?? new Set();
       set.add(fn as (data: unknown) => void);

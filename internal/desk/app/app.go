@@ -41,6 +41,8 @@ type Options struct {
 	// quits the app that long after it starts; zero means never. For the
 	// desk bench.
 	CloseAfter, QuitAfter time.Duration
+	// Version is the doze this is, shown in the sidebar.
+	Version string
 }
 
 // Run starts the app and blocks until it quits. A second launch hands its
@@ -55,6 +57,7 @@ func Run(o Options) error {
 	defer cleanup()
 	d := &desk{o: o, hub: h}
 	d.svc = serve.New(d.hub, nil)
+	d.svc.SetVersion(o.Version)
 	// A menu bar app: no Dock icon, and closing the window does not quit.
 	// Asked for a project, it starts as a regular app so macOS lets it come
 	// forward at launch; the window's close puts it back in the menu bar.

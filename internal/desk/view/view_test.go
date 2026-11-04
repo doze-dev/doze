@@ -97,15 +97,15 @@ func TestShopGoldens(t *testing.T) {
 	if home.Awake != 5 || home.Total != 10 || len(home.Groups) != 4 {
 		t.Errorf("awake %d total %d groups %d", home.Awake, home.Total, len(home.Groups))
 	}
-	if home.Meters.Mem.Shares[0].Name != "web" {
-		t.Errorf("the largest share is web; got %+v", home.Meters.Mem.Shares)
+	if home.Vitals.Mem.Shares[0].Name != "web" {
+		t.Errorf("the largest share is web; got %+v", home.Vitals.Mem.Shares)
 	}
 	golden(t, "shop-api", InstanceOf(st, "api", epoch))
 	golden(t, "shop-db", InstanceOf(st, "db", epoch))
 	golden(t, "shop-migrate", InstanceOf(st, "migrate", epoch))
 	golden(t, "shop-cloud", InstanceOf(st, "cloud", epoch))
-	golden(t, "shop-api-logs", LogsOf(LogsQuery{Instance: "api", N: 5}, h.Logs(key, "api"), epoch))
-	golden(t, "shop-all-logs-warn", LogsOf(LogsQuery{Level: 2}, h.Logs(key, ""), epoch))
+	golden(t, "shop-api-logs", LogsOf(LogsQuery{Instance: "api", N: 5}, h.Logs(key, "api"), nil, epoch))
+	golden(t, "shop-all-logs-warn", LogsOf(LogsQuery{Level: 2}, h.Logs(key, ""), st.Events, epoch))
 	if m := InstanceOf(st, "nothing", epoch); !m.Missing {
 		t.Error("an unknown instance is missing")
 	}
@@ -138,19 +138,19 @@ func TestLogsWindowAndFilters(t *testing.T) {
 		{Line: "WARN two", Time: epoch.Add(-2 * time.Second), Run: 1},
 		{Line: "ERROR three", Time: epoch.Add(-1 * time.Second), Run: 2},
 	}
-	all := LogsOf(LogsQuery{}, kept, epoch)
+	all := LogsOf(LogsQuery{}, kept, nil, epoch)
 	if all.Total != 3 || len(all.Lines) != 3 || len(all.Runs) != 2 {
 		t.Errorf("all = %+v", all)
 	}
-	warn := LogsOf(LogsQuery{Level: 2, From: 1, N: 5}, kept, epoch)
-	if warn.Total != 2 || len(warn.Lines) != 1 || warn.Lines[0].Line != "ERROR three" {
+	warn := LogsOf(LogsQuery{Level: 2, From: 1, N: 5}, kept, nil, epoch)
+	if warn.Total != 2 || len(warn.Lines) != 1 || warn.Lines[0].Line != "three" {
 		t.Errorf("warn window = %+v", warn)
 	}
-	run := LogsOf(LogsQuery{Run: 2}, kept, epoch)
+	run := LogsOf(LogsQuery{Run: 2}, kept, nil, epoch)
 	if run.Total != 1 {
 		t.Errorf("run 2 = %+v", run)
 	}
-	search := LogsOf(LogsQuery{Search: "TWO"}, kept, epoch)
+	search := LogsOf(LogsQuery{Search: "TWO"}, kept, nil, epoch)
 	if search.Total != 1 || search.Lines[0].Level != "WRN" {
 		t.Errorf("search = %+v", search)
 	}

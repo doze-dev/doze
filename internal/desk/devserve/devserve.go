@@ -31,6 +31,8 @@ type Options struct {
 	Fixture string
 	// Out is where the URL is printed once listening.
 	Out *os.File
+	// Version is the doze this is.
+	Version string
 }
 
 // Fixtures are the scripted stacks a fixture run can serve.
@@ -48,6 +50,7 @@ func Run(ctx context.Context, o Options) error {
 	}
 	defer cleanup()
 	svc := serve.New(h, nil)
+	svc.SetVersion(o.Version)
 	api := serve.Handler(svc) // sets the service's emitter to its event stream
 	mux := http.NewServeMux()
 	mux.Handle("/api/", api)

@@ -1,151 +1,335 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { go, run } from "../store";
 import type { view } from "../transport";
-import { Chart } from "../components/chart";
+import { ChartCard } from "../components/chart";
+import { KVRows } from "../components/card";
+import { Keys } from "../components/keys";
+import { Dot } from "../components/sidebar";
 import { LogsPage } from "./logs";
 
-// An instance: its state and story at the top, then its tabs, as the dash
-// laid them out: overview (vitals, needs, address), logs, a task's runs.
+// An instance, as the Instance, Cache, Mailpit, Task and Crash boards lay
+// it out: the head line, its verbs, the tabs, and the overview's cards.
 export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
   const tabs = inst.tabs ?? [];
   const [tab, setTab] = useState(tabs[0]?.id ?? "logs");
   const current = tabs.some((t) => t.id === tab) ? tab : (tabs[0]?.id ?? "logs");
+  const task = inst.kind === "task";
+  const awake = inst.look.word === "awake" || inst.look.word === "dozing";
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      switch (e.key) {
+        case "Escape":
+          void go({ key: stackKey, page: "home" });
+          break;
+        case "Tab": {
+          e.preventDefault();
+          const i = tabs.findIndex((t) => t.id === current);
+          const next = tabs[(i + (e.shiftKey ? tabs.length - 1 : 1)) % tabs.length];
+          if (next) setTab(next.id);
+          break;
+        }
+        case "r":
+          void run(stackKey, task ? "task" : "restart", inst.name);
+          break;
+        case "s":
+          if (!task && awake) void run(stackKey, "sleep", inst.name);
+          break;
+        case "w":
+          if (!task && !awake) void run(stackKey, "wake", inst.name);
+          break;
+        case "p":
+          if (inst.kind === "module") void run(stackKey, "pin", inst.name);
+          break;
+        case "y": {
+          const url = inst.connect?.find((r) => r.k === "URL" || r.k === "Address")?.copy;
+          if (url) void navigator.clipboard?.writeText(url);
+          break;
+        }
+        case "l":
+          setTab("logs");
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stackKey, inst, tabs, current, task, awake]);
+
   if (inst.missing) {
     return (
-      <div className="instance">
-        <p className="muted">
-          {inst.stack} has nothing called {inst.name}.
-        </p>
+      <div className="empty">
+        {inst.stack} has nothing called {inst.name}.
       </div>
     );
   }
-  const task = inst.kind === "task";
   return (
-    <div className={"instance tone-" + inst.look.tone + (inst.banner.ok ? "" : " faded")}>
-      <header className="page-head">
-        <button className="back" onClick={() => void go({ key: stackKey, page: "home" })} aria-label="Back to the stack">
-          ‹ {inst.stack}
-        </button>
-        <h1>
-          <span className="glyph" aria-hidden>
+    <>
+      <div className={"head" + (inst.banner.ok ? "" : " faded")}>
+        {task ? (
+          <span className={"tone-" + inst.look.tone} style={{ fontSize: 16 }} aria-hidden>
             {inst.look.glyph}
-          </span>{" "}
-          {inst.name}
-        </h1>
-        <span className="word">{inst.look.word}</span>
-        {inst.up && <span className="muted">up {inst.up}</span>}
-        <span className="verbs">
-          {task ? (
-            <button onClick={() => void run(stackKey, "task", inst.name)}>run now</button>
-          ) : (
-            <>
-              <button onClick={() => void run(stackKey, "wake", inst.name)} disabled={inst.look.word === "awake" || inst.look.word === "dozing"}>
-                wake
+          </span>
+        ) : (
+          <Dot look={inst.look} trouble={!!inst.crash} />
+        )}
+        <h1>{inst.name}</h1>
+        <span className="path">{inst.path}</span>
+        <span className="grow" />
+        {task ? (
+          <>
+            <span className="dim mono">doze task {inst.name}</span>
+            <button className="btn pri" onClick={() => void run(stackKey, "task", inst.name)}>
+              Run now <kbd>r</kbd>
+            </button>
+          </>
+        ) : inst.crash ? (
+          <>
+            <button className="btn" disabled title="Needs work in doze first">
+              Stop retrying
+            </button>
+            <button className="btn pri" onClick={() => void run(stackKey, "restart", inst.name)}>
+              Retry now <kbd>r</kbd>
+            </button>
+          </>
+        ) : awake ? (
+          <>
+            {inst.kind === "module" && (
+              <button className="btn" onClick={() => void run(stackKey, "pin", inst.name)}>
+                Pin awake <kbd>p</kbd>
               </button>
-              <button onClick={() => void run(stackKey, "sleep", inst.name)} disabled={!(inst.look.word === "awake" || inst.look.word === "dozing")}>
-                sleep
-              </button>
-              <button onClick={() => void run(stackKey, "restart", inst.name)}>restart</button>
-            </>
-          )}
-        </span>
-      </header>
-      <p className="story">
-        <span>{inst.what}</span>
-        <span className="muted"> · {inst.because}</span>
-        {inst.hint && <span className="muted"> · {inst.hint}</span>}
-      </p>
-      {inst.lastError && <p className="notice bad">{inst.lastError}</p>}
-      <nav className="subtabs" role="tablist">
+            )}
+            <button className="btn" onClick={() => void run(stackKey, "restart", inst.name)}>
+              Restart <kbd>r</kbd>
+            </button>
+            <button className="btn" onClick={() => void run(stackKey, "sleep", inst.name)}>
+              Sleep <kbd>s</kbd>
+            </button>
+          </>
+        ) : (
+          <button className="btn" onClick={() => void run(stackKey, "wake", inst.name)}>
+            Wake <kbd>w</kbd>
+          </button>
+        )}
+      </div>
+      <nav className="tabs" role="tablist">
         {tabs.map((t) => (
-          <button key={t.id} role="tab" aria-selected={t.id === current} className={t.id === current ? "current" : ""} onClick={() => setTab(t.id)}>
+          <button key={t.id} role="tab" aria-selected={t.id === current} className={"tab" + (t.id === current ? " on" : "")} onClick={() => setTab(t.id)}>
             {t.title}
           </button>
         ))}
+        {!task && (
+          <button className="tab" disabled title="Needs work in doze first">
+            Terminal <span className="new">new</span>
+          </button>
+        )}
       </nav>
-      {current === "overview" && <Overview inst={inst} />}
-      {current === "logs" && <LogsPage stackKey={stackKey} instance={inst.name} embedded />}
-      {current === "last run" && <Runs runs={inst.runs ?? []} />}
-      {current === "web console" && (
-        <div className="web">
-          <a href={inst.web} target="_blank" rel="noreferrer">
-            {inst.web}
-          </a>
-        </div>
-      )}
-    </div>
+      {current === "overview" && <Overview inst={inst} stackKey={stackKey} />}
+      {current === "logs" && <LogsPage stackKey={stackKey} instance={inst.name} embedded inst={inst} />}
+      {current === "last run" && <LastRun inst={inst} />}
+      {current === "web console" && <WebConsole inst={inst} stackKey={stackKey} />}
+      <Keys
+        keys={
+          task
+            ? [
+                ["r", "run now"],
+                ["l", "logs"],
+                ["esc", "back"],
+              ]
+            : [
+                ["esc", "back"],
+                ["tab", "next tab"],
+                ["y", "copy URL"],
+                ...(awake ? ([["s", "sleep"], ["r", "restart"]] as Array<[string, string]>) : ([["w", "wake"]] as Array<[string, string]>)),
+              ]
+        }
+        note={task ? "A task's page is its last run, as in the TUI" : "the same tabs as the TUI's focus page"}
+      />
+    </>
   );
 }
 
-function Overview({ inst }: { inst: view.Instance }) {
+function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
   return (
-    <div className="overview">
-      {inst.address && (
-        <dl className="facts">
-          <dt>address</dt>
-          <dd>
-            <code>{inst.address}</code>
-          </dd>
-          {inst.url && (
-            <>
-              <dt>connect</dt>
-              <dd>
-                <code>{inst.url}</code>
-              </dd>
-            </>
-          )}
-          {inst.inUse && (
-            <>
-              <dt>in use by</dt>
-              <dd>{inst.inUse}</dd>
-            </>
-          )}
-          {inst.pid ? (
-            <>
-              <dt>pid</dt>
-              <dd>{inst.pid}</dd>
-            </>
-          ) : null}
-        </dl>
-      )}
-      {inst.vitals && (
-        <div className="vitals">
-          <Chart label="memory" chart={inst.vitals.ram} />
-          <Chart label="cpu" chart={inst.vitals.cpu} />
-          <Chart label="connections" chart={inst.vitals.conns} />
-        </div>
-      )}
-      {(inst.needs ?? []).length > 0 && (
-        <div className="needs">
-          <span className="muted">needs</span>
-          {(inst.needs ?? []).map((n) => (
-            <span key={n.name} className={"need tone-" + n.look.tone}>
-              <span className="glyph" aria-hidden>
-                {n.glyph}
-              </span>{" "}
-              {n.name}
-            </span>
+    <div className="grid2">
+      <div className="col">
+        {inst.crash && (
+          <section className="card danger">
+            <h3 className="bad">It exited</h3>
+            <div className="mono bright" style={{ fontSize: 13, lineHeight: "22px" }}>
+              {inst.crash.error || "no error text"}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn" onClick={() => void navigator.clipboard?.writeText(inst.crash?.error ?? "")}>
+                Copy the error
+              </button>
+            </div>
+          </section>
+        )}
+        {inst.crash && (inst.crash.tries || inst.crash.nextIn) && (
+          <section className="card">
+            <h3>What doze does next</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="bar" style={{ flex: 1, height: 8 }}>
+                <i className="c4" style={{ width: `${inst.crash.fraction * 100}%` }} />
+              </div>
+              <span className="bright">{inst.crash.tries}</span>
+            </div>
+            <div>
+              {inst.crash.gaveUp ? (
+                <>It stopped retrying and waits for you; nothing else in the stack is touched.</>
+              ) : (
+                <>
+                  next try in <b className="bright">{inst.crash.nextIn || "a moment"}</b>. After the last it stops and waits for you; nothing else in the stack is touched.
+                </>
+              )}
+            </div>
+          </section>
+        )}
+        {(inst.connect ?? []).length > 0 && (
+          <section className="card">
+            <h3>Connect</h3>
+            <KVRows rows={inst.connect ?? []} />
+          </section>
+        )}
+        <section className="card">
+          <h3>{inst.look.word === "awake" ? "Why it's awake" : "Awake because"}</h3>
+          {(inst.holders ?? []).map((p) => (
+            <div key={p.text} className="why">
+              <span className="pill">
+                <span className="dot g" /> {p.text}
+              </span>
+              <span className="dim">{p.explain}</span>
+            </div>
           ))}
-        </div>
-      )}
+          {inst.dozing && (
+            <div className="why">
+              <span className="pill">
+                <span className="dot y" /> <span className="warn">sleeps in {inst.dozing.left}</span>
+              </span>
+              <div className="bar" style={{ flex: 1 }}>
+                <i className="c3" style={{ width: `${inst.dozing.fraction * 100}%` }} />
+              </div>
+            </div>
+          )}
+          {(inst.holders ?? []).length === 0 && !inst.dozing && inst.sleeps && <div className="bright">{inst.sleeps}</div>}
+          {((inst.holders ?? []).length > 0 || inst.dozing) && <div className="dim">{inst.sleeps}</div>}
+        </section>
+        {(inst.needs ?? []).length > 0 && (
+          <section className="card">
+            <h3>Needs</h3>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {(inst.needs ?? []).map((n) => (
+                <button key={n.name} className="pill" onClick={() => n.known && void go({ key: stackKey, page: "instance", instance: n.name })}>
+                  <span className={"tone-" + n.look.tone}>{n.glyph}</span> {n.name} <span className="dim">{n.look.word}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        <section className="card" style={{ flex: 1 }}>
+          <h3>Recent</h3>
+          <div className="mono recent">
+            {(inst.recent ?? []).map((r, i) => (
+              <div key={i}>
+                <span className="dim">{r.at}</span> <span className={"tone-" + r.tone}>{r.kind}</span> {r.text}
+              </div>
+            ))}
+            {(inst.recent ?? []).length === 0 && <div className="dim">nothing yet</div>}
+          </div>
+        </section>
+      </div>
+      <div className="col">
+        {inst.vitals ? (
+          <>
+            <ChartCard title="Memory" chart={inst.vitals.ram} color="cool" tall />
+            <ChartCard title="CPU" chart={inst.vitals.cpu} color="accent" tall />
+            <ChartCard title="Connections" chart={inst.vitals.conns} color="good" />
+          </>
+        ) : (
+          <section className="card">
+            <h3>Vitals</h3>
+            <div className="dim">{inst.look.word === "asleep" ? "Asleep, it costs nothing until something connects; its data stays." : "no readings yet"}</div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }
 
-function Runs({ runs }: { runs: view.Run[] }) {
-  if (runs.length === 0) return <p className="muted">It has not run yet.</p>;
+function LastRun({ inst }: { inst: view.Instance }) {
+  const runs = inst.runs ?? [];
+  const last = runs[0];
   return (
-    <ol className="run-list">
-      {runs.map((r) => (
-        <li key={r.at} className={r.done ? (r.ok ? "tone-good" : "tone-bad") : "tone-cool"}>
-          <span className="glyph" aria-hidden>
-            {r.done ? (r.ok ? "✓" : "✗") : "◌"}
-          </span>
-          <span className="ago">{r.ago} ago</span>
-          <span className="why">{r.why}</span>
-          <span className="muted">{r.took}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="grid2" style={{ gridTemplateColumns: "minmax(0,1fr) 340px" }}>
+      <div className="col">
+        <div className="dock" style={{ margin: 0 }}>
+          <div className="cap">
+            <b>{inst.name}</b>
+            <span>{last ? `ran ${last.when} · ${last.ok ? "ok" : "failed"} · ${last.took}` : "has not run"}</span>
+            <span className="grow" />
+            <span>its output</span>
+          </div>
+          <LogsPage stackKey={inst.key} instance={inst.name} embedded bare />
+        </div>
+      </div>
+      <div className="col">
+        <section className="box" style={{ flex: 1 }}>
+          <h3>history</h3>
+          <div className="hist h">
+            <span />
+            <span>when</span>
+            <span>why</span>
+            <span className="r">took</span>
+          </div>
+          {runs.map((r) => (
+            <div key={r.at} className="hist">
+              <span className={r.done ? (r.ok ? "ok" : "bad") : "cool"}>{r.done ? (r.ok ? "✓" : "✗") : "◌"}</span>
+              <span className="mono">{r.when}</span>
+              <span>{r.why}</span>
+              <span className="r">{r.took}</span>
+            </div>
+          ))}
+          {runs.length === 0 && <div className="dim">it has not run yet · r run now</div>}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function WebConsole({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
+  const asleep = inst.look.word === "asleep";
+  return (
+    <div className="grid2" style={{ gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)" }}>
+      <div className="col">
+        <section className="card">
+          <h3>{inst.name} has its own console</h3>
+          <div className="mono bright" style={{ fontSize: 13 }}>
+            {inst.web}
+          </div>
+          {asleep && <div>It is asleep. Opening the console wakes it first.</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <a className="btn pri" href={inst.web} target="_blank" rel="noreferrer">
+              Open in browser <kbd>o</kbd>
+            </a>
+            {asleep && (
+              <button className="btn" onClick={() => void run(stackKey, "wake", inst.name)}>
+                Just wake it <kbd>w</kbd>
+              </button>
+            )}
+          </div>
+        </section>
+      </div>
+      <div className="col">
+        {(inst.connect ?? []).length > 0 && (
+          <section className="card">
+            <h3>what doze can still tell you</h3>
+            <KVRows rows={inst.connect ?? []} />
+          </section>
+        )}
+      </div>
+    </div>
   );
 }

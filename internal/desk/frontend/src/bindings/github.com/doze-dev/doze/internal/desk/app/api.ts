@@ -90,3 +90,10 @@ export function Pending(): $CancellablePromise<serve$0.Nav> {
 export function Stacks(): $CancellablePromise<serve$0.StackSummary[] | null> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Stacks");
 }
+
+/**
+ * Version is the doze this app is, for the sidebar's foot.
+ */
+export function Version(): $CancellablePromise<string> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Version");
+}

@@ -56,6 +56,8 @@ type StackView struct {
 	Key string
 	// Name is the stack's name; Dir is the folder its doze.hcl is in.
 	Name, Dir string
+	// IdleTimeout is the stack's idle time before a service sleeps.
+	IdleTimeout time.Duration
 	// Running says a daemon holds the control socket.
 	Running bool
 	// Conn, RetryAt and LastFrame describe the connection to a running daemon.

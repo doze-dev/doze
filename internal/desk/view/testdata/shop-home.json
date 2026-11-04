@@ -6,9 +6,9 @@
   "banner": {
     "ok": true
   },
-  "meters": {
+  "vitals": {
     "mem": {
-      "total": "552",
+      "total": "552 MB",
       "shares": [
         {
           "name": "web",
@@ -36,7 +36,7 @@
           "label": "11"
         }
       ],
-      "idle": 2
+      "key": "web 213 · mongo 148 · db 96 · +2 more"
     },
     "cpu": {
       "total": "0.03 cores",
@@ -44,26 +44,38 @@
         {
           "name": "api",
           "part": 0.623,
-          "label": "0.02 cores"
+          "label": "1.6%"
         },
         {
           "name": "db",
           "part": 0.247,
-          "label": "0.01 cores"
+          "label": "0.7%"
         },
         {
           "name": "web",
           "part": 0.13,
-          "label": "\u003c0.01 cores"
+          "label": "0.3%"
         }
       ],
-      "idle": 4
+      "key": "api 1.6% · db 0.7% · 4 awake, the rest idle"
+    },
+    "state": {
+      "awake": 4,
+      "dozing": 1,
+      "waking": 2,
+      "asleep": 3,
+      "sleeps": "sleeps after 5:00 with nothing holding it"
+    },
+    "conns": {
+      "open": 6,
+      "tasks": "tasks ✓ 1 done · ▸ 1 ready"
     }
   },
   "groups": [
     {
       "title": "APPS",
       "what": "your code",
+      "count": 3,
       "rows": [
         {
           "name": "api",
@@ -73,9 +85,13 @@
             "glyph": "●",
             "tone": "good"
           },
-          "runs": "go run ./cmd/api",
-          "because": "nothing holds it",
+          "engine": "process",
           "mem": "84 MB",
+          "cpu": "1.6",
+          "conns": "2",
+          "up": "14m",
+          "because": "nothing holds it",
+          "becauseTone": "dim",
           "addr": "http://api.shop.doze",
           "port": ":8080",
           "awake": true,
@@ -90,9 +106,13 @@
             "glyph": "●",
             "tone": "good"
           },
-          "runs": "pnpm dev",
-          "because": "nothing holds it",
+          "engine": "process",
           "mem": "213 MB",
+          "cpu": "0.3",
+          "conns": "0",
+          "up": "14m",
+          "because": "nothing holds it",
+          "becauseTone": "dim",
           "awake": true,
           "trouble": false,
           "depth": 0
@@ -105,10 +125,9 @@
             "glyph": "◌",
             "tone": "cool"
           },
-          "runs": "go run ./cmd/worker",
+          "engine": "process",
           "because": "waiting on events",
-          "mem": "—",
-          "hint": "waiting on events",
+          "becauseTone": "warn",
           "awake": false,
           "trouble": false,
           "depth": 0
@@ -118,6 +137,7 @@
     {
       "title": "MODULES",
       "what": "from the doze registry",
+      "count": 4,
       "rows": [
         {
           "name": "cache",
@@ -127,9 +147,12 @@
             "glyph": "◐",
             "tone": "warn"
           },
-          "runs": "valkey 9",
-          "because": "idle: sleeps soon",
+          "engine": "valkey 9",
           "mem": "11 MB",
+          "cpu": "0.0",
+          "conns": "0",
+          "because": "idle: sleeps soon",
+          "becauseTone": "warn",
           "awake": true,
           "trouble": false,
           "depth": 1
@@ -142,9 +165,9 @@
             "glyph": "·",
             "tone": "dim"
           },
-          "runs": "aws",
+          "engine": "aws",
           "because": "wakes on a connection",
-          "mem": "0",
+          "becauseTone": "dim",
           "awake": false,
           "trouble": false,
           "depth": 0
@@ -157,9 +180,13 @@
             "glyph": "●",
             "tone": "good"
           },
-          "runs": "db.shop.doze:5432",
-          "because": "api needs it · 4 connections",
+          "engine": "postgres 17",
           "mem": "96 MB",
+          "cpu": "0.7",
+          "conns": "4",
+          "up": "14m",
+          "because": "api needs it · 4 connections",
+          "becauseTone": "dim",
           "addr": "postgres://shop@db.shop.doze:5432/shop",
           "awake": true,
           "trouble": false,
@@ -173,10 +200,9 @@
             "glyph": "◌",
             "tone": "cool"
           },
-          "runs": "kafka",
+          "engine": "kafka",
           "because": "woken by worker",
-          "mem": "—",
-          "hint": "woken by worker",
+          "becauseTone": "warn",
           "awake": false,
           "trouble": false,
           "depth": 1
@@ -186,6 +212,7 @@
     {
       "title": "OUTSIDE",
       "what": "brought in by you",
+      "count": 3,
       "rows": [
         {
           "name": "mailpit",
@@ -195,9 +222,9 @@
             "glyph": "·",
             "tone": "dim"
           },
-          "runs": "mailpit --smtp 127.0.0.1:$PORT",
+          "engine": "process",
           "because": "starts when needed",
-          "mem": "0",
+          "becauseTone": "dim",
           "addr": "http://mailpit.shop.doze",
           "awake": false,
           "trouble": false,
@@ -211,9 +238,12 @@
             "glyph": "●",
             "tone": "good"
           },
-          "runs": "bin/mongod --dbpath $DATA",
-          "because": "api needs it",
+          "engine": "process",
           "mem": "148 MB",
+          "cpu": "0.0",
+          "conns": "0",
+          "because": "api needs it",
+          "becauseTone": "dim",
           "awake": true,
           "trouble": false,
           "depth": 1
@@ -226,9 +256,9 @@
             "glyph": "·",
             "tone": "dim"
           },
-          "runs": "docker run getmeili/meilisearch",
+          "engine": "process",
           "because": "starts when needed",
-          "mem": "0",
+          "becauseTone": "dim",
           "awake": false,
           "trouble": false,
           "depth": 0
@@ -238,6 +268,7 @@
     {
       "title": "TASKS",
       "what": "run once, then out of the way",
+      "count": 2,
       "rows": [
         {
           "name": "migrate",
@@ -247,8 +278,9 @@
             "glyph": "✓",
             "tone": "good"
           },
-          "runs": "",
+          "engine": "task",
           "because": "ran 2m ago in 1.2s",
+          "becauseTone": "dim",
           "awake": false,
           "trouble": false,
           "depth": 1
@@ -261,13 +293,136 @@
             "glyph": "▸",
             "tone": "dim"
           },
-          "runs": "",
+          "engine": "task",
           "because": "not run yet",
+          "becauseTone": "dim",
           "awake": false,
           "trouble": false,
           "depth": 0
         }
       ]
+    }
+  ],
+  "side": [
+    {
+      "name": "api",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "84 MB",
+      "trouble": false
+    },
+    {
+      "name": "web",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "213 MB",
+      "trouble": false
+    },
+    {
+      "name": "worker",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "cache",
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "note": "11 MB",
+      "trouble": false
+    },
+    {
+      "name": "cloud",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "db",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "96 MB",
+      "trouble": false
+    },
+    {
+      "name": "events",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "mailpit",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "mongo",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "148 MB",
+      "trouble": false
+    },
+    {
+      "name": "search",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "migrate",
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "note": "done",
+      "trouble": false
+    },
+    {
+      "name": "seed",
+      "look": {
+        "word": "ready",
+        "glyph": "▸",
+        "tone": "dim"
+      },
+      "note": "ready",
+      "trouble": false
     }
   ],
   "awake": 5,

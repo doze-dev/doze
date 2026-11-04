@@ -51,6 +51,7 @@ func Handler(s *Service) http.Handler {
 		}
 		return s.Instance(a.Key, a.Name), nil
 	})
+	call("version", func(json.RawMessage) (any, error) { return s.Version(), nil })
 	call("logs", func(b json.RawMessage) (any, error) {
 		var a struct {
 			Key   string
