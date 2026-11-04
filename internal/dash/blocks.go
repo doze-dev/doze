@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // The block engine. A module publishes a tree of rows, columns and blocks with
@@ -293,7 +294,7 @@ func (m *Model) render(col control.ConsoleColumn, row control.ConsoleRow) (strin
 		}
 	case "bytes":
 		if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
-			text = mb(n)
+			text = display.MB(n)
 		}
 	case "rate":
 		text = row.Cells["_rate:"+col.Key]

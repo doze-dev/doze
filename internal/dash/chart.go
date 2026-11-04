@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // A chart as the dash draws it: the metric's name and figure over it, the scale
@@ -250,7 +251,7 @@ func spanWord(n int) string {
 	if d >= time.Minute && d%time.Minute != 0 && d < 10*time.Minute {
 		return fmt.Sprintf("%dm %02ds", int(d.Minutes()), int(d.Seconds())%60)
 	}
-	return ago(d)
+	return display.Ago(d)
 }
 
 // pct and count are the scales' labels.
@@ -258,7 +259,7 @@ func pct(v float64) string { return fmt.Sprintf("%.0f%%", v) }
 func count(v float64) string {
 	return fmt.Sprintf("%.0f", v)
 }
-func bytesLabel(v float64) string { return mb(int64(v)) }
+func bytesLabel(v float64) string { return display.MB(int64(v)) }
 
 // squeezeTimed is squeeze for readings that carry the time they were taken: the
 // merged column keeps the newest of the times it covers.

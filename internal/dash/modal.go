@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // A modal sits over the dimmed page: the command palette (Palette.dc.html) and
@@ -79,10 +80,10 @@ func (m *Model) actions() []action {
 			}
 			add(action{label: verb + n, cli: "doze task " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbTask, n) }})
 		} else {
-			if !awake(v) {
+			if !display.AwakeNow(v) {
 				add(action{label: "wake " + n, cli: "doze wake " + n, run: func(m *Model) tea.Cmd { return m.do(control.VerbWake, n) }})
 			}
-			if awake(v) {
+			if display.AwakeNow(v) {
 				add(action{label: "sleep " + n, cli: "doze sleep " + n, run: func(m *Model) tea.Cmd { return m.askSleep(n) }})
 				add(action{label: "restart " + n, cli: "doze restart " + n, run: func(m *Model) tea.Cmd { return m.askRestart(n) }})
 			}
@@ -109,7 +110,7 @@ func (m *Model) actions() []action {
 		}
 	}
 
-	rs := rows(m.snap)
+	rs := display.Rows(m.snap)
 	rank = 0
 	if v, ok := m.selected(); ok {
 		forInstance(v)
@@ -131,8 +132,8 @@ func (m *Model) actions() []action {
 	rank = 2
 	for _, awakeFirst := range []bool{true, false} {
 		for _, r := range rs {
-			if r.v.Name != m.sel && awake(r.v) == awakeFirst {
-				forInstance(r.v)
+			if r.V.Name != m.sel && display.AwakeNow(r.V) == awakeFirst {
+				forInstance(r.V)
 			}
 		}
 	}
@@ -658,7 +659,7 @@ func (m *Model) resetBox(w int) []string {
 		bw = w
 	}
 	label := func(k string) string { return s.d.Render(fit(k, 9)) + " " }
-	folder := tilde(v.DataDir)
+	folder := display.Tilde(v.DataDir)
 	if folder == "" {
 		folder = "its data folder"
 	}
@@ -751,7 +752,7 @@ func (m *Model) askRestart(target string) tea.Cmd {
 	if c := m.refuse(); c != nil {
 		return c
 	}
-	if awake(v) && v.Kind != "task" && inUse(v) != "" {
+	if display.AwakeNow(v) && v.Kind != "task" && inUse(v) != "" {
 		m.modal = &modal{kind: modalRestart, target: target}
 		return nil
 	}

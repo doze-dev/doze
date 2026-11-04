@@ -105,8 +105,8 @@ func (m *Model) stackLines(n int) []string {
 	names := map[string]int{}
 	nameW := 4
 	for i, r := range m.ordered() {
-		names[r.v.Name] = i
-		nameW = max(nameW, min(width(r.v.Name), 16))
+		names[r.V.Name] = i
+		nameW = max(nameW, min(width(r.V.Name), 16))
 	}
 	q := strings.ToLower(m.search)
 	var items []item

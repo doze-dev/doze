@@ -46,11 +46,11 @@ func (m *Model) matches(v control.InstanceView) bool {
 func treeOrder(rs []row) (out []row, depth map[string]int) {
 	byName := map[string]row{}
 	for _, r := range rs {
-		byName[r.v.Name] = r
+		byName[r.V.Name] = r
 	}
 	needed := map[string]bool{}
 	for _, r := range rs {
-		for _, n := range r.v.Needs {
+		for _, n := range r.V.Needs {
 			if _, ok := byName[n]; ok {
 				needed[n] = true
 			}
@@ -60,20 +60,20 @@ func treeOrder(rs []row) (out []row, depth map[string]int) {
 	seen := map[string]bool{}
 	var walk func(r row, d int)
 	walk = func(r row, d int) {
-		if seen[r.v.Name] {
+		if seen[r.V.Name] {
 			return
 		}
-		seen[r.v.Name] = true
-		depth[r.v.Name] = d
+		seen[r.V.Name] = true
+		depth[r.V.Name] = d
 		out = append(out, r)
-		for _, n := range r.v.Needs {
+		for _, n := range r.V.Needs {
 			if c, ok := byName[n]; ok {
 				walk(c, d+1)
 			}
 		}
 	}
 	for _, r := range rs {
-		if !needed[r.v.Name] {
+		if !needed[r.V.Name] {
 			walk(r, 0)
 		}
 	}
@@ -85,11 +85,11 @@ func treeOrder(rs []row) (out []row, depth map[string]int) {
 
 // ordered is rows, in the order the table shows them.
 func (m *Model) ordered() []row {
-	rs := rows(m.snap)
+	rs := display.Rows(m.snap)
 	if m.filter != "" {
 		var keep []row
 		for _, r := range rs {
-			if m.matches(r.v) {
+			if m.matches(r.V) {
 				keep = append(keep, r)
 			}
 		}
@@ -104,7 +104,7 @@ func (m *Model) ordered() []row {
 	}
 	rank := func(v control.InstanceView) int {
 		switch {
-		case troubled(v):
+		case display.Troubled(v):
 			return 0
 		case v.State == "booting":
 			return 1
@@ -121,14 +121,14 @@ func (m *Model) ordered() []row {
 			at[n] = i
 		}
 		pos := func(r row) int {
-			if i, ok := at[r.v.Name]; ok {
+			if i, ok := at[r.V.Name]; ok {
 				return i
 			}
 			return len(at)
 		}
 		sort.SliceStable(rs, func(i, j int) bool {
-			if rs[i].group != rs[j].group {
-				return rs[i].group < rs[j].group
+			if rs[i].Group != rs[j].Group {
+				return rs[i].Group < rs[j].Group
 			}
 			return pos(rs[i]) < pos(rs[j])
 		})
@@ -137,19 +137,19 @@ func (m *Model) ordered() []row {
 	defer func() {
 		m.held, m.heldBy = m.held[:0], m.sortBy
 		for _, r := range rs {
-			m.held = append(m.held, r.v.Name)
+			m.held = append(m.held, r.V.Name)
 		}
 	}()
 	sort.SliceStable(rs, func(i, j int) bool {
 		a, b := rs[i], rs[j]
-		if a.group != b.group {
-			return a.group < b.group
+		if a.Group != b.Group {
+			return a.Group < b.Group
 		}
 		switch m.sortBy {
 		case sortMem:
-			return a.v.RAM > b.v.RAM
+			return a.V.RAM > b.V.RAM
 		case sortState:
-			return rank(a.v) < rank(b.v)
+			return rank(a.V) < rank(b.V)
 		}
 		return false
 	})
@@ -177,16 +177,16 @@ func (m *Model) because(v control.InstanceView) string {
 		switch {
 		case v.State == "booting":
 			if !v.StartedAt.IsZero() && m.now.After(v.StartedAt) {
-				return "running now · " + ago(m.now.Sub(v.StartedAt))
+				return "running now · " + display.Ago(m.now.Sub(v.StartedAt))
 			}
 			return "running now"
 		case v.Task == nil:
 			return "not run yet"
 		case v.Task.Result == "failed":
-			return fmt.Sprintf("exit %d · ran %s ago", v.Task.ExitCode, ago(m.now.Sub(v.Task.RanAt)))
+			return fmt.Sprintf("exit %d · ran %s ago", v.Task.ExitCode, display.Ago(m.now.Sub(v.Task.RanAt)))
 		}
-		return fmt.Sprintf("ran %s ago in %s", ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100*time.Millisecond))
-	case troubled(v):
+		return fmt.Sprintf("ran %s ago in %s", display.Ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100*time.Millisecond))
+	case display.Troubled(v):
 		if v.RestartMax > 0 {
 			out := fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax)
 			if left := v.NextRestart.Sub(m.now).Round(time.Second); left > 0 {
@@ -196,12 +196,12 @@ func (m *Model) because(v control.InstanceView) string {
 		}
 		return display.FirstLine(v.LastError)
 	case v.State == "booting":
-		if h := m.hint(v); h != "" {
+		if h := display.Hint(v, m.snap, m.now); h != "" {
 			return h
 		}
 		return "starting"
 	}
-	if awake(v) {
+	if display.AwakeNow(v) {
 		var by []string
 		for _, h := range v.Holders {
 			switch h.Kind {
@@ -218,7 +218,7 @@ func (m *Model) because(v control.InstanceView) string {
 				break // a dozing instance is held by nothing, whatever declared it
 			}
 			for _, n := range o.Needs {
-				if n == v.Name && awake(o) && !strings.Contains(strings.Join(by, " "), o.Name+" needs") {
+				if n == v.Name && display.AwakeNow(o) && !strings.Contains(strings.Join(by, " "), o.Name+" needs") {
 					by = append(by, o.Name+" needs it")
 				}
 			}
@@ -229,7 +229,7 @@ func (m *Model) because(v control.InstanceView) string {
 		case v.AlwaysOn:
 			return "runs until stopped"
 		case v.State == "idle":
-			if h := m.hint(v); h != "" {
+			if h := display.Hint(v, m.snap, m.now); h != "" {
 				return h
 			}
 			return "idle: sleeps soon"
@@ -248,12 +248,12 @@ func (m *Model) because(v control.InstanceView) string {
 func (m *Model) runs(v control.InstanceView) string {
 	switch v.Kind {
 	case "module":
-		if a := address(v); a != "" {
+		if a := display.Address(v); a != "" {
 			return a
 		}
 		return strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin"))
 	}
-	return short(v.Run)
+	return display.ShortRun(v.Run)
 }
 
 type tcol struct {
@@ -279,10 +279,10 @@ func (m *Model) homeTable(w, h int) []string {
 	if len(rs) > 0 {
 		found := false
 		for _, r := range rs {
-			found = found || r.v.Name == m.sel
+			found = found || r.V.Name == m.sel
 		}
 		if !found {
-			m.sel = rs[0].v.Name // the filter took the selection away
+			m.sel = rs[0].V.Name // the filter took the selection away
 		}
 	}
 	var depth map[string]int
@@ -297,9 +297,9 @@ func (m *Model) homeTable(w, h int) []string {
 	var ram int64
 	var cpu float64
 	for _, r := range rs {
-		v := r.v
+		v := r.V
 		switch {
-		case troubled(v):
+		case display.Troubled(v):
 			need++
 		case v.State == "active":
 			awakeN++
@@ -316,7 +316,7 @@ func (m *Model) homeTable(w, h int) []string {
 		default:
 			asleep++
 		}
-		if awake(v) {
+		if display.AwakeNow(v) {
 			memShares = append(memShares, share{v.Name, float64(v.RAM)})
 			cpuShares = append(cpuShares, share{v.Name, v.CPU})
 			ram += v.RAM
@@ -329,13 +329,13 @@ func (m *Model) homeTable(w, h int) []string {
 		if m.snap.Stack != "" {
 			l += " " + s.b.Render(m.snap.Stack)
 		}
-		r := s.b.Render("≈ "+mb(ram)) + " " + s.d.Render("resident")
+		r := s.b.Render("≈ "+display.MB(ram)) + " " + s.d.Render("resident")
 		if need > 0 {
 			r = s.pillR.Render(fmt.Sprintf("%d needs you", need)) + "  " + r
 		}
 		// the folder only if it fits beside the rest, cut with an ellipsis to what is left
 		if room := w - width(l) - width(r) - 3; m.snap.Dir != "" && room >= 12 {
-			l += " " + s.d.Render(ansiTruncate(tilde(m.snap.Dir), room))
+			l += " " + s.d.Render(ansiTruncate(display.Tilde(m.snap.Dir), room))
 		}
 		out = append(out, l+strings.Repeat(" ", max(w-width(l)-width(r), 1))+r)
 	}
@@ -352,8 +352,8 @@ func (m *Model) homeTable(w, h int) []string {
 	for g := -1; ; {
 		next := -1
 		for _, r := range rs {
-			if r.group > g && (next < 0 || r.group < next) {
-				next = r.group
+			if r.Group > g && (next < 0 || r.Group < next) {
+				next = r.Group
 			}
 		}
 		if next < 0 {
@@ -363,11 +363,11 @@ func (m *Model) homeTable(w, h int) []string {
 		tableRows++ // each group's heading is a row
 	}
 	keyed := p.keyedMeters(tableRows)
-	memTotal := mb(ram)
+	memTotal := display.MB(ram)
 	if ram == 0 {
 		memTotal = "0 MB"
 	}
-	left := m.composition("mem", memTotal, memShares, 0, mc, memUnit(float64(ram)), func(v float64) string { return mb(int64(v)) }, keyed)
+	left := m.composition("mem", memTotal, memShares, 0, mc, memUnit(float64(ram)), func(v float64) string { return display.MB(int64(v)) }, keyed)
 	left = append(left, m.composition("cpu", cores(cpu), cpuShares, 0.5, mc, coresUnit, cores, keyed)...)
 	left = append(left, s.a.Bold(true).Render(fit("conns", 6))+s.text.Render(fmt.Sprint(conns))+s.d.Render(" open across the stack"))
 	state := s.g.Render("●") + fmt.Sprintf(" %d awake", awakeN)
@@ -380,7 +380,7 @@ func (m *Model) homeTable(w, h int) []string {
 	state += "   " + s.d.Render(fmt.Sprintf("· %d asleep", asleep))
 	rightCol := []string{
 		s.a.Bold(true).Render("state") + " " + state,
-		s.a.Bold(true).Render("sleep") + " " + s.text.Render("after "+clock(m.snap.IdleTimeout)) + s.d.Render(" with nothing holding it"),
+		s.a.Bold(true).Render("sleep") + " " + s.text.Render("after "+display.Clock(m.snap.IdleTimeout)) + s.d.Render(" with nothing holding it"),
 		s.a.Bold(true).Render("tasks") + " " + s.g.Render("✓") + fmt.Sprintf(" %d done   ", done) + s.d.Render(fmt.Sprintf("▸ %d ready", ready)) + runningNote(s, running),
 	}
 	if need > 0 {
@@ -411,7 +411,7 @@ func (m *Model) homeTable(w, h int) []string {
 	nameCap := p.nameCap()
 	nameW := 8
 	for _, r := range rs {
-		nameW = max(nameW, min(width(r.v.Name), nameCap))
+		nameW = max(nameW, min(width(r.V.Name), nameCap))
 	}
 	all := []tcol{
 		{"", 2, false, func(v control.InstanceView) string { return s.look(v).glyph }},
@@ -424,23 +424,23 @@ func (m *Model) homeTable(w, h int) []string {
 			return v.Engine
 		}},
 		{"STATE", 8, false, func(v control.InstanceView) string { return s.look(v).word }},
-		{"MEM", 8, true, mem},
+		{"MEM", 8, true, display.Mem},
 		{"CPU%", 5, true, func(v control.InstanceView) string {
-			if awake(v) {
+			if display.AwakeNow(v) {
 				return fmt.Sprintf("%.1f", v.CPU)
 			}
 			return ""
 		}},
 		{"CONN", 4, true, func(v control.InstanceView) string {
-			if awake(v) {
+			if display.AwakeNow(v) {
 				return fmt.Sprint(v.Conns)
 			}
 			return ""
 		}},
 		{"UP", 6, true, func(v control.InstanceView) string {
 			switch {
-			case awake(v) && !v.StartedAt.IsZero():
-				return ago(m.now.Sub(v.StartedAt))
+			case display.AwakeNow(v) && !v.StartedAt.IsZero():
+				return display.Ago(m.now.Sub(v.StartedAt))
 			}
 			return ""
 		}},
@@ -448,7 +448,7 @@ func (m *Model) homeTable(w, h int) []string {
 	// at the grand size there is room to show where memory has been going
 	if p.wc == widthGrand {
 		trend := tcol{"TREND", 12, false, func(v control.InstanceView) string {
-			if !awake(v) {
+			if !display.AwakeNow(v) {
 				return ""
 			}
 			return spark(m.ram[v.Name], 12)
@@ -472,8 +472,8 @@ func (m *Model) homeTable(w, h int) []string {
 	if split {
 		natWhy, natRuns := 0, 0
 		for _, r := range rs {
-			natWhy = max(natWhy, width(m.because(r.v)))
-			natRuns = max(natRuns, width(m.runs(r.v)))
+			natWhy = max(natWhy, width(m.because(r.V)))
+			natRuns = max(natRuns, width(m.runs(r.V)))
 		}
 		needRest = min(needRest, min(natWhy, 38)+2+min(natRuns, 48))
 		nat := fixed(all) + min(natWhy, 38) + 2 + min(natRuns, 48)
@@ -504,8 +504,8 @@ func (m *Model) homeTable(w, h int) []string {
 		// a column stops at its widest cell: RUNS beside BECAUSE, not across the room
 		natWhy, natRuns := 0, 0
 		for _, r := range rs {
-			natWhy = max(natWhy, width(m.because(r.v)))
-			natRuns = max(natRuns, width(m.runs(r.v)))
+			natWhy = max(natWhy, width(m.because(r.V)))
+			natRuns = max(natRuns, width(m.runs(r.V)))
 		}
 		if natRuns > 0 && natWhy+2+natRuns <= rest {
 			whyW, runsW = max(natWhy, 12), natRuns
@@ -525,25 +525,25 @@ func (m *Model) homeTable(w, h int) []string {
 	curHead := ""
 	last := -1
 	for _, r := range rs {
-		if r.group != last && !m.tree {
-			g := groups[r.group]
+		if r.Group != last && !m.tree {
+			g := display.Groups[r.Group]
 			n, mbs := 0, int64(0)
 			for _, o := range rs {
-				if o.group == r.group {
+				if o.Group == r.Group {
 					n++
-					mbs += o.v.RAM
+					mbs += o.V.RAM
 				}
 			}
-			hd := s.a.Bold(true).Render(g.title) + " " + s.d.Render(fmt.Sprintf("%d", n))
+			hd := s.a.Bold(true).Render(g.Title) + " " + s.d.Render(fmt.Sprintf("%d", n))
 			if mbs > 0 {
-				hd += s.d.Render(" · " + mb(mbs))
+				hd += s.d.Render(" · " + display.MB(mbs))
 			}
-			hd += "  " + s.d.Render(g.what)
+			hd += "  " + s.d.Render(g.What)
 			body = append(body, line{" " + hd, "", " " + hd})
 			curHead = " " + hd
-			last = r.group
+			last = r.Group
 		}
-		v := r.v
+		v := r.V
 		lk := s.look(v)
 		sel := v.Name == m.sel
 		var b strings.Builder
@@ -579,7 +579,7 @@ func (m *Model) homeTable(w, h int) []string {
 				st = lk.style
 			case "MEM":
 				st = s.w
-				if !awake(v) {
+				if !display.AwakeNow(v) {
 					st = s.d
 				}
 			case "TREND":
@@ -596,7 +596,7 @@ func (m *Model) homeTable(w, h int) []string {
 			}
 		}
 		because := s.d
-		if troubled(v) {
+		if display.Troubled(v) {
 			because = s.r
 		} else if v.State == "idle" || v.State == "booting" {
 			because = s.y
@@ -624,7 +624,7 @@ func (m *Model) homeTable(w, h int) []string {
 	if room < 20 {
 		minLogs = max(4, room/2)
 	}
-	if v, ok := m.selected(); ok && troubled(v) {
+	if v, ok := m.selected(); ok && display.Troubled(v) {
 		// what went wrong needs the room: a trace is not three lines. The table
 		// scrolls to keep the row in view.
 		minLogs = max(minLogs, min(room/2, 16))

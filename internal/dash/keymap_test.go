@@ -297,7 +297,7 @@ func TestSortByMemoryHoldsStillAfterAKey(t *testing.T) {
 	names := func() string {
 		var out []string
 		for _, r := range m.ordered() {
-			out = append(out, r.v.Name)
+			out = append(out, r.V.Name)
 		}
 		return strings.Join(out, ",")
 	}

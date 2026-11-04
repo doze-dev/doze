@@ -2,9 +2,7 @@ package dash
 
 import (
 	"fmt"
-	"os"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -16,45 +14,11 @@ import (
 	"github.com/doze-dev/doze/internal/display"
 )
 
-// group is a heading on the stack box, and what belongs under it (Main.dc.html).
-type group struct {
-	title, what string
-	kinds       []string
-}
+// The words on this page (the groups, the state words, what a row says) are
+// display's: the app says the same ones. This file draws them.
 
-var groups = []group{
-	{"APPS", "your code", []string{"app"}},
-	{"MODULES", "from the doze registry", []string{"module", ""}},
-	{"OUTSIDE", "brought in by you", []string{"service"}},
-	{"TASKS", "run once, then out of the way", []string{"task"}},
-}
-
-// row is one instance in display order.
-type row struct {
-	v     control.InstanceView
-	group int
-}
-
-// rows lists the stack: by group, then by name.
-func rows(snap control.Snapshot) []row {
-	var out []row
-	for gi, g := range groups {
-		var in []control.InstanceView
-		for _, v := range snap.Instances {
-			for _, k := range g.kinds {
-				if v.Kind == k {
-					in = append(in, v)
-					break
-				}
-			}
-		}
-		sort.Slice(in, func(i, j int) bool { return in[i].Name < in[j].Name })
-		for _, v := range in {
-			out = append(out, row{v: v, group: gi})
-		}
-	}
-	return out
-}
+// row is one instance in display order, as display lists the stack.
+type row = display.Row
 
 // look is how an instance's state reads: the word, the glyph and its colour.
 type look struct {
@@ -63,182 +27,27 @@ type look struct {
 }
 
 func (s styles) look(v control.InstanceView) look {
-	switch {
-	case v.Disabled:
-		return look{"disabled", "⊘", s.d}
-	case v.Kind == "task" && v.State == "booting":
-		return look{"running", "◌", s.c}
-	case v.Task != nil && v.State != "booting":
-		if v.Task.Result == "failed" {
-			return look{"failed", "✗", s.r}
-		}
-		return look{"done", "✓", s.g}
-	case v.Kind == "task" && v.State != "booting":
-		return look{"ready", "▸", s.d}
-	}
-	switch v.State {
-	case "active":
-		return look{"awake", "●", s.g}
-	case "idle":
-		return look{"dozing", "◐", s.y}
-	case "booting":
-		return look{"waking", "◌", s.c}
-	case "crashing":
-		return look{"crashing", "✗", s.r}
-	case "failed", "error":
-		return look{"failed", "✗", s.r}
-	}
-	return look{"asleep", "·", s.d}
+	lk := display.LookOf(v)
+	return look{lk.Word, lk.Glyph, s.tone(lk.Tone)}
 }
 
-func awake(v control.InstanceView) bool { return v.State == "active" || v.State == "idle" }
-
-func troubled(v control.InstanceView) bool {
-	return v.State == "crashing" || v.State == "failed" || v.State == "error" || (v.Task != nil && v.Task.Result == "failed")
-}
-
-// mb is a size as the board writes it: 84 MB, 1.2 GB.
-func mb(b int64) string {
-	switch {
-	case b <= 0:
-		return "0"
-	case b >= 1<<30:
-		return fmt.Sprintf("%.1f GB", float64(b)/(1<<30))
+// tone is the style a display tone is drawn in: the board's colour classes.
+func (s styles) tone(t display.Tone) lipgloss.Style {
+	switch t {
+	case display.ToneGood:
+		return s.g
+	case display.ToneWarn:
+		return s.y
+	case display.ToneCool:
+		return s.c
+	case display.ToneBad:
+		return s.r
+	case display.ToneDim:
+		return s.d
+	case display.ToneBright:
+		return s.w
 	}
-	return fmt.Sprintf("%d MB", (b+(1<<19))>>20)
-}
-
-// clock is a duration as m:ss, the way the board counts down.
-func clock(d time.Duration) string {
-	d = d.Round(time.Second)
-	if d < 0 {
-		d = 0
-	}
-	return fmt.Sprintf("%d:%02d", int(d.Minutes()), int(d.Seconds())%60)
-}
-
-func ago(d time.Duration) string {
-	switch {
-	case d < time.Minute:
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	case d < time.Hour:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	case d < 48*time.Hour:
-		return fmt.Sprintf("%dh", int(d.Hours()))
-	}
-	return fmt.Sprintf("%dd", int(d.Hours()/24))
-}
-
-// what is the third column: what the thing is, then what it is doing about it.
-func (m *Model) what(v control.InstanceView) string {
-	var base string
-	switch v.Kind {
-	case "app", "service":
-		base = short(v.Run)
-	case "task":
-		if v.Task != nil {
-			base = fmt.Sprintf("ran %s ago in %s", ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(time.Millisecond))
-			if v.Task.Result == "failed" {
-				base = fmt.Sprintf("exit %d · %s", v.Task.ExitCode, base)
-			}
-		} else {
-			base = "not run yet"
-		}
-	default:
-		base = strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin"))
-	}
-	var extra string
-	switch {
-	case troubled(v) && v.Task == nil:
-		// What went wrong is the long part, so it goes last and is the part that
-		// gets cut.
-		base = display.FirstLine(v.LastError)
-		if v.RestartMax > 0 {
-			base, extra = fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax), display.FirstLine(v.LastError)
-		}
-	case v.State == "booting":
-		if n := m.firstUnmet(v); n != "" {
-			base, extra = "waiting on "+n, ""
-		} else if by := holderNamed(v); by != "" {
-			extra = "woken by " + by
-		}
-	case v.State == "idle" && !v.IdleSince.IsZero() && !v.AlwaysOn:
-		after := m.snap.IdleTimeout
-		if v.IdleAfter > 0 {
-			after = v.IdleAfter
-		}
-		if left := after - m.now.Sub(v.IdleSince); left > 0 {
-			extra = "sleeps in " + clock(left)
-		}
-	}
-	switch {
-	case base == "":
-		return extra
-	case extra == "":
-		return base
-	}
-	return base + " · " + extra
-}
-
-// short reads a command line the way the board does: what it runs, not the
-// whole line. A container command says which image.
-func short(run string) string {
-	f := strings.Fields(run)
-	if len(f) >= 2 && (f[0] == "docker" || f[0] == "podman") && f[1] == "run" {
-		image := ""
-		// the image is the first word that is neither a flag nor a flag's value
-		takes := map[string]bool{"-p": true, "--publish": true, "-e": true, "--env": true, "--env-file": true, "-v": true,
-			"--volume": true, "--name": true, "--network": true, "--net": true, "-w": true, "--workdir": true, "-u": true,
-			"--user": true, "--entrypoint": true, "--platform": true, "-l": true, "--label": true, "--add-host": true,
-			"-m": true, "--memory": true, "--cpus": true, "-h": true, "--hostname": true, "--mount": true}
-		for i := 2; i < len(f); i++ {
-			if a := f[i]; strings.HasPrefix(a, "-") {
-				if takes[a] && !strings.Contains(a, "=") {
-					i++
-				}
-			} else {
-				image = a
-				break
-			}
-		}
-		if image == "" {
-			return f[0] + " run"
-		}
-		return f[0] + " run " + image
-	}
-	return run
-}
-
-// firstUnmet is the first thing v needs that is not up yet.
-func (m *Model) firstUnmet(v control.InstanceView) string {
-	for _, n := range v.Needs {
-		if o, ok := m.find(n); ok && !awake(o) && (o.Task == nil || o.Task.Result != "done") {
-			return n
-		}
-	}
-	return ""
-}
-
-func holderNamed(v control.InstanceView) string {
-	for _, h := range v.Holders {
-		if h.Kind == "dependant" {
-			return h.Name
-		}
-	}
-	return ""
-}
-
-// mem is the memory column: a figure, a dash while it wakes, 0 asleep.
-func mem(v control.InstanceView) string {
-	switch {
-	case v.Kind == "task":
-		return ""
-	case v.State == "booting":
-		return "—"
-	case awake(v):
-		return mb(v.RAM)
-	}
-	return "0"
+	return s.text
 }
 
 // --- the screen ---
@@ -258,10 +67,10 @@ func (m *Model) home(w, h int) []string {
 // stack is the left box: groups of rows in the board's five columns.
 func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 	s := m.st
-	rs := rows(m.snap)
+	rs := display.Rows(m.snap)
 	nameW := 8
 	for _, r := range rs {
-		if n := width(r.v.Name); n > nameW {
+		if n := width(r.V.Name); n > nameW {
 			nameW = n
 		}
 	}
@@ -270,7 +79,7 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 	}
 	stateW := 7
 	for _, r := range rs {
-		if n := width(s.look(r.v).word); n > stateW {
+		if n := width(s.look(r.V).word); n > stateW {
 			stateW = n
 		}
 	}
@@ -291,22 +100,22 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 	var out, names []string // names: which instance each line is, for the mouse
 	last := -1
 	for _, r := range rs {
-		if r.group != last {
-			if last != -1 && len(rs)+len(groups)*2 < h {
+		if r.Group != last {
+			if last != -1 && len(rs)+len(display.Groups)*2 < h {
 				out, names = append(out, ""), append(names, "")
 			}
-			g := groups[r.group]
-			hd := s.a.Bold(true).Render(g.title)
+			g := display.Groups[r.Group]
+			hd := s.a.Bold(true).Render(g.Title)
 			if subtitles {
-				hd += "  " + s.d.Render(g.what)
+				hd += "  " + s.d.Render(g.What)
 			}
 			out, names = append(out, " "+hd), append(names, "")
-			last = r.group
+			last = r.Group
 		}
-		lk := s.look(r.v)
-		name, what, state, memS := fit(r.v.Name, nameW), fit(m.what(r.v), descW), fit(lk.word, stateW), right(mem(r.v), memW)
+		lk := s.look(r.V)
+		name, what, state, memS := fit(r.V.Name, nameW), fit(display.What(r.V, m.snap, m.now), descW), fit(lk.word, stateW), right(display.Mem(r.V), memW)
 		var line string
-		if r.v.Name == m.sel {
+		if r.V.Name == m.sel {
 			bg := s.on(lipgloss.NewStyle())
 			gap := bg.Render("  ")
 			desc := ""
@@ -317,12 +126,12 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 				s.on(lk.style).Render(state) + gap + s.on(s.w).Render(memS) + bg.Render(" ")
 		} else {
 			nameS := s.w.Render(name)
-			if r.v.State != "active" && r.v.State != "idle" && r.v.State != "booting" && r.v.Kind != "task" {
+			if r.V.State != "active" && r.V.State != "idle" && r.V.State != "booting" && r.V.Kind != "task" {
 				nameS = s.text.Render(name)
 			}
 			whatS := s.d.Render(what)
 			memStyled := s.text.Render(memS)
-			if !awake(r.v) {
+			if !display.AwakeNow(r.V) {
 				memStyled = s.d.Render(memS)
 			}
 			desc := ""
@@ -331,7 +140,7 @@ func (m *Model) stack(w, h int, subtitles, describe bool) []string {
 			}
 			line = " " + lk.style.Render(lk.glyph) + "  " + nameS + "  " + desc + lk.style.Render(state) + "  " + memStyled + " "
 		}
-		out, names = append(out, line), append(names, r.v.Name)
+		out, names = append(out, line), append(names, r.V.Name)
 	}
 	if len(out) > h && h > 0 {
 		// more rows than room: a window that keeps the selection in view and
@@ -378,19 +187,19 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 	caption = s.b.Render(v.Name) + " " + pill.Render(lk.word)
 
 	var facts []string
-	if awake(v) && !v.StartedAt.IsZero() {
-		facts = append(facts, "up "+ago(m.now.Sub(v.StartedAt)))
+	if display.AwakeNow(v) && !v.StartedAt.IsZero() {
+		facts = append(facts, "up "+display.Ago(m.now.Sub(v.StartedAt)))
 	}
-	if v.PID > 0 && awake(v) {
+	if v.PID > 0 && display.AwakeNow(v) {
 		facts = append(facts, fmt.Sprintf("pid %d", v.PID))
 	}
-	if (v.Kind == "app" || v.Kind == "service") && (awake(v) || v.State == "crashing") {
+	if (v.Kind == "app" || v.Kind == "service") && (display.AwakeNow(v) || v.State == "crashing") {
 		facts = append(facts, fmt.Sprintf("%d restarts", v.RestartCount))
 	}
 	rcap = s.d.Render(strings.Join(facts, " · "))
 
 	label := func(k string) string { return s.d.Render(fit(k, 6)) + "  " }
-	if troubled(v) && v.LastError != "" {
+	if display.Troubled(v) && v.LastError != "" {
 		if v.RestartMax > 0 {
 			lines = append(lines, label("try")+s.text.Render(fmt.Sprintf("%d of %d", v.RestartCount, v.RestartMax)))
 		}
@@ -415,7 +224,7 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 		if v.Task == nil {
 			lines = append(lines, label("last")+s.d.Render("has not run"))
 		} else {
-			lines = append(lines, label("ran")+s.text.Render(fmt.Sprintf("%s ago in %s", ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS)*time.Millisecond).Round(time.Millisecond))))
+			lines = append(lines, label("ran")+s.text.Render(fmt.Sprintf("%s ago in %s", display.Ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS)*time.Millisecond).Round(time.Millisecond))))
 			if v.Task.Why != "" {
 				lines = append(lines, label("why")+s.text.Render(v.Task.Why))
 			}
@@ -429,43 +238,31 @@ func (m *Model) detail(v control.InstanceView, w, h int) (lines []string, captio
 	return lines, caption, rcap, border
 }
 
-// url is where to reach it: the connection string of a module, the name of an
-// app with the port it listens on behind it.
+// url is where to reach it, drawn: the address bright, and the port a name
+// stands in front of dim after it.
 func (m *Model) url(v control.InstanceView) string {
 	s := m.st
-	switch {
-	case v.URL != "":
-		return s.w.Render(v.URL)
-	case v.Resource != "":
-		return s.w.Render(v.Resource)
-	case v.Domain != "":
-		out := s.w.Render("http://" + v.Domain)
-		if _, port, ok := strings.Cut(v.Bind, ":"); ok && !strings.HasPrefix(v.Bind, "unix:") {
-			out += s.d.Render(" → :" + port)
-		}
-		return out
-	case v.Endpoint != "":
-		return s.w.Render(v.Endpoint)
+	addr, port := display.URL(v)
+	if addr == "" {
+		return ""
 	}
-	return ""
+	out := s.w.Render(addr)
+	if port != "" {
+		out += s.d.Render(" → " + port)
+	}
+	return out
 }
 
-// needs is each thing v waits on, with how it is.
+// needs is each thing v waits on, with how it is, drawn.
 func (m *Model) needs(v control.InstanceView) string {
 	s := m.st
 	var parts []string
-	for _, n := range v.Needs {
-		o, ok := m.find(n)
-		if !ok {
-			parts = append(parts, s.d.Render("· "+n))
+	for _, n := range display.Needs(v, m.snap) {
+		if !n.Known {
+			parts = append(parts, s.d.Render("· "+n.Name))
 			continue
 		}
-		lk := s.look(o)
-		glyph := lk.glyph
-		if lk.word == "awake" || lk.word == "done" {
-			glyph = "✓"
-		}
-		parts = append(parts, lk.style.Render(glyph)+" "+s.text.Render(n))
+		parts = append(parts, s.tone(n.Look.Tone).Render(n.Glyph)+" "+s.text.Render(n.Name))
 	}
 	return strings.Join(parts, "  ")
 }
@@ -492,22 +289,22 @@ func (m *Model) homeNarrow(w, h int) []string {
 	s := m.st
 	var awakeN, dozing, asleep int
 	var ram int64
-	for _, r := range rows(m.snap) {
+	for _, r := range display.Rows(m.snap) {
 		switch {
-		case r.v.State == "active":
+		case r.V.State == "active":
 			awakeN++
-		case r.v.State == "idle":
+		case r.V.State == "idle":
 			dozing++
-		case r.v.Kind != "task":
+		case r.V.Kind != "task":
 			asleep++
 		}
-		ram += r.v.RAM
+		ram += r.V.RAM
 	}
 	l := s.pill.Render("doze")
 	if m.snap.Stack != "" {
 		l += " " + s.b.Render(m.snap.Stack)
 	}
-	r := s.g.Render("●") + fmt.Sprintf(" %d  ", awakeN) + s.y.Render("◐") + fmt.Sprintf(" %d  ", dozing) + s.d.Render(fmt.Sprintf("· %d", asleep)) + "  " + s.b.Render(mb(ram))
+	r := s.g.Render("●") + fmt.Sprintf(" %d  ", awakeN) + s.y.Render("◐") + fmt.Sprintf(" %d  ", dozing) + s.d.Render(fmt.Sprintf("· %d", asleep)) + "  " + s.b.Render(display.MB(ram))
 	gap := w - width(l) - width(r)
 	if gap < 1 {
 		gap = 1
@@ -527,57 +324,6 @@ func (m *Model) homeNarrow(w, h int) []string {
 		out = append(out, "")
 	}
 	return append(out[:h-1], m.keys(w))
-}
-
-// tilde writes a path under the home directory with a ~.
-func tilde(dir string) string {
-	if h, err := os.UserHomeDir(); err == nil && h != "" && strings.HasPrefix(dir, h) {
-		return "~" + strings.TrimPrefix(dir, h)
-	}
-	return dir
-}
-
-// address is where a client connects: the name and port where there is a name,
-// else the address itself. "" when there is nothing to connect to.
-func address(v control.InstanceView) string {
-	if v.Endpoint == "" {
-		return ""
-	}
-	if v.Domain != "" {
-		if _, port, ok := strings.Cut(v.Endpoint, ":"); ok && !strings.HasPrefix(v.Endpoint, "unix:") {
-			return v.Domain + ":" + port
-		}
-		return v.Domain
-	}
-	return strings.TrimPrefix(v.Endpoint, "http://")
-}
-
-// hint is the part of what a row says that is about its moment: that it waits
-// on something, that it sleeps soon, who woke it.
-func (m *Model) hint(v control.InstanceView) string {
-	for _, h := range v.Holders {
-		if h.Kind == "pin" {
-			return "pinned awake"
-		}
-	}
-	switch {
-	case v.State == "booting":
-		if n := m.firstUnmet(v); n != "" {
-			return "waiting on " + n
-		}
-		if by := holderNamed(v); by != "" {
-			return "woken by " + by
-		}
-	case v.State == "idle" && !v.IdleSince.IsZero():
-		after := m.snap.IdleTimeout
-		if v.IdleAfter > 0 {
-			after = v.IdleAfter
-		}
-		if left := after - m.now.Sub(v.IdleSince); left > 0 {
-			return "sleeps in " + clock(left)
-		}
-	}
-	return ""
 }
 
 // click handles a left click on Home: on a row of the stack it selects that
@@ -605,7 +351,7 @@ func (m *Model) click(at tea.Mouse) {
 // yankURL puts an instance's address on the clipboard, over OSC 52, so it
 // works across ssh. It says what it copied, or that there was nothing to.
 func (m *Model) yankURL(v control.InstanceView, file bool) tea.Cmd {
-	text := addressOf(v)
+	text := display.AddressOf(v)
 	if text == "" {
 		m.say(v.Name + " has no address to copy")
 		return nil
@@ -627,19 +373,4 @@ func (m *Model) yankLines(v control.InstanceView, file bool) tea.Cmd {
 		return nil
 	}
 	return m.out(strings.Join(out, "\n"), lineWord(len(out)), v.Name+"-logs", file)
-}
-
-// addressOf is what to paste for an instance: the address alone. The page draws
-// "http://api.shop.doze → :8080", which is a description, not something that
-// can be pasted into a browser.
-func addressOf(v control.InstanceView) string {
-	switch {
-	case v.URL != "":
-		return v.URL
-	case v.Resource != "":
-		return v.Resource
-	case v.Domain != "":
-		return "http://" + v.Domain
-	}
-	return v.Endpoint
 }

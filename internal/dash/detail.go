@@ -15,7 +15,7 @@ func (m *Model) logsBox(v control.InstanceView, w, h int) []string {
 	border := s.border
 	caption := s.b.Render(v.Name) + " " + s.d.Render("· logs · following")
 	var lines []string
-	if troubled(v) {
+	if display.Troubled(v) {
 		var rcap string
 		lines, _, rcap, border = m.detail(v, w-4, h-2)
 		caption = s.b.Render(v.Name) + " " + s.pillR.Render("crashing")
@@ -60,7 +60,7 @@ func (m *Model) detailPane(v control.InstanceView, dw, p int) []string {
 	logsH := p
 	// vitals are for something that is running, and take a share of the height
 	// that leaves the logs their room
-	if awake(v) && !troubled(v) && p >= 24 {
+	if display.AwakeNow(v) && !display.Troubled(v) && p >= 24 {
 		if strip := m.vitalsStrip(v, dw, min(p*50/100, 22), false); len(strip) > 0 && p-len(strip) >= minLogRows {
 			out = append(out, strip...)
 			logsH = p - len(strip)

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // The meters across the top of Home: what the stack consumes, and who. Each bar
@@ -154,7 +155,7 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 // gigabyte, so the key reads as a column of numbers.
 func memUnit(total float64) func(float64) string {
 	if total >= 1<<30 {
-		return func(v float64) string { return mb(int64(v)) }
+		return func(v float64) string { return display.MB(int64(v)) }
 	}
 	return func(v float64) string { return fmt.Sprintf("%d", (int64(v)+(1<<19))>>20) }
 }

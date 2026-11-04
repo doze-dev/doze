@@ -171,7 +171,7 @@ func (m *Model) streamAll(v control.InstanceView, min int, onlyRun int) []string
 	})
 	if len(items) == 0 {
 		switch {
-		case awake(v):
+		case display.AwakeNow(v):
 			return []string{s.d.Render("nothing printed yet")}
 		case v.Kind == "task" && v.State == "booting":
 			return []string{s.c.Render("running now · its output appears here as it prints")}
@@ -252,7 +252,7 @@ func (m *Model) focus(w, h int) []string {
 	// module overview has it in its own place, and the others get it across the
 	// top when the window has the room.
 	var strip []string
-	if cur.id != tabOverview && cur.id != tabLastRun && awake(v) && v.Kind != "task" && bodyH >= 30 {
+	if cur.id != tabOverview && cur.id != tabLastRun && display.AwakeNow(v) && v.Kind != "task" && bodyH >= 30 {
 		strip = m.vitalsStrip(v, w, min(11, bodyH-18), true)
 	}
 	m.vitalsOn = len(strip) > 0
@@ -387,8 +387,8 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 	if u := m.url(v); u != "" {
 		run = append(run, label("url")+u)
 	}
-	if awake(v) && !v.StartedAt.IsZero() {
-		up := ago(m.now.Sub(v.StartedAt))
+	if display.AwakeNow(v) && !v.StartedAt.IsZero() {
+		up := display.Ago(m.now.Sub(v.StartedAt))
 		if v.PID > 0 {
 			up += fmt.Sprintf(" · pid %d", v.PID)
 		}
@@ -397,7 +397,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		// bars, with a blank between so the two do not run into each other
 		for i, t := range []trace{
 			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
 		} {
 			if m.vitalsOn {
 				break // the vitals are across the top; this box does not say them twice
@@ -451,11 +451,11 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	conn := []string{}
 	if v.URL != "" {
 		conn = append(conn, label("url")+s.w.Render(v.URL))
-	} else if a := address(v); a != "" {
+	} else if a := display.Address(v); a != "" {
 		conn = append(conn, label("address")+s.w.Render(a))
 	}
 	if v.URL != "" {
-		if a := address(v); a != "" {
+		if a := display.Address(v); a != "" {
 			conn = append(conn, label("address")+s.text.Render(a))
 		}
 	}
@@ -485,7 +485,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	if len(why) == 0 {
 		if v.AlwaysOn {
 			why = append(why, s.d.Render("nothing: it runs until stopped"))
-		} else if awake(v) {
+		} else if display.AwakeNow(v) {
 			why = append(why, s.d.Render("nothing: it sleeps when the idle time is up"))
 		} else {
 			why = append(why, s.d.Render("asleep: it costs nothing until something connects"))
@@ -495,8 +495,8 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	if v.IdleAfter > 0 {
 		idle = v.IdleAfter
 	}
-	if idle > 0 && awake(v) && !v.AlwaysOn {
-		why = append(why, s.d.Render("sleeps "+clock(idle)+" after the last closes · ")+s.cap("p", "pin awake"))
+	if idle > 0 && display.AwakeNow(v) && !v.AlwaysOn {
+		why = append(why, s.d.Render("sleeps "+display.Clock(idle)+" after the last closes · ")+s.cap("p", "pin awake"))
 	}
 
 	lw := w * 55 / 100
@@ -526,10 +526,10 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		sw = 8
 	}
 	vit := []string{}
-	if awake(v) {
+	if display.AwakeNow(v) {
 		ts := []trace{
 			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+			{"mem", m.ram[v.Name], 0, true, bytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
 			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
@@ -540,14 +540,14 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		} else {
 			vit = append(vit,
 				label("cpu")+s.a.Render(spark(m.cpu[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprintf("%.1f%%", v.CPU)), 8),
-				label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+"  "+right(s.text.Render(mb(v.RAM)), 8),
+				label("mem")+s.a.Render(spark(m.ram[v.Name], sw))+"  "+right(s.text.Render(display.MB(v.RAM)), 8),
 				label("conns")+s.g.Render(spark(m.conns[v.Name], sw))+"  "+right(s.text.Render(fmt.Sprint(v.Conns)), 8))
 		}
 	} else {
 		vit = append(vit, s.d.Render("asleep: no process, no memory"))
 	}
 	if v.DataDir != "" {
-		vit = append(vit, label("data")+s.d.Render(tilde(v.DataDir)))
+		vit = append(vit, label("data")+s.d.Render(display.Tilde(v.DataDir)))
 	}
 	gap := 0
 	if h > len(out)+len(vit)+2+8 {
@@ -649,7 +649,7 @@ func (m *Model) web(v control.InstanceView, w, h int) []string {
 	label := func(k string) string { return s.d.Render(fit(k, 10)) + " " }
 	var top []string
 	top = append(top, s.b.Render(webURL(v)))
-	if awake(v) {
+	if display.AwakeNow(v) {
 		top = append(top, s.d.Render("It is awake."))
 	} else {
 		top = append(top, s.d.Render("It is asleep. Opening the console wakes it first."))
@@ -660,7 +660,7 @@ func (m *Model) web(v control.InstanceView, w, h int) []string {
 	var facts []string
 	if v.URL != "" {
 		facts = append(facts, label("connect")+s.w.Render(v.URL))
-	} else if a := address(v); a != "" {
+	} else if a := display.Address(v); a != "" {
 		facts = append(facts, label("address")+s.w.Render(a))
 	}
 	if v.EnvVar != "" {
@@ -1000,7 +1000,7 @@ func (m *Model) stamp(at time.Time) string {
 	case d < time.Hour:
 		return right(fmt.Sprintf("-%dm %02ds", int(d.Minutes()), int(d.Seconds())%60), 8)
 	}
-	return right("-"+ago(d), 8)
+	return right("-"+display.Ago(d), 8)
 }
 
 // vitalsStrip is the vitals box across the top of a page: cpu and memory, and
@@ -1011,7 +1011,7 @@ func (m *Model) vitalsStrip(v control.InstanceView, w, maxH int, withConns bool)
 	s := m.st
 	ts := []trace{
 		{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-		{"mem", m.ram[v.Name], 0, true, bytesLabel, mb(v.RAM), float64(v.RAM), s.a},
+		{"mem", m.ram[v.Name], 0, true, bytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
 	}
 	if withConns {
 		ts = append(ts, trace{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g})

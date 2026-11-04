@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 	"github.com/doze-dev/doze/internal/journal"
 )
 
@@ -423,11 +424,11 @@ func (m *Model) keyText(k, text string) (tea.Model, tea.Cmd) {
 		m.move(1)
 	case "home", "g":
 		if rs := m.ordered(); len(rs) > 0 {
-			m.sel = rs[0].v.Name
+			m.sel = rs[0].V.Name
 		}
 	case "end", "G":
 		if rs := m.ordered(); len(rs) > 0 {
-			m.sel = rs[len(rs)-1].v.Name
+			m.sel = rs[len(rs)-1].V.Name
 		}
 	case "w":
 		return m, m.verb(control.VerbWake)
@@ -479,9 +480,9 @@ func (m *Model) verb(name string) tea.Cmd {
 func (m *Model) move(by int) {
 	rs := m.ordered()
 	for i, r := range rs {
-		if r.v.Name == m.sel {
+		if r.V.Name == m.sel {
 			if j := i + by; j >= 0 && j < len(rs) {
-				m.sel = rs[j].v.Name
+				m.sel = rs[j].V.Name
 			}
 			return
 		}
@@ -493,8 +494,8 @@ func (m *Model) settle() {
 	if _, ok := m.selected(); ok {
 		return
 	}
-	if rs := rows(m.snap); len(rs) > 0 {
-		m.sel = rs[0].v.Name
+	if rs := display.Rows(m.snap); len(rs) > 0 {
+		m.sel = rs[0].V.Name
 	}
 }
 
