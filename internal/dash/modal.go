@@ -162,53 +162,6 @@ func (m *Model) askSleep(target string) tea.Cmd {
 	return m.do(control.VerbSleep, target)
 }
 
-// match is how the palette filters: each word typed must begin a word of s, in
-// order. "re" finds restart, reset and rerun and not "wake worker", whose letters
-// are there but nowhere a word starts; "reset d" finds reset db. It returns the
-// positions in s of the letters matched.
-func match(query, s string) ([]int, bool) {
-	terms := strings.Fields(strings.ToLower(query))
-	if len(terms) == 0 {
-		return nil, true
-	}
-	rs := []rune(strings.ToLower(s))
-	var at []int
-	pos, t := 0, 0
-	for t < len(terms) {
-		found := false
-		for p := pos; p < len(rs); p++ {
-			if p > 0 && rs[p-1] != ' ' {
-				continue
-			}
-			term := []rune(terms[t])
-			if p+len(term) <= len(rs) && string(rs[p:p+len(term)]) == terms[t] {
-				for i := range term {
-					at = append(at, p+i)
-				}
-				pos, found = p+len(term), true
-				break
-			}
-		}
-		if !found {
-			return nil, false
-		}
-		t++
-	}
-	return at, true
-}
-
-// score ranks matches: letters together, and near the front, first.
-func score(at []int) int {
-	if len(at) == 0 {
-		return 0
-	}
-	n := at[0]
-	for i := 1; i < len(at); i++ {
-		n += at[i] - at[i-1] - 1
-	}
-	return n
-}
-
 type hit struct {
 	a  action
 	at []int
@@ -231,13 +184,13 @@ func (m *Model) hits() []hit {
 		if m.modal.input == "" && a.rank > 1 {
 			continue
 		}
-		if at, ok := match(m.modal.input, a.label); ok {
+		if at, ok := display.FuzzyMatch(m.modal.input, a.label); ok {
 			out = append(out, hit{a, at})
 		}
 	}
 	if m.modal.input != "" {
 		sort.SliceStable(out, func(i, j int) bool {
-			if si, sj := score(out[i].at), score(out[j].at); si != sj {
+			if si, sj := display.FuzzyScore(out[i].at), display.FuzzyScore(out[j].at); si != sj {
 				return si < sj
 			}
 			return out[i].a.rank < out[j].a.rank
@@ -311,23 +264,19 @@ func (m *Model) paletteKey(k, text string) tea.Cmd {
 	return nil
 }
 
-// sleepButtons are the choices of Confirm-Sleep: with what depends on it, or
-// without.
-func (m *Model) sleepButtons(v control.InstanceView) []string {
-	if deps := dependants(v); len(deps) > 0 {
-		return []string{"Sleep " + v.Name + " and " + strings.Join(deps, ", "), "Sleep " + v.Name + " only", "Cancel"}
-	}
-	return []string{"Sleep " + v.Name, "Cancel"}
-}
-
-func dependants(v control.InstanceView) []string {
-	var out []string
-	for _, h := range v.Holders {
-		if h.Kind == "dependant" {
-			out = append(out, h.Name)
+// heldSentence draws display's sentence on who is using v: the strong parts
+// bright, the whole in the text colour.
+func (m *Model) heldSentence(v control.InstanceView) string {
+	s := m.st
+	var b strings.Builder
+	for _, sp := range display.HeldSentence(v) {
+		if sp.Strong {
+			b.WriteString(s.w.Render(sp.Text))
+		} else {
+			b.WriteString(sp.Text)
 		}
 	}
-	return out
+	return s.text.Render(b.String())
 }
 
 func (m *Model) sleepKey(k string) tea.Cmd {
@@ -337,7 +286,7 @@ func (m *Model) sleepKey(k string) tea.Cmd {
 		m.modal = nil
 		return nil
 	}
-	btns := m.sleepButtons(v)
+	btns := display.SleepButtons(v)
 	switch k {
 	case "esc":
 		m.modal = nil
@@ -349,7 +298,7 @@ func (m *Model) sleepKey(k string) tea.Cmd {
 		md.btn = (md.btn + 1) % len(btns)
 	case "enter":
 		m.modal = nil
-		deps := dependants(v)
+		deps := display.Dependants(v)
 		switch {
 		case btns[md.btn] == "Cancel":
 			return nil
@@ -614,28 +563,12 @@ func (m *Model) sleepBox(w int) []string {
 	}
 	label := func(k string) string { return s.d.Render(fit(k, 13)) + " " }
 	var lines []string
-	conns := 0
-	for _, h := range v.Holders {
-		if h.Kind == "connection" {
-			conns = h.Count
-		}
-	}
-	deps := dependants(v)
-	var sentence string
-	switch {
-	case len(deps) > 0 && conns > 0:
-		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it, and " + s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " are open to it right now."
-	case len(deps) > 0:
-		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it."
-	default:
-		sentence = s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " open to it right now."
-	}
-	lines = append(lines, "", s.text.Render(sentence), "",
+	lines = append(lines, "", m.heldSentence(v), "",
 		label("what happens")+s.text.Render("Connections drop. The next connection wakes it again,"),
 		label("")+s.text.Render("so it is back within seconds unless what uses it sleeps too."),
 		label("data")+s.text.Render("Kept. Nothing is deleted."),
 		"",
-		m.buttons(m.sleepButtons(v), m.modal.btn, -1),
+		m.buttons(display.SleepButtons(v), m.modal.btn, -1),
 		"",
 		s.border.Render(strings.Repeat("─", bw-4)),
 		s.d.Render("doze only asks when something else is affected. Sleeping an idle service never asks."),
@@ -659,18 +592,11 @@ func (m *Model) resetBox(w int) []string {
 		bw = w
 	}
 	label := func(k string) string { return s.d.Render(fit(k, 9)) + " " }
-	folder := display.Tilde(v.DataDir)
-	if folder == "" {
-		folder = "its data folder"
+	var lines []string
+	for _, f := range display.ResetFacts(v) {
+		lines = append(lines, label(f.Key)+s.tone(f.Tone).Render(f.Text))
 	}
-	lines := []string{
-		label("deletes") + s.w.Render("everything in "+folder),
-		label("stops") + s.text.Render(v.Name+" if it is awake"),
-		label("then") + s.text.Render(v.Name+" starts empty on its next wake, and its setup runs again"),
-		label("way back") + s.y.Render("none. There is no snapshot."),
-		"",
-		s.text.Render("Type ") + s.b.Render(v.Name) + s.text.Render(" to confirm"),
-	}
+	lines = append(lines, "", s.text.Render("Type ")+s.b.Render(v.Name)+s.text.Render(" to confirm"))
 	typed := s.w.Render(m.modal.typed)
 	if m.modal.typed == v.Name {
 		typed = s.g.Render(m.modal.typed)
@@ -687,7 +613,7 @@ func (m *Model) resetBox(w int) []string {
 	lines = append(lines, "", m.buttons(btns, cur, off), "",
 		s.border.Render(strings.Repeat("─", bw-4)),
 		s.d.Render("Typing the name is only asked when data is deleted. Cancel is the default button."),
-		s.d.Render("From a script: ")+s.a.Render("doze reset "+v.Name+" --yes"),
+		s.d.Render("From a script: ")+s.a.Render(display.ResetCommand(v.Name)),
 	)
 	return box(s.borderBad, s.r.Bold(true).Render("reset "+v.Name+" · this deletes data"), "", lines, bw, len(lines)+2)
 }
@@ -773,28 +699,12 @@ func (m *Model) restartBox(w int) []string {
 		bw = w
 	}
 	label := func(k string) string { return s.d.Render(fit(k, 13)) + " " }
-	conns := 0
-	for _, h := range v.Holders {
-		if h.Kind == "connection" {
-			conns = h.Count
-		}
-	}
-	deps := dependants(v)
-	var sentence string
-	switch {
-	case len(deps) > 0 && conns > 0:
-		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it, and " + s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " are open to it right now."
-	case len(deps) > 0:
-		sentence = s.w.Render(strings.Join(deps, ", ")) + " is running and needs it."
-	default:
-		sentence = s.w.Render(fmt.Sprintf("%d connection%s", conns, plural(conns))) + " open to it right now."
-	}
-	lines := []string{"", s.text.Render(sentence), "",
+	lines := []string{"", m.heldSentence(v), "",
 		label("what happens") + s.text.Render("It stops and starts again. Every connection drops; clients that"),
 		label("") + s.text.Render("reconnect find it back in a few seconds, those that do not stay down."),
 		label("data") + s.text.Render("Kept. Nothing is deleted."),
 		"",
-		m.buttons([]string{"Restart " + v.Name, "Cancel"}, m.modal.btn, -1),
+		m.buttons(display.RestartButtons(v), m.modal.btn, -1),
 		"",
 		s.border.Render(strings.Repeat("─", bw-4)),
 		s.d.Render("doze only asks when something is using it. Restarting an idle one never asks."),
