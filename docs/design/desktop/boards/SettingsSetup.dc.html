@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · settings · setup</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.set{flex:1;min-width:0;overflow:hidden;padding:18px 28px;display:flex;flex-direction:column;gap:14px}
+.set h1{margin:0;font-size:20px;color:var(--bright);font-weight:650}
+.grp2{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.grp2 .gh{padding:10px 16px 0;font:600 11px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.sr{display:grid;grid-template-columns:200px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+.sr:first-of-type{border-top:0}
+.sr .k{color:var(--bright);font-weight:500}
+.sr .d{color:var(--dim);font-size:12px;line-height:17px}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+.seg span{padding:4px 12px;font-size:12px;color:var(--text);border-left:1px solid var(--line2)}
+.seg span:first-child{border-left:0}
+.seg span.on{background:var(--accent);color:#15131d;font-weight:600}
+.sw{width:32px;height:18px;border-radius:9px;background:var(--accent);position:relative;display:inline-block}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#15131d}
+.sw.off{background:#3a3550}.sw.off::after{right:auto;left:2px;background:#8a85a8}
+.sel{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 10px;border:1px solid var(--line2);border-radius:7px;background:#120f19;font-size:12px}
+.sw5{display:flex;gap:8px}
+.sw5 span{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 4px;border:1px solid var(--line2);border-radius:14px;font-size:12px}
+.sw5 span.on{border-color:var(--accent);color:var(--bright)}
+.sw5 i{width:16px;height:16px;border-radius:50%;display:block}
+.chk{display:grid;grid-template-columns:20px 176px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 16px;border-top:1px solid var(--line);font-size:12.5px;line-height:18px}
+.chk:first-of-type{border-top:0}
+.chk .n{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:12px}
+.chk .t{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chk.bad{background:#2a1520}
+.chk.bad .t{white-space:normal}
+.chk .fix{display:flex;flex-direction:column;gap:2px;white-space:normal}
+.two{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;min-height:0;flex:1}
+.aside{display:flex;flex-direction:column;gap:12px}
+.aside .grp2{padding:12px 16px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:18px}
+.aside b{color:var(--bright)}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Settings">
+      <h4>Settings</h4>
+      <div class="space">General</div>
+      <div class="space on"><b>Setup</b></div>
+      <div class="space">Command line</div>
+      <div class="space">About</div>
+      <div class="foot">⌘, opens these · esc goes back to shop</div>
+    </nav>
+    <main class="main set">
+      <div style="display:flex;align-items:center;gap:12px"><h1>Setup</h1><span class="dim">doze doctor, for shop · checked 14:05:20</span><span class="grow"></span><span class="btn">Check again</span><span class="btn">Copy as JSON</span></div>
+      <div class="two">
+        <section class="grp2" aria-label="Checks" style="overflow:hidden">
+          <div class="gh" style="padding-bottom:6px">This machine and this project</div>
+          <div class="chk"><span class="ok">✓</span><span class="n">config</span><span class="t">doze.hcl parses cleanly</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">platform</span><span class="t">aarch64-apple-darwin</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">home</span><span class="t">/Users/srini/.doze</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">project</span><span class="t">/Users/srini/.doze/projects/shop-918fa699</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">postgres/db</span><span class="t">17 → [resolved] (mirror) — cached</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">valkey/cache</span><span class="t">9 → 9.1.1 (mirror) — not cached (downloads on first use)</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">kafka/events</span><span class="t">[version] (not pinned; resolves on first use)</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">aws/cloud</span><span class="t">builtin (not pinned; resolves on first use)</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">process/api</span><span class="t">builtin (not pinned; resolves on first use)</span><span></span></div>
+          <div class="chk"><span></span><span class="dim" style="font-size:12px">+ 7 more</span><span class="dim">worker, web, mongo, mailpit, search, migrate, seed: builtin</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">daemon</span><span class="t">running</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">domains</span><span class="t">db.shop.doze resolves through the system resolver</span><span></span></div>
+          <div class="chk bad"><span class="bad">✗</span><span class="n">names: network</span><span class="t">the doze network daemon is not running — services cannot hold canonical ports</span><span><span class="btn pri">Repair</span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">names: resolver route</span><span class="t">/etc/resolver/doze → 127.0.0.1:5323</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">names: resolver</span><span class="t">doze-aws (pid 97224) is answering .doze</span><span></span></div>
+          <div class="chk"><span class="ok">✓</span><span class="n">names: front door</span><span class="t">doze-aws (pid 97224) is serving port-less http:// names</span><span></span></div>
+          <div style="padding:10px 16px;border-top:1px solid var(--line);color:var(--bad);font-size:12.5px">✗ some checks need attention (see ✗ above)</div>
+        </section>
+        <div class="aside">
+          <section class="grp2" aria-label="The names setup">
+            <b>The .doze names setup</b>
+            <span class="dim">One-time, shared with doze-aws and doze-kafka: whichever runs first sets it up for all three. Here the resolver is being answered by doze-aws.</span>
+            <span><span class="btn pri">Repair</span> <span class="dim" style="font-size:12px">asks for your password once</span></span>
+            <span class="link" style="font-size:12px">See the script</span>
+            <span class="dim" style="font-size:12px">The same as <span class="mono">doze doctor --fix</span>; --print-fix shows the script.</span>
+          </section>
+          <section class="grp2" aria-label="On Linux">
+            <b>On Linux, the steps are</b>
+            <span class="mono" style="font-size:12px">names: unprivileged ports<br>names: hosts block<br>names: resolver route</span>
+            <span class="dim" style="font-size:12px">and the prompt is polkit.</span>
+          </section>
+          <section class="grp2" aria-label="Remove">
+            <b>Remove it</b>
+            <span class="dim">Takes the helper and /etc/resolver/doze away. Services go back to localhost ports.</span>
+            <span><span class="btn">Uninstall…</span></span>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

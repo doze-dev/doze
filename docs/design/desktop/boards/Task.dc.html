@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · migrate last run</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.side .space{padding:4px 8px}
+
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.box h3{margin:0 0 2px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.hist{display:grid;grid-template-columns:18px 74px minmax(0,1fr) 44px;column-gap:8px;padding:4px 0;border-top:1px solid var(--line);align-items:center}
+.hist.h{border-top:0;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.hist span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inset{border:1px dashed var(--line2);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.inset .lab{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+      <div class="space"><span class="dot"></span>mailpit<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>search<small>asleep</small></div>
+      <div class="space on"><span class="ok" style="width:8px">✓</span><b>migrate</b><small>done</small></div>
+      <div class="space"><span class="dim" style="width:8px">▸</span>seed<small>ready</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <span class="ok" style="font-size:16px">✓</span>
+        <h1>migrate</h1><span class="path">task · done · ran 2m ago in 1.2s</span>
+        <span class="grow"></span>
+        <span class="dim mono" style="font-size:12px">doze task migrate</span>
+        <span class="btn pri">Run now <kbd>r</kbd></span>
+      </div>
+      <div class="tabs"><span class="tab on">Last run</span></div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;padding:14px 20px 0">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div class="dock" style="margin:0;flex:1">
+            <div class="cap"><b>migrate</b><span>ran 14:02:40 · exit 0 · 1.2s</span><span class="grow"></span><span>its output</span></div>
+            <div class="log mono">
+              <div><span class="dim">14:02:40</span> 14 migrations already applied</div>
+              <div><span class="dim">14:02:41</span> applying 0015_orders_index.sql</div>
+              <div><span class="dim">14:02:41</span> ok 0015_orders_index.sql (212 ms)</div>
+            </div>
+          </div>
+          <div class="inset">
+            <span class="lab">The same page for seed, which has not run</span>
+            <div style="display:flex;gap:10px;align-items:center"><span class="dim" style="font-size:14px">▸</span><b class="bright">seed</b><span class="dim">task · ready · has not run</span><span class="grow"></span><span class="btn">Run now <kbd>r</kbd></span></div>
+            <div class="dim">it has not run yet · r run now</div>
+            <div><span class="ok">✓</span> you ask · <span class="mono">doze task seed</span> <span class="dim">· nothing needs it, so it runs only when asked</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="box"><h3>runs when</h3>
+            <div><span class="ok">✓</span> you ask · <span class="mono">doze task migrate</span></div>
+            <div><span class="ok">✓</span> something that needs it starts · api</div>
+          </section>
+          <section class="box"><h3>reads <span class="new">new</span></h3>
+            <div class="kv" style="grid-template-columns:70px minmax(0,1fr)"><span class="k">inputs</span><span class="mono">migrations/*.sql</span></div>
+            <div class="kv" style="grid-template-columns:70px minmax(0,1fr)"><span class="k">env</span><span class="mono">DATABASE_URL</span></div>
+            <div class="dim" style="font-size:12px">From its block in doze.hcl. A changed input makes it run again when api next starts.</div>
+          </section>
+          <section class="box" style="flex:1"><h3>history</h3>
+            <div class="hist h"><span></span><span>when</span><span>why</span><span style="text-align:right">took</span></div>
+            <div class="hist"><span class="ok">✓</span><span class="mono">14:02:40</span><span>0015_orders_index.sql changed</span><span class="r">1.2s</span></div>
+            <div class="hist"><span class="bad">✗</span><span class="mono">11:04:40</span><span>0014_carts.sql changed</span><span class="r">0.4s</span></div>
+            <div class="hist"><span class="ok">✓</span><span class="mono">Nov 1</span><span>you asked</span><span class="r">0.9s</span></div>
+            <div class="dim" style="font-size:12px;margin-top:4px">Click a run to read its output <span class="new">new</span></div>
+          </section>
+        </div>
+      </div>
+      <div class="keys"><span><kbd>r</kbd>run now</span><span><kbd>l</kbd>logs</span><span><kbd>y</kbd>copy</span><span><kbd>esc</kbd>back</span><span class="grow"></span><span>A task's page is its last run, as in the TUI</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

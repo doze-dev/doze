@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · new tab · no doze.hcl</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.choice{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.choice.on{border-color:var(--accent);background:#221d33}
+.choice .k{width:26px;height:26px;border-radius:7px;background:var(--sel);display:flex;align-items:center;justify-content:center;color:var(--bright);font:600 12px 'JetBrains Mono',monospace}
+.mod{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:center;height:32px;padding:0 10px;border-radius:7px}
+.mod.on{background:var(--pick)}
+.mod b{color:var(--bright);font:600 12.5px 'JetBrains Mono',monospace}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab" role="tab"><span class="dot g"></span>shop</span><span class="stab on" role="tab"><span class="dot"></span><b>ai-notes</b></span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>Open a tab <span class="new">new</span></h4>
+      <div class="space on"><span class="dot"></span><div><b>ai-notes</b><span class="dir">~/code/ai-notes · no doze.hcl</span></div></div>
+      <div class="space"><span class="dot g"></span><div>shop<span class="dir">~/code/shop</span></div><small>7</small></div>
+      <div class="space"><span class="dot"></span><div>ai-interview <span class="nw">needs work</span><span class="dir">~/code/ai-interview · not running</span></div></div>
+      <div style="margin:10px 6px;border:1px dashed #37324b;border-radius:9px;padding:14px;text-align:center;color:#8a85a8;font-size:12px">Drop a folder here, or<br><b class="bright">Open a folder…</b> ⌘O</div>
+    </nav>
+    <main class="main">
+      <div class="head" style="padding-bottom:4px">
+        <h1>No doze.hcl in ~/code/ai-notes yet.</h1>
+      </div>
+      <div style="padding:0 20px 14px" class="dim">found 2 apps, 1 module <span style="font-size:12px">· from go.mod and package.json; nothing was started</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:0 20px;flex:1;min-height:0">
+        <section style="display:flex;flex-direction:column;gap:10px">
+          <h3 style="margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)">Start here</h3>
+          <div class="choice"><span class="k">1</span><div><b class="bright">Set it up from this repo</b><div class="dim" style="font-size:12px">reads go.mod, package.json, compose files and writes a doze.hcl</div></div></div>
+          <div class="choice on"><span class="k">2</span><div><b class="bright">Add one thing</b><div class="dim" style="font-size:12px">name a module or a service: postgres, valkey, mongo, …</div></div></div>
+          <div class="choice"><span class="k">3</span><div><b class="bright">Start with an empty file</b><div class="dim" style="font-size:12px">writes a short doze.hcl, with comments, to fill in</div></div></div>
+          <div class="dim" style="font-size:12px;margin-top:auto">The same three choices as a bare <b class="bright">doze</b> in an empty folder.</div>
+        </section>
+        <section class="card" style="gap:6px;min-height:0">
+          <h3>Add one thing <span class="new">new</span> <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">· the registry, as a list</span></h3>
+          <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--line2);border-radius:7px;background:#120f19"><span class="dim">Add</span><span class="mono bright">post</span><span style="width:1px;height:16px;background:var(--accent)"></span></div>
+          <div class="mod on"><b>postgres</b><span class="dim" style="font-size:12px">PostgreSQL: the database most apps start with</span></div>
+          <div class="mod"><b>valkey</b><span class="dim" style="font-size:12px">Redis-compatible cache and key–value store, in memory</span></div>
+          <div class="mod"><b>kvrocks</b><span class="dim" style="font-size:12px">Redis-compatible too, kept on disk</span></div>
+          <div class="mod"><b>kafka</b><span class="dim" style="font-size:12px">a Kafka broker, from doze-kafka, with its own console</span></div>
+          <div class="mod"><b>aws</b><span class="dim" style="font-size:12px">S3, SQS, DynamoDB and more, from doze-aws</span></div>
+          <div class="mod"><b>ferret</b><span class="dim" style="font-size:12px">MongoDB's wire protocol, from FerretDB</span></div>
+          <div class="mod"><b>mariadb</b><span class="dim" style="font-size:12px">MySQL-compatible database</span></div>
+          <div class="mod"><b>temporal</b><span class="dim" style="font-size:12px">Temporal's workflow server, with its web UI</span></div>
+          <div class="dim" style="font-size:12px;margin-top:4px">Or type the name of a service you run yourself. ⏎ writes doze.hcl with it: <span class="mono">doze add postgres</span></div>
+        </section>
+      </div>
+      <div class="keys"><span><kbd>↑↓</kbd>move</span><span><kbd>⏎</kbd>choose</span><span><kbd>1-3</kbd>pick</span><span class="grow"></span><span>nothing starts until you choose</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

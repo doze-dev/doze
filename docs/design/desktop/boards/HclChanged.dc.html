@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · doze.hcl changed</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.chg{display:grid;grid-template-columns:16px 66px 58px 64px minmax(0,1fr);gap:10px;align-items:center;min-height:30px;padding:5px 0;border-top:1px solid var(--line)}
+.chg:first-of-type{border-top:0}
+.sym{font-weight:700;text-align:center}
+.drawer{position:absolute;right:0;top:41px;bottom:0;width:560px;background:var(--panel);border-left:1px solid var(--line2);box-shadow:-18px 0 40px rgba(0,0,0,.35);padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.drawer h2{margin:0;font-size:16px;color:var(--bright)}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+    </nav>
+    <main class="main">
+      <div style="margin:14px 20px 0;padding:10px 14px;border:1px solid #5a4a1c;background:#221d10;border-radius:10px;display:flex;gap:12px;align-items:center">
+        <span class="warn">~</span><span><b class="bright">doze.hcl changed</b> <span class="dim">· saved 14:06 · 3 blocks differ</span></span><span class="grow"></span><span class="btn pri">Review</span>
+      </div>
+      <div class="head"><h1>shop</h1><span class="path">~/code/shop</span></div>
+      <div class="faded" style="opacity:.5;padding:0 20px" aria-hidden="true">
+        <div class="tbl" style="margin:0;--c:172px 92px 88px 76px minmax(0,1fr)">
+          <div class="tr h"><span>Name</span><span>Engine</span><span>State</span><span class="r">Memory</span><span>Because</span></div>
+          <div class="tr"><span class="n"><span class="dot g"></span>api</span><span>process</span><span class="ok">awake</span><span class="r">84 MB</span><span class="dim">runs until stopped</span></div>
+          <div class="tr"><span class="n"><span class="dot g"></span>db</span><span>postgres 17</span><span class="ok">awake</span><span class="r">96 MB</span><span class="dim">api needs it · 4 connections</span></div>
+          <div class="tr"><span class="n"><span class="ring"></span>events</span><span>kafka</span><span class="cool">waking</span><span class="r"></span><span class="dim">woken by worker</span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <aside class="drawer" aria-label="doze.hcl changed">
+    <h2>doze.hcl differs from what the running daemon started with:</h2>
+    <div class="mono" style="font-size:12px">
+      <div class="chg"><span class="sym ok">+</span><span class="bright">admin</span><span>app</span><span>new</span><span class="dim">starts when something uses it</span></div>
+      <div class="chg"><span class="sym warn">~</span><span class="bright">api</span><span>app</span><span>changed</span><span class="dim">restarts</span></div>
+      <div class="chg"><span class="sym warn">~</span><span class="bright">events</span><span>module</span><span>changed</span><span class="dim">restarts, and its structure is re-applied</span></div>
+    </div>
+    <div class="dim" style="font-size:12px">10 blocks unchanged</div>
+    <section class="card">
+      <h3>Structure: doze sync</h3>
+      <div class="mono" style="font-size:12px;line-height:19px"><div class="dim">doze will perform the following actions:</div><div>&#160;</div><div class="bright">  kafka.events</div><div>    <span class="ok">+</span> topic     orders.dlq</div><div>&#160;</div><div>plan: 1 to add, 0 to change, 0 to destroy</div></div>
+      <div style="display:flex;gap:8px;align-items:center"><span class="dim" style="font-size:12px;flex:1">Creates the topic now. Nothing restarts.</span><span class="btn">Apply structure</span></div>
+    </section>
+    <section class="card">
+      <h3>The blocks: restart the stack</h3>
+      <div>The daemon reads doze.hcl when it starts, so the changed blocks take effect after <span class="mono bright">doze down &amp;&amp; doze up</span>. Data is kept.</div>
+      <div class="dim" style="font-size:12px">api and events restart; connections to everything drop for a few seconds.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">Later</span><span class="btn pri">Restart the stack</span></div>
+    </section>
+    <div class="dim" style="font-size:12px">The text is what doze sync prints. Noticing the save is new: the daemon doesn't watch doze.hcl <span class="new">new</span></div>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

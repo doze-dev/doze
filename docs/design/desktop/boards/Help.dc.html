@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · keys</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.scrim{align-items:center}
+.sheet{width:1060px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.5);padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+.sheet h2{margin:0;font-size:16px;color:var(--bright);font-weight:650}
+.cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;flex:1;min-height:0}
+.cols h3{margin:0 0 6px;font:600 11px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.kr{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px;align-items:start;line-height:18px;padding:3px 0;font-size:12.5px}
+.kr kbd{font:600 11px 'JetBrains Mono',monospace;color:var(--bright);background:var(--sel);border-radius:4px;padding:1px 6px;white-space:nowrap;justify-self:start}
+.kr span{color:var(--text)}
+.kr small{display:block;color:var(--dim);font-size:11.5px}
+.meters{border-top:1px solid var(--line);padding-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;font-size:12.5px;line-height:18px}
+.meters b{color:var(--bright)}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+      <div class="space"><span class="dot"></span>mailpit<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>search<small>asleep</small></div>
+    </nav>
+    <main class="main"><div class="head"><h1>shop</h1><span class="path">~/code/shop</span></div></main>
+  </div>
+  <div class="scrim">
+    <section class="sheet" role="dialog" aria-label="Keyboard shortcuts">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="22" height="22" style="display:block;flex:none">
+        <h2>Keys</h2><span class="dim">doze 0.2.0 · the TUI's keys, kept, plus the window's own</span><span class="grow"></span><span class="btn">Close <kbd>esc</kbd></span>
+      </div>
+      <div class="cols">
+        <div>
+          <h3>Home</h3>
+          <div class="kr"><kbd>↑↓</kbd><span>move</span></div>
+          <div class="kr"><kbd>⏎</kbd><span>open</span></div>
+          <div class="kr"><kbd>w</kbd><span>wake<small>start it now, and what it needs</small></span></div>
+          <div class="kr"><kbd>s</kbd><span>sleep</span></div>
+          <div class="kr"><kbd>r</kbd><span>restart<small>rerun, for a task</small></span></div>
+          <div class="kr"><kbd>l</kbd><span>logs</span></div>
+          <div class="kr"><kbd>L</kbd><span>all logs</span></div>
+          <div class="kr"><kbd>y</kbd><span>copy address</span></div>
+          <div class="kr"><kbd>o</kbd><span>sort name, mem or state</span></div>
+          <div class="kr"><kbd>/</kbd><span>filter</span></div>
+        </div>
+        <div>
+          <h3>This page</h3>
+          <div class="kr"><kbd>tab</kbd><span>next tab<small>1-5 jump straight to one</small></span></div>
+          <div class="kr"><kbd>p</kbd><span>pin awake<small>modules</small></span></div>
+          <div class="kr"><kbd>r</kbd><span>run now<small>a task</small></span></div>
+          <div class="kr"><kbd>o</kbd><span>open console</span></div>
+          <div class="kr"><kbd>⏎</kbd><span>open in browser</span></div>
+          <h3 style="margin-top:10px">Logs</h3>
+          <div class="kr"><kbd>f</kbd><span>level<small>debug, info, warnings, errors only</small></span></div>
+          <div class="kr"><kbd>/</kbd><span>search</span></div>
+          <div class="kr"><kbd>t</kbd><span>time<small>clock or −3m 05s</small></span></div>
+          <div class="kr"><kbd>[ ]</kbd><span>earlier runs</span></div>
+          <div class="kr"><kbd>v</kbd><span>select<small>y copies the lines</small></span></div>
+        </div>
+        <div>
+          <h3>All logs</h3>
+          <div class="kr"><kbd>space</kbd><span>pause</span></div>
+          <div class="kr"><kbd>f / t</kbd><span>level, time</span></div>
+          <div class="kr"><kbd>y</kbd><span>copy</span></div>
+          <h3 style="margin-top:10px">Everywhere</h3>
+          <div class="kr"><kbd>⌘K</kbd><span>search and do anything<small>was : in the TUI</small></span></div>
+          <div class="kr"><kbd>⌘1–9</kbd><span>switch stack</span></div>
+          <div class="kr"><kbd>⌘T</kbd><span>new tab</span></div>
+          <div class="kr"><kbd>⌘W</kbd><span>close the tab<small>the stack keeps running</small></span></div>
+          <div class="kr"><kbd>⌘,</kbd><span>settings</span></div>
+          <div class="kr"><kbd>⌘Q</kbd><span>quit<small>the stacks keep running</small></span></div>
+          <div class="kr"><kbd>esc</kbd><span>back</span></div>
+        </div>
+        <div>
+          <h3>Mouse</h3>
+          <div class="kr"><kbd>click</kbd><span>select a row</span></div>
+          <div class="kr"><kbd>dbl-click</kbd><span>open it</span></div>
+          <div class="kr"><kbd>right-click</kbd><span>its actions <span class="new">new</span></span></div>
+          <div class="kr"><kbd>drag</kbd><span>over logs to select lines</span></div>
+          <div class="kr"><kbd>hover</kbd><span>a state to see why <span class="new">new</span></span></div>
+          <h3 style="margin-top:10px">From anywhere <span class="new">new</span></h3>
+          <div class="kr"><kbd>⌥Space</kbd><span>quick panel<small>from any app; on Wayland only where the desktop's portal allows it</small></span></div>
+        </div>
+      </div>
+      <div class="meters">
+        <div><b>mem</b> is memory in use, cut by instance. ≈ resident is the stack's total.</div>
+        <div><b>cpu</b> is cores in use: 1 core is one full CPU, so a busy stack can show 2.5 cores.</div>
+        <div><b>charts</b> take a reading a second; "last 4m" is how much the daemon has kept.</div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

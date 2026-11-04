@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · who did what</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.ag{display:grid;grid-template-columns:74px 70px 190px minmax(0,1.1fr) minmax(0,1fr);column-gap:14px;align-items:center;min-height:34px;padding:4px 14px;border-top:1px solid #2c2840}
+.ag>*{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag.h{border-top:0;min-height:28px;color:#8a85a8;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;background:#18161f}
+.who{display:inline-block;font:700 10px/16px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:0 6px;border-radius:3px;color:#15131d}
+.who.a{background:#BD93F9}.who.s{background:#82AAFF}.who.y{background:#7EE787}.who.d{background:#4a4466;color:#f4f1ff}
+.seg{display:inline-flex;border:1px solid #37324b;border-radius:7px;overflow:hidden;font-size:12px}
+.seg>*{padding:5px 10px;color:#8a85a8;font-weight:500}.seg b{background:#2b2542;color:#f4f1ff}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <h4>View</h4>
+      <div class="space">Services</div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space on"><b>Timeline</b> <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+      <div class="space"><span class="dot"></span>mailpit<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>search<small>asleep</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>Who did what</h1><span class="path">shop · the last 10 minutes</span> <span class="nw">needs work</span>
+        <span class="grow"></span>
+        <span class="seg"><b>All</b><span>You</span><span>Agents and scripts</span><span>doze itself</span></span>
+      </div>
+      <div class="vitals" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="vital"><span class="k">From agents</span><span class="v">4 commands</span><span class="dim" style="font-size:12px">claude-code 3 · codex 1</span></div>
+        <div class="vital"><span class="k">From scripts</span><span class="v">1 command</span><span class="dim" style="font-size:12px">make test, through zsh</span></div>
+        <div class="vital"><span class="k">From you</span><span class="v">1 action</span><span class="dim" style="font-size:12px">in this app</span></div>
+      </div>
+      <div class="tbl" style="flex:1;min-height:0;display:flex;flex-direction:column">
+        <div class="ag h"><span>When</span><span>Who</span><span>From</span><span>What</span><span>What came of it</span></div>
+          <div class="ag"><span class="dim mono">14:04:31</span><span><span class="who a">agent</span></span><span class="dim">claude-code · ~/code/shop</span><span class="mono bright">doze logs worker</span><span class="dim">read 64 lines</span></div>
+          <div class="ag"><span class="dim mono">14:04:12</span><span><span class="who a">agent</span></span><span class="dim">claude-code · ~/code/shop</span><span class="mono bright">doze restart worker</span><span class="ok">worker ready in 1.1s</span></div>
+          <div class="ag"><span class="dim mono">14:03:52</span><span><span class="who d">doze</span></span><span class="dim">doze</span><span class="mono bright">mailpit ready in 2.6s</span><span class="dim">woke (a connection) at 14:03:50</span></div>
+          <div class="ag"><span class="dim mono">14:02:58</span><span><span class="who d">doze</span></span><span class="dim">doze · watch</span><span class="mono bright">web woke (web/src/pages/orders.tsx changed)</span><span class="ok">ready in 5.8s</span></div>
+          <div class="ag"><span class="dim mono">14:02:20</span><span><span class="who y">you</span></span><span class="dim">you · this app</span><span class="mono bright">wake cloud</span><span class="ok">ready in 0.4s</span></div>
+          <div class="ag"><span class="dim mono">14:01:40</span><span><span class="who s">script</span></span><span class="dim">make test · zsh</span><span class="mono bright">doze task migrate</span><span class="ok">migrate done in 1.2s</span></div>
+          <div class="ag"><span class="dim mono">14:00:41</span><span><span class="who a">agent</span></span><span class="dim">codex · ~/code/shop</span><span class="mono bright">doze status</span><span class="dim">read</span></div>
+          <div class="ag"><span class="dim mono">13:59:02</span><span><span class="who a">agent</span></span><span class="dim">claude-code · ~/code/shop</span><span class="mono bright">doze url db</span><span class="dim">postgres://shop@db.shop.doze:5432/shop</span></div>
+      </div>
+      <section class="card" style="margin:12px 20px 0;padding:10px 16px;gap:4px">
+        <div style="font-size:12.5px"><b class="bright">What exists:</b> <span class="dim">every client says what it is when it connects (cli, dash or lib), and the journal records that a command caused a wake or a restart.</span></div>
+        <div style="font-size:12.5px"><b class="bright">The work:</b> <span class="dim">the CLI also sends who started it (its parent process and folder, and CLAUDECODE or a similar marker when an agent sets one), and the journal keeps it with every command, including reads like status and logs.</span></div>
+      </section>
+      <div class="keys"><span><kbd>⏎</kbd>open what it touched</span><span><kbd>y</kbd>copy the command</span><span class="grow"></span><span>agents use the CLI; this is where you see what they did</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · the living map</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.node{position:absolute;width:150px;height:56px;border-radius:10px;background:#1b1927;border:1px solid #37324b;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.node b{color:#f4f1ff;font-weight:600;display:flex;align-items:center;gap:7px}
+.node small{color:#8a85a8;font-size:11px;line-height:14px}
+.node.awake{border-color:#3f6e48}
+.node.waking{border-color:#82AAFF;box-shadow:0 0 0 4px rgba(130,170,255,.15)}
+.node.doze{border-color:#6e5d36}
+.node.asleep{opacity:.55;border-style:dashed}
+.node.sel{box-shadow:0 0 0 2px #BD93F9}
+.elabel{position:absolute;font:500 11px Inter,sans-serif;color:#cfcbe3;background:#15131d;padding:0 5px;border-radius:4px;white-space:nowrap}
+</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space">Services</div>
+      <div class="space on"><b>Map</b> <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>shop</h1><span class="path">who uses what, from doze.hcl · live</span>
+        <span class="grow"></span>
+        <span class="pill"><span class="dot g"></span>awake</span><span class="pill"><span class="ring"></span>waking</span><span class="pill"><span class="dot y"></span>dozing</span><span class="pill" style="opacity:.6">asleep</span>
+      </div>
+      <div style="flex:1;min-height:0;display:flex;gap:14px;padding:0 20px 16px">
+        <div style="flex:1;min-width:0;position:relative;border:1px solid #2c2840;border-radius:12px;background:radial-gradient(#221e30 1px,transparent 1px) 0 0/22px 22px #120f19">
+          <svg width="723" height="690" viewBox="0 0 723 690" style="position:absolute;left:0;top:0" aria-hidden="true">
+            <path d="M190 278 C300 278 310 68 420 68" stroke="#7EE787" stroke-width="3" fill="none"/>
+            <path d="M190 278 C300 278 310 178 420 178" stroke="#6e5d36" stroke-width="2" fill="none"/>
+            <path d="M190 278 C300 278 310 288 420 288" stroke="#7EE787" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+            <path d="M190 468 C300 468 310 398 420 398" stroke="#82AAFF" stroke-width="3" stroke-dasharray="6 5" fill="none"/>
+          </svg>
+          <div class="node awake" style="left:40px;top:60px"><b><span class="dot g"></span>web</b><small>app · pnpm dev</small></div>
+          <div class="node awake sel" style="left:40px;top:250px"><b><span class="dot g"></span>api</b><small>app · 84 MB</small></div>
+          <div class="node waking" style="left:40px;top:440px"><b><span class="ring"></span>worker</b><small>app · waiting on events</small></div>
+          <div class="node awake" style="left:420px;top:40px"><b><span class="dot g"></span>db</b><small>postgres 17 · 96 MB</small></div>
+          <div class="node doze" style="left:420px;top:150px"><b><span class="dot y"></span>cache</b><small>valkey 9 · sleeps in 3:12</small></div>
+          <div class="node waking" style="left:420px;top:370px"><b><span class="ring"></span>events</b><small>kafka · topic orders</small></div>
+          <div class="node asleep" style="left:420px;top:480px"><b><span class="dot"></span>mailpit</b><small>service · asleep</small></div>
+          <div class="node asleep" style="left:420px;top:590px"><b><span class="dot"></span>cloud</b><small>aws · queue orders, bucket uploads</small></div>
+          <div class="node awake" style="left:420px;top:260px"><b><span class="dot g"></span>mongo</b><small>service · api needs it</small></div>
+          <span class="elabel" style="left:270px;top:150px">DATABASE_URL · 4 open</span>
+          <span class="elabel" style="left:236px;top:446px;color:#82AAFF">KAFKA_BROKERS · waking it</span>
+        </div>
+        <aside class="card" style="width:270px;flex:none" aria-label="What just happened">
+          <h3>Just now</h3>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div><span class="cool">events is waking</span><div class="dim" style="font-size:12px">woke (worker needed it) · 3m</div></div>
+            <div><span class="cool">worker is waking</span><div class="dim" style="font-size:12px">waiting on events</div></div>
+            <div><span class="ok">db woke</span><div class="dim" style="font-size:12px">woke (migrate needed it) · ready in 180ms</div></div>
+            <div><span class="warn">cache is dozing</span><div class="dim" style="font-size:12px">nothing has held it for 1:48</div></div>
+            <div><span class="dim">cloud is asleep</span><div class="dim" style="font-size:12px">went to sleep (idle) · its data stays</div></div>
+          </div>
+          <div style="margin-top:auto;border-top:1px solid #2c2840;padding-top:10px;display:flex;flex-direction:column;gap:6px">
+            <span class="dim" style="font-size:12px">Lines are the env references in doze.hcl. A solid line has connections open now; dashed, none.</span>
+            <span class="dim" style="font-size:12px">The count on a line (“4 open”) <span class="nw">needs work</span>: doze counts an instance's connections, not which app holds them.</span>
+            <span class="dim" style="font-size:12px">Click a box to open it, or a line to see its traffic.</span>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

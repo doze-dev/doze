@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · api crashing</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot r"></span><b>shop</b><span class="badge">1</span></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space on"><span class="dot r"></span><b>api</b><span class="badge">!</span></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <span class="dot r" style="width:10px;height:10px"></span>
+        <h1>api</h1><span class="path">go run ./cmd/api · crashing</span>
+        <span class="grow"></span>
+        <span class="btn">Stop retrying <span class="nw">needs work</span></span>
+        <span class="btn pri">Retry now <kbd>r</kbd></span>
+      </div>
+      <div class="tabs"><span class="tab on">Overview</span><span class="tab">Logs</span><span class="tab">Last run <span class="new">new</span></span><span class="tab">Terminal <span class="new">new</span></span></div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:16px 20px">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card" style="border-color:#FF7A93">
+            <h3 class="bad">It exited</h3>
+            <div class="mono" style="font-size:13px;line-height:22px">
+              <div class="bright">panic: STRIPE_KEY is required</div>
+              <div class="dim">  main.loadConfig  <span class="link">cmd/api/config.go:41</span></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn">Open config.go:41 in your editor <span class="new">new</span></span><span class="btn">Copy the error</span></div>
+          </section>
+          <section class="card">
+            <h3>What doze does next</h3>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="bar" style="flex:1;height:8px"><i style="width:60%;background:#FF7A93"></i></div>
+              <span class="bright">try 3 of 5</span>
+            </div>
+            <div>next try in <b class="bright">4 s</b>. After the fifth it stops and waits for you; nothing else in the stack is touched.</div>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Its last run</h3>
+            <div class="mono" style="display:flex;flex-direction:column;gap:1px">
+              <div><span class="dim">14:05:02</span> <span class="dim">started</span> go run ./cmd/api</div>
+              <div><span class="dim">14:05:03</span> <span class="bad">panic: STRIPE_KEY is required</span></div>
+              <div><span class="dim">14:05:03</span> <span class="dim">goroutine 1 [running]:</span></div>
+              <div><span class="dim">14:05:03</span> <span class="dim">main.loadConfig()</span></div>
+              <div><span class="dim">14:05:03</span> <span class="dim">exit status 2 · ran 1.1s</span></div>
+            </div>
+          </section>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card">
+            <h3>Env doze gives it <span class="new">new</span></h3>
+            <div class="kv"><span class="k mono">DATABASE_URL</span><span class="mono dim">module.db.url</span><span></span></div>
+            <div class="kv"><span class="k mono">CACHE_ADDR</span><span class="mono dim">module.cache.address</span><span></span></div>
+            <div class="kv"><span class="k mono">MONGO_URL</span><span class="mono dim">service.mongo.url</span><span></span></div>
+            <div style="display:flex;gap:8px;margin-top:4px"><span class="btn">Open doze.hcl at app "api" <span class="new">new</span></span></div>
+          </section>
+          <section class="card">
+            <h3>Waiting on it <span class="new">new</span></h3>
+            <div class="dim">Nothing in doze.hcl needs api, so nothing else is held up. It runs after migrate, and needs db, mongo and cache.</div>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Told you <span class="new">new</span></h3>
+            <div class="dim">A notification went out at the first crash. The bat in the menu bar has a red dot until api is up or you stop it.</div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · start a stack</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.found{display:grid;grid-template-columns:20px 110px minmax(0,1fr);column-gap:10px;align-items:start;padding:8px 0;border-top:1px solid #2c2840}
+</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab on" role="tab"><span class="dot"></span><b>shop</b></span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Projects">
+      <h4>Open a tab <span class="new">new</span></h4>
+      <div class="space on"><span class="dot"></span><div><b>shop</b><span class="dir">~/code/shop · just dropped in</span></div></div>
+      <div class="space"><span class="dot g"></span><div>data<span class="dir">~/code/data</span></div><small>5</small></div>
+      <div class="space"><span class="dot"></span><div>ai-interview <span class="nw">needs work</span><span class="dir">~/code/ai-interview · not running</span></div><small>Up</small></div>
+      <div style="margin:10px 6px;border:1px dashed #37324b;border-radius:9px;padding:14px;text-align:center;color:#8a85a8;font-size:12px">Drop a folder here, or<br><b class="bright">Open a folder…</b> ⌘O</div>
+      <h4>Standalone <span class="new">new</span></h4>
+      <div class="space"><span class="dot g"></span><div>doze-aws<span class="dir">running on its own · console only</span></div></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>Set up shop</h1><span class="path">~/code/shop</span>
+      </div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:0 20px 16px">
+        <section class="card" aria-label="What doze found">
+          <h3>What doze found in the repo</h3>
+          <div class="dim" style="font-size:12px">It read go.mod, the code's env lookups, package.json and the Makefile. Nothing was started. All of it goes into doze.hcl; tick what starts now. The rest stays asleep until you start it, and the choice is remembered for next time <span class="nw">needs work</span>.</div>
+          <div style="display:flex;flex-direction:column">
+            <label class="found"><input type="checkbox" checked="checked"><span class="bright mono">app api</span><span class="dim">a Go main package at cmd/api · reads $PORT</span></label>
+            <label class="found"><input type="checkbox" checked="checked"><span class="bright mono">app worker</span><span class="dim">a Go main package at cmd/worker</span></label>
+            <label class="found"><input type="checkbox" checked="checked"><span class="bright mono">app web</span><span class="dim">package.json has a dev script</span></label>
+            <label class="found"><input type="checkbox" checked="checked"><span class="bright mono">postgres</span><span class="dim">the code reads DATABASE_URL</span></label>
+            <label class="found"><input type="checkbox" checked="checked"><span class="bright mono">valkey</span><span class="dim">the code reads CACHE_ADDR</span></label>
+            <label class="found"><input type="checkbox" checked="checked"><span class="bright mono">kafka</span><span class="dim">the code reads KAFKA_BROKERS</span></label>
+            <label class="found"><input type="checkbox"><span class="bright mono">task seed</span><span class="dim">Makefile has a seed target · runs only when asked</span></label>
+          </div>
+        </section>
+        <section class="card" aria-label="The doze.hcl it will write">
+          <h3>The doze.hcl it will write</h3>
+          <div class="mono" style="flex:1;background:#120f19;border:1px solid #2c2840;border-radius:8px;padding:10px 12px;line-height:19px;overflow:hidden">
+            <div><span class="acc">stack</span> = <span class="ok">"shop"</span></div>
+            <div>&#160;</div>
+            <div><span class="acc">module</span> postgres <span class="ok">"db"</span> {</div>
+            <div>  version = 17</div>
+            <div>  port    = 5432</div>
+            <div>}</div>
+            <div>&#160;</div>
+            <div><span class="acc">app</span> <span class="ok">"api"</span> {</div>
+            <div>  run  = <span class="ok">"go run ./cmd/api"</span></div>
+            <div>  port = 8080</div>
+            <div>  env  = {</div>
+            <div>    DATABASE_URL  = module.db.url</div>
+            <div>    CACHE_ADDR    = module.cache.address</div>
+            <div>    KAFKA_BROKERS = module.events.address</div>
+            <div>  }</div>
+            <div>}</div>
+            <div class="dim">… worker, web, cache, events</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="dim" style="font-size:12px;flex:1">It's an ordinary file in the repo. Edit it in your editor whenever you like.</span>
+            <span class="btn">Open in editor</span>
+            <span class="btn pri">Write it and start</span>
+          </div>
+        </section>
+      </div>
+      <div class="keys" style="margin-top:0"><span>Same as <b class="bright">doze init</b> in a terminal, which shows the same list and reasons</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · timeline</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.lane{display:grid;grid-template-columns:96px minmax(0,1fr);align-items:center;height:30px}
+.lane .nm{color:#f4f1ff;font-weight:600;font-size:12px}
+.track{position:relative;height:14px}
+.seg{position:absolute;top:0;height:14px;border-radius:3px}
+.s-awake{background:#2f5a38}.s-wake{background:#82AAFF}.s-doze{background:#6e5d36}.s-sleep{background:#25212f}
+.mark{position:absolute;top:-3px;width:3px;height:20px;border-radius:2px}
+.cursor{position:absolute;top:0;bottom:0;width:2px;background:#FF7A93}
+.ev{display:grid;grid-template-columns:76px 70px minmax(0,1fr);column-gap:12px;padding:6px 12px;border-top:1px solid #2c2840;align-items:start}
+.ev.key{background:#2a1a24}
+</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space">Services</div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space on"><b>Timeline</b> <span class="new">new</span></div>
+      <h4>Show</h4>
+      <label class="space"><input type="checkbox" checked="checked"> state changes</label>
+      <label class="space"><input type="checkbox" checked="checked"> warnings and errors</label>
+      <label class="space"><input type="checkbox"> every log line</label>
+      <label class="space"><input type="checkbox" checked="checked"> AWS calls</label>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>What happened</h1><span class="path">14:00 – 14:05 · drag to zoom</span>
+        <span class="grow"></span>
+        <span class="pill">Last 5 minutes ▾</span>
+        <span class="btn">Copy as report</span>
+      </div>
+      <section class="card" style="margin:0 20px;gap:2px;padding:12px 16px" aria-label="Instances over time">
+        <div class="lane"><span></span><div class="track mono dim" style="height:16px;font-size:11px"><span style="position:absolute;left:0">14:00</span><span style="position:absolute;left:20%">14:01</span><span style="position:absolute;left:40%">14:02</span><span style="position:absolute;left:60%">14:03</span><span style="position:absolute;left:80%">14:04</span><span style="position:absolute;right:0">14:05</span></div></div>
+        <div class="lane"><span class="nm">api</span><div class="track"><div class="seg s-awake" style="left:0;width:100%"></div><div class="mark" style="left:53%;background:#F2C879"></div></div></div>
+        <div class="lane"><span class="nm">worker</span><div class="track"><div class="seg s-awake" style="left:0;width:100%"></div><div class="mark" style="left:77.3%;background:#FF7A93"></div></div></div>
+        <div class="lane"><span class="nm">db</span><div class="track"><div class="seg s-awake" style="left:0;width:100%"></div></div></div>
+        <div class="lane"><span class="nm">events</span><div class="track"><div class="seg s-awake" style="left:0;width:100%"></div></div></div>
+        <div class="lane"><span class="nm">cloud</span><div class="track"><div class="seg s-sleep" style="left:0;width:33%"></div><div class="seg s-wake" style="left:33%;width:1%"></div><div class="seg s-awake" style="left:34%;width:66%"></div></div></div>
+        <div class="lane"><span class="nm">mailpit</span><div class="track"><div class="seg s-sleep" style="left:0;width:76.6%"></div><div class="seg s-wake" style="left:76.6%;width:0.9%"></div><div class="seg s-awake" style="left:77.5%;width:22.5%"></div></div></div>
+        <div class="lane"><span class="nm">cache</span><div class="track"><div class="seg s-awake" style="left:0;width:26%"></div><div class="seg s-doze" style="left:26%;width:74%"></div></div></div>
+        <div class="lane" style="position:relative"><span></span><div class="track" style="height:4px"><div class="cursor" style="left:77.3%;top:-232px;height:236px"></div></div></div>
+      </section>
+      <div class="dock" style="margin-top:12px">
+        <div class="cap"><b>Around 14:03:52</b><span>worker's error, and what led to it</span><span class="grow"></span><span>⌥↑↓ previous / next error</span></div>
+        <div class="mono" style="display:flex;flex-direction:column;overflow:hidden">
+          <div class="ev"><span class="dim">14:01:40</span><span class="acc">cloud</span><span>woke (a connection) <span class="dim">· ready in 0.4s</span></span></div>
+          <div class="ev"><span class="dim">14:01:40</span><span class="cool">cloud</span><span>SQS SendMessage orders <span class="dim">· 200 · 3ms</span></span></div>
+          <div class="ev"><span class="dim">14:01:41</span><span class="cool">cloud</span><span>SQS ReceiveMessage orders <span class="dim">· 200 · 1 message</span></span></div>
+          <div class="ev"><span class="dim">14:02:40</span><span class="warn">api</span><span><span class="warn">WRN</span> slow query 212ms SELECT * FROM orders WHERE customer_id = $1</span></div>
+          <div class="ev"><span class="dim">14:03:50</span><span class="acc">mailpit</span><span>woke (a connection)</span></div>
+          <div class="ev key"><span class="bad">14:03:52</span><span class="bad">worker</span><span><span class="bad">ERR</span> receipt for ord_1042 failed: dial tcp mailpit.shop.doze:1025: i/o timeout after 2s<br><span class="dim">mailpit was asleep and took 2.6s to wake; worker's SMTP client waits 2s.</span></span></div>
+          <div class="ev"><span class="dim">14:03:52</span><span class="acc">mailpit</span><span>ready <span class="dim">· 2.6s after the connection, 0.6s too late for worker</span></span></div>
+          <div class="ev"><span class="dim">14:04:48</span><span class="cool">cloud</span><span>SQS SendMessage orders <span class="dim">· 200 · 2ms</span></span></div>
+        </div>
+      </div>
+      <div class="keys"><span><kbd>←→</kbd>move in time</span><span><kbd>⏎</kbd>open the instance</span><span><kbd>c</kbd>copy as report</span><span class="grow"></span><span>doze's journal, every instance's lines, and doze-aws's calls, in one order</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

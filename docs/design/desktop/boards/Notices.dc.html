@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · notices and notifications</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.desk{width:1280px;height:800px;position:relative;overflow:hidden;border-radius:12px;font:400 13px/20px Inter,system-ui,sans-serif;background:linear-gradient(160deg,#3b3357,#1d1a2c 60%,#141221)}
+.desk .win{position:absolute;left:24px;top:24px;width:820px;height:752px}
+.desk .win .side{width:180px}
+.toasts{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;width:420px}
+.toast{font-size:12.5px;line-height:18px}
+.toast .x{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap}
+.recent{margin:0 20px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.recent .h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.recent .h b{color:var(--bright)}
+.recent .l{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;padding:5px 14px;font-size:12.5px;border-top:1px solid var(--line)}
+.recent .l:first-of-type{border-top:0}
+.banners{position:absolute;right:20px;top:24px;width:392px;display:flex;flex-direction:column;gap:12px}
+.cap2{color:#d9d4ea;font:600 11px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.note{background:rgba(245,243,250,.97);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.35);padding:12px 14px;display:flex;gap:12px;color:#1d1b22}
+.note .ic{width:38px;height:38px;border-radius:9px;background:#F0A24B;display:flex;align-items:center;justify-content:center;flex:none}
+.note b{font-size:13px}
+.note .s{font-size:12px;color:#4a4757;line-height:17px}
+.note .m{font-size:12px;color:#6b6878}
+.note .a{display:flex;gap:12px;margin-top:6px;font-size:12px;font-weight:600;color:#5b4bb0}
+.expl{color:#d9d4ea;font-size:12.5px;line-height:19px}
+.expl b{color:#fff}.note .ic{background:none!important;width:auto!important;height:auto!important;padding:0!important}
+</style>
+</helmet>
+<div class="desk">
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot r"></span>api<span class="badge">!</span></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="dot r"></span>migrate<small>failed</small></div>
+    </nav>
+    <main class="main">
+      <div class="head"><h1>shop</h1><span class="grow"></span><span class="btn">Recent messages</span></div>
+      <section class="recent" aria-label="Recent messages">
+        <div class="h"><b>Recent messages</b><span class="dim">the last 20 · from ⌘K › recent messages</span></div>
+        <div class="l"><span class="dim mono">14:05:12</span><span class="bad">✗ restart worker failed: worker did not become ready within 1m0s</span></div>
+        <div class="l"><span class="dim mono">14:05:03</span><span>copied the connect line of db to the clipboard</span></div>
+        <div class="l"><span class="dim mono">14:04:41</span><span class="bad">migrate failed (exit 1) after 0.4s</span></div>
+        <div class="l"><span class="dim mono">14:04:40</span><span>running migrate…</span></div>
+        <div class="l"><span class="dim mono">14:01:40</span><span>migrate done in 1.2s</span></div>
+        <div class="l"><span class="dim mono">13:58:02</span><span>opened http://web.shop.doze</span></div>
+      </section>
+      <div style="margin:12px 20px 0;color:var(--dim);font-size:12px">Empty: <i>nothing has been said yet</i></div>
+    </main>
+  </div>
+  <div class="toasts" aria-live="polite">
+    <div class="toast"><span class="warn">●</span><span>copied the connect line of db to the clipboard</span><span class="x">fades in 4s</span></div>
+    <div class="toast" style="border-color:var(--bad)"><span class="bad">✗</span><span>restart worker failed: worker did not become ready within 1m0s</span><span class="x">12s · ✕</span></div>
+  </div>
+</div>
+<div class="banners">
+  <span class="cap2">Notifications · only these three <span class="new" style="background:#BD93F9">new</span></span>
+  <div class="note" role="alert"><span class="ic"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="38" height="38" style="display:block;flex:none"></span><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b>api crashed · shop</b><span class="s">panic: STRIPE_KEY is required · cmd/api/config.go:41</span><span class="m">try 3 of 5 · next in 4s</span><div class="a"><span>Open</span><span>Open config.go:41</span><span>Stop retrying <span class="nw">needs work</span></span></div></div></div>
+  <div class="note" role="alert"><span class="ic"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="38" height="38" style="display:block;flex:none"></span><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b>migrate failed (exit 1) after 0.4s · shop</b><span class="s">task "migrate" failed: exit 1, with its last 10 lines</span><span class="m">a task failed; nothing retries it</span><div class="a"><span>Open last run</span><span>Run again</span></div></div></div>
+  <div class="note" role="alert"><span class="ic"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="38" height="38" style="display:block;flex:none"></span><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b>api did not become ready within 1m30s · shop</b><span class="s">ready check http /healthz · ready_timeout 90s in doze.hcl</span><span class="m">its logs usually say why</span><div class="a"><span>Open logs</span><span>Restart</span></div></div></div>
+  <div class="expl"><b>In the window, toasts.</b> Success fades after 4s; a failure stays 12s or until dismissed, as in the TUI. <b>Outside it, notifications</b>, and only for a crash, a failed task, or an app that did not become ready. Everything else stays in Recent messages.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · sleep db?</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.scrim{position:absolute;inset:0;background:rgba(10,8,15,.62)}
+.dlg{position:absolute;left:390px;top:170px;width:500px;background:#1b1927;border:1px solid #37324b;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.55);padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+.row2{display:grid;grid-template-columns:110px minmax(0,1fr);column-gap:12px}
+</style>
+</helmet>
+<div class="win" style="position:relative">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space on"><span class="dot g"></span><b>db</b><small>96 MB</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+    </nav>
+    <main class="main">
+      <div class="head"><span class="dot g" style="width:10px;height:10px"></span><h1>db</h1><span class="path">postgres 17 · awake for 14m</span></div>
+    </main>
+  </div>
+  <div class="scrim"></div>
+  <div class="dlg" role="dialog" aria-labelledby="dt">
+    <h2 id="dt" style="margin:0;font-size:17px;font-weight:650;color:#f4f1ff">Sleep db?</h2>
+    <div><b class="bright">api</b> is running and needs it, and <b class="bright">4 connections</b> are open to it right now.</div>
+    <div class="row2"><span class="dim">What happens</span><span>Connections drop. The next connection wakes it again, so it is back within seconds unless what uses it sleeps too.</span></div>
+    <div class="row2"><span class="dim">Data</span><span>Kept. Nothing is deleted.</span></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+      <button class="btn pri" type="button">Sleep db and api <kbd>⏎</kbd></button>
+      <button class="btn" type="button">Sleep db only</button>
+      <button class="btn" type="button">Cancel <kbd>esc</kbd></button>
+    </div>
+    <div class="dim" style="font-size:12px;border-top:1px solid #2c2840;padding-top:10px">doze only asks when something else is affected. Sleeping an idle service never asks.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

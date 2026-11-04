@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · port in use</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.way{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.way:first-of-type{border-top:0}
+.way .n{width:24px;height:24px;border-radius:50%;background:var(--sel);color:var(--bright);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.log2{background:#120f19;border:1px solid #2c2840;border-radius:10px;padding:10px 14px;line-height:19px}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot r"></span><b>shop</b><span class="badge">!</span></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot"></span>api<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>web<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>worker<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>cache<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space on"><span class="dot r"></span><b>db</b><small>no port</small></div>
+      <div class="space"><span class="dot"></span>events<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>mongo<small>asleep</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <span class="dot r" style="width:10px;height:10px"></span>
+        <h1>db can't have port 5432</h1><span class="path">Up stopped · nothing else was started</span>
+      </div>
+      <div style="padding:0 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
+        <div class="mono log2"><div class="bad">daemon exited during startup:</div><div>listen tcp 127.0.0.1:5432: bind: address already in use</div><div class="dim">the last lines of the daemon's log, as doze up prints them</div></div>
+        <section class="card">
+          <h3>Who has it</h3>
+          <div class="mono">held by <b class="bright">postgres</b> (pid 812) on 127.0.0.1:5432</div>
+          <div class="dim" style="font-size:12px">From doze doctor's port check. This machine isn't set up to give each service its own address, so every Postgres wants 127.0.0.1:5432.</div>
+        </section>
+        <section class="card" style="gap:0">
+          <h3 style="margin-bottom:4px">Three ways out</h3>
+          <div class="way"><span class="n">1</span><div><b class="bright">Stop it</b><div class="dim mono" style="font-size:12px">kill 812</div></div><span class="btn">Stop postgres (pid 812)</span></div>
+          <div class="way"><span class="n">2</span><div><b class="bright">Give db its own address</b> <span class="dim">(every service gets one, so ports never clash)</span><div class="dim mono" style="font-size:12px">doze doctor --fix · one admin prompt</div></div><span class="btn pri">Set up .doze names…</span></div>
+          <div class="way"><span class="n">3</span><div><b class="bright">Use another port</b><div class="dim mono" style="font-size:12px">port = … in the "db" block of doze.hcl</div></div><span class="btn">Open doze.hcl at "db" <span class="new">new</span></span></div>
+        </section>
+      </div>
+      <div class="keys"><span>The words are doctor's; the buttons do what each line says</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

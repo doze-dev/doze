@@ -1,0 +1,504 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-01T23:10:00Z"
+  },
+  "title": "doze desktop",
+  "launch": {
+    "view": "canvas",
+    "page": "daily"
+  },
+  "pages": [
+    {
+      "id": "daily",
+      "name": "1 · Daily loop"
+    },
+    {
+      "id": "inside",
+      "name": "2 · Consoles and inside"
+    },
+    {
+      "id": "beyond",
+      "name": "3 · Beyond the terminal"
+    },
+    {
+      "id": "wrong",
+      "name": "4 · When something's wrong"
+    },
+    {
+      "id": "actions",
+      "name": "5 · Actions"
+    },
+    {
+      "id": "start",
+      "name": "6 · Install and settings"
+    },
+    {
+      "id": "variants",
+      "name": "7 · Light and Linux"
+    },
+    {
+      "id": "grounding",
+      "name": "8 · Grounding"
+    }
+  ],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Home · a tab per stack",
+      "page": "daily"
+    },
+    "Instance.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Instance · db overview",
+      "page": "daily"
+    },
+    "Logs.dc.html": {
+      "x": 2720,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Logs · the whole stack",
+      "page": "daily"
+    },
+    "AppLogs.dc.html": {
+      "x": 4080,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Instance · api logs",
+      "page": "daily"
+    },
+    "Task.dc.html": {
+      "x": 5440,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Instance · a task's last run",
+      "page": "daily"
+    },
+    "Cache.dc.html": {
+      "x": 6800,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Instance · a module with no console, dozing",
+      "page": "daily"
+    },
+    "Mailpit.dc.html": {
+      "x": 8160,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Instance · asleep, with a web console",
+      "page": "daily"
+    },
+    "Inside.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Console tab · doze-aws for cloud",
+      "page": "inside"
+    },
+    "Kafka.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Console tab · doze-kafka for events",
+      "page": "inside"
+    },
+    "PgActivity.dc.html": {
+      "x": 2720,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Inside · Postgres activity",
+      "page": "inside"
+    },
+    "WebRequests.dc.html": {
+      "x": 4080,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Inside · a web app's requests and preview",
+      "page": "inside"
+    },
+    "Standalone.dc.html": {
+      "x": 5440,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Console tab · doze-aws running on its own",
+      "page": "inside"
+    },
+    "Map.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "The living map",
+      "page": "beyond"
+    },
+    "Timeline.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "The timeline",
+      "page": "beyond"
+    },
+    "Waterfall.dc.html": {
+      "x": 2720,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Timeline · startup waterfall",
+      "page": "beyond"
+    },
+    "Span.dc.html": {
+      "x": 4080,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Select a span on the memory chart",
+      "page": "beyond"
+    },
+    "FollowId.dc.html": {
+      "x": 5440,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Follow ord_1042 across the stack",
+      "page": "beyond"
+    },
+    "Saved.dc.html": {
+      "x": 6800,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "What doze saved",
+      "page": "beyond"
+    },
+    "Agents.dc.html": {
+      "x": 8160,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Who did what",
+      "page": "beyond"
+    },
+    "Crash.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Crash · what it said, what doze does next",
+      "page": "wrong"
+    },
+    "StackDown.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Stack · daemon not responding",
+      "page": "wrong"
+    },
+    "StackStopped.dc.html": {
+      "x": 2720,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Stack · not running, declared services",
+      "page": "wrong"
+    },
+    "ConfigError.dc.html": {
+      "x": 4080,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Stack · doze.hcl has an error",
+      "page": "wrong"
+    },
+    "PortClash.dc.html": {
+      "x": 5440,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Stack · a port is taken",
+      "page": "wrong"
+    },
+    "HclChanged.dc.html": {
+      "x": 6800,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Stack · doze.hcl changed",
+      "page": "wrong"
+    },
+    "Notices.dc.html": {
+      "x": 8160,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Notices · toasts, recent messages, notifications",
+      "page": "wrong"
+    },
+    "Confirm.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Confirm · something depends on it",
+      "page": "actions"
+    },
+    "Dialogs.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Dialogs · restart, a module's input, a destructive action",
+      "page": "actions"
+    },
+    "Reset.dc.html": {
+      "x": 2720,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Reset · this deletes data",
+      "page": "actions"
+    },
+    "Search.dc.html": {
+      "x": 4080,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Search · ⌘K across everything",
+      "page": "actions"
+    },
+    "Quick.dc.html": {
+      "x": 5440,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Quick panel · from any app",
+      "page": "actions"
+    },
+    "Help.dc.html": {
+      "x": 6800,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Help · keys and what the meters are",
+      "page": "actions"
+    },
+    "Report.dc.html": {
+      "x": 8160,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "A report of the stack, secrets hidden",
+      "page": "actions"
+    },
+    "Setup.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "First launch · four steps, one admin prompt",
+      "page": "start"
+    },
+    "MenuBar.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Menu bar · and a notification",
+      "page": "start"
+    },
+    "NewTab.dc.html": {
+      "x": 2720,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "New tab · a folder with no doze.hcl",
+      "page": "start"
+    },
+    "Start.dc.html": {
+      "x": 4080,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Start · drop a repo",
+      "page": "start"
+    },
+    "Settings.dc.html": {
+      "x": 5440,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Settings · General",
+      "page": "start"
+    },
+    "SettingsSetup.dc.html": {
+      "x": 6800,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Settings · Setup (doctor)",
+      "page": "start"
+    },
+    "Light.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Home · light theme",
+      "page": "variants"
+    },
+    "Linux.dc.html": {
+      "x": 1360,
+      "y": 300,
+      "w": 1280,
+      "h": 800,
+      "title": "Home · GNOME, with the KDE tray menu",
+      "page": "variants"
+    },
+    "Grounding.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1280,
+      "h": 4900,
+      "title": "Grounding · decided, exists, new, needs work",
+      "page": "grounding"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Instance.dc.html",
+    "Logs.dc.html",
+    "AppLogs.dc.html",
+    "Task.dc.html",
+    "Cache.dc.html",
+    "Mailpit.dc.html",
+    "Inside.dc.html",
+    "Kafka.dc.html",
+    "PgActivity.dc.html",
+    "WebRequests.dc.html",
+    "Standalone.dc.html",
+    "Map.dc.html",
+    "Timeline.dc.html",
+    "Waterfall.dc.html",
+    "Span.dc.html",
+    "FollowId.dc.html",
+    "Saved.dc.html",
+    "Agents.dc.html",
+    "Crash.dc.html",
+    "StackDown.dc.html",
+    "StackStopped.dc.html",
+    "ConfigError.dc.html",
+    "PortClash.dc.html",
+    "HclChanged.dc.html",
+    "Notices.dc.html",
+    "Confirm.dc.html",
+    "Dialogs.dc.html",
+    "Reset.dc.html",
+    "Search.dc.html",
+    "Quick.dc.html",
+    "Help.dc.html",
+    "Report.dc.html",
+    "Setup.dc.html",
+    "MenuBar.dc.html",
+    "NewTab.dc.html",
+    "Start.dc.html",
+    "Settings.dc.html",
+    "SettingsSetup.dc.html",
+    "Light.dc.html",
+    "Linux.dc.html",
+    "Grounding.dc.html"
+  ],
+  "notes": {
+    "t_daily": {
+      "x": 0,
+      "y": 0,
+      "text": "The daily loop: what's awake, why, and what it says",
+      "kind": "title1",
+      "maxW": 9440,
+      "page": "daily"
+    },
+    "t_inside": {
+      "x": 0,
+      "y": 0,
+      "text": "Inside a service: console tabs, Postgres, a web app",
+      "kind": "title1",
+      "maxW": 6720,
+      "page": "inside"
+    },
+    "t_beyond": {
+      "x": 0,
+      "y": 0,
+      "text": "What a terminal can't do",
+      "kind": "title1",
+      "maxW": 9440,
+      "page": "beyond"
+    },
+    "t_wrong": {
+      "x": 0,
+      "y": 0,
+      "text": "When something's wrong, and telling you",
+      "kind": "title1",
+      "maxW": 9440,
+      "page": "wrong"
+    },
+    "t_actions": {
+      "x": 0,
+      "y": 0,
+      "text": "Acting, and asking first",
+      "kind": "title1",
+      "maxW": 9440,
+      "page": "actions"
+    },
+    "t_start": {
+      "x": 0,
+      "y": 0,
+      "text": "Installing, starting a project, settings",
+      "kind": "title1",
+      "maxW": 8080,
+      "page": "start"
+    },
+    "t_variants": {
+      "x": 0,
+      "y": 0,
+      "text": "The same app, light and on Linux",
+      "kind": "title1",
+      "maxW": 2640,
+      "page": "variants"
+    },
+    "t_grounding": {
+      "x": 0,
+      "y": 0,
+      "text": "What's real, what's new, what needs work",
+      "kind": "title1",
+      "maxW": 1280,
+      "page": "grounding"
+    },
+    "readme": {
+      "x": 0,
+      "y": 1220,
+      "w": 440,
+      "size": "m",
+      "fill": "purple",
+      "text": "Read me first\n\nThe app is for people; the CLI is for machines (CI, coding agents, scripts). The TUI is retired once the app matches it. One binary is the CLI, the app and the daemon.\n\nOne window, a tab per stack; opening doze again brings it forward. Installed by drag and drop, then set up in the app on first launch with one admin prompt.\n\nBuilt with Wails v3: Go, and a web view, so doze-aws's and doze-kafka's consoles load inside, in an embedded mode they each gain. Light by rule: one web view, no frontend framework, live data only for what's on screen.\n\nEvery board uses the shop fixture's data. Anything the TUI doesn't have is marked new; the Grounding board says what each new thing is built from, and what work it needs.",
+      "page": "daily"
+    }
+  },
+  "designSystems": []
+}

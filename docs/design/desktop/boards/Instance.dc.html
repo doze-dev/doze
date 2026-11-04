@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · db overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space on"><span class="dot g"></span><b>db</b><small>96 MB</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <span class="dot g" style="width:10px;height:10px"></span>
+        <h1>db</h1><span class="path">postgres 17 · awake for 14m · pid 612</span>
+        <span class="grow"></span>
+        <span class="btn">Pin awake <kbd>p</kbd></span>
+        <span class="btn">Restart <kbd>r</kbd></span>
+        <span class="btn">Sleep <kbd>s</kbd></span>
+      </div>
+      <div class="tabs"><span class="tab on">Overview</span><span class="tab">Activity</span><span class="tab">Logs</span><span class="tab">Terminal <span class="new">new</span></span></div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;padding:16px 20px">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card">
+            <h3>Connect</h3>
+            <div class="kv"><span class="k">URL</span><span class="mono bright">postgres://shop@db.shop.doze:5432/shop</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">Env var</span><span class="mono">DATABASE_URL</span><span class="copy">Copy export</span></div>
+            <div class="kv"><span class="k">Address</span><span class="mono">127.0.0.1:5432</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">Data</span><span class="mono dim">~/.doze/shop/db</span><span class="copy">Reveal in Finder <span class="new">new</span></span></div>
+          </section>
+          <section class="card">
+            <h3>Why it's awake</h3>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>api needs it</span><span class="dim">a dependant that's awake keeps it awake</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>4 connections</span><span class="dim">open clients, through doze's proxy</span></div>
+            </div>
+            <div class="dim">With neither, it sleeps after 5:00. Its data stays; the next connection wakes it.</div>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Recent</h3>
+            <div class="mono" style="display:flex;flex-direction:column;gap:2px">
+              <div><span class="dim">13:50:38</span> <span class="acc">woke</span> (migrate needed it)</div>
+              <div><span class="dim">13:50:38</span> <span class="ok">ready</span> in 180ms</div>
+            </div>
+          </section>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card">
+            <h3>Memory · last 4m</h3>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:22px;font-weight:600;color:#f4f1ff">96 MB</span><span class="dim">resident</span></div>
+            <svg viewBox="0 0 400 90" width="100%" height="90" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="2" points="0,62 30,60 60,58 90,55 120,52 150,50 180,46 210,44 240,40 270,38 300,36 330,34 360,33 400,32"/><polygon fill="#82AAFF" fill-opacity=".12" points="0,62 30,60 60,58 90,55 120,52 150,50 180,46 210,44 240,40 270,38 300,36 330,34 360,33 400,32 400,90 0,90"/></svg>
+          </section>
+          <section class="card">
+            <h3>CPU · last 4m</h3>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:22px;font-weight:600;color:#f4f1ff">&lt;0.01</span><span class="dim">cores · 0.8% of one</span></div>
+            <svg viewBox="0 0 400 90" width="100%" height="90" aria-hidden="true"><polyline fill="none" stroke="#BD93F9" stroke-width="2" points="0,70 20,64 40,58 60,66 80,52 100,60 120,48 140,62 160,55 180,40 200,58 220,61 240,50 260,57 280,44 300,60 320,54 340,62 360,49 380,58 400,52"/></svg>
+            <div class="dim" style="font-size:12px">Hover a point for its reading <span class="new">new</span></div>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Databases</h3>
+            <div class="tr h" style="--c:minmax(0,1fr) 70px 90px 90px;padding:0;background:transparent"><span>Database</span><span class="r">Size</span><span class="r">Connections</span><span>Owner</span></div>
+            <div class="tr" style="--c:minmax(0,1fr) 70px 90px 90px;padding:0"><span class="mono bright">db</span><span class="r">38 MB</span><span class="r">4</span><span class="dim">postgres</span></div>
+            <div class="tr" style="--c:minmax(0,1fr) 70px 90px 90px;padding:0"><span class="mono">shop_test</span><span class="r">9 MB</span><span class="r">0</span><span class="dim">postgres</span></div>
+            <div class="tr" style="--c:minmax(0,1fr) 70px 90px 90px;padding:0"><span class="mono">postgres</span><span class="r">8 MB</span><span class="r">0</span><span class="dim">postgres</span></div>
+          </section>
+        </div>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>esc</kbd>back</span><span><kbd>tab</kbd>next tab</span><span><kbd>y</kbd>copy URL</span><span><kbd>t</kbd>terminal</span><span class="grow"></span><span>same tabs as the TUI's focus page, plus Terminal</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

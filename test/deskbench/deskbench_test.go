@@ -45,7 +45,7 @@ type Result struct {
 	WindowKB int `json:"window_kb"`
 	// AfterCloseKB is the same a minute after the window closed.
 	AfterCloseKB int `json:"after_close_kb"`
-	// RestCPUPct is the app's CPU over thirty seconds with the window hidden.
+	// RestCPUPct is the app's CPU over a minute with the window closed.
 	RestCPUPct float64 `json:"rest_cpu_pct"`
 	Processes  []Proc  `json:"processes"`
 }
@@ -103,16 +103,17 @@ func TestApp(t *testing.T) {
 	// Scene 2: the window on home, then closed, then a minute of quiet.
 	t.Log("the window, then closed")
 	before := webkitPIDs()
-	run = runApp(t, doze, "open", "--fixture", "shop", "--window", "--measure", "--close-after", "8s", "--quit-after", "80s")
+	run = runApp(t, doze, "open", "--fixture", "shop", "--window", "--measure", "--close-after", "8s", "--quit-after", "100s")
 	run.wait(t, "window shown", 5*time.Second)
 	res.WindowHomeMS = run.wait(t, "home painted", 5*time.Second) + run.last("window shown")
 	time.Sleep(4 * time.Second)
 	res.WindowKB, res.Processes = footprintTree(t, run.pid, before)
 	run.wait(t, "window closed", 10*time.Second)
+	// CPU at rest over a full minute: ps reports it in 10 ms steps, so a
+	// shorter window cannot resolve a tenth of a percent.
 	cpuBefore := cpuTime(t, run.pid)
-	time.Sleep(30 * time.Second)
-	res.RestCPUPct = float64(cpuTime(t, run.pid)-cpuBefore) / 30 * 100
-	time.Sleep(30 * time.Second)
+	time.Sleep(60 * time.Second)
+	res.RestCPUPct = float64(cpuTime(t, run.pid)-cpuBefore) / 60 * 100
 	res.AfterCloseKB, _ = footprintTree(t, run.pid, before)
 	run.done(t)
 

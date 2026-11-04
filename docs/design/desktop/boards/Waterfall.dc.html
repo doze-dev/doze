@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · startup waterfall</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.wf{margin:0 20px;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 16px 14px;position:relative}
+.wrow,.whead{display:grid;grid-template-columns:110px 190px 600px;align-items:center;height:34px;border-top:1px solid var(--line)}
+.whead{border-top:0;height:26px;color:var(--dim);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.wn b{color:var(--bright);font-weight:600}
+.wn small{color:var(--dim);font-size:11px}
+.wc{color:var(--dim);font-size:12px}
+.lane{position:relative;height:100%}
+.lane .bar{position:absolute;top:11px;height:12px;border-radius:3px}
+.lane .wait{position:absolute;top:16px;height:2px;background:repeating-linear-gradient(90deg,#4a4466 0 4px,transparent 4px 7px)}
+.lane em{position:absolute;top:8px;font-style:normal;font-size:12px;color:var(--text);white-space:nowrap}
+.wrow.crit .wn b::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#FF7A93;margin-right:7px;vertical-align:middle}
+.axis{position:relative;height:18px;margin-left:300px;font-size:11px;color:var(--dim)}
+.axis span{position:absolute;transform:translateX(-50%)}
+.gridl{position:absolute;top:36px;bottom:40px;left:316px;width:600px;pointer-events:none}
+.gridl i{position:absolute;top:0;bottom:0;width:1px;background:#262236}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space">Services</div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space on"><b>Timeline</b> <span class="new">new</span></div>
+      <h4>Startups</h4>
+      <div class="space on"><div><b>doze up</b><span class="dir">13:22:19 · 11.0s</span></div></div>
+      <div class="space"><div>events woke<span class="dir">14:01:40 · worker needed it · still waking</span></div></div>
+      <div class="space"><div>db woke<span class="dir">13:49:40 · migrate needed it · 180ms</span></div></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>doze up api web worker took 9.8s</h1><span class="path">13:22:19 · an example run: the timings are illustrative · <span class="new">new</span></span>
+        <span class="grow"></span>
+        <span class="btn">Copy as text</span>
+      </div>
+      <div style="margin:0 20px 12px;display:flex;gap:18px;align-items:center;font-size:12px" class="dim">
+        <span><span class="dot r" style="display:inline-block;width:6px;height:6px;margin-right:6px"></span>the slowest chain: <b class="bright">db 180ms → migrate 1.2s → api 8.4s</b></span>
+        <span>dashes: waiting on what it needs</span>
+        <span>not chosen: cloud, mailpit, search (they still wake on a connection)</span>
+      </div>
+      <div class="wf">
+        <div class="gridl"><i style="left:0px"></i><i style="left:93px"></i><i style="left:187px"></i><i style="left:280px"></i><i style="left:373px"></i><i style="left:467px"></i><i style="left:560px"></i></div>
+        <div class="whead"><span>Instance</span><span>Why it started</span><span>From doze up</span></div>
+        <div class="wrow crit"><span class="wn"><b>db</b></span><span class="wc">woke (migrate needed it)</span><span class="lane"><i class="bar" style="left:0px;width:8px;background:#82AAFF"></i><em style="left:14px">ready in 180ms</em></span></div>
+        <div class="wrow crit"><span class="wn"><b>migrate</b> <small>task</small></span><span class="wc">woke (api needed it)</span><span class="lane"><i class="wait" style="left:0px;width:8px"></i><i class="bar" style="left:8px;width:56px;background:#7EE787"></i><em style="left:70px">done in 1.2s</em></span></div>
+        <div class="wrow crit"><span class="wn"><b>api</b></span><span class="wc">woke (asked for)</span><span class="lane"><i class="wait" style="left:0px;width:64px"></i><i class="bar" style="left:64px;width:391px;background:#BD93F9"></i><em style="left:461px">ready in 8.4s</em></span></div>
+        <div class="wrow"><span class="wn"><b>mongo</b></span><span class="wc">woke (api needed it)</span><span class="lane"><i class="bar" style="left:0px;width:42px;background:#82AAFF"></i><em style="left:48px">ready in 900ms</em></span></div>
+        <div class="wrow"><span class="wn"><b>cache</b></span><span class="wc">woke (api needed it)</span><span class="lane"><i class="bar" style="left:0px;width:2px;background:#82AAFF"></i><em style="left:8px">ready in 38ms</em></span></div>
+        <div class="wrow"><span class="wn"><b>web</b></span><span class="wc">woke (asked for)</span><span class="lane"><i class="bar" style="left:0px;width:284px;background:#BD93F9"></i><em style="left:290px">ready in 6.1s</em></span></div>
+        <div class="wrow"><span class="wn"><b>events</b></span><span class="wc">woke (worker needed it)</span><span class="lane"><i class="bar" style="left:0px;width:144px;background:#82AAFF"></i><em style="left:150px">ready in 3.1s</em></span></div>
+        <div class="wrow"><span class="wn"><b>worker</b></span><span class="wc">woke (asked for)</span><span class="lane"><i class="wait" style="left:0px;width:144px"></i><i class="bar" style="left:144px;width:37px;background:#BD93F9"></i><em style="left:187px">ready in 800ms</em></span></div>
+        <div class="axis"><span style="left:0px">0s</span><span style="left:93px">2s</span><span style="left:187px">4s</span><span style="left:280px">6s</span><span style="left:373px">8s</span><span style="left:467px">10s</span><span style="left:560px">12s</span></div>
+      </div>
+      <div style="margin:12px 20px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <section class="card"><h3>api, 8.4s</h3><div class="dim" style="font-size:12px">The first <span class="mono">go run</span> compiles the program; ready means <span class="mono">http("/healthz")</span> answered. Its limit is 90s.</div></section>
+        <section class="card"><h3>migrate, 1.2s</h3><div class="dim" style="font-size:12px">Ran because api needs it. It runs again when one of its inputs, <span class="mono">migrations/*.sql</span>, changes.</div></section>
+        <section class="card"><h3>From the journal</h3><div class="dim" style="font-size:12px">Each bar is a wake and its ready event: the cause, who caused it, and how long it took. db 180ms and cache 38ms are the fixture's; the rest are made up for the example.</div></section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

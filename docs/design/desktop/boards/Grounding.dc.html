@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze desktop · grounding</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.page{width:1280px;height:4900px;box-sizing:border-box;background:#15131d;color:#cfcbe3;font:400 13px/20px Inter,system-ui,sans-serif;padding:36px 40px;display:flex;flex-direction:column;gap:22px;border-radius:12px;border:1px solid #2c2840}
+.page h1{margin:0;font-size:24px;color:#f4f1ff;font-weight:650}
+.page h2{margin:0 0 8px;font-size:15px;font-weight:650;display:flex;align-items:center;gap:10px}
+.g{display:grid;grid-template-columns:260px minmax(0,1fr) 150px;column-gap:18px;padding:7px 0;border-top:1px solid #2c2840;align-items:start}
+.g.h{color:#8a85a8;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:0}
+.g b{color:#f4f1ff;font-weight:600}
+.g .src{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#8a85a8}
+.tag{font:700 10px/16px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:0 6px;border-radius:3px;color:#15131d}
+</style>
+</helmet>
+<div class="page">
+  <div>
+    <h1>What's real, what's new, and what each new thing needs</h1>
+    <div class="dim">Checked against doze at a38cc70: the control protocol (internal/control), the journal, the dash, the detect package and the fixtures the boards use.</div>
+  </div>
+
+  <section style="background:#1b1927;border:1px solid #37324b;border-radius:12px;padding:18px 20px">
+    <h2><span class="tag" style="background:#82AAFF">decided</span><span class="bright">The app is for people; the CLI is for machines</span></h2>
+    <div class="g h"><span>Decision</span><span>Why</span><span></span></div>
+    <div class="g"><b>A desktop app, Wails v3, macOS and Linux together</b><span>Both from the first release, every board compared on both. Go, so it imports doze's packages; a web view, so doze-aws's and doze-kafka's consoles open in it as they are. No Windows while doze doesn't run there</span><span></span></div>
+    <div class="g"><b>A menu bar (tray) app plus a window</b><span>The tray is ambient and about as light as the daemon (18 MB); the window is released when closed. Stock GNOME hides tray icons, so on Linux the window and notifications must stand alone</span><span></span></div>
+    <div class="g"><b>Built around the map, inside a service, and the timeline</b><span>What a terminal can't do, on top of the TUI's daily loop</span><span></span></div>
+    <div class="g"><b>The TUI is retired</b><span>Frozen now; once the app matches it on macOS and Linux, a bare doze opens the app (or prints status with no display); then the dash is removed. status -w and logs -f stay</span><span></span></div>
+    <div class="g"><b>The CLI stays first-class, for machines</b><span>CI, coding agents, scripts and remote machines have no screen: --json everywhere, real exit codes, every action the app has, nothing that needs a display or a person, a guide for agents. No polish as a human interface</span><span></span></div>
+    <div class="g"><b>One binary: CLI, app and daemon</b><span>Inside Doze.app on macOS, linked into the PATH; the same file on its own on servers and in CI. Linked but unused, Wails adds 14 MB, 3 ms a command and 2.4 MB footprint</span><span></span></div>
+    <div class="g"><b>No cgo (Wails' purego mode)</b><span>doze keeps releasing as pure Go from one Linux runner</span><span></span></div>
+    <div class="g"><b>One instance; each stack a tab</b><span>Opening doze again, or doze open elsewhere, brings the one window forward at that stack's tab. ⌘W closes a tab and leaves the stack running; quitting the app leaves stacks running</span><span></span></div>
+    <div class="g"><b>Drag to install, set up on first launch</b><span>As OrbStack does: four steps in the app, one admin prompt for the PATH link and .doze names, each skippable and repeatable from Settings. Not a .pkg: the same screens repair the setup and work on Linux</span><span></span></div>
+    <div class="g"><b>Consoles get a whole tab, unchanged; or the browser</b><span>doze-aws and doze-kafka open as their own tab beside the stack and fill the window, exactly as in a browser. Links into them are their own URLs; the only module work is taking the theme from the address. A setting sends them to the browser instead</span><span></span></div>
+    <div class="g"><b>Light by rule, checked in CI</b><span>One web view; no frontend framework (Go templates, htmx, Alpine, as the consoles); live data only for what's on screen; the window destroyed on close; no blur, looping animation or WebGL; budgets for menu bar, open window, after close, CPU at rest</span><span></span></div>
+    <div class="g"><b>Start what you choose; remembered</b><span>Up starts the services you tick and what they need, like doze up api web. Down remembers which were up, and the next Up offers the same set; Up everything is one click away. Tabs and pages come back too. Anything left asleep still wakes when something connects</span><span></span></div>
+    <div class="g"><b>Positioning</b><span>OrbStack runs your containers. doze runs your stack, and understands it.</span><span></span></div>
+    <div class="g"><b class="warn">First, check</b><span>Whether the no-cgo binary runs on headless Linux without GTK and WebKitGTK; the spike on Linux (tray on KDE and GNOME, memory); and the daemon's idle RSS with the GUI linked against the 34 MB bench budget</span><span></span></div>
+  </section>
+
+  <section>
+    <h2><span class="tag" style="background:#7EE787">exists</span><span class="bright">The TUI and the daemon do this today; the app draws it</span></h2>
+    <div class="g h"><span>What</span><span>From</span><span>Boards</span></div>
+    <div class="g"><b>States and why each is awake</b><span class="src">InstanceView.State, Holders (dependant, connection), IdleSince</span><span>Home, Instance</span></div>
+    <div class="g"><b>Memory, CPU and connection meters, charts</b><span class="src">topic "stats", every second, with history on subscribe</span><span>Home, Instance</span></div>
+    <div class="g"><b>Logs: follow, runs, search, levels, all logs merged</b><span class="src">topic "logs", LogFrame.Run, Logs query</span><span>Logs</span></div>
+    <div class="g"><b>doze's own events and their causes</b><span class="src">topic "journal": woke by a connection (not whose), a dependency (by whom), a command, restart, idle, watch</span><span>Map, Timeline, Instance</span></div>
+    <div class="g"><b>Wake, sleep, restart, reset, pin, run task, up</b><span class="src">control verbs</span><span>all</span></div>
+    <div class="g"><b>Asking first when something depends on it</b><span class="src">the dash's sleep confirmation: its words, its buttons, action first</span><span>Confirm</span></div>
+    <div class="g"><b>Module consoles: Postgres activity and databases, Kafka, AWS</b><span class="src">topic "console": ConsoleSpec panels and tabs, Admin actions</span><span>Instance</span></div>
+    <div class="g"><b>Crash: the error, restarts used, next try, gives up after the limit</b><span class="src">LastError, RestartCount, RestartMax, NextRestart; runtime marks it failed</span><span>Crash</span></div>
+    <div class="g"><b>Connection strings and env var names</b><span class="src">InstanceView.URL, EnvVar, Endpoint, Domain, DataDir</span><span>Instance, Quick</span></div>
+    <div class="g"><b>Every action with its command</b><span class="src">the dash's palette; the psql action is needs work</span><span>Quick</span></div>
+    <div class="g"><b>The one-time names setup</b><span class="src">doze-names: Install, Check, Options.Print (the script), Uninstall; shared by doze, doze-aws and doze-kafka</span><span>Setup</span></div>
+    <div class="g"><b>Standalone doze-aws and doze-kafka</b><span class="src">the doze-names registry; each Entry has an Owner: doze, doze-aws, doze-kafka</span><span>Start</span></div>
+    <div class="g"><b>The consoles' light and dark themes</b><span class="src">data-theme on both consoles (doze-kafka also has high contrast)</span><span>Inside</span></div>
+    <div class="g"><b>Daemon not responding: the page faded, retrying</b><span class="src">the dash's connection banner and its 0.5s→5s backoff; “the daemon is not responding: nothing was sent”</span><span>StackDown</span></div>
+    <div class="g"><b>A stopped stack's declared services</b><span class="src">doze status: “doze is not running — showing declared services”</span><span>StackStopped</span></div>
+    <div class="g"><b>Config errors, word for word</b><span class="src">config/diag.go: “error: invalid config —” and the HCL diagnostic with file:line; “Did you mean”</span><span>ConfigError</span></div>
+    <div class="g"><b>A port clash: who holds it, three ways out</b><span class="src">the daemon's startup error; doctor's port advice (kill, doze doctor --fix, port = …)</span><span>PortClash</span></div>
+    <div class="g"><b>Which blocks changed, and what applying does</b><span class="src">cmd/doze/blocks.go; doze sync's plan (+/~/-, plan: N to add…)</span><span>HclChanged</span></div>
+    <div class="g"><b>A folder with no doze.hcl: three choices</b><span class="src">dash/empty.go</span><span>NewTab</span></div>
+    <div class="g"><b>Logs: level filter, runs, search, time; the needs, this run and levels boxes</b><span class="src">the TUI's logs tab; LogFrame.Run</span><span>AppLogs</span></div>
+    <div class="g"><b>A task: last run, runs when, history, Run now</b><span class="src">InstanceView.task, the journal's why words, doze task</span><span>Task</span></div>
+    <div class="g"><b>Postgres activity: counters, sessions, query, Cancel and Terminate</b><span class="src">postgres ConsoleSpec, the admin op and its result strings</span><span>PgActivity</span></div>
+    <div class="g"><b>A module with no console, dozing</b><span class="src">InstanceView, stats, journal (valkey publishes no console)</span><span>Cache</span></div>
+    <div class="g"><b>A service's web console while asleep</b><span class="src">InstanceView.web_url; “Opening the console wakes it first”</span><span>Mailpit</span></div>
+    <div class="g"><b>Restart confirm; a module action's input</b><span class="src">the dash's modals; kafka's produce action and its hint</span><span>Dialogs</span></div>
+    <div class="g"><b>Reset: type the name</b><span class="src">the dash's reset modal, every line; doze reset db --yes. The dependants line and Reveal in Finder are new</span><span>Reset</span></div>
+    <div class="g"><b>Every action as a shell command</b><span class="src">the palette and its footer</span><span>Search</span></div>
+    <div class="g"><b>Keys and what the meters are</b><span class="src">keymap.go's help</span><span>Help</span></div>
+    <div class="g"><b>Recent messages and how long notices stay</b><span class="src">messages.go: the last 20; 4s, or 12s for failures</span><span>Notices</span></div>
+    <div class="g"><b>The five accent themes</b><span class="src">the TUI's themes (dash-theme)</span><span>Settings</span></div>
+    <div class="g"><b>Doctor, in the app</b><span class="src">doctor's checks and wording; doze-names Check per platform</span><span>SettingsSetup</span></div>
+    <div class="g"><b>Starting only some services</b><span class="src">doze up [service…]: the targets plus their dependency closure, in order (cmd/doze/up.go bootClosure)</span><span>StackStopped, Start</span></div>
+    <div class="g"><b>Reading a repo to propose a stack</b><span class="src">internal/detect: apps, modules, services, tasks, each with its reason; render.go writes the HCL</span><span>Start</span></div>
+  </section>
+
+  <section>
+    <h2><span class="tag" style="background:#BD93F9">new</span><span class="bright">New to doze, built from data it already has: app work only</span></h2>
+    <div class="g h"><span>What</span><span>Built from</span><span>Boards</span></div>
+    <div class="g"><b>One window, a tab per stack</b><span class="src">Wails SingleInstance: the second launch passes its args and working folder, then exits</span><span>all</span></div>
+    <div class="g"><b>The first-launch screens</b><span class="src">names.Check to skip what is done; PATH link; XDG autostart on Linux</span><span>Setup</span></div>
+    <div class="g"><b>Start the daemon from the banner</b><span class="src">doze up</span><span>StackDown</span></div>
+    <div class="g"><b>Open doze.hcl at the line; try again on save</b><span class="src">the diagnostic's range; the app watches the file</span><span>ConfigError</span></div>
+    <div class="g"><b>A button for each way out of a port clash</b><span class="src">doctor's data</span><span>PortClash</span></div>
+    <div class="g"><b>Noticing that doze.hcl was saved</b><span class="src">the daemon doesn't re-read it, so the app watches the file and compares blocks as sync does</span><span>HclChanged</span></div>
+    <div class="g"><b>Startup waterfall</b><span class="src">the journal's wake and ready events (cause, by, took); needs from doze.hcl</span><span>Waterfall</span></div>
+    <div class="g"><b>Add one thing, from a list</b><span class="src">the registry's module names</span><span>NewTab</span></div>
+    <div class="g"><b>Readable JSON logs; folded stack traces</b><span class="src">log lines, parsed in the app</span><span>AppLogs</span></div>
+    <div class="g"><b>The processes under an instance</b><span class="src">InstanceView.children (pid, rss, cpu, cmd, depth): in the protocol, never drawn</span><span>AppLogs</span></div>
+    <div class="g"><b>A past run's output; a task's inputs and env</b><span class="src">LogFrame.Run; the task's block in doze.hcl</span><span>Task</span></div>
+    <div class="g"><b>Each destructive action worded for what it does</b><span class="src">the TUI's generic text says “deletes data” even for Terminate session</span><span>PgActivity, Dialogs</span></div>
+    <div class="g"><b>Open a service's own page in its tab; a preview of a web app</b><span class="src">web_url and the domain, in the one web view, loaded only when asked</span><span>Mailpit, WebRequests</span></div>
+    <div class="g"><b>Search across log lines, queues, topics</b><span class="src">held log lines; console panels while awake; doze.hcl while asleep</span><span>Search</span></div>
+    <div class="g"><b>Mouse: right-click, hover to explain; window keys</b><span class="src">—</span><span>Help</span></div>
+    <div class="g"><b>Light theme</b><span class="src">the consoles' data-theme; the TUI is dark only</span><span>Light, Settings</span></div>
+    <div class="g"><b>Editor and terminal choice; the PATH link's status</b><span class="src">no such setting today</span><span>Settings</span></div>
+    <div class="g"><b>Repair and Uninstall the names setup</b><span class="src">names.Install and Uninstall behind the admin prompt</span><span>SettingsSetup</span></div>
+    <div class="g"><b>Follow an id across the stack</b><span class="src">a text match over merged logs, the journal and doze-aws's wire</span><span>FollowId</span></div>
+    <div class="g"><b>Select a span: logs, journal and AWS calls narrow to it</b><span class="src">stats (the last 4m today), journal markers, logs, the aws wire stream</span><span>Span</span></div>
+    <div class="g"><b>A doze-aws or doze-kafka running on its own</b><span class="src">the names registry's Owner; no wake or sleep</span><span>Standalone</span></div>
+    <div class="g"><b>Linux: a GNOME window with no tray; the KDE tray menu</b><span class="src">XDG autostart, D-Bus notifications, StatusNotifierItem</span><span>Linux</span></div>
+    <div class="g"><b>The bat in the menu bar, its count and red dot</b><span class="src">instances of every running stack, found by their control sockets (the Wails spike does this)</span><span>Menu bar</span></div>
+    <div class="g"><b>Notifications on a crash, a failed task, an app not ready in time</b><span class="src">instances and journal frames; only these three, nothing routine</span><span>Menu bar, Crash</span></div>
+    <div class="g"><b>Every running stack in one window</b><span class="src">~/.doze/projects/*/run/doze.admin.sock</span><span>all</span></div>
+    <div class="g"><b>The map's boxes and lines</b><span class="src">doze.hcl's env references (internal/config), states, journal causes</span><span>Map</span></div>
+    <div class="g"><b>The timeline</b><span class="src">journal and logs, merged by time; the cause shown is the journal's</span><span>Timeline</span></div>
+    <div class="g"><b>A console in its own tab</b><span class="src">InstanceView.WebURL (doze-kafka: the broker port + 1) in a frame filling the tab; loaded when the tab opens, released when it closes; links in are the consoles' own routes (/sqs/orders, /topics/orders)</span><span>Inside</span></div>
+    <div class="g"><b>Quick panel from any app (⌥Space)</b><span class="src">Wails global shortcut; the palette's actions</span><span>Quick</span></div>
+    <div class="g"><b>Env doze gives an app; who waits on it</b><span class="src">the app's env and needs in doze.hcl</span><span>Crash</span></div>
+    <div class="g"><b>Open file:line in your editor; reveal data in Finder</b><span class="src">paths in log lines and LastError (a pattern match, so best effort); DataDir</span><span>Logs, Crash</span></div>
+    <div class="g"><b>Sleep what depends on it too; chart hover; copy export</b><span class="src">existing verbs and readings</span><span>Confirm, Instance</span></div>
+  </section>
+
+  <section>
+    <h2><span class="tag" style="background:#F2C879">needs work</span><span class="bright">New, and needs work in doze or a module first</span></h2>
+    <div class="g h"><span>What</span><span>The work</span><span>Boards</span></div>
+    <div class="g"><b>Stopped projects in the list</b><span>doze records each project's folder when it starts one; today only running daemons can be found</span><span>Start, Setup, StackStopped</span></div>
+    <div class="g"><b>Which app holds a connection</b><span>the proxy counts connections per instance but not whose they are; the map's "4 open" on api → db needs it; the journal says only that a connection woke it, so every “api connected” on the boards waits on this too</span><span>Map, Timeline, Waterfall, Instance, Cache</span></div>
+    <div class="g"><b>AWS calls kept, and who made them</b><span>doze-aws already streams its wire on the console topic, but only while someone subscribes and while it is awake, and with no caller. The timeline needs it kept, and a caller column</span><span>Timeline</span></div>
+    <div class="g"><b>A terminal pane, psql already connected</b><span>a terminal in the web view (xterm.js), and the module's own psql found from its toolchain</span><span>Instance, Quick</span></div>
+    <div class="g"><b>The consoles take the theme from the address</b><span>in doze-aws and doze-kafka: accept light or dark from the URL, not only their own toggle and the system. Links out to the app (doze://) are optional and later</span><span>Inside, Kafka</span></div>
+    <div class="g"><b>The admin prompt</b><span>running doze-names' script through the macOS authorisation dialog, and polkit (pkexec) on Linux, instead of sudo in a terminal</span><span>Setup</span></div>
+    <div class="g"><b>The app's resource budgets</b><span>a bench like the daemon's: menu bar only, window open, a minute after closing, CPU at rest. The window's number is set after D1 from measurements</span><span>—</span></div>
+    <div class="g"><b>Try the example</b><span>the shop fixture shipped as an example project the app can open</span><span>Setup</span></div>
+    <div class="g"><b>Requests through the .doze front door</b><span>doze-names' front door records and streams requests</span><span>WebRequests</span></div>
+    <div class="g"><b>Postgres tables in search</b><span>the console lists databases and sessions, not tables</span><span>Search</span></div>
+    <div class="g"><b>What doze saved; a day strip per service</b><span>history on disk: the daemon keeps 4 minutes of stats and an in-memory journal today</span><span>Saved</span></div>
+    <div class="g"><b>A report of the stack, secrets hidden</b><span>redacting secret-looking values; a doze report command</span><span>Report</span></div>
+    <div class="g"><b>Who did what: you, a script, an agent</b><span>the CLI sends its caller; the journal records every command</span><span>Agents</span></div>
+    <div class="g"><b>Remembering what was up</b><span>doze down records which services were up; the app offers that set at the next Up. Today nothing is kept between runs</span><span>StackStopped, Start</span></div>
+    <div class="g"><b>Restoring tabs and pages</b><span>the app keeps its open tabs, each tab's page and the window size between launches (app-only)</span><span>StackStopped</span></div>
+    <div class="g"><b>doze open</b><span>a CLI command that brings the app to the current project</span><span>—</span></div>
+    <div class="g"><b>Releases</b><span>signing, notarisation, auto-update; the spike showed the no-cgo build works</span><span>—</span></div>
+  </section>
+
+  <section>
+    <h2><span class="tag" style="background:#8a85a8">not doing</span><span class="bright">Left out on purpose</span></h2>
+    <div class="g"><b>Replacing the CLI</b><span>CI, agents and scripts drive it; it stays complete and scriptable</span><span></span></div>
+    <div class="g"><b>Keeping the TUI</b><span>retired once the app matches it; the terminal keeps doze status -w and doze logs -f</span><span></span></div>
+    <div class="g"><b>Editing doze.hcl through forms</b><span>it stays a text file in the repo; the app opens it in your editor</span><span></span></div>
+    <div class="g"><b>Remote stacks over SSH</b><span>worth doing later; not in the first version</span><span></span></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":4900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

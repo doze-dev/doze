@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · light</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+body{background:#e9e6f2}
+.win.light{--bg:#fbfaff;--side:#f3f1fa;--panel:#ffffff;--line:#e4e0f0;--line2:#d4cde6;--text:#3a3550;--dim:#6f6888;--bright:#17141f;--accent:#7a4fe0;--good:#1d8a4a;--warn:#9a6400;--cool:#2f62d9;--bad:#cc3550;--sel:#ece6fb;--pick:#e3d9ff;border-color:#d4cde6}
+.win.light .tr.h,.win.light .tr.grp{background:#f6f4fb}
+.win.light .bar{background:#ece8f5}
+.win.light .lights span{background:#d8d3e6}
+.win.light .lights span:nth-child(1){background:#ff5f57}.win.light .lights span:nth-child(2){background:#febc2e}.win.light .lights span:nth-child(3){background:#28c840}
+.win.light .keys kbd{background:#ece6fb;color:#17141f}
+.win.light .btn.pri{color:#fff}.win.light .btn.pri kbd{color:#e8defc}
+.win.light .new{color:#fff}
+.win.light .dot{background:#c9c3d8}.win.light .dot.g{background:var(--good)}.win.light .dot.y{background:#d39a1c}
+.win.light .tr{height:29px}
+.win.light .tr.grp span{grid-column:2 / -1}</style>
+</helmet>
+<div class="win light">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0 · 2 stacks</div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>shop</h1><span class="path">~/code/shop</span>
+        <span class="grow"></span>
+        <span class="btn">Sleep all</span>
+        <span class="btn pri">Up</span>
+      </div>
+      <div class="vitals">
+        <div class="vital"><span class="k">Memory</span><span class="v">551 MB</span><div class="bar"><i style="width:38%;background:var(--cool)"></i><i style="width:27%;background:var(--accent)"></i><i style="width:17%;background:var(--good)"></i><i style="width:15%;background:var(--warn)"></i></div><span class="dim" style="font-size:12px">web 212 · mongo 148 · db 96 · +2 more</span></div>
+        <div class="vital"><span class="k">CPU</span><span class="v">0.03 cores</span><div class="bar"><i style="width:72%;background:var(--cool)"></i><i style="width:28%;background:var(--accent)"></i></div><span class="dim" style="font-size:12px">api 2.1% · db 0.8% · 4 awake, the rest idle</span></div>
+        <div class="vital"><span class="k">State</span><span class="v">4 awake</span><span style="display:flex;gap:9px;font-size:12px;white-space:nowrap"><span class="ok">● 4</span><span class="warn">◐ 1 dozing</span><span class="cool">◌ 2 waking</span><span class="dim">· 3 asleep</span></span><span class="dim" style="font-size:12px">sleep after 5:00 with nothing holding it</span></div>
+        <div class="vital"><span class="k">Connections</span><span class="v">4</span><span class="dim" style="font-size:12px">open across the stack</span><span class="dim" style="font-size:12px">tasks ✓ 1 done · ▸ 1 ready</span></div>
+      </div>
+      <div class="tbl" style="--c:150px 92px 70px 76px 52px 52px 52px minmax(0,1fr)">
+        <div class="tr h"><span>Name</span><span>Engine</span><span>State</span><span class="r">Memory</span><span class="r">CPU%</span><span class="r">Conn</span><span class="r">Up</span><span>Because</span></div>
+        <div class="tr grp">APPS <span>3 · your code</span></div>
+        <div class="tr on"><span class="n"><span class="dot g"></span>api</span><span>process</span><span class="ok">awake</span><span class="r">84 MB</span><span class="r">2.1</span><span class="r">0</span><span class="r">14m</span><span class="dim">runs until stopped</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>web</span><span>process</span><span class="ok">awake</span><span class="r">212 MB</span><span class="r">0.0</span><span class="r">0</span><span class="r">14m</span><span class="dim">runs until stopped</span></div>
+        <div class="tr"><span class="n"><span class="ring"></span>worker</span><span>process</span><span class="cool">waking</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">waiting on events</span></div>
+        <div class="tr grp">MODULES <span>4 · from the doze registry</span></div>
+        <div class="tr"><span class="n"><span class="dot y"></span>cache</span><span>valkey 9</span><span class="warn">dozing</span><span class="r">11 MB</span><span class="r">0.0</span><span class="r">0</span><span class="r"></span><span class="warn">sleeps in 3:12</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>cloud</span><span>aws</span><span class="dim">asleep</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">wakes on a connection</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>db</span><span>postgres 17</span><span class="ok">awake</span><span class="r">96 MB</span><span class="r">0.8</span><span class="r">4</span><span class="r">14m</span><span class="dim">api needs it · 4 connections</span></div>
+        <div class="tr"><span class="n"><span class="ring"></span>events</span><span>kafka</span><span class="cool">waking</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">woken by worker</span></div>
+        <div class="tr grp">OUTSIDE <span>3 · brought in by you</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>mailpit</span><span>process</span><span class="dim">asleep</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">starts when needed</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>mongo</span><span>process</span><span class="ok">awake</span><span class="r">148 MB</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">api needs it</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>search</span><span>process</span><span class="dim">asleep</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">starts when needed</span></div>
+        <div class="tr grp">TASKS <span>2 · run once, then out of the way</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>migrate</span><span>task</span><span class="ok">done</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">ran 2m ago in 1.2s</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>seed</span><span>task</span><span class="dim">ready</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">not run yet</span></div>
+      </div>
+      <div class="keys"><span><kbd>↑↓</kbd>move</span><span><kbd>⏎</kbd>open</span><span><kbd>w</kbd>wake</span><span><kbd>s</kbd>sleep</span><span><kbd>r</kbd>restart</span><span><kbd>l</kbd>logs</span><span class="grow"></span><span>Light · follows the system, or Settings › Appearance</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

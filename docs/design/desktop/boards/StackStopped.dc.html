@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · ai-interview · not running</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.tr.off span{color:var(--dim)}
+.plan{display:flex;flex-direction:column;gap:6px}
+.plan div{display:flex;gap:10px;align-items:baseline}
+.plan b{min-width:74px;color:var(--bright);font-weight:600}.tr input{margin:0;accent-color:#BD93F9}
+.tr.grp span:first-child{display:none}
+.tbl .tr.grp{display:flex;gap:10px;padding-left:72px}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab" role="tab"><span class="dot g"></span>shop</span><span class="stab on" role="tab"><span class="dot"></span><b>ai-interview</b></span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot"></span>server<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>grader<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>db<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>cache<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>migrate<small>task</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>ai-interview</h1><span class="path">~/code/ai-interview</span>
+        <span class="grow"></span>
+        <span class="btn">Open doze.hcl</span>
+        <span class="btn">Up everything</span>
+        <span class="btn pri">Up as last time <kbd>U</kbd></span>
+      </div>
+      <div style="margin:0 20px 12px;display:flex;align-items:center;gap:10px" class="dim"><span class="dot"></span>doze is not running — showing declared services <span class="nw">needs work</span><span style="font-size:12px">found because doze recorded this folder when it last ran</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;padding:0 20px;flex:1;min-height:0">
+        <div class="tbl" style="margin:0;--c:44px 120px 96px 70px minmax(0,1fr);align-self:start">
+          <div class="tr h"><span>Up</span><span>Name</span><span>Engine</span><span>State</span><span>At Up</span></div>
+          <div class="tr grp"><span></span>APPS <span>2 · your code</span></div>
+          <div class="tr"><input type="checkbox" checked="checked" aria-label="Start server"><span class="n"><span class="dot"></span>server</span><span>process</span><span class="dim">asleep</span><span>starts · <span class="acc">you chose it last time</span></span></div>
+          <div class="tr off"><input type="checkbox" aria-label="Start grader"><span class="n"><span class="dot"></span>grader</span><span>process</span><span>asleep</span><span>stays asleep</span></div>
+          <div class="tr grp"><span></span>MODULES <span>2 · from the doze registry</span></div>
+          <div class="tr"><input type="checkbox" checked="checked" disabled="disabled" aria-label="db is needed by server"><span class="n"><span class="dot"></span>db</span><span>postgres 17</span><span class="dim">asleep</span><span>starts first · <span class="dim">server and migrate need it</span></span></div>
+          <div class="tr"><input type="checkbox" checked="checked" disabled="disabled" aria-label="cache is needed by server"><span class="n"><span class="dot"></span>cache</span><span>valkey 9</span><span class="dim">asleep</span><span>starts · <span class="dim">server needs it</span></span></div>
+          <div class="tr grp"><span></span>TASKS <span>1 · run once, then out of the way</span></div>
+          <div class="tr"><input type="checkbox" checked="checked" disabled="disabled" aria-label="migrate runs before server"><span class="n"><span class="dim">▸</span>migrate</span><span>task</span><span class="dim">ready</span><span>runs after db · <span class="dim">server needs it</span></span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card">
+            <h3>What Up does</h3>
+            <div class="plan">
+              <div><b>daemon</b><span>starts for this project</span></div>
+              <div><b>order</b><span>db and cache wake first, then migrate runs against db, then server starts</span></div>
+              <div><b>grader</b><span>stays asleep. Start it any time from its row; anything left asleep that something connects to still wakes</span></div>
+            </div>
+            <div class="dim" style="font-size:12px">The same as <b class="bright mono">doze up server</b>: the ones you tick, and what they need, in dependency order.</div>
+          </section>
+          <section class="card">
+            <h3>Remembered <span class="nw">needs work</span></h3>
+            <div style="font-size:12.5px">Last time this stack went down with <b class="bright">server</b> up, so that's ticked. Up everything ignores it.</div>
+            <div class="dim" style="font-size:12px">Down records which services were up; the next Up starts the same set. Your tabs, the page each was on and the window come back too <span class="new">new</span>.</div>
+          </section>
+        </div>
+      </div>
+      <div class="keys"><span><kbd>u</kbd>up as last time</span><span><kbd>U</kbd>up everything</span><span><kbd>space</kbd>tick</span><span><kbd>e</kbd>open doze.hcl</span><span class="grow"></span><span>nothing here costs memory until Up</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · daemon not responding</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.faded{opacity:.42;filter:saturate(.4)}
+.connpill{display:inline-flex;align-items:center;gap:8px;height:26px;padding:0 12px;border-radius:13px;background:#33290f;color:#F2C879;border:1px solid #5a4a1c;font-size:12px;font-weight:600}
+.banner{margin:0 20px 12px;padding:12px 14px;border:1px solid #5a4a1c;background:#221d10;border-radius:10px;display:flex;gap:14px;align-items:center}
+.btn[aria-disabled=true]{opacity:.45}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot y"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stack">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <h1>shop</h1><span class="path">~/code/shop</span>
+        <span class="grow"></span>
+        <span class="connpill"><span class="dot y"></span>daemon not responding · retrying in 3s</span>
+      </div>
+      <div class="banner" role="status">
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+          <b class="bright">The page shows the last update, 41s ago. Nothing on it is live.</b>
+          <span class="dim" style="font-size:12px">The app asks again every few seconds: 0.5s, then doubling, up to 5s. Every action waits until the daemon answers; none is queued.</span>
+        </div>
+        <span class="btn">Retry now</span>
+        <span class="btn pri">Start it: doze up <span class="new">new</span></span>
+      </div>
+      <div class="faded" style="display:flex;flex-direction:column;min-height:0;flex:1">
+        <div class="tbl" style="--c:172px 92px 88px 76px 52px 52px 52px minmax(0,1fr)">
+        <div class="tr h"><span>Name</span><span>Engine</span><span>State</span><span class="r">Memory</span><span class="r">CPU%</span><span class="r">Conn</span><span class="r">Up</span><span>Because</span></div>
+        <div class="tr grp">APPS <span>3 · your code</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>api</span><span>process</span><span class="ok">awake</span><span class="r">84 MB</span><span class="r">2.1</span><span class="r">0</span><span class="r">14m</span><span class="dim">runs until stopped</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>web</span><span>process</span><span class="ok">awake</span><span class="r">212 MB</span><span class="r">0.0</span><span class="r">0</span><span class="r">14m</span><span class="dim">runs until stopped</span></div>
+        <div class="tr"><span class="n"><span class="ring"></span>worker</span><span>process</span><span class="cool">waking</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">waiting on events</span></div>
+        <div class="tr grp">MODULES <span>4 · from the doze registry</span></div>
+        <div class="tr"><span class="n"><span class="dot y"></span>cache</span><span>valkey 9</span><span class="warn">dozing</span><span class="r">11 MB</span><span class="r">0.0</span><span class="r">0</span><span class="r"></span><span class="warn">sleeps in 3:12</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>cloud</span><span>aws</span><span class="dim">asleep</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">wakes on a connection</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>db</span><span>postgres 17</span><span class="ok">awake</span><span class="r">96 MB</span><span class="r">0.8</span><span class="r">4</span><span class="r">14m</span><span class="dim">api needs it · 4 connections</span></div>
+        <div class="tr"><span class="n"><span class="ring"></span>events</span><span>kafka</span><span class="cool">waking</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">woken by worker</span></div>
+        <div class="tr grp">OUTSIDE <span>3 · brought in by you</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>mailpit</span><span>process</span><span class="dim">asleep</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">starts when needed</span></div>
+        <div class="tr"><span class="n"><span class="dot g"></span>mongo</span><span>process</span><span class="ok">awake</span><span class="r">148 MB</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">api needs it</span></div>
+        <div class="tr"><span class="n"><span class="dot"></span>search</span><span>process</span><span class="dim">asleep</span><span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="dim">starts when needed</span></div>
+        </div>
+      </div>
+      <div style="position:absolute;right:24px;bottom:58px" class="toast" role="alert"><span class="bad">✗</span><span>the daemon is not responding: nothing was sent</span><span class="dim" style="font-size:12px">sleep cache</span></div>
+      <div class="keys"><span><kbd>⏎</kbd>open</span><span class="dim">wake, sleep and restart are off until it answers</span><span class="grow"></span><span>the TUI fades the page the same way</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

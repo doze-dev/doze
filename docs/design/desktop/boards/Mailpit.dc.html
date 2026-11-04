@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · mailpit web console</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.side .space{padding:4px 8px}
+</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+      <div class="space on"><span class="dot"></span><b>mailpit</b><small>asleep</small></div>
+      <div class="space"><span class="dot"></span>search<small>asleep</small></div>
+      <div class="space"><span class="ok" style="width:8px">✓</span>migrate<small>done</small></div>
+      <div class="space"><span class="dim" style="width:8px">▸</span>seed<small>ready</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <span class="dot" style="width:10px;height:10px"></span>
+        <h1>mailpit</h1><span class="path">service · asleep · starts when needed</span>
+        <span class="grow"></span>
+        <span class="btn">Wake <kbd>w</kbd></span>
+      </div>
+      <div class="tabs"><span class="tab on">Web console</span><span class="tab">Logs</span></div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:16px 20px">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card"><h3>mailpit has its own console</h3>
+            <div class="mono bright" style="font-size:13px">http://mailpit.shop.doze:8025</div>
+            <div>It is asleep. Opening the console wakes it first.</div>
+            <div style="display:flex;gap:8px;margin-top:4px"><span class="btn pri">Open in a tab <kbd>⏎</kbd> <span class="new">new</span></span><span class="btn">Open in browser <kbd>o</kbd></span><span class="btn">Just wake it <kbd>w</kbd></span></div>
+          </section>
+          <section style="flex:1;border:1px dashed var(--line2);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--dim);text-align:center;padding:20px">
+            <img src="/_blob/abc6ac810818af48061fa6ebf3bd53ef" alt="" height="52" width="25" style="display:block;flex:none;opacity:.55">
+            <div class="bright">Open in a tab wakes mailpit, then opens its page as its own tab beside shop, filling the window</div>
+            <div style="max-width:440px">Nothing loads until you ask: an asleep service costs nothing, and its page would wake it. While it wakes, this space shows the wake and the first lines it prints. <span class="new">new</span></div>
+          </section>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card"><h3>what doze can still tell you</h3>
+            <div class="kv"><span class="k">connect</span><span class="mono bright">mailpit.shop.doze:1025</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">address</span><span class="mono">127.0.0.1:1025</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">at rest</span><span>0 MB</span><span></span></div>
+          </section>
+          <section class="card" style="flex:1"><h3>logs · last lines</h3>
+            <div class="mono" style="display:flex;flex-direction:column;gap:2px;font-size:12px">
+              <div><span class="dim">13:41:02</span> [smtpd] accepting SMTP connections on [::]:1025</div>
+              <div><span class="dim">13:41:02</span> [http] accessible via http://localhost:8025/</div>
+              <div><span class="dim">13:46:20</span> <span class="dim">went to sleep (idle)</span></div>
+            </div>
+            <div class="dim" style="font-size:12px">asleep: its output is kept; connecting to it wakes it</div>
+          </section>
+        </div>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>⏎</kbd>open in a tab</span><span><kbd>o</kbd>open in browser</span><span><kbd>w</kbd>just wake it</span><span><kbd>l</kbd>logs</span><span><kbd>esc</kbd>back</span><span class="grow"></span><span>The TUI's web console tab, with Open here added</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

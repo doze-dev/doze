@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · cache overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.side .space{padding:4px 8px}
+</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <div class="grow"></div>
+    <span class="btn"><kbd>⌘K</kbd> Command</span>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Stacks">
+      <h4>View</h4>
+      <div class="space on"><b>Services</b></div>
+      <div class="space">Map <span class="new">new</span></div>
+      <div class="space">Timeline <span class="new">new</span></div>
+      <h4>Instances</h4>
+      <div class="space"><span class="dot g"></span>api<small>84 MB</small></div>
+      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
+      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
+      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
+      <div class="space on"><span class="dot y"></span><b>cache</b><small>dozing</small></div>
+      <div class="space"><span class="ring"></span>events<small>waking</small></div>
+      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
+      <div class="space"><span class="dot g"></span>mongo<small>148 MB</small></div>
+      <div class="space"><span class="dot"></span>mailpit<small>asleep</small></div>
+      <div class="space"><span class="dot"></span>search<small>asleep</small></div>
+      <div class="space"><span class="ok" style="width:8px">✓</span>migrate<small>done</small></div>
+      <div class="space"><span class="dim" style="width:8px">▸</span>seed<small>ready</small></div>
+    </nav>
+    <main class="main">
+      <div class="head">
+        <span class="dot y" style="width:10px;height:10px"></span>
+        <h1>cache</h1><span class="path">valkey 9 · dozing · nothing holds it</span>
+        <span class="grow"></span>
+        <span class="btn">Pin awake <kbd>p</kbd></span>
+        <span class="btn">Restart <kbd>r</kbd></span>
+        <span class="btn">Sleep <kbd>s</kbd></span>
+      </div>
+      <div class="tabs"><span class="tab on">Overview</span><span class="tab">Logs</span><span class="tab">Terminal <span class="new">new</span></span><span class="grow"></span><span class="dim" style="align-self:center;font-size:12px">valkey describes no console, so a module's two tabs: overview and logs</span></div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;padding:16px 20px">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card"><h3>connect</h3>
+            <div class="kv"><span class="k">url</span><span class="mono dim">[the module's url]</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">address</span><span class="mono dim">[address]</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">ref</span><span class="mono">module.cache.url in doze.hcl</span><span class="copy">Open <span class="new">new</span></span></div>
+            <div class="kv"><span class="k">env</span><span class="mono dim">[env var]</span><span class="copy">Copy export</span></div>
+          </section>
+          <section class="card"><h3>awake because</h3>
+            <div class="bright">nothing: it sleeps when the idle time is up</div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="pill"><span class="dot y"></span><span class="warn">sleeps in 3:12</span></span><div class="bar" style="flex:1"><i style="width:36%;background:#F2C879"></i></div></div>
+            <div class="dim">sleeps 5:00 after the last closes · <b class="bright">p</b> pin awake</div>
+          </section>
+          <section class="card" style="flex:1"><h3>recent</h3>
+            <div class="mono" style="display:flex;flex-direction:column;gap:2px">
+              <div><span class="dim">13:51:00</span> <span class="acc">woke</span> (api needed it)</div>
+              <div><span class="dim">13:51:00</span> <span class="ok">ready</span> in 38ms</div>
+              <div><span class="dim">14:02:52</span> <span class="warn">idle</span> since 14:02:52 · nothing holds it</div>
+            </div>
+          </section>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <section class="card"><h3>vitals · last 4m</h3>
+            <div style="display:flex;gap:18px;align-items:baseline"><span style="font-size:20px;font-weight:600;color:#f4f1ff">11 MB</span><span class="dim">resident</span><span style="font-size:20px;font-weight:600;color:#f4f1ff">0.0%</span><span class="dim">cpu</span><span style="font-size:20px;font-weight:600;color:#f4f1ff">0</span><span class="dim">conns</span></div>
+            <svg viewBox="0 0 400 70" width="100%" height="70" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="2" points="0,40 40,40 80,39 120,39 160,38 200,38 240,38 280,38 320,38 360,38 400,38"/><polygon fill="#82AAFF" fill-opacity=".12" points="0,40 40,40 80,39 120,39 160,38 200,38 240,38 280,38 320,38 360,38 400,38 400,70 0,70"/></svg>
+            <div class="dim" style="font-size:12px">conns</div>
+            <svg viewBox="0 0 400 70" width="100%" height="70" aria-hidden="true"><polyline fill="none" stroke="#7EE787" stroke-width="2" points="0,62 40,62 60,30 90,30 110,30 140,62 400,62"/></svg>
+            <div class="dim" style="font-size:12px">The step is one connection, closed at 14:02:52. Which app held it <span class="nw">needs work</span></div>
+          </section>
+          <section class="card"><h3>data</h3>
+            <div class="kv"><span class="k">data</span><span class="mono dim">~/.doze/shop/cache</span><span class="copy">Reveal in Finder <span class="new">new</span></span></div>
+            <div class="dim" style="font-size:12px">Asleep, it costs nothing until something connects; its data stays.</div>
+          </section>
+        </div>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>p</kbd>pin awake</span><span><kbd>s</kbd>sleep now</span><span><kbd>y</kbd>copy address</span><span><kbd>tab</kbd>next tab</span><span><kbd>esc</kbd>back</span><span class="grow"></span><span>dozing: awake, nothing holding it, counting down</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

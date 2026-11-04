@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · cloud console</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&amp;family=IBM+Plex+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.con{--bg:#111315;--card:#191c1f;--ink:#e9eaeb;--mut:#a3a9b0;--line:#2d3136;--line2:#23272b;--sel:#262a2f;--well:#15181a;--ok:#5fca8f;--warn:#e0b060;--bad:#ff8a7e;--deny:#c3a3f2;--okbg:#17301f;--badbg:#3a1a17;--denybg:#2a2040;
+flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:400 13px/20px 'IBM Plex Sans',system-ui,sans-serif}
+.con *{box-sizing:border-box}
+.con .m{font-family:'IBM Plex Mono',monospace;font-size:12px}
+.con .mut{color:var(--mut)}
+.con .top{height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--card)}
+.con .brand{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}
+.con .logo{width:22px;height:22px;border-radius:5px;background:var(--ink);color:var(--card);display:inline-flex;align-items:center;justify-content:center;font:700 13px 'IBM Plex Mono',monospace}
+.con .inst{color:var(--mut);font-weight:400}
+.con .pal{display:flex;align-items:center;gap:10px;height:28px;padding:0 10px;border:1px solid var(--line);border-radius:5px;background:var(--well);color:var(--mut);min-width:0;flex:0 1 330px;white-space:nowrap;overflow:hidden}
+.con .pal>span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.con .pal .k,.con .kb .k{font:500 11px 'IBM Plex Mono',monospace;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-left:auto}
+.con .sp{flex:1}
+.con .pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border:1px solid var(--line);border-radius:12px;font-size:12px;white-space:nowrap;background:var(--card)}
+.con .live{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.con .seg{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.con .seg span{padding:2px 9px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
+.con .seg span:last-child{border-right:0}
+.con .seg span.on{background:var(--sel);color:var(--ink);font-weight:500}
+.con .ib{width:26px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:var(--mut);border-radius:4px}
+.con .ib.on{background:var(--sel);color:var(--ink)}
+.con .body{flex:1;min-height:0;display:flex}
+.con .rail{width:196px;flex:none;background:var(--card);border-right:1px solid var(--line);padding:8px 8px;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.con .rg{margin:9px 8px 2px;font-size:11px;color:var(--mut)}
+.con .nav{display:flex;align-items:center;gap:8px;height:27px;padding:0 8px;border-radius:4px;white-space:nowrap}
+.con .nav.on{background:var(--sel);font-weight:600}
+.con .nav .c{margin-left:auto;color:var(--mut);font:400 11px 'IBM Plex Mono',monospace}
+.con .sq{width:9px;height:9px;border-radius:2px;flex:none}
+.con .lp{width:220px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg)}
+.con .lph{display:flex;align-items:center;gap:6px;padding:10px 12px 6px;font-weight:600}
+.con .lph .c{color:var(--mut);font-weight:400}
+.con .lph .nw2{margin-left:auto;color:var(--mut);font-weight:400;font-size:12px}
+.con .flt{margin:0 10px 8px;height:26px;border:1px solid var(--line);border-radius:4px;background:var(--well);color:var(--mut);font-size:12px;display:flex;align-items:center;padding:0 8px}
+.con .lr{display:flex;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid var(--line2)}
+.con .lr.on{background:var(--sel)}
+.con .lr .c{margin-left:auto;color:var(--mut);font:400 11px 'IBM Plex Mono',monospace}
+.con .main{flex:1;min-width:0;display:flex;flex-direction:column}
+.con .btn2{height:28px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);display:inline-flex;align-items:center;white-space:nowrap;font-size:12.5px}
+.con .btn2.pri{background:var(--ink);color:var(--card);border-color:var(--ink);font-weight:600}
+.con .btn2.dg{border-color:var(--bad);color:var(--bad);background:transparent}
+.con .chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border:1px solid var(--line);border-radius:4px;font-size:11px;color:var(--mut);white-space:nowrap}
+.con .tabs3{display:flex;gap:20px;padding:0 16px;border-bottom:1px solid var(--line)}
+.con .tabs3 span{padding:8px 0;color:var(--mut);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.con .tabs3 span.on{color:var(--ink);border-color:var(--ink)}
+.con .kb{height:28px;flex:none;display:flex;align-items:center;gap:14px;padding:0 12px;border-top:1px solid var(--line);background:var(--card);color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden}
+.con .kb .k{margin:0 5px 0 0}
+.con .inp{height:26px;border:1px solid var(--line);border-radius:4px;background:var(--well);color:var(--mut);font-size:12px;display:inline-flex;align-items:center;padding:0 8px;white-space:nowrap}
+.ctab{display:inline-flex;width:15px;height:15px;border-radius:3px;background:#e9eaeb;color:#191c1f;align-items:center;justify-content:center;font:700 10px 'IBM Plex Mono',monospace}
+.stab .x{color:var(--dim);margin-left:4px;font-size:12px}
+.tnote{margin:0 4px 9px auto;color:var(--dim);font-size:12px;white-space:nowrap;align-self:flex-end}
+.q-row{display:grid;grid-template-columns:18px minmax(0,1fr) 40px 18px;column-gap:10px;align-items:center;padding:7px 16px;border-top:1px solid var(--line2)}
+.sdock{border-top:1px solid var(--line);background:var(--card);padding:10px 16px;display:flex;flex-direction:column;gap:8px}
+.wire{border-top:1px solid var(--line);padding:6px 16px;display:flex;flex-direction:column;gap:2px}
+.wr{display:grid;grid-template-columns:70px 130px minmax(0,1fr) 40px;column-gap:10px}</style>
+</helmet>
+<div class="win">
+  <div class="titlebar tabbed">
+    <div class="lights"><span></span><span></span><span></span></div>
+    <div class="stabs" role="tablist" aria-label="Stacks and consoles"><span class="stab" role="tab"><span class="dot g"></span>shop</span><span class="stab on" role="tab"><img src="/_blob/9a597177013ac7652c82436f4091e46d" alt="" width="16" height="16" style="display:block;flex:none;border-radius:4px"><b>cloud</b><span class="x" aria-label="Close">×</span></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
+    <span class="tnote">console tab <span class="new">new</span> · follows the app's dark theme <span class="new">new</span></span>
+  </div>
+  <div class="con" style="border-radius:0 0 12px 12px;overflow:hidden">
+    <header class="top">
+      <div class="brand"><span class="logo" aria-hidden="true">z</span><span>doze-aws</span><span class="inst">cloud</span></div>
+      <button class="pal" type="button" aria-label="Jump to a resource, or do something"><span>Jump to a resource, or do something…</span><span class="k">⌘K</span></button>
+      <div class="sp"></div>
+      <span class="pill m"><span class="live"></span>127.0.0.1:4566</span>
+      <span class="pill m">us-east-1</span>
+      <span class="pill" style="color:var(--mut)" title="IAM is off: nothing is evaluated.">IAM off</span>
+      <div style="display:flex;gap:2px" role="group" aria-label="Appearance"><span class="ib" title="Light"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="ib" title="Match system"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="ib on" title="Dark"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></span></div>
+    </header>
+    <div class="body">
+    <nav class="rail" aria-label="Services">
+      <div class="nav">The wire<span class="c">live</span></div>
+      <div class="nav">The map</div>
+      <div class="nav">Connect</div>
+      <div class="rg">Storage and data</div>
+      <div class="nav"><span class="sq" style="background:#2fd68a"></span>S3<span class="c">1</span></div>
+      <div class="nav"><span class="sq" style="background:#6f9bff"></span>DynamoDB<span class="c"></span></div>
+      <div class="rg">Messaging</div>
+      <div class="nav on"><span class="sq" style="background:#ff62b0"></span>SQS<span class="c">2</span></div>
+      <div class="nav"><span class="sq" style="background:#c476ff"></span>SNS<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#2fe0cd"></span>EventBridge<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#45c8ff"></span>Kinesis<span class="c"></span></div>
+      <div class="rg">Compute and APIs</div>
+      <div class="nav"><span class="sq" style="background:#ffa04a"></span>Lambda<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#2fd4b0"></span>API Gateway<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#ff6fa8"></span>Step Functions<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#ef7098"></span>CloudWatch Logs<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#ff7fae"></span>CloudWatch<span class="c"></span></div>
+      <div class="rg">Config and secrets</div>
+      <div class="nav"><span class="sq" style="background:#ff6a5e"></span>KMS<span class="c"></span></div>
+      <div class="nav"><span class="sq" style="background:#f0bb3a"></span>Secrets Manager<span class="c"></span></div>
+    </nav>
+      <section class="lp" aria-label="Queues">
+        <div class="lph">Queues <span class="c">2</span><span class="nw2">New</span></div>
+        <div class="flt">Filter…</div>
+        <div class="lr on"><span class="sq" style="background:#ff62b0"></span><span class="m">orders</span><span class="c"></span></div>
+        <div class="lr"><span class="sq" style="background:#ff62b0"></span><span class="m">orders-dlq</span><span class="c">1</span></div>
+      </section>
+      <main class="main">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 16px 6px">
+          <span class="sq" style="background:#ff62b0;width:12px;height:12px"></span><b style="font-size:18px;font-weight:600">orders</b><span class="chip">standard</span>
+          <span class="sp"></span><span class="btn2 dg">Delete queue</span>
+        </div>
+        <div style="display:flex;gap:6px;padding:0 16px 8px"><span class="chip m">url</span><span class="chip m">arn</span></div>
+        <div class="mut" style="padding:0 16px 10px">0 waiting · 2 in flight · hidden for 30 s on receive · kept 4 days</div>
+        <div class="tabs3"><span class="on">Messages</span><span>Consume</span><span>Configuration</span><span>Tags</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px"><span class="pill" style="color:var(--ok);height:22px"><span class="live"></span>live peek</span><span class="mut" style="font-size:12px">Read without consuming.</span><span class="sp"></span><span class="btn2">Purge</span></div>
+        <div style="padding:28px 16px;text-align:center;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)"><div style="font-weight:600">No visible messages.</div><div class="mut" style="font-size:12px;margin:4px 0 10px">Send one below — it lands here.</div><span class="btn2">Send one now</span></div>
+        <div class="sp"></div>
+        <div class="sdock" aria-label="Send a message">
+          <div style="display:flex;align-items:center;gap:10px"><b style="font-weight:600">Send a message</b><span class="mut" style="font-size:12px"><span class="m">⌘⏎</span> lands in the list above</span><span class="sp"></span><span class="chip m">cli</span></div>
+          <div style="display:flex;gap:8px;align-items:stretch">
+            <div class="inp m" style="flex:1;height:44px;align-items:flex-start;padding-top:5px">Message body</div>
+            <div style="display:flex;flex-direction:column;gap:4px"><span class="inp" style="width:120px">Delay (s, optional)</span><span class="inp" style="width:120px">Copies 1</span></div>
+            <span class="btn2 pri" style="height:44px">Send</span>
+          </div>
+          <div class="mut" style="font-size:12px">Message attributes · optional metadata <span style="color:var(--ink);margin-left:6px">Add</span></div>
+        </div>
+        <div class="wire" aria-label="The wire">
+          <div style="display:flex;align-items:center;gap:10px;font-size:12px"><b style="font-weight:600">The wire</b><span class="mut">calls that touched this queue</span><span class="pill" style="color:var(--ok);height:20px">live</span><span class="sp"></span><span class="mut">hide</span></div>
+          <div class="wr m"><span class="mut">14:04:49</span><span>ReceiveMessage</span><span class="mut">orders</span><span style="color:var(--ok)">200</span></div>
+          <div class="wr m"><span class="mut">14:04:48</span><span>SendMessage</span><span class="mut">orders</span><span style="color:var(--ok)">200</span></div>
+        </div>
+      </main>
+    </div>
+    <footer class="kb"><span><span class="k">⌘K</span>jump or act</span><span class="sp"></span><span>Built for 1024 and wider. Phones are not supported, and the console says so.</span></footer>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

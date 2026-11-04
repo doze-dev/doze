@@ -1,11 +1,10 @@
-// What the page holds, in a Zustand store: the stacks for the tab strip,
+// What the page holds, in a TanStack Store: the stacks for the tab strip,
 // where the user is, and the view in focus, each replaced whole by Go's
 // pushes. Go computes every fact (D16); this only keeps the latest and lets
 // each component subscribe to the slice it draws, so a push re-renders only
 // what it changed.
 import { useEffect } from "react";
-import { create } from "zustand";
-import { useShallow } from "zustand/react/shallow";
+import { Store, useSelector } from "@tanstack/react-store";
 import { transport, type LogsChanged, type Nav, type serve, type view } from "./transport";
 
 export type Page = "home" | "instance" | "logs";
@@ -32,7 +31,7 @@ export interface State {
   error: string | null;
 }
 
-export const useStore = create<State>()(() => ({
+export const store = new Store<State>({
   stacks: [],
   version: "",
   where: null,
@@ -43,15 +42,29 @@ export const useStore = create<State>()(() => ({
   logsVersion: 0,
   logsTotal: 0,
   error: null,
-}));
+});
 
-/** set patches the store outside React. */
-export const set = useStore.setState;
-const get = useStore.getState;
+/** set patches the store, outside React or in. */
+export function set(patch: Partial<State> | ((s: State) => Partial<State>)) {
+  store.setState((prev) => ({ ...prev, ...(typeof patch === "function" ? patch(prev) : patch) }));
+}
+const get = () => store.get();
+
+/** useStore subscribes a component to one selection of the state. */
+export function useStore<T>(select: (s: State) => T): T {
+  return useSelector(store, select);
+}
 
 /** useSlice subscribes to several fields at once, re-rendering only when one changes. */
 export function useSlice<T extends object>(pick: (s: State) => T): T {
-  return useStore(useShallow(pick));
+  return useSelector(store, pick, { compare: shallow });
+}
+
+function shallow<T extends object>(a: T, b: T): boolean {
+  if (Object.is(a, b)) return true;
+  const ka = Object.keys(a) as Array<keyof T>;
+  const kb = Object.keys(b) as Array<keyof T>;
+  return ka.length === kb.length && ka.every((k) => Object.is(a[k], b[k]));
 }
 
 // nav numbers each navigation, so a slow answer for the last page does not
