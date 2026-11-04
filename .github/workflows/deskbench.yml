@@ -1,0 +1,44 @@
+# The app's budgets on every PR, not nightly: menu bar ready and its
+# footprint, window to home painted and its footprint with WebKit, what is
+# held a minute after the window closes, CPU at rest (test/deskbench/
+# budget.json). macOS is the platform the app is tested by eye on and is
+# blocking; the runner's virtual GPU gives different WebKit figures from a
+# MacBook, so the window budget is calibrated from the first runs here.
+name: deskbench
+
+on:
+  pull_request:
+    paths:
+      - "internal/desk/**"
+      - "internal/display/**"
+      - "test/deskbench/**"
+      - "go.mod"
+      - ".github/workflows/deskbench.yml"
+  push:
+    branches: [main]
+
+env:
+  GOFLAGS: -tags=purego
+
+permissions:
+  contents: read
+
+jobs:
+  deskbench:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.4.0" }
+      - name: Measure against the budget
+        env:
+          DOZE_DESKBENCH_OUT: ${{ runner.temp }}/deskbench.json
+        run: make deskbench
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deskbench-macos
+          path: ${{ runner.temp }}/deskbench.json
+          if-no-files-found: ignore
