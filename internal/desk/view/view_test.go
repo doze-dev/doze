@@ -211,3 +211,130 @@ func TestPaletteMatchesWordStartsAndShowsTheCommand(t *testing.T) {
 		t.Errorf("nothing does that: %v", n.Rows)
 	}
 }
+
+// consoleStack is the modules fixture with db's and events' consoles
+// watched, so the stack view carries their specs and rows.
+func consoleStack(t *testing.T) (hub.StackView, *hub.Hub, string) {
+	t.Helper()
+	home := t.TempDir()
+	run := filepath.Join(home, "projects", "p-1", "run")
+	if err := os.MkdirAll(run, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(run, "doze.admin.sock"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := fixture.Modules(epoch)
+	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return f }, Every: 20 * time.Millisecond, Now: func() time.Time { return epoch }})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go h.Run(ctx)
+	key := ""
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline) && key == ""; {
+		if st := h.Stacks(); len(st) == 1 && st[0].Conn == hub.ConnLive {
+			key = st[0].Key
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if key == "" {
+		t.Fatal("the hub never saw the modules fixture")
+	}
+	for _, inst := range []string{"db", "events"} {
+		t.Cleanup(h.WatchConsole(key, inst))
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		st := h.Stacks()[0]
+		if c, ok := st.Consoles["events"]; ok && c.Spec != nil && len(st.Consoles["db"].Tables["sessions"]) == 4 && len(c.Tables["topics"]) == 3 {
+			st.Key = "data-1"
+			return st, h, key
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the consoles never arrived")
+	return hub.StackView{}, nil, ""
+}
+
+func TestConsoleTabDrawsThePgActivityBoard(t *testing.T) {
+	st, _, _ := consoleStack(t)
+	inst := InstanceOf(st, "db", epoch)
+	if len(inst.Tabs) != 3 || inst.Tabs[0].ID != "overview" || inst.Tabs[1].ID != "console:activity" || inst.Tabs[1].Title != "activity" || inst.Tabs[2].ID != "logs" {
+		t.Errorf("db's tabs = %+v", inst.Tabs)
+	}
+	if len(inst.Extend) != 1 || inst.Extend[0].After != "vitals" || inst.Extend[0].Node.Kind != "table" || len(inst.Extend[0].Node.Rows) != 3 {
+		t.Errorf("db's overview extension = %+v", inst.Extend)
+	}
+	c := ConsoleOf(st, "db", "console:activity", map[string]int{})
+	golden(t, "modules-db-activity", c)
+	if !c.Awake || c.Missing || c.Body.Kind != "col" || len(c.Body.Children) != 2 {
+		t.Fatalf("activity = %+v", c)
+	}
+	stat := c.Body.Children[0]
+	if stat.Kind != "stat" || len(stat.Stats) != 5 || stat.Stats[0].Label != "active" || stat.Stats[0].Value != "2" || stat.Stats[4].Value != "4.2 s" {
+		t.Errorf("counters = %+v", stat.Stats)
+	}
+	row := c.Body.Children[1]
+	table, side := row.Children[0], row.Children[1]
+	if table.Kind != "table" || table.ID != "sessions" || len(table.Cols) != 6 || len(table.Rows) != 4 || table.Selected != 0 {
+		t.Errorf("sessions = %+v", table)
+	}
+	if table.Rows[0].Cells[5].Text != "◐ waiting" || table.Rows[0].Cells[5].Tone != "warn" || table.Rows[3].Cells[5].Text != "· idle" {
+		t.Errorf("state cells = %+v %+v", table.Rows[0].Cells[5], table.Rows[3].Cells[5])
+	}
+	detail, actions := side.Children[0], side.Children[1]
+	if detail.Title != "query" || len(detail.Detail) != 7 || detail.Detail[6][1] != "UPDATE orders SET status = $1 WHERE id = $2" {
+		t.Errorf("detail = %+v", detail.Detail)
+	}
+	if len(actions.Actions) != 2 || actions.Actions[0].Key != "C" || actions.Actions[0].Resource != "4412" || !actions.Actions[1].Destructive || actions.Actions[1].Key != "T" {
+		t.Errorf("actions = %+v", actions.Actions)
+	}
+	if len(c.Keys) != 4 || c.Keys[1][1] != "cancel query" {
+		t.Errorf("keys = %v", c.Keys)
+	}
+	// The second row selected: the detail and the actions follow it.
+	c2 := ConsoleOf(st, "db", "console:activity", map[string]int{"sessions": 1})
+	if d := c2.Body.Children[1].Children[1].Children[0].Detail; d[6][1] != "SELECT * FROM orders WHERE customer_id = $1" {
+		t.Errorf("detail of row 2 = %v", d[6])
+	}
+	if a := c2.Body.Children[1].Children[1].Children[1].Actions; a[0].Resource != "4410" {
+		t.Errorf("actions of row 2 = %+v", a)
+	}
+	if ConsoleOf(st, "db", "console:nope", nil).Missing != true {
+		t.Error("a tab the spec lacks is missing")
+	}
+}
+
+func TestKafkaConsoleLaysOutTablesThenTheStream(t *testing.T) {
+	st, _, _ := consoleStack(t)
+	c := ConsoleOf(st, "events", "console:_", map[string]int{})
+	golden(t, "modules-events-console", c)
+	kids := c.Body.Children
+	if len(kids) != 3 || kids[0].Kind != "row" || len(kids[0].Children) != 2 || kids[1].Kind != "stream" || kids[2].Kind != "actions" {
+		t.Fatalf("kafka body = %+v", kids)
+	}
+	topics := kids[0].Children[0]
+	if len(topics.Cols) != 5 || topics.Cols[4].Key != "from" || topics.Rows[2].Cells[4].Text != "runtime" || topics.Rows[0].Cells[2].Text != "1,043" || topics.Rows[0].Cells[3].Text != "—" {
+		t.Errorf("topics = %+v", topics)
+	}
+	groups := kids[0].Children[1]
+	if groups.Rows[1].Cells[2].Text != "12" || groups.Rows[1].Cells[2].Tone != "bad" || groups.Rows[0].Cells[2].Tone != "good" {
+		t.Errorf("lag cells = %+v", groups.Rows)
+	}
+	panel, sector := Follow(st, "events", "console:_", map[string]int{})
+	if panel != "tail" || sector != "orders" {
+		t.Errorf("follow = %q %q", panel, sector)
+	}
+	if _, sector := Follow(st, "events", "console:_", map[string]int{"table:topics": 1}); sector != "emails" {
+		t.Errorf("follow of row 2 = %q", sector)
+	}
+	produce := kids[2].Actions[0]
+	d := ActionDialog(st, "events", produce)
+	golden(t, "modules-events-produce", d)
+	if !d.Needed || !d.Input || d.Hint != "message value" || d.Buttons[0].Label != "Do it" || d.Buttons[0].Verb != "produce" || d.Buttons[0].Targets[0] != "orders" || !d.Action || d.Instance != "events" {
+		t.Errorf("produce dialog = %+v", d)
+	}
+	keep := kids[2].Actions[1]
+	if ActionDialog(st, "events", keep).Needed {
+		t.Error("keep takes no input and deletes nothing: it just runs")
+	}
+}

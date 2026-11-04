@@ -33,6 +33,8 @@ const (
 	EventLogs = "logs"
 	// EventNav asks the page to go somewhere: data is Nav.
 	EventNav = "nav"
+	// EventConsole carries a view.Console for the focused console tab.
+	EventConsole = "console"
 	// EventNotice is something to say to the person: data is Notice. A
 	// success fades after 4 s; a failure stays 12 s, as the TUI's did.
 	EventNotice = "notice"
@@ -71,6 +73,10 @@ type Focus struct {
 	Key      string `json:"key"`
 	Page     string `json:"page"` // "home", "instance", "logs"
 	Instance string `json:"instance,omitempty"`
+	// Tab is the instance page's tab; Sel the selected row of each console
+	// table, by block id, which a detail and a stream follow.
+	Tab string         `json:"tab,omitempty"`
+	Sel map[string]int `json:"sel,omitempty"`
 }
 
 // LogsChanged says the focused logs have more or different lines. Version
@@ -105,10 +111,14 @@ type Service struct {
 	notices    []Notice
 	// tasks is each task's last run as last seen, to say when one finished.
 	tasks map[string]string
-	theme string
-	sent  map[string]uint64 // event name → hash of what was last sent
-	dirty bool
-	wake  chan struct{}
+	// labels are the module actions last seen, by stack, instance and id,
+	// so what an action answered is said with its label even after its
+	// console is no longer watched.
+	labels map[string]string
+	theme  string
+	sent   map[string]uint64 // event name → hash of what was last sent
+	dirty  bool
+	wake   chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -194,6 +204,13 @@ func (s *Service) push() {
 	case "instance":
 		s.send(EventInstance, s.Instance(f.Key, f.Instance))
 		s.sendLogs(f) // the page's logs tab
+		if strings.HasPrefix(f.Tab, "console:") {
+			if st, ok := s.stack(f.Key); ok {
+				panel, sector := view.Follow(st, f.Instance, f.Tab, f.Sel)
+				s.hub.FollowConsole(f.Key, f.Instance, panel, sector)
+			}
+			s.send(EventConsole, s.Console(f.Key, f.Instance, f.Tab, f.Sel))
+		}
 	case "logs":
 		s.sendLogs(f)
 	}
@@ -310,6 +327,7 @@ func (s *Service) SetFocus(f Focus) {
 	delete(s.sent, EventHome)
 	delete(s.sent, EventInstance)
 	delete(s.sent, EventLogs)
+	delete(s.sent, EventConsole)
 	if f.Key != "" {
 		switch f.Page {
 		case "home":
@@ -319,6 +337,11 @@ func (s *Service) SetFocus(f Focus) {
 			}
 		case "instance":
 			s.releases = append(s.releases, s.hub.Watch(f.Key, control.TopicStats), s.hub.Watch(f.Key, control.TopicLogs))
+			if st, ok := s.stack(f.Key); ok {
+				if v, ok := display.Find(view.Snapshot(st), f.Instance); ok && v.HasConsole {
+					s.releases = append(s.releases, s.hub.WatchConsole(f.Key, f.Instance))
+				}
+			}
 		case "logs":
 			s.releases = append(s.releases, s.hub.Watch(f.Key, control.TopicLogs))
 		}
@@ -490,4 +513,58 @@ func (s *Service) KeyFor(dir string) string {
 		}
 	}
 	return ""
+}
+
+// Console is an instance's console tab, resolved for the selection.
+func (s *Service) Console(key, name, tab string, sel map[string]int) view.Console {
+	st, _ := s.stack(key)
+	s.rememberLabels(key, name, st)
+	return view.ConsoleOf(st, name, tab, sel)
+}
+
+// rememberLabels keeps the labels of an instance's actions, for Admin.
+func (s *Service) rememberLabels(key, name string, st hub.StackView) {
+	c, ok := st.Consoles[name]
+	if !ok {
+		return
+	}
+	s.mu.Lock()
+	if s.labels == nil {
+		s.labels = map[string]string{}
+	}
+	for _, a := range c.Actions {
+		s.labels[key+"/"+name+"/"+a.ID] = a.Label
+	}
+	s.mu.Unlock()
+}
+
+// Action is the confirmation for a module's action: input when it takes
+// some, a question when it deletes something. Needed is false when it
+// should just run.
+func (s *Service) Action(key, name string, a view.Action) view.Dialog {
+	st, _ := s.stack(key)
+	s.rememberLabels(key, name, st)
+	return view.ActionDialog(st, name, a)
+}
+
+// Admin runs a module's action on an instance and says what it answered,
+// as the dash's runAction did.
+func (s *Service) Admin(key, name, action, resource, input string) error {
+	out, err := s.hub.Admin(context.Background(), key, name, action, resource, input)
+	s.changed()
+	label := action
+	s.mu.Lock()
+	if l, ok := s.labels[key+"/"+name+"/"+action]; ok {
+		label = l
+	}
+	s.mu.Unlock()
+	if err != nil {
+		s.Say(label+": "+display.Humanise(err), true)
+		return errors.New(display.Humanise(err))
+	}
+	if out == "" {
+		out = label + " done"
+	}
+	s.Say(out, false)
+	return nil
 }

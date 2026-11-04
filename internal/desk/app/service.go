@@ -84,3 +84,18 @@ func (a *API) Log(line string) {
 func newService(s *serve.Service, painted func(int)) application.Service {
 	return application.NewService(&API{s: s, painted: painted})
 }
+
+// Console is an instance's console tab, resolved for the selection.
+func (a *API) Console(key, name, tab string, sel map[string]int) view.Console {
+	return a.s.Console(key, name, tab, sel)
+}
+
+// Action is the confirmation for a module's action.
+func (a *API) Action(key, name string, act view.Action) view.Dialog {
+	return a.s.Action(key, name, act)
+}
+
+// Admin runs a module's action on an instance.
+func (a *API) Admin(key, name, action, resource, input string) error {
+	return a.s.Admin(key, name, action, resource, input)
+}

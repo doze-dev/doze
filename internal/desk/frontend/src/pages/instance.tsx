@@ -6,6 +6,7 @@ import { KVRows } from "../components/card";
 import { Keys } from "../components/keys";
 import { Dot } from "../components/sidebar";
 import { LogsPage } from "./logs";
+import { ConsoleTab, Extends } from "../components/console";
 
 // An instance, as the Instance, Cache, Mailpit, Task and Crash boards lay
 // it out: the head line, its verbs, the tabs, and the overview's cards.
@@ -130,6 +131,8 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
       {current === "logs" && <LogsPage stackKey={stackKey} instance={inst.name} embedded inst={inst} />}
       {current === "last run" && <LastRun inst={inst} />}
       {current === "web console" && <WebConsole inst={inst} stackKey={stackKey} />}
+      {current.startsWith("console:") && <ConsoleTab stackKey={stackKey} inst={inst.name} tab={current} />}
+      {!current.startsWith("console:") && (
       <Keys
         keys={
           task
@@ -147,6 +150,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
         }
         note={task ? "A task's page is its last run, as in the TUI" : "the same tabs as the TUI's focus page"}
       />
+      )}
     </>
   );
 }
@@ -207,6 +211,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
             <KVRows rows={inst.connect ?? []} />
           </section>
         )}
+        <Extends after="connect" inst={inst} stackKey={stackKey} />
         <section className="card">
           <h3>{inst.look.word === "awake" ? "Why it's awake" : "Awake because"}</h3>
           {(inst.holders ?? []).map((p) => (
@@ -230,6 +235,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
           {(inst.holders ?? []).length === 0 && !inst.dozing && inst.sleeps && <div className="bright">{inst.sleeps}</div>}
           {((inst.holders ?? []).length > 0 || inst.dozing) && <div className="dim">{inst.sleeps}</div>}
         </section>
+        <Extends after="awake" inst={inst} stackKey={stackKey} />
         {(inst.needs ?? []).length > 0 && (
           <section className="card">
             <h3>Needs</h3>
@@ -253,6 +259,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
             {(inst.recent ?? []).length === 0 && <div className="dim">nothing yet</div>}
           </div>
         </section>
+        <Extends after="recent" inst={inst} stackKey={stackKey} />
       </div>
       <div className="col">
         {inst.vitals ? (
@@ -260,6 +267,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
             <ChartCard title="Memory" chart={inst.vitals.ram} color="cool" tall />
             <ChartCard title="CPU" chart={inst.vitals.cpu} color="accent" tall />
             <ChartCard title="Connections" chart={inst.vitals.conns} color="good" />
+            <Extends after="vitals" inst={inst} stackKey={stackKey} />
           </>
         ) : (
           <section className="card">

@@ -115,7 +115,7 @@ export function App() {
           {where?.page === "recent" && <RecentPage stackKey={where.key} stack={stacks.find((s) => s.key === where.key)?.name ?? ""} />}
         </main>
       </div>
-      {dialog && <Dialog d={dialog.d} onChoose={(b) => void choose(b)} onCancel={() => set({ dialog: null })} />}
+      {dialog && <Dialog d={dialog.d} onChoose={(b, text) => void choose(b, text)} onCancel={() => set({ dialog: null })} />}
       {palette && where && <Palette stackKey={where.key} selected={picked} onPick={pick} onClose={() => set({ palette: false })} />}
       <Toasts />
     </div>

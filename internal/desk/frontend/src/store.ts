@@ -45,6 +45,9 @@ export interface State {
   /** toasts is what was said and has not faded yet. */
   toasts: Toast[];
   theme: Theme;
+  /** tab is the instance page's tab; sel the selected row of each console table, by block id. Go follows both. */
+  tab: string;
+  sel: Record<string, number>;
 }
 
 export const store = new Store<State>({
@@ -62,6 +65,8 @@ export const store = new Store<State>({
   palette: false,
   toasts: [],
   theme: "system",
+  tab: "",
+  sel: {},
 });
 
 /** set patches the store, outside React or in. */
@@ -94,7 +99,22 @@ let nav = 0;
 /** focus tells Go what is on screen: the page, and on home the selected row. */
 async function focus(where: Where, selected: string) {
   const t = await transport();
-  await t.focus({ key: where.key, page: where.page, instance: where.page === "home" ? selected : (where.instance ?? "") });
+  const s = get();
+  const onInstance = where.page === "instance";
+  await t.focus({
+    key: where.key,
+    page: where.page,
+    instance: where.page === "home" ? selected : (where.instance ?? ""),
+    tab: onInstance ? s.tab : "",
+    sel: onInstance ? s.sel : {},
+  });
+}
+
+/** setConsole says which tab the instance page shows and which rows its tables have picked; Go follows. */
+export async function setConsole(tab: string, sel: Record<string, number>) {
+  const s = get();
+  set({ tab, sel });
+  if (s.where?.page === "instance") await focus(s.where, s.selected);
 }
 
 /** go moves the page; Go follows with its pushes. */
@@ -103,7 +123,7 @@ export async function go(where: Where) {
   const t = await transport();
   const s = get();
   const sameStack = s.where?.key === where.key;
-  set({ where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null, dialog: null, palette: false });
+  set({ where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null, dialog: null, palette: false, tab: "", sel: {} });
   await focus(where, sameStack ? s.selected : "");
   // The first paint does not wait for a push.
   try {
@@ -155,17 +175,33 @@ export async function ask(key: string, name: string, verb: string) {
   }
 }
 
-/** choose presses a dialog button: its verb on its targets, in order. */
-export async function choose(b: view.Button) {
+/** choose presses a dialog button: its verb on its targets, in order, or a module action with what was typed. */
+export async function choose(b: view.Button, text = "") {
   const s = get();
   const dialog = s.dialog;
   set({ dialog: null });
   if (!dialog || !b.verb) return;
   const t = await transport();
   try {
-    await t.doAll(dialog.key, b.verb, b.targets ?? []);
+    if (dialog.d.action) await t.admin(dialog.key, dialog.d.instance ?? "", b.verb, b.targets?.[0] ?? "", text);
+    else await t.doAll(dialog.key, b.verb, b.targets ?? []);
   } catch (e) {
     t.log(`${b.label} failed: ${String(e)}`);
+  }
+}
+
+/** askAction runs a module's action on its row, after input or a question when the dash asked. */
+export async function askAction(key: string, name: string, a: view.Action) {
+  const t = await transport();
+  try {
+    const d = await t.action(key, name, a);
+    if (!d.needed) {
+      await t.admin(key, name, a.id, a.resource ?? "", "");
+      return;
+    }
+    set({ dialog: { key, d }, palette: false });
+  } catch (e) {
+    t.log(`${a.label} failed: ${String(e)}`);
   }
 }
 

@@ -6,12 +6,14 @@ import type { view } from "../transport";
 // happens, the buttons in the dash's order, the footer. Enter presses the
 // default, Escape cancels, ←→ move between buttons; a reset waits for the
 // name to be typed and defaults to Cancel.
-export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b: view.Button) => void; onCancel: () => void }) {
+export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b: view.Button, text: string) => void; onCancel: () => void }) {
   const buttons = d.buttons ?? [];
   const [at, setAt] = useState(d.default);
   const [typed, setTyped] = useState("");
-  const armed = !d.typeName || typed === d.typeName;
-  const enabled = (b: view.Button) => b.cancel || armed || !b.danger;
+  // A reset waits for the name; an action with input waits for a line.
+  const armed = d.typeName ? typed === d.typeName : d.input ? typed.trim() !== "" : true;
+  const text = d.input ? typed : "";
+  const enabled = (b: view.Button) => b.cancel || armed || (!b.danger && !d.input);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -35,12 +37,12 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
           const b = buttons[at];
           if (b && enabled(b)) {
             e.preventDefault();
-            b.cancel ? onCancel() : onChoose(b);
+            b.cancel ? onCancel() : onChoose(b, text);
           }
           break;
         }
         case "y":
-          if (d.kind === "restart" && !d.typeName) buttons.filter((b) => !b.cancel)[0] && onChoose(buttons.filter((b) => !b.cancel)[0]);
+          if (d.kind === "restart" && !d.typeName) buttons.filter((b) => !b.cancel)[0] && onChoose(buttons.filter((b) => !b.cancel)[0], "");
           break;
         case "n":
           if (d.kind === "restart") onCancel();
@@ -61,12 +63,19 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
             {(d.sentence ?? []).map((s, i) => (s.strong ? <b key={i} className="bright">{s.text}</b> : <span key={i}>{s.text}</span>))}
           </div>
         )}
-        {(d.rows ?? []).map((r) => (
-          <div key={r.k} className="row2">
-            <span className="k">{r.k}</span>
-            <span>{r.v}</span>
-          </div>
-        ))}
+        {(d.rows ?? []).map((r, i) =>
+          r.k ? (
+            <div key={r.k} className="row2">
+              <span className="k">{r.k}</span>
+              <span>{r.v}</span>
+            </div>
+          ) : (
+            <div key={i} className="say">
+              {r.v}
+            </div>
+          ),
+        )}
+        {d.input && <input className="field" autoFocus aria-label={d.hint} placeholder={d.hint} value={typed} onChange={(e) => setTyped(e.target.value)} />}
         {(d.facts ?? []).length > 0 && (
           <div className="lines">
             {(d.facts ?? []).map((f) => (
@@ -101,7 +110,7 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
               key={b.label}
               className={"btn" + (b.primary ? " pri" : "") + (b.danger ? " danger" : "") + (i === at && !b.primary ? " ring2" : "") + (!enabled(b) ? " off" : "")}
               disabled={!enabled(b)}
-              onClick={() => (b.cancel ? onCancel() : onChoose(b))}
+              onClick={() => (b.cancel ? onCancel() : onChoose(b, text))}
               onMouseEnter={() => setAt(i)}
             >
               {b.label}

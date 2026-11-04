@@ -34,6 +34,11 @@ export interface Transport {
   /** dialog is the confirmation for a verb on an instance; needed is false when it should just be done. */
   dialog(key: string, name: string, verb: string): Promise<view.Dialog>;
   palette(key: string, selected: string, query: string): Promise<view.Palette>;
+  /** console is an instance's console tab, resolved for the selected rows. */
+  console(key: string, name: string, tab: string, sel: Record<string, number>): Promise<view.Console>;
+  /** action is the confirmation for a module action; needed is false when it just runs. */
+  action(key: string, name: string, a: view.Action): Promise<view.Dialog>;
+  admin(key: string, name: string, action: string, resource: string, input: string): Promise<void>;
   recent(): Promise<serve.Notice[]>;
   /** say tells Go something the page did, so it is toasted and remembered. */
   say(text: string, bad: boolean): Promise<void>;
@@ -70,6 +75,9 @@ async function wails(): Promise<Transport> {
     doAll: (key, verb, targets) => api.DoAll(key, verb, targets),
     dialog: (key, name, verb) => api.Dialog(key, name, verb),
     palette: (key, selected, query) => api.Palette(key, selected, query),
+    console: (key, name, tab, sel) => api.Console(key, name, tab, sel),
+    action: (key, name, a) => api.Action(key, name, a),
+    admin: (key, name, action, resource, input) => api.Admin(key, name, action, resource, input),
     recent: () => api.Recent().then((r) => r ?? []),
     say: (text, bad) => api.Say(text, bad),
     theme: (theme) => api.Theme(theme),
@@ -100,6 +108,7 @@ function http(): Transport {
     attached.add(name);
     source.addEventListener(name, (e) => {
       const data = JSON.parse((e as MessageEvent).data);
+      if (name === "notice" || name === "nav" || name === "console") console.log("push " + name, data?.tab ?? data?.text ?? "");
       for (const fn of listeners.get(name) ?? []) fn(data);
     });
   };
@@ -120,6 +129,9 @@ function http(): Transport {
     doAll: (key, verb, targets) => call("doall", { key, verb, targets }),
     dialog: (key, name, verb) => call("dialog", { key, name, verb }),
     palette: (key, selected, query) => call("palette", { key, selected, query }),
+    console: (key, name, tab, sel) => call("console", { key, name, tab, sel }),
+    action: (key, name, a) => call("action", { key, name, action: a }),
+    admin: (key, name, action, resource, input) => call("admin", { key, name, action, resource, input }),
     recent: () => call<serve.Notice[] | null>("recent", {}).then((r) => r ?? []),
     say: (text, bad) => call("say", { text, bad }),
     theme: (theme) => call("theme", { theme }),

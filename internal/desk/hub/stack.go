@@ -49,12 +49,15 @@ type stack struct {
 	// resub ends the current subscription so keep opens one with the
 	// topics wanted now. Nil between subscriptions.
 	resub context.CancelFunc
+	// consoles are the module consoles a page is showing, by instance.
+	consoles map[string]*consoleState
 }
 
 func newStack(key, socket string, d control.Daemon, now func() time.Time, changed func()) *stack {
 	return &stack{
 		key: key, socket: socket, d: d, now: now, changed: changed, cancel: func() {},
 		series: map[string]*Series{}, lines: map[string]lines{}, want: map[string]int{}, added: map[string]uint64{},
+		consoles: map[string]*consoleState{},
 	}
 }
 
@@ -124,7 +127,11 @@ func (s *stack) snapshot(ctx context.Context) {
 	s.mu.Lock()
 	s.name, s.dir, s.idle = snap.Stack, snap.Dir, snap.IdleTimeout
 	s.instances = sorted(snap.Instances)
+	// The daemon answered: it is live from here, whether or not its stream
+	// has said anything yet.
+	s.conn, s.lastFrame = ConnLive, s.now()
 	s.mu.Unlock()
+	s.changed()
 }
 
 // subscription is what to ask for: instances and the journal always; stats
@@ -254,6 +261,7 @@ func (s *stack) view() StackView {
 		Instances: append([]control.InstanceView(nil), s.instances...),
 		Events:    append([]journal.Event(nil), s.events...),
 		Series:    map[string]Series{},
+		Consoles:  s.consoleViews(),
 	}
 	for name, sr := range s.series {
 		v.Series[name] = sr.clone()

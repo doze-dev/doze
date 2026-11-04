@@ -77,6 +77,36 @@ func Handler(s *Service) http.Handler {
 		}
 		return s.Dialog(a.Key, a.Name, a.Verb), nil
 	})
+	call("console", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Name, Tab string
+			Sel            map[string]int
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.Console(a.Key, a.Name, a.Tab, a.Sel), nil
+	})
+	call("action", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Name string
+			Action    view.Action
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.Action(a.Key, a.Name, a.Action), nil
+	})
+	call("admin", func(b json.RawMessage) (any, error) {
+		var a struct{ Key, Name, Action, Resource, Input string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		if err := s.Admin(a.Key, a.Name, a.Action, a.Resource, a.Input); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+	})
 	call("palette", func(b json.RawMessage) (any, error) {
 		var a struct{ Key, Selected, Query string }
 		if err := json.Unmarshal(b, &a); err != nil {

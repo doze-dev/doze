@@ -28,6 +28,13 @@ type Dialog struct {
 	// script does it without being asked.
 	TypeName string `json:"typeName,omitempty"`
 	Command  string `json:"command,omitempty"`
+	// Input asks for a line of text, with Hint in the box: a module action
+	// that takes input. Action says the buttons run a module action (their
+	// Verb is its id, their first Target the row) on Instance.
+	Input    bool   `json:"input,omitempty"`
+	Hint     string `json:"hint,omitempty"`
+	Action   bool   `json:"action,omitempty"`
+	Instance string `json:"instance,omitempty"`
 	// Buttons in the dash's order; Default is the index Enter presses.
 	Buttons []Button `json:"buttons"`
 	Default int      `json:"default"`

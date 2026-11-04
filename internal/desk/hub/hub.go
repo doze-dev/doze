@@ -70,6 +70,8 @@ type StackView struct {
 	Events []journal.Event
 	// Series is each instance's meters over time, while a page watches stats.
 	Series map[string]Series
+	// Consoles are the module consoles a page is showing, by instance.
+	Consoles map[string]ConsoleView
 	// LastUp and LastDown are from the project record, for stopped stacks.
 	LastUp, LastDown time.Time
 }
@@ -184,6 +186,7 @@ func (h *Hub) Refresh() {
 			// The socket file is gone: the daemon exited and cleaned up. What
 			// it last showed is kept as a stopped stack.
 			s.cancel()
+			s.stopConsoles()
 			delete(h.stacks, key)
 			changed = true
 		}

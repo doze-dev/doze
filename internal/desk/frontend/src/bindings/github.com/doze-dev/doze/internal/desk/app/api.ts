@@ -21,10 +21,31 @@ import * as serve$0 from "../serve/models.js";
 import * as view$0 from "../view/models.js";
 
 /**
+ * Action is the confirmation for a module's action.
+ */
+export function Action(key: string, name: string, act: view$0.Action): $CancellablePromise<view$0.Dialog> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Action", key, name, act);
+}
+
+/**
+ * Admin runs a module's action on an instance.
+ */
+export function Admin(key: string, name: string, action: string, resource: string, input: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Admin", key, name, action, resource, input);
+}
+
+/**
  * Blur says the page is hidden.
  */
 export function Blur(): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Blur");
+}
+
+/**
+ * Console is an instance's console tab, resolved for the selection.
+ */
+export function Console(key: string, name: string, tab: string, sel: { [_ in string]?: number } | null): $CancellablePromise<view$0.Console> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Console", key, name, tab, sel);
 }
 
 /**

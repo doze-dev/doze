@@ -50,6 +50,9 @@ type Instance struct {
 	Runs []Run `json:"runs,omitempty"`
 	// Crash is set while it is crashing or has failed.
 	Crash *Crash `json:"crash,omitempty"`
+	// Extend are the console blocks a module adds to the overview, each
+	// after one of its cards: connect, awake, vitals or recent.
+	Extend []Extend `json:"extend,omitempty"`
 	// Procs are the processes under it, for the logs page's box.
 	Procs   []Proc `json:"procs,omitempty"`
 	Side    []Side `json:"side"`
@@ -177,7 +180,11 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 	if display.HasWeb(v) {
 		out.Web = display.WebURL(v)
 	}
-	for _, t := range display.Tabs(v, nil) {
+	var spec *control.ConsoleSpec
+	if c, ok := st.Consoles[name]; ok {
+		spec = c.Spec
+	}
+	for _, t := range display.Tabs(v, spec) {
 		out.Tabs = append(out.Tabs, Tab{ID: t.ID, Title: t.Title})
 	}
 	// A crashing app opens on the Crash board's overview: the error, the
@@ -186,6 +193,7 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 		out.Tabs = append([]Tab{{ID: display.TabOverview, Title: "overview"}}, out.Tabs...)
 	}
 	out.Connect = connectRows(v)
+	out.Extend = extensions(st, name)
 	out.Holders, out.Sleeps = holders(v, st.IdleTimeout)
 	if v.State == "idle" && !v.IdleSince.IsZero() && st.IdleTimeout > 0 {
 		gone := now.Sub(v.IdleSince)
@@ -376,4 +384,26 @@ func afterFirstLine(s string) string {
 		return ""
 	}
 	return strings.Join(strings.Fields(rest), " ")
+}
+
+// Extend is a console block on the overview, after the card named.
+type Extend struct {
+	After string `json:"after"`
+	Node  Node   `json:"node"`
+}
+
+// extensions are the module's blocks for the overview, resolved. The
+// overview has no tab of its own in the spec, so a detail or stream in one
+// draws from the first row.
+func extensions(st hub.StackView, name string) []Extend {
+	c, ok := st.Consoles[name]
+	if !ok || c.Spec == nil {
+		return nil
+	}
+	var out []Extend
+	for _, e := range c.Spec.Extend {
+		r := resolver{c: c, tabID: display.TabOverview, sel: map[string]int{}, body: e.Node}
+		out = append(out, Extend{After: e.After, Node: r.node(e.Node)})
+	}
+	return out
 }

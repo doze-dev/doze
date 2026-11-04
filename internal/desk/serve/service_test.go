@@ -216,3 +216,77 @@ func TestHTTPCallsAndEvents(t *testing.T) {
 		t.Errorf("do on an unknown stack: %d %v", r2.StatusCode, fail)
 	}
 }
+
+func TestAConsoleTabIsWatchedFollowedAndPushed(t *testing.T) {
+	f := fixture.Modules(epoch)
+	h, key := newHub(t, f)
+	rec := &recorder{}
+	s := New(h, rec.emit)
+	s.SetClock(func() time.Time { return epoch })
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go s.Run(ctx)
+
+	// Opening db's page watches its console; the activity tab is pushed
+	// once its rows are in.
+	s.SetFocus(Focus{Key: key, Page: "instance", Instance: "db", Tab: "console:activity", Sel: map[string]int{}})
+	deadline := time.Now().Add(3 * time.Second)
+	var c view.Console
+	for time.Now().Before(deadline) {
+		if n := rec.count(EventConsole); n > 0 {
+			rec.mu.Lock()
+			b := rec.data[EventConsole][n-1]
+			rec.mu.Unlock()
+			if err := json.Unmarshal(b, &c); err != nil {
+				t.Fatal(err)
+			}
+			if len(c.Body.Children) == 2 && len(c.Body.Children[1].Children[0].Rows) == 4 {
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(c.Body.Children) != 2 || len(c.Body.Children[1].Children[0].Rows) != 4 {
+		t.Fatalf("the activity tab never arrived: %+v", c)
+	}
+	// The instance view now knows the console's tabs.
+	if tabs := s.Instance(key, "db").Tabs; len(tabs) != 3 || tabs[1].ID != "console:activity" {
+		t.Errorf("tabs = %+v", tabs)
+	}
+	// An action runs on the selected row and is said.
+	f.AdminResult = "query cancelled"
+	if err := s.Admin(key, "db", "cancel", "4412", ""); err != nil {
+		t.Fatal(err)
+	}
+	if acts := f.Actions(); len(acts) != 1 || acts[0].Instance != "db" || acts[0].Action != "cancel" || acts[0].Resource != "4412" {
+		t.Errorf("admin calls = %+v", acts)
+	}
+	if r := s.Recent(); len(r) == 0 || r[0].Text != "query cancelled" || r[0].Bad {
+		t.Errorf("said = %+v", r)
+	}
+	// Kafka's tail follows the selected topic: the stream is resubscribed
+	// for the row picked.
+	s.SetFocus(Focus{Key: key, Page: "instance", Instance: "events", Tab: "console:_", Sel: map[string]int{"table:topics": 1}})
+	deadline = time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		st, _ := s.stack(key)
+		if cv, ok := st.Consoles["events"]; ok && len(cv.Streams["tail"]) == 1 && cv.Streams["tail"][0].Cells["key"] == "c_88" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	st, _ := s.stack(key)
+	if rows := st.Consoles["events"].Streams["tail"]; len(rows) != 1 || rows[0].Cells["key"] != "c_88" {
+		t.Errorf("the tail for emails = %+v", rows)
+	}
+	// Leaving the page releases the console: its rows are forgotten.
+	s.Blur()
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if st, _ := s.stack(key); len(st.Consoles) == 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Error("the consoles stayed watched after blur")
+}

@@ -20,7 +20,10 @@ export default defineConfig({
   testDir: "./tests",
   outputDir: "./test-results",
   timeout: 20_000,
+  // One worker: a fixture server has one focus and broadcasts its notices,
+  // like the app it stands in for, so two pages on it would fight.
   fullyParallel: false,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["list"]] : "list",
   use: {

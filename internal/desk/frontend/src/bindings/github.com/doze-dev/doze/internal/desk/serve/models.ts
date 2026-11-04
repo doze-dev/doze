@@ -13,6 +13,13 @@ export interface Focus {
      */
     "page": string;
     "instance"?: string;
+
+    /**
+     * Tab is the instance page's tab; Sel the selected row of each console
+     * table, by block id, which a detail and a stream follow.
+     */
+    "tab"?: string;
+    "sel"?: { [_ in string]?: number } | null;
 }
 
 /**

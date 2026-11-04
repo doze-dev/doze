@@ -46,6 +46,9 @@ func BannerOf(st hub.StackView, now time.Time) Banner {
 }
 
 // snapshot is the hub's stack as the display package reads one.
+// Snapshot is the stack as a control snapshot, for display's helpers.
+func Snapshot(st hub.StackView) control.Snapshot { return snapshot(st) }
+
 func snapshot(st hub.StackView) control.Snapshot {
 	return control.Snapshot{Stack: st.Name, Dir: st.Dir, Instances: st.Instances}
 }

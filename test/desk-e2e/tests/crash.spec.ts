@@ -22,7 +22,8 @@ test("a crashing app shows as the Crash board does", async ({ page }, info) => {
   await expect(exited.getByRole("button", { name: "Copy the error" })).toBeVisible();
   const next = page.locator(".card", { has: page.getByRole("heading", { name: "What doze does next", exact: true }) });
   await expect(next).toContainText("try 3 of 5");
-  await expect(next).toContainText(/next try in \d+ s/);
+  // The fixture's next try is 4 s after the server started; later it is "a moment".
+  await expect(next).toContainText(/next try in (\d+ s|a moment)/);
   await expect(next).toContainText("nothing else in the stack is touched");
   const last = page.locator(".card", { has: page.getByRole("heading", { name: "Its last run", exact: true }) });
   await expect(last).toContainText("panic: STRIPE_KEY is required");
