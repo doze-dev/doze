@@ -15,6 +15,15 @@ GOFILES     := $(shell find . -name '*.go' -not -path './vendor/*')
 frontend: ## Build the app's page (React, Vite) into internal/desk/frontend/dist with bun
 	cd internal/desk/frontend && bun install --frozen-lockfile && bun run build
 
+.PHONY: bindings
+bindings: ## Regenerate the page's TypeScript bindings from the bound Go service (wails3)
+	rm -rf internal/desk/frontend/src/bindings
+	go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0 generate bindings -ts -i -names -f "-tags purego" -d internal/desk/frontend/src/bindings ./internal/desk/app/
+
+.PHONY: bindings-check
+bindings-check: ## Fail when the committed bindings differ from the Go service
+	@tmp=$$(mktemp -d) && go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0 generate bindings -ts -i -names -silent -f "-tags purego" -d "$$tmp" ./internal/desk/app/ && diff -r "$$tmp" internal/desk/frontend/src/bindings && rm -rf "$$tmp" && echo "bindings are current"
+
 .PHONY: build
 build: frontend ## Build the doze binary, page included
 	CGO_ENABLED=0 go build -tags purego,production -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/doze

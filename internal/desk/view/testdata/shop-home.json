@@ -72,7 +72,7 @@
             "glyph": "●",
             "tone": "good"
           },
-          "what": "go run ./cmd/api",
+          "runs": "go run ./cmd/api",
           "because": "nothing holds it",
           "mem": "84 MB",
           "addr": "http://api.shop.doze",
@@ -89,7 +89,7 @@
             "glyph": "●",
             "tone": "good"
           },
-          "what": "pnpm dev",
+          "runs": "pnpm dev",
           "because": "nothing holds it",
           "mem": "213 MB",
           "awake": true,
@@ -104,7 +104,7 @@
             "glyph": "◌",
             "tone": "cool"
           },
-          "what": "waiting on events",
+          "runs": "go run ./cmd/worker",
           "because": "waiting on events",
           "mem": "—",
           "hint": "waiting on events",
@@ -126,7 +126,7 @@
             "glyph": "◐",
             "tone": "warn"
           },
-          "what": "valkey 9",
+          "runs": "valkey 9",
           "because": "idle: sleeps soon",
           "mem": "11 MB",
           "awake": true,
@@ -141,7 +141,7 @@
             "glyph": "·",
             "tone": "dim"
           },
-          "what": "aws",
+          "runs": "aws",
           "because": "wakes on a connection",
           "mem": "0",
           "awake": false,
@@ -156,7 +156,7 @@
             "glyph": "●",
             "tone": "good"
           },
-          "what": "postgres 17",
+          "runs": "db.shop.doze:5432",
           "because": "api needs it · 4 connections",
           "mem": "96 MB",
           "addr": "postgres://shop@db.shop.doze:5432/shop",
@@ -172,7 +172,7 @@
             "glyph": "◌",
             "tone": "cool"
           },
-          "what": "kafka · woken by worker",
+          "runs": "kafka",
           "because": "woken by worker",
           "mem": "—",
           "hint": "woken by worker",
@@ -194,7 +194,7 @@
             "glyph": "·",
             "tone": "dim"
           },
-          "what": "mailpit --smtp 127.0.0.1:$PORT",
+          "runs": "mailpit --smtp 127.0.0.1:$PORT",
           "because": "starts when needed",
           "mem": "0",
           "addr": "http://mailpit.shop.doze",
@@ -210,7 +210,7 @@
             "glyph": "●",
             "tone": "good"
           },
-          "what": "bin/mongod --dbpath $DATA",
+          "runs": "bin/mongod --dbpath $DATA",
           "because": "api needs it",
           "mem": "148 MB",
           "awake": true,
@@ -225,7 +225,7 @@
             "glyph": "·",
             "tone": "dim"
           },
-          "what": "docker run getmeili/meilisearch",
+          "runs": "docker run getmeili/meilisearch",
           "because": "starts when needed",
           "mem": "0",
           "awake": false,
@@ -246,7 +246,7 @@
             "glyph": "✓",
             "tone": "good"
           },
-          "what": "ran 2m ago in 1.2s",
+          "runs": "",
           "because": "ran 2m ago in 1.2s",
           "awake": false,
           "trouble": false,
@@ -260,7 +260,7 @@
             "glyph": "▸",
             "tone": "dim"
           },
-          "what": "not run yet",
+          "runs": "",
           "because": "not run yet",
           "awake": false,
           "trouble": false,

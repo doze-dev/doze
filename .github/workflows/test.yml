@@ -86,6 +86,8 @@ jobs:
         run: make frontend
       - name: Budgets
         run: go test -v -run "Budget|GPU" ./internal/desk/web/
+      - name: Bindings are current
+        run: make bindings-check
 
   test:
     strategy:

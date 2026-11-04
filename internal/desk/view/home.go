@@ -53,10 +53,11 @@ type Group struct {
 
 // Row is one instance in the table: the dash's columns, computed.
 type Row struct {
-	Name    string `json:"name"`
-	Kind    string `json:"kind"`
-	Look    Look   `json:"look"`
-	What    string `json:"what"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+	Look Look   `json:"look"`
+	// Runs is what it runs: the command, or a module's address.
+	Runs    string `json:"runs"`
 	Because string `json:"because"`
 	Mem     string `json:"mem,omitempty"`
 	Addr    string `json:"addr,omitempty"`
@@ -84,7 +85,7 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 			addr, port := display.URL(v)
 			row := Row{
 				Name: v.Name, Kind: v.Kind, Look: lookOf(v),
-				What: display.What(v, snap, now), Because: display.Because(v, snap, now),
+				Runs: display.Runs(v), Because: display.Because(v, snap, now),
 				Mem: display.Mem(v), Addr: addr, Port: port, Hint: display.Hint(v, snap, now),
 				Awake: display.AwakeNow(v), Trouble: display.Troubled(v), Depth: depth[v.Name],
 			}

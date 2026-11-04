@@ -214,7 +214,11 @@ export interface Row {
     "name": string;
     "kind": string;
     "look": Look;
-    "what": string;
+
+    /**
+     * Runs is what it runs: the command, or a module's address.
+     */
+    "runs": string;
     "because": string;
     "mem"?: string;
     "addr"?: string;

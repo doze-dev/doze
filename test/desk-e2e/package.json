@@ -1,0 +1,14 @@
+{
+  "name": "desk-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bunx --bun playwright test",
+    "install-browsers": "bunx --bun playwright install chromium webkit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/bun": "latest",
+    "typescript": "^5.9.0"
+  }
+}
