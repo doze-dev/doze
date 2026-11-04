@@ -32,9 +32,9 @@ func TestBuild(t *testing.T) {
 	shop := m.Sections[1]
 	want := []string{
 		"● api  awake  48 MB",
-		"○ cache  asleep",
+		"· cache  asleep",
 		"◐ db  dozing  90 MB",
-		"✕ worker  crashing",
+		"✗ worker  crashing",
 	}
 	if len(shop.Rows) != len(want) {
 		t.Fatalf("rows = %+v", shop.Rows)

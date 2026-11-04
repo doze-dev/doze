@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/display"
 )
@@ -78,8 +77,9 @@ func Build(stacks []hub.StackView) Model {
 			if up {
 				n++
 			}
-			r := Row{Name: v.Name, Awake: up, Trouble: troubled(v)}
-			r.Label = fmt.Sprintf("%s %s  %s", glyph(v), v.Name, display.Word(v.State))
+			look := display.LookOf(v)
+			r := Row{Name: v.Name, Awake: up, Trouble: display.Troubled(v)}
+			r.Label = fmt.Sprintf("%s %s  %s", look.Glyph, v.Name, look.Word)
 			if v.RAM > 0 {
 				r.Label += fmt.Sprintf("  %d MB", v.RAM>>20)
 			}
@@ -113,24 +113,4 @@ func Build(stacks []hub.StackView) Model {
 		m.Tooltip = fmt.Sprintf("doze · %d awake", awake)
 	}
 	return m
-}
-
-// troubled says the instance needs a person: it is crash-looping or a task
-// failed. The same rule as the dash's.
-func troubled(v control.InstanceView) bool {
-	return v.State == "crashing" || v.State == "failed"
-}
-
-// glyph is the state dot: filled awake, half dozing or waking, hollow asleep,
-// a cross for trouble.
-func glyph(v control.InstanceView) string {
-	switch {
-	case troubled(v):
-		return "✕"
-	case v.State == "active":
-		return "●"
-	case v.State == "idle" || v.State == "booting":
-		return "◐"
-	}
-	return "○"
 }

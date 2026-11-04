@@ -1,0 +1,44 @@
+/* Layout only; every colour and size comes from tokens.css, which is
+   generated from internal/brand so the app, the TUI and the site agree. */
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.shell {
+  display: grid;
+  grid-template-rows: var(--tabs-height) 1fr;
+  height: 100%;
+}
+
+.tabs {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+}
+
+.page {
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+.muted {
+  color: var(--fg-muted);
+}

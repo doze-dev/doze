@@ -1,6 +1,6 @@
 module github.com/doze-dev/doze/tools/look
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4

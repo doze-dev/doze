@@ -12,8 +12,12 @@ GOFILES     := $(shell find . -name '*.go' -not -path './vendor/*')
 
 .DEFAULT_GOAL := build
 
+.PHONY: frontend
+frontend: ## Build the app's page (React, Vite) into internal/desk/frontend/dist with bun
+	cd internal/desk/frontend && bun install --frozen-lockfile && bun run build
+
 .PHONY: build
-build: ## Build the doze binary
+build: frontend ## Build the doze binary, page included
 	go build -tags purego,production -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/doze
 
 .PHONY: install
