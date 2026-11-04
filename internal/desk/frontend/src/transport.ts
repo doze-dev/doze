@@ -18,6 +18,8 @@ export interface Nav {
   page: string;
   /** dir is the folder an "empty" page is for: one with no doze.hcl yet. */
   dir?: string;
+  /** instance is set when a notification's Show asked for an instance's page. */
+  instance?: string;
 }
 
 export interface Transport {

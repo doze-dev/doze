@@ -62,6 +62,12 @@ func Run(o Options) error {
 	d.svc = serve.New(d.hub, nil)
 	d.svc.SetVersion(o.Version)
 	d.svc.SetSetup(o.Setup)
+	note, noteSvc := newNotifier()
+	d.svc.SetNotifier(note.send)
+	services := []application.Service{newService(d.svc, func(ms int) {
+		d.measure("home painted %dms after the page loaded", ms)
+	})}
+	services = append(services, noteSvc...)
 	// A menu bar app: no Dock icon, and closing the window does not quit.
 	// Asked for a project, it starts as a regular app so macOS lets it come
 	// forward at launch; the window's close puts it back in the menu bar.
@@ -73,9 +79,7 @@ func Run(o Options) error {
 		Name:        "doze",
 		Description: "doze runs your stack, and understands it",
 		Assets:      application.AssetOptions{Handler: web.Handler(), DisableLogging: true},
-		Services: []application.Service{newService(d.svc, func(ms int) {
-			d.measure("home painted %dms after the page loaded", ms)
-		})},
+		Services:    services,
 		Mac: application.MacOptions{
 			ActivationPolicy: policy,
 		},
@@ -94,6 +98,7 @@ func Run(o Options) error {
 	d.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		d.measure("tray ready %s after start", time.Since(began).Round(time.Millisecond))
 		d.startTray()
+		note.start(d)
 		d.hub.OnChange(d.refreshTray)
 		d.svc.SetEmitter(func(name string, data any) {
 			d.app.Event.Emit(name, data)

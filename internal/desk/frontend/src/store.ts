@@ -287,7 +287,7 @@ export function useBoot() {
           if (w?.page === "instance" && instance.key === w.key && instance.name === w.instance) set({ instance });
         }),
         t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
-        t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir })),
+        t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir, instance: n.instance })),
         t.on<serve.Notice>("notice", toast),
       ];
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);

@@ -19,6 +19,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
+	"github.com/doze-dev/doze/internal/desk/notify"
 	"github.com/doze-dev/doze/internal/desk/view"
 	"github.com/doze-dev/doze/internal/detect"
 	"github.com/doze-dev/doze/internal/display"
@@ -94,8 +95,9 @@ type LogsChanged struct {
 // Nav is where the app asks the page to go: a stack's home, from the
 // menu bar or a second launch.
 type Nav struct {
-	Key  string `json:"key"`
-	Page string `json:"page"`
+	Key      string `json:"key"`
+	Page     string `json:"page"`
+	Instance string `json:"instance,omitempty"`
 	// Dir is the folder an "empty" page is for: one with no doze.hcl yet.
 	Dir string `json:"dir,omitempty"`
 }
@@ -124,15 +126,20 @@ type Service struct {
 	// setup sets a folder up (init, add, empty) and starts its daemon; the
 	// CLI provides it. Nil says the face cannot.
 	setup func(dir, action, arg string) error
-	theme string
-	sent  map[string]uint64 // event name → hash of what was last sent
-	dirty bool
-	wake  chan struct{}
+	// rules decide what is said outside the window (D8); notify says it.
+	rules  *notify.Rules
+	notify func(notify.Note)
+	// pendingInstance is the instance a notification's Show asked for.
+	pendingInstance string
+	theme           string
+	sent            map[string]uint64 // event name → hash of what was last sent
+	dirty           bool
+	wake            chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
 func New(h *hub.Hub, emit Emitter) *Service {
-	s := &Service{hub: h, now: time.Now, emit: emit, sent: map[string]uint64{}, wake: make(chan struct{}, 1)}
+	s := &Service{hub: h, now: time.Now, emit: emit, sent: map[string]uint64{}, wake: make(chan struct{}, 1), rules: notify.New()}
 	h.OnChange(s.changed)
 	return s
 }
@@ -186,6 +193,7 @@ func (s *Service) Run(ctx context.Context) {
 func (s *Service) push() {
 	s.send(EventStacks, s.Stacks())
 	s.reportTasks()
+	s.reportOutside()
 	s.mu.Lock()
 	f := s.focus
 	dir := s.pendingDir
@@ -198,7 +206,14 @@ func (s *Service) push() {
 				s.pendingDir = ""
 			}
 			s.mu.Unlock()
-			emit(EventNav, Nav{Key: key, Page: "home"})
+			nav := Nav{Key: key, Page: "home"}
+			s.mu.Lock()
+			if s.pendingInstance != "" {
+				nav.Page, nav.Instance = "instance", s.pendingInstance
+				s.pendingInstance = ""
+			}
+			s.mu.Unlock()
+			emit(EventNav, nav)
 		}
 	}
 	if f.Key == "" {
@@ -642,4 +657,44 @@ func (s *Service) Setup(dir, action, arg string) error {
 	}
 	s.Open(dir)
 	return nil
+}
+
+// SetNotifier says how to notify outside the window; nil says nothing is.
+func (s *Service) SetNotifier(fn func(notify.Note)) {
+	s.mu.Lock()
+	s.notify = fn
+	s.mu.Unlock()
+}
+
+// reportOutside says what the rules say is worth a notification: a crash
+// or a failed task, once, and not while it is on screen. On screen is the
+// page being shown (focus is empty while it is hidden) with that stack in
+// front and the instance in view: its own page, or its stack's home.
+func (s *Service) reportOutside() {
+	s.mu.Lock()
+	f := s.focus
+	fn := s.notify
+	s.mu.Unlock()
+	visible := func(key, instance string) bool {
+		if f.Key != key {
+			return false
+		}
+		return f.Page == "home" || (f.Page == "instance" && f.Instance == instance)
+	}
+	notes := s.rules.Next(s.hub.Stacks(), visible, s.now())
+	if fn == nil {
+		return
+	}
+	for _, n := range notes {
+		fn(n)
+	}
+}
+
+// OpenAt is Open, then that instance's page: where a notification's Show
+// goes. The nav waits with the folder until the hub knows its stack.
+func (s *Service) OpenAt(dir, instance string) {
+	s.mu.Lock()
+	s.pendingInstance = instance
+	s.mu.Unlock()
+	s.Open(dir)
 }

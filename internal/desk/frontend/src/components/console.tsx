@@ -19,22 +19,29 @@ export function ConsoleTab({ stackKey, inst, tab }: { stackKey: string; inst: st
     };
   }, [stackKey, inst, tab]);
 
+  // Go pushes the tab whenever the focus or the console changes, so a
+  // selection needs no fetch: one is made only for the first paint, and
+  // dropped if a push got there first, since it may be older than the push.
   useEffect(() => {
     let gone = false;
+    let pushed = false;
     let off = () => {};
     transport().then(async (t) => {
       if (gone) return;
       off = t.on<view.Console>("console", (c) => {
-        if (c.key === stackKey && c.name === inst && c.tab === tab) setCon(c);
+        if (c.key === stackKey && c.name === inst && c.tab === tab) {
+          pushed = true;
+          setCon(c);
+        }
       });
-      const c = await t.console(stackKey, inst, tab, sel);
-      if (!gone) setCon(c);
+      const c = await t.console(stackKey, inst, tab, {});
+      if (!gone && !pushed) setCon(c);
     });
     return () => {
       gone = true;
       off();
     };
-  }, [stackKey, inst, tab, sel]);
+  }, [stackKey, inst, tab]);
 
   const tables = con ? collect(con.body, "table") : [];
   const actions = con ? collect(con.body, "actions").flatMap((n) => n.actions ?? []) : [];
