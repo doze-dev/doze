@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -17,16 +16,13 @@ import (
 // top for what the whole stack costs, then every instance as a row with real
 // columns, and under it the logs of the one selected.
 
-// Sort orders. The groups stay: apps, modules, outside, tasks; a sort orders
-// the rows within each.
+// Sort orders are display's; the dash keeps its short names for them.
 const (
-	sortName = iota
-	sortMem
-	sortState
-	sortModes
+	sortName  = display.SortName
+	sortMem   = display.SortMem
+	sortState = display.SortState
+	sortModes = display.SortModes
 )
-
-var sortTitles = [sortModes]string{"name", "mem", "state"}
 
 // matches says whether v is in what the filter asks for: every word of it is
 // in the name, kind, engine or state.
@@ -38,49 +34,6 @@ func (m *Model) matches(v control.InstanceView) bool {
 		}
 	}
 	return true
-}
-
-// tree orders rs as the dependency tree: what nothing needs is a root, and what
-// it needs is under it, once, at the first place it is needed. depth is how far
-// down each is.
-func treeOrder(rs []row) (out []row, depth map[string]int) {
-	byName := map[string]row{}
-	for _, r := range rs {
-		byName[r.V.Name] = r
-	}
-	needed := map[string]bool{}
-	for _, r := range rs {
-		for _, n := range r.V.Needs {
-			if _, ok := byName[n]; ok {
-				needed[n] = true
-			}
-		}
-	}
-	depth = map[string]int{}
-	seen := map[string]bool{}
-	var walk func(r row, d int)
-	walk = func(r row, d int) {
-		if seen[r.V.Name] {
-			return
-		}
-		seen[r.V.Name] = true
-		depth[r.V.Name] = d
-		out = append(out, r)
-		for _, n := range r.V.Needs {
-			if c, ok := byName[n]; ok {
-				walk(c, d+1)
-			}
-		}
-	}
-	for _, r := range rs {
-		if !needed[r.V.Name] {
-			walk(r, 0)
-		}
-	}
-	for _, r := range rs { // a cycle, or what only a cycle needs
-		walk(r, 0)
-	}
-	return out, depth
 }
 
 // ordered is rows, in the order the table shows them.
@@ -96,25 +49,13 @@ func (m *Model) ordered() []row {
 		rs = keep
 	}
 	if m.tree {
-		rs, _ = treeOrder(rs)
+		rs, _ = display.TreeOrder(rs)
 		return rs
 	}
 	if m.sortBy == sortName {
 		return rs
 	}
-	rank := func(v control.InstanceView) int {
-		switch {
-		case display.Troubled(v):
-			return 0
-		case v.State == "booting":
-			return 1
-		case v.State == "active":
-			return 2
-		case v.State == "idle":
-			return 3
-		}
-		return 4
-	}
+	rank := display.StateRank
 	if m.sortBy != sortName && m.now.Before(m.holdUntil) && m.heldBy == m.sortBy && len(m.held) > 0 {
 		at := map[string]int{}
 		for i, n := range m.held {
@@ -169,93 +110,6 @@ func (m *Model) segStyle(i int) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(segColours(m.st.pal)[i%6]))
 }
 
-// because is what an instance's state is down to, in a few words: what holds
-// it awake, what it waits for, when it will sleep, why it is not well.
-func (m *Model) because(v control.InstanceView) string {
-	switch {
-	case v.Kind == "task":
-		switch {
-		case v.State == "booting":
-			if !v.StartedAt.IsZero() && m.now.After(v.StartedAt) {
-				return "running now · " + display.Ago(m.now.Sub(v.StartedAt))
-			}
-			return "running now"
-		case v.Task == nil:
-			return "not run yet"
-		case v.Task.Result == "failed":
-			return fmt.Sprintf("exit %d · ran %s ago", v.Task.ExitCode, display.Ago(m.now.Sub(v.Task.RanAt)))
-		}
-		return fmt.Sprintf("ran %s ago in %s", display.Ago(m.now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100*time.Millisecond))
-	case display.Troubled(v):
-		if v.RestartMax > 0 {
-			out := fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax)
-			if left := v.NextRestart.Sub(m.now).Round(time.Second); left > 0 {
-				out += fmt.Sprintf(" · next in %ds", int(left.Seconds()))
-			}
-			return out
-		}
-		return display.FirstLine(v.LastError)
-	case v.State == "booting":
-		if h := display.Hint(v, m.snap, m.now); h != "" {
-			return h
-		}
-		return "starting"
-	}
-	if display.AwakeNow(v) {
-		var by []string
-		for _, h := range v.Holders {
-			switch h.Kind {
-			case "dependant":
-				by = append(by, h.Name+" needs it")
-			case "connection":
-				by = append(by, fmt.Sprintf("%d connection%s", h.Count, plural(h.Count)))
-			case "pin":
-				by = append(by, "pinned awake")
-			}
-		}
-		for _, o := range m.snap.Instances { // what declares it a dependency
-			if v.State == "idle" {
-				break // a dozing instance is held by nothing, whatever declared it
-			}
-			for _, n := range o.Needs {
-				if n == v.Name && display.AwakeNow(o) && !strings.Contains(strings.Join(by, " "), o.Name+" needs") {
-					by = append(by, o.Name+" needs it")
-				}
-			}
-		}
-		switch {
-		case len(by) > 0:
-			return strings.Join(by, " · ")
-		case v.AlwaysOn:
-			return "runs until stopped"
-		case v.State == "idle":
-			if h := display.Hint(v, m.snap, m.now); h != "" {
-				return h
-			}
-			return "idle: sleeps soon"
-		}
-		return "nothing holds it"
-	}
-	switch v.Kind {
-	case "module":
-		return "wakes on a connection"
-	}
-	return "starts when needed"
-}
-
-// runs is what an instance is running: the command of an app or a service, the
-// address of a module.
-func (m *Model) runs(v control.InstanceView) string {
-	switch v.Kind {
-	case "module":
-		if a := display.Address(v); a != "" {
-			return a
-		}
-		return strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin"))
-	}
-	return display.ShortRun(v.Run)
-}
-
 type tcol struct {
 	title string
 	w     int
@@ -287,7 +141,7 @@ func (m *Model) homeTable(w, h int) []string {
 	}
 	var depth map[string]int
 	if m.tree {
-		_, depth = treeOrder(rs)
+		_, depth = display.TreeOrder(rs)
 	}
 
 	// --- header and meters ---
@@ -472,8 +326,8 @@ func (m *Model) homeTable(w, h int) []string {
 	if split {
 		natWhy, natRuns := 0, 0
 		for _, r := range rs {
-			natWhy = max(natWhy, width(m.because(r.V)))
-			natRuns = max(natRuns, width(m.runs(r.V)))
+			natWhy = max(natWhy, width(display.Because(r.V, m.snap, m.now)))
+			natRuns = max(natRuns, width(display.Runs(r.V)))
 		}
 		needRest = min(needRest, min(natWhy, 38)+2+min(natRuns, 48))
 		nat := fixed(all) + min(natWhy, 38) + 2 + min(natRuns, 48)
@@ -504,8 +358,8 @@ func (m *Model) homeTable(w, h int) []string {
 		// a column stops at its widest cell: RUNS beside BECAUSE, not across the room
 		natWhy, natRuns := 0, 0
 		for _, r := range rs {
-			natWhy = max(natWhy, width(m.because(r.V)))
-			natRuns = max(natRuns, width(m.runs(r.V)))
+			natWhy = max(natWhy, width(display.Because(r.V, m.snap, m.now)))
+			natRuns = max(natRuns, width(display.Runs(r.V)))
 		}
 		if natRuns > 0 && natWhy+2+natRuns <= rest {
 			whyW, runsW = max(natWhy, 12), natRuns
@@ -601,10 +455,10 @@ func (m *Model) homeTable(w, h int) []string {
 		} else if v.State == "idle" || v.State == "booting" {
 			because = s.y
 		}
-		put(fit(m.because(v), whyW), because)
+		put(fit(display.Because(v, m.snap, m.now), whyW), because)
 		if runsW > 0 {
 			put("  ", lipgloss.NewStyle())
-			put(fit(m.runs(v), runsW), s.text)
+			put(fit(display.Runs(v), runsW), s.text)
 		}
 		put(" ", lipgloss.NewStyle())
 		if pad := tw - width(b.String()); pad > 0 {

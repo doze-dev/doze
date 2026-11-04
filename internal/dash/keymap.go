@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // The keys of each page, said once. The bar along the bottom and the help
@@ -67,7 +68,7 @@ func (m *Model) homeHints() []hint {
 		{"l", "logs", "this instance's logs", 3},
 		{"L", "all logs", "every instance's logs, merged in time order", 5},
 		{"y", "copy", "send the address to the clipboard (Y writes a file instead)", 4},
-		{"o", "sort " + sortTitles[m.sortBy], "sort within each group: name, memory, state", 4},
+		{"o", "sort " + display.SortTitles[m.sortBy], "sort within each group: name, memory, state", 4},
 		{"t", "tree", "show what needs what, as a tree", 4},
 		{"/", "filter", "narrow the table to rows matching every word typed", 3},
 		{"v", "select", "select lines of the logs beside or under the list, to copy them; or drag with the mouse", 4},

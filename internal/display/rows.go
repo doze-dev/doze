@@ -62,3 +62,74 @@ func Find(snap control.Snapshot, name string) (control.InstanceView, bool) {
 	}
 	return control.InstanceView{}, false
 }
+
+// Sort orders. The groups stay: apps, modules, outside, tasks; a sort orders
+// the rows within each.
+const (
+	SortName = iota
+	SortMem
+	SortState
+	SortModes
+)
+
+// SortTitles name the sort orders, for a key bar or a menu.
+var SortTitles = [SortModes]string{"name", "mem", "state"}
+
+// TreeOrder orders rs as the dependency tree: what nothing needs is a root,
+// and what it needs is under it, once, at the first place it is needed. depth
+// is how far down each is.
+func TreeOrder(rs []Row) (out []Row, depth map[string]int) {
+	byName := map[string]Row{}
+	for _, r := range rs {
+		byName[r.V.Name] = r
+	}
+	needed := map[string]bool{}
+	for _, r := range rs {
+		for _, n := range r.V.Needs {
+			if _, ok := byName[n]; ok {
+				needed[n] = true
+			}
+		}
+	}
+	depth = map[string]int{}
+	seen := map[string]bool{}
+	var walk func(r Row, d int)
+	walk = func(r Row, d int) {
+		if seen[r.V.Name] {
+			return
+		}
+		seen[r.V.Name] = true
+		depth[r.V.Name] = d
+		out = append(out, r)
+		for _, n := range r.V.Needs {
+			if c, ok := byName[n]; ok {
+				walk(c, d+1)
+			}
+		}
+	}
+	for _, r := range rs {
+		if !needed[r.V.Name] {
+			walk(r, 0)
+		}
+	}
+	for _, r := range rs { // a cycle, or what only a cycle needs
+		walk(r, 0)
+	}
+	return out, depth
+}
+
+// StateRank is the order a sort by state puts instances in: what needs you
+// first, then what is waking, awake, dozing, and asleep last.
+func StateRank(v control.InstanceView) int {
+	switch {
+	case Troubled(v):
+		return 0
+	case v.State == "booting":
+		return 1
+	case v.State == "active":
+		return 2
+	case v.State == "idle":
+		return 3
+	}
+	return 4
+}

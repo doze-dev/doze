@@ -129,6 +129,93 @@ func What(v control.InstanceView, snap control.Snapshot, now time.Time) string {
 	return base + " · " + extra
 }
 
+// Because is what an instance's state is down to, in a few words: what holds
+// it awake, what it waits for, when it will sleep, why it is not well.
+func Because(v control.InstanceView, snap control.Snapshot, now time.Time) string {
+	switch {
+	case v.Kind == "task":
+		switch {
+		case v.State == "booting":
+			if !v.StartedAt.IsZero() && now.After(v.StartedAt) {
+				return "running now · " + Ago(now.Sub(v.StartedAt))
+			}
+			return "running now"
+		case v.Task == nil:
+			return "not run yet"
+		case v.Task.Result == "failed":
+			return fmt.Sprintf("exit %d · ran %s ago", v.Task.ExitCode, Ago(now.Sub(v.Task.RanAt)))
+		}
+		return fmt.Sprintf("ran %s ago in %s", Ago(now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100*time.Millisecond))
+	case Troubled(v):
+		if v.RestartMax > 0 {
+			out := fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax)
+			if left := v.NextRestart.Sub(now).Round(time.Second); left > 0 {
+				out += fmt.Sprintf(" · next in %ds", int(left.Seconds()))
+			}
+			return out
+		}
+		return FirstLine(v.LastError)
+	case v.State == "booting":
+		if h := Hint(v, snap, now); h != "" {
+			return h
+		}
+		return "starting"
+	}
+	if AwakeNow(v) {
+		var by []string
+		for _, h := range v.Holders {
+			switch h.Kind {
+			case "dependant":
+				by = append(by, h.Name+" needs it")
+			case "connection":
+				by = append(by, fmt.Sprintf("%d connection%s", h.Count, Plural(h.Count)))
+			case "pin":
+				by = append(by, "pinned awake")
+			}
+		}
+		for _, o := range snap.Instances { // what declares it a dependency
+			if v.State == "idle" {
+				break // a dozing instance is held by nothing, whatever declared it
+			}
+			for _, n := range o.Needs {
+				if n == v.Name && AwakeNow(o) && !strings.Contains(strings.Join(by, " "), o.Name+" needs") {
+					by = append(by, o.Name+" needs it")
+				}
+			}
+		}
+		switch {
+		case len(by) > 0:
+			return strings.Join(by, " · ")
+		case v.AlwaysOn:
+			return "runs until stopped"
+		case v.State == "idle":
+			if h := Hint(v, snap, now); h != "" {
+				return h
+			}
+			return "idle: sleeps soon"
+		}
+		return "nothing holds it"
+	}
+	switch v.Kind {
+	case "module":
+		return "wakes on a connection"
+	}
+	return "starts when needed"
+}
+
+// Runs is what an instance is running: the command of an app or a service,
+// the address of a module.
+func Runs(v control.InstanceView) string {
+	switch v.Kind {
+	case "module":
+		if a := Address(v); a != "" {
+			return a
+		}
+		return strings.TrimSpace(v.Engine + " " + strings.TrimPrefix(v.Version, "builtin"))
+	}
+	return ShortRun(v.Run)
+}
+
 // ShortRun reads a command line the way the board does: what it runs, not the
 // whole line. A container command says which image.
 func ShortRun(run string) string {
