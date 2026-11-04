@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze/internal/control"
-	"github.com/doze-dev/doze/internal/dash/fixture"
+	"github.com/doze-dev/doze/internal/control/fixture"
 )
 
 // consoleModel is the data stack's dash with name opened and its console

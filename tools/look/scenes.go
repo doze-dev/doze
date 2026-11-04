@@ -10,8 +10,8 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/control/fakedaemon"
+	"github.com/doze-dev/doze/internal/control/fixture"
 	"github.com/doze-dev/doze/internal/dash"
-	"github.com/doze-dev/doze/internal/dash/fixture"
 	"github.com/doze-dev/doze/internal/journal"
 )
 
