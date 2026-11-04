@@ -61,6 +61,8 @@ type StackSummary struct {
 	Live    bool   `json:"live"`
 	Awake   int    `json:"awake"`
 	Trouble bool   `json:"trouble"`
+	// Troubled counts the instances in trouble: the tab's red badge.
+	Troubled int `json:"troubled,omitempty"`
 }
 
 // Focus is what the page is showing: the stack, the page and, on an
@@ -238,6 +240,7 @@ func (s *Service) Stacks() []StackSummary {
 			}
 			if display.Troubled(v) {
 				sum.Trouble = true
+				sum.Troubled++
 			}
 		}
 		out = append(out, sum)
@@ -266,7 +269,16 @@ func (s *Service) Home(key string) view.Home {
 // Instance is an instance's page.
 func (s *Service) Instance(key, name string) view.Instance {
 	st, _ := s.stack(key)
-	return view.InstanceOf(st, name, s.now())
+	out := view.InstanceOf(st, name, s.now())
+	if out.Crash != nil {
+		// Its last run: the tail of what it said before it exited.
+		logs := view.LogsOf(view.LogsQuery{Instance: name}, s.hub.Logs(key, name), st.Events, s.now())
+		if n := len(logs.Lines); n > 8 {
+			logs.Lines = logs.Lines[n-8:]
+		}
+		out.Crash.LastRun = logs.Lines
+	}
+	return out
 }
 
 // Logs is a window of an instance's lines, or of every instance's.

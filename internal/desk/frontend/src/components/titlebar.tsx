@@ -25,7 +25,7 @@ export function Titlebar({ stacks, current, onPick, onCommand }: { stacks: serve
           >
             <span className={"dot " + (s.trouble ? "r" : s.running ? (s.live ? "g" : "y") : "")} aria-hidden />
             {s.key === current ? <b>{s.name || "stack"}</b> : s.name || "stack"}
-            {s.trouble && <span className="badge">!</span>}
+            {s.trouble && <span className="badge">{s.troubled || "!"}</span>}
           </button>
         ))}
         <button className="stab add" title="New tab (⌘T) — arrives with setup" disabled>

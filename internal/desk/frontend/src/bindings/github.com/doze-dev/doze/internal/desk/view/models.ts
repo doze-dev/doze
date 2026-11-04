@@ -72,6 +72,12 @@ export interface Crash {
     "error": string;
 
     /**
+     * Where is the rest of the error after its first line: the frame, the
+     * file and line, as the Crash board shows it under the message.
+     */
+    "where"?: string;
+
+    /**
      * "try 3 of 5"
      */
     "tries"?: string;
@@ -82,6 +88,11 @@ export interface Crash {
      */
     "nextIn"?: string;
     "gaveUp": boolean;
+
+    /**
+     * LastRun is the tail of its output: what it said before it exited.
+     */
+    "lastRun"?: Line[] | null;
 }
 
 /**

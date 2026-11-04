@@ -44,4 +44,9 @@ export interface StackSummary {
     "live": boolean;
     "awake": number;
     "trouble": boolean;
+
+    /**
+     * Troubled counts the instances in trouble: the tab's red badge.
+     */
+    "troubled"?: number;
 }

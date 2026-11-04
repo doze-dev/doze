@@ -137,11 +137,16 @@ type Run struct {
 
 // Crash is what the Crash board shows: the error, the tries, the next try.
 type Crash struct {
-	Error    string  `json:"error"`
+	Error string `json:"error"`
+	// Where is the rest of the error after its first line: the frame, the
+	// file and line, as the Crash board shows it under the message.
+	Where    string  `json:"where,omitempty"`
 	Tries    string  `json:"tries,omitempty"` // "try 3 of 5"
 	Fraction float64 `json:"fraction"`
 	NextIn   string  `json:"nextIn,omitempty"` // "4 s"
 	GaveUp   bool    `json:"gaveUp"`
+	// LastRun is the tail of its output: what it said before it exited.
+	LastRun []Line `json:"lastRun,omitempty"`
 }
 
 // Proc is one process under an instance.
@@ -174,6 +179,11 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 	}
 	for _, t := range display.Tabs(v, nil) {
 		out.Tabs = append(out.Tabs, Tab{ID: t.ID, Title: t.Title})
+	}
+	// A crashing app opens on the Crash board's overview: the error, the
+	// tries, its last run. The TUI showed those over its logs.
+	if display.Troubled(v) && v.Kind != "task" && (len(out.Tabs) == 0 || out.Tabs[0].ID != display.TabOverview) {
+		out.Tabs = append([]Tab{{ID: display.TabOverview, Title: "overview"}}, out.Tabs...)
 	}
 	out.Connect = connectRows(v)
 	out.Holders, out.Sleeps = holders(v, st.IdleTimeout)
@@ -216,7 +226,7 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 		}
 	}
 	if display.Troubled(v) && v.Kind != "task" {
-		c := &Crash{Error: display.FirstLine(v.LastError), GaveUp: v.State == "failed" || v.State == "error"}
+		c := &Crash{Error: display.FirstLine(v.LastError), Where: afterFirstLine(v.LastError), GaveUp: v.State == "failed" || v.State == "error"}
 		if v.RestartMax > 0 {
 			c.Tries = fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax)
 			c.Fraction = part(float64(v.RestartCount), float64(v.RestartMax))
@@ -356,4 +366,14 @@ func chartOf(vs []float64, label func(float64) string, sub string, n int) Chart 
 		Peak: label(peak), Mean: label(mean),
 		Span: display.SpanWord(n),
 	}
+}
+
+// afterFirstLine is an error's lines after the first, joined with spaces and
+// trimmed: "main.loadConfig cmd/api/config.go:41".
+func afterFirstLine(s string) string {
+	_, rest, ok := strings.Cut(s, "\n")
+	if !ok {
+		return ""
+	}
+	return strings.Join(strings.Fields(rest), " ")
 }

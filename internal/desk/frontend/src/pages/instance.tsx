@@ -158,11 +158,12 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
         {inst.crash && (
           <section className="card danger">
             <h3 className="bad">It exited</h3>
-            <div className="mono bright" style={{ fontSize: 13, lineHeight: "22px" }}>
-              {inst.crash.error || "no error text"}
+            <div className="mono" style={{ fontSize: 13, lineHeight: "22px" }}>
+              <div className="bright">{inst.crash.error || "no error text"}</div>
+              {inst.crash.where && <div className="dim">{inst.crash.where}</div>}
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" onClick={() => void navigator.clipboard?.writeText(inst.crash?.error ?? "")}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn" onClick={() => void copy([inst.crash?.error, inst.crash?.where].filter(Boolean).join("\n"), "the error")}>
                 Copy the error
               </button>
             </div>
@@ -185,6 +186,18 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
                   next try in <b className="bright">{inst.crash.nextIn || "a moment"}</b>. After the last it stops and waits for you; nothing else in the stack is touched.
                 </>
               )}
+            </div>
+          </section>
+        )}
+        {inst.crash && (inst.crash.lastRun ?? []).length > 0 && (
+          <section className="card" style={{ flex: 1 }}>
+            <h3>Its last run</h3>
+            <div className="mono" style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {(inst.crash.lastRun ?? []).map((l, i) => (
+                <div key={i}>
+                  <span className="dim">{l.time}</span> <span className={l.rank >= 3 ? "bad" : l.rank === 2 ? "warn" : ""}>{l.line}</span>
+                </div>
+              ))}
             </div>
           </section>
         )}

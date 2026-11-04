@@ -116,6 +116,23 @@ func Crash(now time.Time) *fakedaemon.Fake {
 			v.RestartCount, v.RestartMax, v.NextRestart = 3, 5, now.Add(4*time.Second)
 		}
 	}
+	// Its last run, as the Crash board shows it: the start, the panic, the
+	// exit. Run 3 is the try that just failed.
+	at := func(d time.Duration) time.Time { return now.Add(-d) }
+	for _, s := range []struct {
+		d time.Duration
+		s string
+	}{
+		{6 * time.Second, "started go run ./cmd/api"},
+		{5 * time.Second, "panic: STRIPE_KEY is required"},
+		{5 * time.Second, "goroutine 1 [running]:"},
+		{5 * time.Second, "main.loadConfig()"},
+		{5 * time.Second, "exit status 2 · ran 1.1s"},
+	} {
+		l := control.LogFrame{Instance: "api", Line: s.s, Time: at(s.d), Run: 3}
+		f.Lines["api"] = append(f.Lines["api"], l)
+		f.Frames = append(f.Frames, control.Frame{Topic: control.TopicLogs, Log: &l})
+	}
 	return f
 }
 

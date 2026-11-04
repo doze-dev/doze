@@ -23,6 +23,10 @@
   "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
   "tabs": [
     {
+      "id": "overview",
+      "title": "overview"
+    },
+    {
       "id": "logs",
       "title": "logs"
     }
@@ -830,6 +834,7 @@
   },
   "crash": {
     "error": "panic: STRIPE_KEY is required",
+    "where": "main.loadConfig cmd/api/config.go:41",
     "tries": "try 3 of 5",
     "fraction": 0.6,
     "nextIn": "4 s",
