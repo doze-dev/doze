@@ -57,10 +57,12 @@ type Focus struct {
 	Instance string `json:"instance,omitempty"`
 }
 
-// LogsChanged says the focused logs have more or different lines.
+// LogsChanged says the focused logs have more or different lines. Version
+// counts lines ever added, so it moves even when the kept ring is full.
 type LogsChanged struct {
 	Instance string `json:"instance"`
 	Total    int    `json:"total"`
+	Version  uint64 `json:"version"`
 }
 
 // Nav is where the app asks the page to go: a stack's home, from the
@@ -139,12 +141,25 @@ func (s *Service) Run(ctx context.Context) {
 	}
 }
 
-// Push sends the stacks and the focused view now, when they changed.
+// Push sends the stacks and the focused view now, when they changed, and
+// the navigation an Open is still waiting for once its stack is known.
 func (s *Service) push() {
 	s.send(EventStacks, s.Stacks())
 	s.mu.Lock()
 	f := s.focus
+	dir := s.pendingDir
+	emit := s.emit
 	s.mu.Unlock()
+	if dir != "" && emit != nil {
+		if key := s.KeyFor(dir); key != "" {
+			s.mu.Lock()
+			if s.pendingDir == dir {
+				s.pendingDir = ""
+			}
+			s.mu.Unlock()
+			emit(EventNav, Nav{Key: key, Page: "home"})
+		}
+	}
 	if f.Key == "" {
 		return
 	}
@@ -153,9 +168,18 @@ func (s *Service) push() {
 		s.send(EventHome, s.Home(f.Key))
 	case "instance":
 		s.send(EventInstance, s.Instance(f.Key, f.Instance))
+		s.sendLogs(f) // the page's logs tab
 	case "logs":
-		s.send(EventLogs, LogsChanged{Instance: f.Instance, Total: len(s.hub.Logs(f.Key, f.Instance))})
+		s.sendLogs(f)
 	}
+}
+
+func (s *Service) sendLogs(f Focus) {
+	s.send(EventLogs, LogsChanged{
+		Instance: f.Instance,
+		Total:    len(s.hub.Logs(f.Key, f.Instance)),
+		Version:  s.hub.LogsVersion(f.Key, f.Instance),
+	})
 }
 
 func (s *Service) send(name string, data any) {
@@ -270,36 +294,49 @@ func (s *Service) Do(key, verb, target string) error {
 	return nil
 }
 
-// Open asks the page to show the stack at a project folder. A page that is
-// loaded is told now; one that is not asks when it boots (Pending). The
-// folder is kept, not a key: at launch the hub may not have found the stack
-// yet.
+// Open asks the page to show the stack at a project folder. The folder is
+// kept until the hub knows a stack there: a page that is loaded is told
+// then (push), one that is not asks when it boots (Pending). At launch, or
+// right after doze up, the daemon's socket may not have been seen yet.
 func (s *Service) Open(dir string) {
+	if dir == "" {
+		return
+	}
 	s.mu.Lock()
 	s.pendingDir = dir
-	emit := s.emit
 	s.mu.Unlock()
-	if key := s.KeyFor(dir); key != "" && emit != nil {
-		emit(EventNav, Nav{Key: key, Page: "home"})
-	}
+	s.hub.Refresh() // a socket that appeared since the last look
+	s.changed()     // push resolves it when it can
 }
 
-// Pending is where the page should start: the last Open, once, as a key
-// when the hub knows the stack by then.
+// Pending is where the page should start: the last Open, once it resolves
+// to a stack the hub knows; until then the page starts on the first tab
+// and the Nav arrives with a push.
 func (s *Service) Pending() Nav {
 	s.mu.Lock()
 	dir := s.pendingDir
-	s.pendingDir = ""
 	s.mu.Unlock()
 	if dir == "" {
 		return Nav{}
 	}
-	return Nav{Key: s.KeyFor(dir), Page: "home"}
+	key := s.KeyFor(dir)
+	if key == "" {
+		return Nav{}
+	}
+	s.mu.Lock()
+	if s.pendingDir == dir {
+		s.pendingDir = ""
+	}
+	s.mu.Unlock()
+	return Nav{Key: key, Page: "home"}
 }
 
 // KeyFor is the hub key of the stack at a project folder, or "" when no
 // stack there is known.
 func (s *Service) KeyFor(dir string) string {
+	if dir == "" {
+		return ""
+	}
 	for _, st := range s.hub.Stacks() {
 		if st.Dir == dir {
 			return st.Key

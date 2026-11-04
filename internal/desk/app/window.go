@@ -54,6 +54,8 @@ func (d *desk) open(dir string) {
 				d.win = nil
 				activate(false)
 			})
+			// Nothing streams for a page nobody is looking at (D14).
+			d.svc.Blur()
 		})
 		d.win.Show()
 		d.win.Focus()

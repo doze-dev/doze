@@ -41,18 +41,28 @@ export function useStore(): State {
   );
 }
 
+// nav numbers each navigation, so a slow answer for the last page does not
+// land on the next one.
+let nav = 0;
+
 /** go moves the page; Go follows with its pushes. */
 export async function go(where: Where) {
+  const n = ++nav;
   const t = await transport();
   set({ where, home: where.page === "home" && state.where?.key === where.key ? state.home : null, instance: null, error: null });
   await t.focus({ key: where.key, page: where.page, instance: where.instance ?? "" });
   // The first paint does not wait for a push.
   try {
-    if (where.page === "home") set({ home: await t.home(where.key) });
-    else if (where.page === "instance" && where.instance) set({ instance: await t.instance(where.key, where.instance) });
+    if (where.page === "home") {
+      const home = await t.home(where.key);
+      if (n === nav) set({ home });
+    } else if (where.page === "instance" && where.instance) {
+      const instance = await t.instance(where.key, where.instance);
+      if (n === nav) set({ instance });
+    }
   } catch (e) {
     t.log(`go ${where.page} failed: ${String(e)}`);
-    set({ error: String(e) });
+    if (n === nav) set({ error: String(e) });
   }
 }
 
@@ -79,12 +89,13 @@ export function useBoot() {
           set({ stacks: stacks ?? [] });
           if (!state.where && stacks?.length) void go({ key: stacks[0].key, page: "home" });
         }),
+        // A push is for the stack and page in focus; one computed for the
+        // last focus, still in flight, is dropped.
         t.on<view.Home>("home", (home) => {
-          if (state.where?.page === "home" && home.stack === state.home?.stack) set({ home });
-          else if (state.where?.page === "home") set({ home });
+          if (state.where?.page === "home" && home.key === state.where.key) set({ home });
         }),
         t.on<view.Instance>("instance", (instance) => {
-          if (state.where?.page === "instance" && instance.name === state.where.instance) set({ instance });
+          if (state.where?.page === "instance" && instance.key === state.where.key && instance.name === state.where.instance) set({ instance });
         }),
         t.on<LogsChanged>("logs", (c) => set({ logsVersion: state.logsVersion + 1, logsTotal: c.total })),
         t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home" })),

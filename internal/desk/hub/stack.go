@@ -39,6 +39,9 @@ type stack struct {
 	series    map[string]*Series
 	lines     map[string]lines
 	all       lines
+	// added counts lines ever added per instance ("" for the merged list):
+	// a ring's length stops moving once it is full, this does not.
+	added map[string]uint64
 	// want counts the pages that need each optional topic (stats, logs);
 	// the subscription is remade when a topic's count crosses zero.
 	want map[string]int
@@ -50,7 +53,7 @@ type stack struct {
 func newStack(key, socket string, d control.Daemon, now func() time.Time, changed func()) *stack {
 	return &stack{
 		key: key, socket: socket, d: d, now: now, changed: changed, cancel: func() {},
-		series: map[string]*Series{}, lines: map[string]lines{}, want: map[string]int{},
+		series: map[string]*Series{}, lines: map[string]lines{}, want: map[string]int{}, added: map[string]uint64{},
 	}
 }
 
@@ -224,10 +227,12 @@ func (s *stack) apply(f control.Frame) {
 		}
 	case control.TopicLogs:
 		if f.Log != nil {
-			before := len(s.lines[f.Log.Instance])
-			s.lines[f.Log.Instance] = s.lines[f.Log.Instance].add(*f.Log, linesKept)
-			if len(s.lines[f.Log.Instance]) != before || before == linesKept {
-				s.all = s.all.add(*f.Log, allLinesKept)
+			var added bool
+			s.lines[f.Log.Instance], added = s.lines[f.Log.Instance].add(*f.Log, linesKept)
+			if added {
+				s.added[f.Log.Instance]++
+				s.added[""]++
+				s.all, _ = s.all.add(*f.Log, allLinesKept)
 			}
 		}
 	}
@@ -263,6 +268,12 @@ func (s *stack) logs(instance string) []control.LogFrame {
 		return append([]control.LogFrame(nil), s.all...)
 	}
 	return append([]control.LogFrame(nil), s.lines[instance]...)
+}
+
+func (s *stack) logsVersion(instance string) uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.added[instance]
 }
 
 func (s *stack) do(ctx context.Context, verb control.Verb) error {

@@ -121,7 +121,8 @@ type desk struct {
 }
 
 // dirFrom is the project folder a second launch asked for: the argument
-// after open, resolved against the folder it ran in, else that folder.
+// after open, resolved against the folder it ran in, else the project
+// that folder is inside, found the way the CLI finds doze.hcl: upward.
 func dirFrom(data application.SecondInstanceData) string {
 	for i, a := range data.Args {
 		if a != "open" {
@@ -138,7 +139,22 @@ func dirFrom(data application.SecondInstanceData) string {
 		}
 		break
 	}
-	return data.WorkingDir
+	return projectDir(data.WorkingDir)
+}
+
+// projectDir is the nearest folder at or above dir with a doze.hcl, or dir
+// itself when none has one.
+func projectDir(dir string) string {
+	for d := dir; ; {
+		if _, err := os.Stat(filepath.Join(d, "doze.hcl")); err == nil {
+			return d
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return dir
+		}
+		d = parent
+	}
 }
 
 func (d *desk) measure(format string, args ...any) {

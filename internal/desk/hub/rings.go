@@ -62,18 +62,18 @@ func (s Series) clone() Series {
 // lines is a bounded ring of what an instance printed, in time order.
 type lines []control.LogFrame
 
-// add appends a line unless it is one already held: a reconnect's backlog
-// repeats lines. Lines arrive in time order, so only those as new as it are
-// compared, as the dash's seenLine did.
-func (l lines) add(f control.LogFrame, keep int) lines {
+// add appends a line unless it is one already held, and says whether it
+// did: a reconnect's backlog repeats lines. Lines arrive in time order, so
+// only those as new as it are compared, as the dash's seenLine did.
+func (l lines) add(f control.LogFrame, keep int) (lines, bool) {
 	for i := len(l) - 1; i >= 0 && !l[i].Time.Before(f.Time); i-- {
 		if l[i].Time.Equal(f.Time) && l[i].Line == f.Line && l[i].Run == f.Run {
-			return l
+			return l, false
 		}
 	}
 	l = append(l, f)
 	if len(l) > keep {
 		l = l[len(l)-keep:]
 	}
-	return l
+	return l, true
 }

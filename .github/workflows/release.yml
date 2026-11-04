@@ -51,6 +51,9 @@ jobs:
       contents: write
     env:
       GOFLAGS: -tags=purego
+      # A step's `if` cannot see its own env, so these live on the job.
+      HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_P12 != '' }}
+      HAS_NOTARY_KEY: ${{ secrets.NOTARY_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -62,7 +65,6 @@ jobs:
       - name: Import the Developer ID
         if: env.HAS_DEVELOPER_ID == 'true'
         env:
-          HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_P12 != '' }}
           P12: ${{ secrets.DEVELOPER_ID_P12 }}
           P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
           NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
@@ -78,10 +80,14 @@ jobs:
           security list-keychain -d user -s "$RUNNER_TEMP/ci.keychain-db"
           id=$(security find-identity -v -p codesigning "$RUNNER_TEMP/ci.keychain-db" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
           echo "DOZE_SIGN_ID=$id" >> "$GITHUB_ENV"
-          echo "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
-          echo "NOTARY_KEY_PATH=$RUNNER_TEMP/notary.p8" >> "$GITHUB_ENV"
-          echo "NOTARY_KEY_ID=$NOTARY_KEY_ID" >> "$GITHUB_ENV"
-          echo "NOTARY_ISSUER_ID=$NOTARY_ISSUER_ID" >> "$GITHUB_ENV"
+          if [ "$HAS_NOTARY_KEY" = "true" ]; then
+            echo "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
+            echo "NOTARY_KEY_PATH=$RUNNER_TEMP/notary.p8" >> "$GITHUB_ENV"
+            echo "NOTARY_KEY_ID=$NOTARY_KEY_ID" >> "$GITHUB_ENV"
+            echo "NOTARY_ISSUER_ID=$NOTARY_ISSUER_ID" >> "$GITHUB_ENV"
+          else
+            echo "no NOTARY_KEY: signing only, not notarising"
+          fi
       - name: Bundle, sign, notarise
         run: sh build/darwin/bundle.sh doze dist ${GITHUB_REF_NAME#v}
       - name: Attach Doze.app.zip

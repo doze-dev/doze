@@ -11,6 +11,7 @@ import (
 // Instance is an instance's page: its state and story at the top, its tabs,
 // and what the overview tab shows (vitals, needs, the address).
 type Instance struct {
+	Key     string `json:"key"`
 	Stack   string `json:"stack"`
 	Name    string `json:"name"`
 	Kind    string `json:"kind"`
@@ -92,7 +93,7 @@ type Run struct {
 func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 	snap := snapshot(st)
 	v, ok := display.Find(snap, name)
-	out := Instance{Stack: st.Name, Name: name, Banner: BannerOf(st, now)}
+	out := Instance{Key: st.Key, Stack: st.Name, Name: name, Banner: BannerOf(st, now)}
 	if !ok {
 		out.Missing = true
 		return out

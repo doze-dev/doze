@@ -72,16 +72,19 @@ function http(): Transport {
   };
   let source: EventSource | null = null;
   const listeners = new Map<string, Set<(data: unknown) => void>>();
-  const ensure = () => {
-    if (source) return;
-    source = new EventSource("/events");
-    for (const name of listeners.keys()) attach(name);
-  };
+  const attached = new Set<string>();
+  // attach listens to one event name on the stream, once per name.
   const attach = (name: string) => {
-    source?.addEventListener(name, (e) => {
+    if (!source || attached.has(name)) return;
+    attached.add(name);
+    source.addEventListener(name, (e) => {
       const data = JSON.parse((e as MessageEvent).data);
       for (const fn of listeners.get(name) ?? []) fn(data);
     });
+  };
+  const ensure = () => {
+    if (!source) source = new EventSource("/events");
+    for (const name of listeners.keys()) attach(name);
   };
   return {
     stacks: () => call("stacks", {}),
@@ -96,11 +99,9 @@ function http(): Transport {
     log: (line) => console.log(line),
     on: (event, fn) => {
       const set = listeners.get(event) ?? new Set();
-      const had = listeners.has(event);
       set.add(fn as (data: unknown) => void);
       listeners.set(event, set);
       ensure();
-      if (!had && source) attach(event);
       return () => {
         set.delete(fn as (data: unknown) => void);
       };

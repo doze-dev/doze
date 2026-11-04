@@ -11,6 +11,9 @@ import (
 // Home is a stack's home page: the meters, then every instance under its
 // group, with the dash's columns.
 type Home struct {
+	// Key is the stack's hub key, so the page can tell a push for this
+	// stack from one computed for the last.
+	Key     string  `json:"key"`
 	Stack   string  `json:"stack"`
 	Dir     string  `json:"dir"`
 	Running bool    `json:"running"`
@@ -72,7 +75,7 @@ type Row struct {
 // HomeOf computes the home page of a stack at now.
 func HomeOf(st hub.StackView, now time.Time) Home {
 	snap := snapshot(st)
-	h := Home{Stack: st.Name, Dir: display.Tilde(st.Dir), Running: st.Running, Banner: BannerOf(st, now)}
+	h := Home{Key: st.Key, Stack: st.Name, Dir: display.Tilde(st.Dir), Running: st.Running, Banner: BannerOf(st, now)}
 	rows := display.Rows(snap)
 	_, depth := display.TreeOrder(rows)
 	for gi, g := range display.Groups {

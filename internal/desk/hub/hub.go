@@ -80,8 +80,11 @@ type Hub struct {
 	stacks    map[string]*stack // by Key
 	stopped   map[string]projects.Project
 	refreshed bool // Refresh has run once; the first run always reports
-	onChange  []func()
-	ctx       context.Context
+	// wants counts the pages watching each topic of each key, kept here so
+	// a stack that appears or is replaced later streams what is wanted.
+	wants    map[string]map[string]int
+	onChange []func()
+	ctx      context.Context
 }
 
 // New makes a hub; Run starts it.
@@ -98,7 +101,7 @@ func New(o Options) *Hub {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
-	return &Hub{o: o, stacks: map[string]*stack{}, stopped: map[string]projects.Project{}}
+	return &Hub{o: o, stacks: map[string]*stack{}, stopped: map[string]projects.Project{}, wants: map[string]map[string]int{}}
 }
 
 // home is doze's folder: $DOZE_HOME, else ~/.doze.
@@ -167,6 +170,9 @@ func (h *Hub) Refresh() {
 			continue
 		}
 		s := newStack(key, sock, h.o.Dial(sock), h.o.Now, h.changed)
+		for topic, n := range h.wants[key] {
+			s.want[topic] = n // what pages already watch; the stack streams it from the start
+		}
 		h.stacks[key] = s
 		s.start(ctx)
 		changed = true
@@ -239,15 +245,45 @@ func (h *Hub) Stacks() []StackView {
 // Watch says a page is showing a stack's stats or logs (control.TopicStats,
 // control.TopicLogs), so the hub streams them; the returned func says it
 // stopped. Nothing streams for a page nobody is looking at (design D14).
-// An unknown stack returns a func that does nothing.
+// The interest is kept by key, so a stack that is not running yet, or
+// whose daemon restarts, streams it as soon as it is there.
 func (h *Hub) Watch(key, topic string) (release func()) {
+	h.mu.Lock()
+	if h.wants[key] == nil {
+		h.wants[key] = map[string]int{}
+	}
+	h.wants[key][topic]++
+	s := h.stacks[key]
+	h.mu.Unlock()
+	var end func()
+	if s != nil {
+		end = s.watch(topic)
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			h.mu.Lock()
+			if h.wants[key] != nil && h.wants[key][topic] > 0 {
+				h.wants[key][topic]--
+			}
+			h.mu.Unlock()
+			if end != nil {
+				end()
+			}
+		})
+	}
+}
+
+// LogsVersion counts the lines an instance ("" for all) of a stack has ever
+// added, so a page can tell new lines from a ring that only slid.
+func (h *Hub) LogsVersion(key, instance string) uint64 {
 	h.mu.Lock()
 	s := h.stacks[key]
 	h.mu.Unlock()
 	if s == nil {
-		return func() {}
+		return 0
 	}
-	return s.watch(topic)
+	return s.logsVersion(instance)
 }
 
 // Logs is what an instance of a stack printed, oldest first, as far back as

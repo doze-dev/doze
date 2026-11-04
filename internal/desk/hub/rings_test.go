@@ -2,6 +2,8 @@ package hub
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -61,17 +63,43 @@ func TestStatsAndLogsStreamOnlyWhileWatched(t *testing.T) {
 	stopLogs()
 }
 
+func TestAWatchOutlivesTheStackItWaitsFor(t *testing.T) {
+	// A page watching a stack that is not running yet, or whose daemon
+	// restarts, gets its stats once the daemon is there.
+	shop := fixture.Shop(epoch)
+	home, dial := fakeHome(t, map[string]*fakedaemon.Fake{"shop-1": shop})
+	sock := filepath.Join(home, "projects", "shop-1", "run", "doze.admin.sock")
+	if err := os.Remove(sock); err != nil {
+		t.Fatal(err)
+	}
+	h := New(Options{Home: home, Dial: dial, Every: 20 * time.Millisecond})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go h.Run(ctx)
+	key := filepath.Join(home, "projects", "shop-1")
+	release := h.Watch(key, control.TopicStats)
+	defer release()
+	time.Sleep(50 * time.Millisecond)
+	if err := os.WriteFile(sock, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	wait(t, h, func(st []StackView) bool { return len(st) == 1 && len(st[0].Series["api"].RAM) == samplesKept })
+	if h.LogsVersion(key, "api") != 0 {
+		t.Error("logs were not watched, yet lines were counted")
+	}
+}
+
 func TestLinesRingDedupsAndCaps(t *testing.T) {
 	var l lines
 	at := epoch
 	for i := 0; i < 5; i++ {
-		l = l.add(control.LogFrame{Instance: "a", Line: "x", Time: at.Add(time.Duration(i) * time.Second), Run: 1}, 3)
+		l, _ = l.add(control.LogFrame{Instance: "a", Line: "x", Time: at.Add(time.Duration(i) * time.Second), Run: 1}, 3)
 	}
 	if len(l) != 3 || !l[0].Time.Equal(at.Add(2*time.Second)) {
 		t.Errorf("ring = %+v", l)
 	}
-	l = l.add(control.LogFrame{Instance: "a", Line: "x", Time: at.Add(4 * time.Second), Run: 1}, 3)
-	if len(l) != 3 {
+	l, added := l.add(control.LogFrame{Instance: "a", Line: "x", Time: at.Add(4 * time.Second), Run: 1}, 3)
+	if len(l) != 3 || added {
 		t.Error("a line already held was added again")
 	}
 }

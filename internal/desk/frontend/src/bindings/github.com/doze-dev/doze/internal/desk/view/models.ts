@@ -42,6 +42,11 @@ export interface Group {
  * group, with the dash's columns.
  */
 export interface Home {
+    /**
+     * Key is the stack's hub key, so the page can tell a push for this
+     * stack from one computed for the last.
+     */
+    "key": string;
     "stack": string;
     "dir": string;
     "running": boolean;
@@ -61,6 +66,7 @@ export interface Home {
  * and what the overview tab shows (vitals, needs, the address).
  */
 export interface Instance {
+    "key": string;
     "stack": string;
     "name": string;
     "kind": string;

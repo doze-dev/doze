@@ -14,5 +14,5 @@
 # Local data directory (per-db clusters, sockets, downloaded binaries)
 build/darwin/bat-*.png
 build/darwin/doze.iconset/
-dist/
-doze
+/dist/
+/doze

@@ -1,4 +1,5 @@
 {
+  "key": "shop-1",
   "stack": "shop",
   "name": "migrate",
   "kind": "task",

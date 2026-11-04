@@ -91,6 +91,7 @@ func golden(t *testing.T, name string, v any) {
 
 func TestShopGoldens(t *testing.T) {
 	st, h, key := stackOf(t, fixture.Shop(epoch))
+	st.Key = "shop-1" // the temp home's path is not for a golden
 	home := HomeOf(st, epoch)
 	golden(t, "shop-home", home)
 	if home.Awake != 5 || home.Total != 10 || len(home.Groups) != 4 {
@@ -112,6 +113,7 @@ func TestShopGoldens(t *testing.T) {
 
 func TestCrashGolden(t *testing.T) {
 	st, _, _ := stackOf(t, fixture.Crash(epoch))
+	st.Key = "crash-1"
 	golden(t, "crash-home", HomeOf(st, epoch))
 	golden(t, "crash-api", InstanceOf(st, "api", epoch))
 }
