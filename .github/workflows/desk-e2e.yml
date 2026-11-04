@@ -1,0 +1,56 @@
+# The app's page in a browser: Playwright (bun) in WebKit and Chromium
+# against `doze open --serve --fixture shop`, no window and no daemon. The
+# words on screen are checked, and screenshots are kept for the board
+# comparison. WebKit on Linux is Playwright's build, close to WebKitGTK but
+# not it; the macOS lane is the one the app renders in.
+name: desk-e2e
+
+on:
+  pull_request:
+    paths:
+      - "internal/desk/**"
+      - "internal/display/**"
+      - "internal/control/fixture/**"
+      - "test/desk-e2e/**"
+      - "go.mod"
+      - ".github/workflows/desk-e2e.yml"
+  push:
+    branches: [main]
+
+env:
+  GOFLAGS: -tags=purego
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.4.0" }
+      - name: Build doze with the page
+        run: make build
+      - name: Install Playwright's browsers
+        working-directory: test/desk-e2e
+        run: bun install --frozen-lockfile && bunx --bun playwright install --with-deps chromium webkit
+      - name: Playwright
+        working-directory: test/desk-e2e
+        env:
+          CI: "1"
+        run: bunx --bun playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desk-look-${{ matrix.os }}
+          path: |
+            test/desk-e2e/.desk-look
+            test/desk-e2e/test-results
+          if-no-files-found: ignore
