@@ -42,7 +42,7 @@ var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
 
 // Run serves until ctx ends.
 func Run(ctx context.Context, o Options) error {
-	h, cleanup, err := hubFor(o.Fixture)
+	h, cleanup, err := HubFor(o.Fixture)
 	if err != nil {
 		return err
 	}
@@ -74,9 +74,9 @@ func Run(ctx context.Context, o Options) error {
 	return nil
 }
 
-// hubFor is a hub over the real doze home, or over a fixture laid out in a
+// HubFor is a hub over the real doze home, or over a fixture laid out in a
 // temporary home with one control socket the hub finds by name.
-func hubFor(name string) (*hub.Hub, func(), error) {
+func HubFor(name string) (*hub.Hub, func(), error) {
 	if name == "" {
 		return hub.New(hub.Options{}), func() {}, nil
 	}

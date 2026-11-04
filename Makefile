@@ -44,6 +44,10 @@ race: ## Run tests with the race detector
 bench: ## Measure idle memory and wake time on the fixture stack (boots real engines)
 	go test -tags bench -count=1 -v -timeout 20m ./test/bench/
 
+.PHONY: deskbench
+deskbench: frontend ## Measure the app (menu bar, window, after close, CPU at rest) on the fixture, against test/deskbench/budget.json
+	go test -tags deskbench,purego -count=1 -v -timeout 10m ./test/deskbench/
+
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...

@@ -8,6 +8,7 @@ run:
   build-tags:
     - integration
     - bench
+    - deskbench
     - purego
 linters:
   default: none

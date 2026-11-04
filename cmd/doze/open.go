@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -15,8 +16,9 @@ import (
 // command that starts the GUI; everything else in the binary is the CLI or
 // the daemon, and never links a window.
 func openCmd() *cobra.Command {
-	var measure bool
+	var measure, window bool
 	var serveAddr, fixture string
+	var closeAfter, quitAfter time.Duration
 	c := &cobra.Command{
 		Use:   "open [dir]",
 		Short: "Open the doze app at this project",
@@ -43,8 +45,11 @@ With no display (SSH, CI) it prints the status table instead.`,
 				configPath = filepath.Join(dir, "doze.hcl")
 			}
 			// A project with a config gets its daemon started, as the dash did,
-			// so the first thing the app shows is live.
-			if cfg, err := loadConfig(); err == nil {
+			// so the first thing the app shows is live. Over a fixture there
+			// is no project.
+			if fixture != "" {
+				dir = ""
+			} else if cfg, err := loadConfig(); err == nil {
 				if dir == "" {
 					dir, _ = filepath.Abs(configDir(configPath))
 				}
@@ -60,13 +65,16 @@ With no display (SSH, CI) it prints the status table instead.`,
 				fmt.Fprintln(cmd.ErrOrStderr(), "no display here; showing the status table instead")
 				return treeCmd().RunE(cmd, nil)
 			}
-			return app.Run(app.Options{Open: dir, Measure: measure})
+			return app.Run(app.Options{Open: dir, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter})
 		},
 	}
 	c.Flags().BoolVar(&measure, "measure", false, "print timings to stderr for the desk bench")
 	c.Flags().StringVar(&serveAddr, "serve", "", "serve the app's page over HTTP at this address instead of opening a window")
-	c.Flags().StringVar(&fixture, "fixture", "", "with --serve: a scripted stack (shop, crash, modules) instead of the real daemons")
-	for _, f := range []string{"measure", "serve", "fixture"} {
+	c.Flags().StringVar(&fixture, "fixture", "", "a scripted stack (shop, crash, modules) instead of the real daemons")
+	c.Flags().BoolVar(&window, "window", false, "with --fixture: open the window too")
+	c.Flags().DurationVar(&closeAfter, "close-after", 0, "close the window this long after it opens (the desk bench)")
+	c.Flags().DurationVar(&quitAfter, "quit-after", 0, "quit this long after starting (the desk bench)")
+	for _, f := range []string{"measure", "serve", "fixture", "window", "close-after", "quit-after"} {
 		_ = c.Flags().MarkHidden(f)
 	}
 	return c

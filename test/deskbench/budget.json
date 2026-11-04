@@ -1,0 +1,18 @@
+{
+  "darwin": {
+    "tray_ready_ms": 150,
+    "tray_footprint_kb": 25600,
+    "window_home_ms": 200,
+    "window_footprint_kb": 245760,
+    "after_close_footprint_kb": 51200,
+    "rest_cpu_pct": 0.1
+  },
+  "linux": {
+    "tray_ready_ms": 250,
+    "tray_footprint_kb": 40960,
+    "window_home_ms": 300,
+    "window_footprint_kb": 266240,
+    "after_close_footprint_kb": 61440,
+    "rest_cpu_pct": 0.1
+  }
+}

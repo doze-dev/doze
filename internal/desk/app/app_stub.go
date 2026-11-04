@@ -5,7 +5,10 @@
 // says so when someone asks for the app anyway.
 package app
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // Options says what the app should open and how it should report.
 type Options struct {
@@ -13,6 +16,14 @@ type Options struct {
 	Open string
 	// Measure prints timing lines to stderr for the desk bench.
 	Measure bool
+	// Fixture names a scripted stack to run over instead of the real daemons,
+	// for the desk bench; Window opens the window on it.
+	Fixture string
+	Window  bool
+	// CloseAfter closes the window that long after it opens, and QuitAfter
+	// quits the app that long after it starts; zero means never. For the
+	// desk bench.
+	CloseAfter, QuitAfter time.Duration
 }
 
 // ErrNotBuilt is returned when this binary was built without the app.

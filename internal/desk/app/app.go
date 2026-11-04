@@ -21,6 +21,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"github.com/doze-dev/doze/internal/desk/devserve"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/serve"
 	"github.com/doze-dev/doze/internal/desk/web"
@@ -32,6 +33,14 @@ type Options struct {
 	Open string
 	// Measure prints timing lines to stderr for the desk bench.
 	Measure bool
+	// Fixture names a scripted stack to run over instead of the real daemons,
+	// for the desk bench; Window opens the window on it.
+	Fixture string
+	Window  bool
+	// CloseAfter closes the window that long after it opens, and QuitAfter
+	// quits the app that long after it starts; zero means never. For the
+	// desk bench.
+	CloseAfter, QuitAfter time.Duration
 }
 
 // Run starts the app and blocks until it quits. A second launch hands its
@@ -39,13 +48,18 @@ type Options struct {
 // SingleInstance, so the CLI never has to.
 func Run(o Options) error {
 	began := time.Now()
-	d := &desk{o: o, hub: hub.New(hub.Options{})}
+	h, cleanup, err := devserve.HubFor(o.Fixture)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	d := &desk{o: o, hub: h}
 	d.svc = serve.New(d.hub, nil)
 	// A menu bar app: no Dock icon, and closing the window does not quit.
 	// Asked for a project, it starts as a regular app so macOS lets it come
 	// forward at launch; the window's close puts it back in the menu bar.
 	policy := application.ActivationPolicyAccessory
-	if o.Open != "" {
+	if o.Open != "" || o.Window {
 		policy = application.ActivationPolicyRegular
 	}
 	d.app = application.New(application.Options{
@@ -77,8 +91,20 @@ func Run(o Options) error {
 		})
 		go d.hub.Run(d.app.Context())
 		go d.svc.Run(d.app.Context())
-		if o.Open != "" {
+		if o.Open != "" || o.Window {
 			d.open(o.Open)
+			if o.CloseAfter > 0 {
+				time.AfterFunc(o.CloseAfter, func() {
+					application.InvokeSync(func() {
+						if d.win != nil {
+							d.win.Close()
+						}
+					})
+				})
+			}
+		}
+		if o.QuitAfter > 0 {
+			time.AfterFunc(o.QuitAfter, d.app.Quit)
 		}
 	})
 	return d.app.Run()
