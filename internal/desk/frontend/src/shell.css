@@ -1171,3 +1171,84 @@ button {
 .dialog .field::placeholder {
   color: var(--dim);
 }
+
+/* the Help sheet (the Help board) */
+.sheet {
+  width: 1060px;
+  max-width: calc(100% - 40px);
+  max-height: calc(100% - 60px);
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--side) 60%, transparent);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+}
+.sheet h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--bright);
+  font-weight: 650;
+}
+.sheet .cols {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  flex: 1;
+  min-height: 0;
+}
+.sheet .cols h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.sheet .cols h3 + h3,
+.sheet .cols .kr + h3 {
+  margin-top: 10px;
+}
+.kr {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  line-height: 18px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+.kr kbd {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bright);
+  background: var(--sel);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  justify-self: start;
+}
+.kr span {
+  color: var(--text);
+}
+.kr small {
+  display: block;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+.sheet .meters {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+.sheet .meters b {
+  color: var(--bright);
+}

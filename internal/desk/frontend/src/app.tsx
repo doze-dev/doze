@@ -5,6 +5,7 @@ import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
 import { Palette } from "./components/palette";
 import { Toasts } from "./components/toasts";
+import { Help } from "./components/help";
 import { HomePage } from "./pages/home";
 import { InstancePage } from "./pages/instance";
 import { LogsPage } from "./pages/logs";
@@ -16,7 +17,7 @@ import { transport, type view } from "./transport";
 // Go; this decides only which page is mounted, and which overlay.
 export function App() {
   useBoot();
-  const { stacks, where, home, instance, error, version, dialog, palette, selected } = useSlice((s) => ({
+  const { stacks, where, home, instance, error, version, dialog, palette, help, selected } = useSlice((s) => ({
     stacks: s.stacks,
     where: s.where,
     home: s.home,
@@ -25,6 +26,7 @@ export function App() {
     version: s.version,
     dialog: s.dialog,
     palette: s.palette,
+    help: s.help,
     selected: s.selected,
   }));
 
@@ -57,7 +59,10 @@ export function App() {
         void go({ key: where.key, page: "logs" });
       } else if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        set((s) => ({ palette: !s.palette, dialog: null }));
+        set((s) => ({ palette: !s.palette, dialog: null, help: false }));
+      } else if (e.key === "?" && !(e.target as HTMLElement).closest("input, textarea, select")) {
+        e.preventDefault();
+        set((s) => ({ help: !s.help, palette: false }));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -117,6 +122,7 @@ export function App() {
       </div>
       {dialog && <Dialog d={dialog.d} onChoose={(b, text) => void choose(b, text)} onCancel={() => set({ dialog: null })} />}
       {palette && where && <Palette stackKey={where.key} selected={picked} onPick={pick} onClose={() => set({ palette: false })} />}
+      {help && <Help version={version} onClose={() => set({ help: false })} />}
       <Toasts />
     </div>
   );

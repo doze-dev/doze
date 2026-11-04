@@ -152,3 +152,21 @@ test("the theme switches from ⌘K and is remembered", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
 });
+
+test("? opens the Keys sheet, as the Help board draws it", async ({ page }, info) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.keyboard.press("?");
+  const sheet = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(sheet.locator("h2")).toHaveText("Keys");
+  await expect(sheet).toContainText("the TUI's keys, kept, plus the window's own");
+  await expect(sheet.locator(".cols h3")).toHaveText(["Home", "This page", "Logs", "Everywhere", "Mouse"]);
+  await expect(sheet).toContainText("copy address");
+  await expect(sheet).toContainText("search and do anything");
+  await expect(sheet.locator(".meters")).toContainText("cpu is cores in use");
+  await page.screenshot({ path: `.desk-look/Help-${info.project.name}.png` });
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  // The page beneath did not get the Escape.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+});

@@ -40,8 +40,9 @@ export interface State {
   error: string | null;
   /** dialog is the confirmation on screen, from Go, in the dash's words. */
   dialog: { key: string; d: view.Dialog } | null;
-  /** palette is whether ⌘K is open. */
+  /** palette is whether ⌘K is open; help whether the Keys sheet is. */
   palette: boolean;
+  help: boolean;
   /** toasts is what was said and has not faded yet. */
   toasts: Toast[];
   theme: Theme;
@@ -63,6 +64,7 @@ export const store = new Store<State>({
   error: null,
   dialog: null,
   palette: false,
+  help: false,
   toasts: [],
   theme: "system",
   tab: "",
