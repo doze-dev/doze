@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // What the dash tells the person about what they did. A success is said and
@@ -125,7 +126,7 @@ func (m *Model) startedTask(verb, target string) {
 		return
 	}
 	m.runningTask = target
-	m.say("running " + target + "…")
+	m.say(display.TaskStarted(target))
 }
 
 // reportTaskResult says how a task that has just finished went: the snapshot
@@ -140,18 +141,14 @@ func (m *Model) reportTaskResult() {
 	if !ok || v.Task == nil {
 		return
 	}
-	took := (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100 * time.Millisecond)
-	if v.Task.Result == "failed" {
-		m.fail(fmt.Sprintf("%s failed (exit %d) after %s", name, v.Task.ExitCode, took))
-		return
-	}
-	m.say(fmt.Sprintf("%s done in %s", name, took))
+	m.tell(display.TaskResult(name, v.Task))
 }
 
 // runningNote is the header's count of tasks running, when there are any.
 func runningNote(s styles, n int) string {
-	if n == 0 {
+	note := display.RunningNote(n)
+	if note == "" {
 		return ""
 	}
-	return "   " + s.c.Render(fmt.Sprintf("◌ %d running", n))
+	return "   " + s.c.Render(note)
 }
