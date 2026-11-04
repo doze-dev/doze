@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>Doze</string>
+  <key>CFBundleDisplayName</key>
+  <string>Doze</string>
+  <key>CFBundleIdentifier</key>
+  <string>dev.doze.app</string>
+  <key>CFBundleExecutable</key>
+  <string>doze</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleIconFile</key>
+  <string>doze</string>
+  <key>CFBundleVersion</key>
+  <string>__VERSION__</string>
+  <key>CFBundleShortVersionString</key>
+  <string>__VERSION__</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>14.0</string>
+  <!-- A menu bar app: no Dock icon until a window is open (the app switches
+       its activation policy itself). -->
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSupportsAutomaticGraphicsSwitching</key>
+  <true/>
+  <!-- doze:// links, for consoles that link back into the app (later). -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>dev.doze.app</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>doze</string>
+      </array>
+    </dict>
+  </array>
+  <key>NSHumanReadableCopyright</key>
+  <string>Apache-2.0</string>
+</dict>
+</plist>

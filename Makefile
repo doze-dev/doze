@@ -28,6 +28,16 @@ bindings-check: ## Fail when the committed bindings differ from the Go service
 build: frontend ## Build the doze binary, page included
 	CGO_ENABLED=0 go build -tags purego,production -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/doze
 
+.PHONY: icons
+icons: ## Render the app icon (.icns) and the menu bar bat from website/brand
+	cd tools/icons && go run . -brand ../../website/brand -out ../../build/darwin
+	iconutil -c icns build/darwin/doze.iconset -o build/darwin/doze.icns
+	cp build/darwin/bat-22.png build/darwin/bat-44.png internal/desk/app/icons/
+
+.PHONY: app
+app: build ## Build Doze.app around the binary, ad-hoc signed (DOZE_SIGN_ID for a Developer ID)
+	sh build/darwin/bundle.sh $(BINARY) dist $(VERSION)
+
 .PHONY: install
 install: ## Install doze into GOBIN
 	CGO_ENABLED=0 go install -tags purego,production -ldflags "$(LDFLAGS)" ./cmd/doze

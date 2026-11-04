@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- The hardened runtime with nothing opened up: a pure Go binary needs no
+     JIT, no unsigned memory and no library validation exceptions. The app
+     talks to local daemons over unix sockets and to localhost; it asks for
+     nothing else. -->
+<dict>
+</dict>
+</plist>

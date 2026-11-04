@@ -57,13 +57,12 @@ type Proc struct {
 }
 
 type Budget struct {
-	TrayReadyMS   int     `json:"tray_ready_ms"`
-	TrayKB        int     `json:"tray_footprint_kb"`
-	WindowHomeMS  int     `json:"window_home_ms"`
-	WindowKB      int     `json:"window_footprint_kb"`
-	AfterCloseKB  int     `json:"after_close_footprint_kb"`
-	RestCPUPct    float64 `json:"rest_cpu_pct"`
-	settleSeconds int
+	TrayReadyMS  int     `json:"tray_ready_ms"`
+	TrayKB       int     `json:"tray_footprint_kb"`
+	WindowHomeMS int     `json:"window_home_ms"`
+	WindowKB     int     `json:"window_footprint_kb"`
+	AfterCloseKB int     `json:"after_close_footprint_kb"`
+	RestCPUPct   float64 `json:"rest_cpu_pct"`
 }
 
 func TestApp(t *testing.T) {

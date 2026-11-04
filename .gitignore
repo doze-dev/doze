@@ -1,16 +1,18 @@
-# Compiled binary
-/doze
-/dist/
 
-# Local data directory (per-db clusters, sockets, downloaded binaries)
 .doze/
-
-# Go
-*.test
+.DS_Store
 *.out
-
-# goreleaser run artifacts (make dist)
+*.test
+/.look/
+/dist/
+/doze
 /state.json
 /telemetry.json
-/.look/
-.DS_Store
+# Compiled binary
+# Go
+# goreleaser run artifacts (make dist)
+# Local data directory (per-db clusters, sockets, downloaded binaries)
+build/darwin/bat-*.png
+build/darwin/doze.iconset/
+dist/
+doze
