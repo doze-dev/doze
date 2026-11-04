@@ -69,7 +69,7 @@ func TestNothingKeepsTheGPUBusy(t *testing.T) {
 		regexp.MustCompile(`getContext\(["']webgl`),
 	}
 	err := fs.WalkDir(Dist(), ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !(strings.HasSuffix(p, ".css") || strings.HasSuffix(p, ".js")) {
+		if err != nil || d.IsDir() || (!strings.HasSuffix(p, ".css") && !strings.HasSuffix(p, ".js")) {
 			return err
 		}
 		b, _ := fs.ReadFile(Dist(), p)

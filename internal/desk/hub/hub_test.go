@@ -99,10 +99,10 @@ func TestADaemonThatStopsAnsweringIsDownThenRetried(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go h.Run(ctx)
-	st := wait(t, h, func(st []StackView) bool { return len(st) == 1 && st[0].Conn == ConnLive })
+	wait(t, h, func(st []StackView) bool { return len(st) == 1 && st[0].Conn == ConnLive })
 
 	shop.Drop()
-	st = wait(t, h, func(st []StackView) bool { return st[0].Conn == ConnDown })
+	st := wait(t, h, func(st []StackView) bool { return st[0].Conn == ConnDown })
 	if st[0].RetryAt.IsZero() {
 		t.Error("a down stack says when it retries")
 	}
