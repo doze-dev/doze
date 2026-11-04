@@ -18,69 +18,6 @@ const (
 	minFlexRow = 5 // the fewest lines a table or stream is given
 )
 
-// bodyOf is the layout of a tab: the one the module published, or for a spec
-// of panels with none, its tables side by side and its streams below, which is
-// what View-Kafka.dc.html draws.
-func bodyOf(spec *control.ConsoleSpec, tabID string) (control.ConsoleNode, bool) {
-	if spec == nil {
-		return control.ConsoleNode{}, false
-	}
-	for _, t := range spec.Tabs {
-		if "console:"+t.ID == tabID {
-			return t.Body, true
-		}
-	}
-	if len(spec.Tabs) > 0 {
-		return control.ConsoleNode{}, false
-	}
-	var tables, streams []control.ConsoleNode
-	for _, p := range spec.Panels {
-		switch p.Kind {
-		case "table":
-			tables = append(tables, control.ConsoleNode{Kind: "table", Panel: p.ID, Title: p.Title, Weight: 1})
-		case "counters":
-			tables = append(tables, control.ConsoleNode{Kind: "stat", Panel: p.ID, Title: p.Title, Weight: 1})
-		case "stream":
-			streams = append(streams, control.ConsoleNode{Kind: "stream", Panel: p.ID, From: p.Select, Title: p.Title, Weight: 1})
-		}
-	}
-	kids := []control.ConsoleNode{}
-	if len(tables) > 0 {
-		kids = append(kids, control.ConsoleNode{Kind: "row", Weight: 1, Children: tables})
-	}
-	kids = append(kids, streams...)
-	kids = append(kids, control.ConsoleNode{Kind: "actions"})
-	return control.ConsoleNode{Kind: "col", Children: kids}, true
-}
-
-func weight(n control.ConsoleNode) int {
-	if n.Weight > 0 {
-		return n.Weight
-	}
-	return 1
-}
-
-// flexible blocks take the room that is left; the rest are as tall as their
-// content.
-func flexible(n control.ConsoleNode) bool {
-	switch n.Kind {
-	case "table", "stream", "row", "col":
-		return true
-	}
-	return false
-}
-
-// hasStream says a node is or contains a stream block.
-func hasStream(n control.ConsoleNode) bool {
-	found := false
-	walk(n, func(x control.ConsoleNode) {
-		if x.Kind == "stream" {
-			found = true
-		}
-	})
-	return found
-}
-
 // natural is the height a node asks for at width w.
 func (m *Model) natural(n control.ConsoleNode, w int) int {
 	c := m.con
@@ -179,13 +116,13 @@ func (m *Model) drawRow(n control.ConsoleNode, w, h, depth int) []string {
 	}
 	total := 0
 	for _, k := range kids {
-		total += weight(k)
+		total += display.Weight(k)
 	}
 	avail := w - (len(kids) - 1)
 	widths := make([]int, len(kids))
 	used := 0
 	for i, k := range kids {
-		widths[i] = avail * weight(k) / total
+		widths[i] = avail * display.Weight(k) / total
 		used += widths[i]
 	}
 	widths[len(widths)-1] += avail - used
@@ -224,19 +161,19 @@ func (m *Model) drawCol(n control.ConsoleNode, w, h, depth int) []string {
 	// and the stream takes the rest (View-Kafka.dc.html).
 	streamHere := false
 	for _, k := range kids {
-		if hasStream(k) {
+		if display.HasStream(k) {
 			streamHere = true
 		}
 	}
 	for i, k := range kids {
-		if streamHere && !hasStream(k) {
+		if streamHere && !display.HasStream(k) {
 			heights[i] = min(m.natural(k, w), max(h/2, 5))
 			settled[i] = true
 			fixed += heights[i]
 			continue
 		}
-		if flexible(k) {
-			flexW += weight(k)
+		if display.Flexible(k) {
+			flexW += display.Weight(k)
 			heights[i] = 0
 		} else {
 			heights[i] = m.natural(k, w)
@@ -250,14 +187,14 @@ func (m *Model) drawCol(n control.ConsoleNode, w, h, depth int) []string {
 	if flexW > 0 {
 		given := 0
 		for i, k := range kids {
-			if flexible(k) && !settled[i] {
-				heights[i] = left * weight(k) / flexW
+			if display.Flexible(k) && !settled[i] {
+				heights[i] = left * display.Weight(k) / flexW
 				given += heights[i]
 			}
 		}
 		// the remainder goes to the last flexible child
 		for i := len(kids) - 1; i >= 0; i-- {
-			if flexible(kids[i]) && !settled[i] {
+			if display.Flexible(kids[i]) && !settled[i] {
 				heights[i] += left - given
 				break
 			}
@@ -282,74 +219,11 @@ func (m *Model) drawCol(n control.ConsoleNode, w, h, depth int) []string {
 
 // --- cells ---
 
-// render turns a cell into text and a colour by what the module said it is.
+// render turns a cell into text and the style it is drawn in: display says
+// what the cell is, the dash paints its tone.
 func (m *Model) render(col control.ConsoleColumn, row control.ConsoleRow) (string, func(...string) string) {
-	s := m.st
-	raw := row.Cells[col.Key]
-	text, style := raw, s.text.Render
-	switch col.Role {
-	case "count":
-		if n, err := strconv.ParseFloat(strings.ReplaceAll(raw, ",", ""), 64); err == nil {
-			text = thousands(int64(n))
-		}
-	case "bytes":
-		if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
-			text = display.MB(n)
-		}
-	case "rate":
-		text = row.Cells["_rate:"+col.Key]
-		if text == "" {
-			text, style = "—", s.d.Render
-		}
-	case "lag":
-		if n, err := strconv.ParseFloat(strings.ReplaceAll(raw, ",", ""), 64); err == nil {
-			text = thousands(int64(n))
-			if n == 0 {
-				style = s.g.Render
-			} else {
-				style = s.r.Render
-			}
-		}
-	case "state":
-		switch strings.ToLower(raw) {
-		case "ok", "active", "stable", "awake", "running", "ready":
-			text, style = "● "+raw, s.g.Render
-		case "warn", "waiting", "preparing", "rebalancing":
-			text, style = "◐ "+raw, s.y.Render
-		case "bad", "error", "failed", "dead":
-			text, style = "✗ "+raw, s.r.Render
-		default:
-			text, style = "· "+raw, s.d.Render
-		}
-	case "time", "id", "url", "text", "":
-	}
-	if row.Tone == "dim" && col.Role != "state" {
-		style = s.d.Render
-	}
-	if col.Key == "from" && col.Title == "from" && raw == "" {
-		text, style = "doze.hcl", s.d.Render
-		if row.Cells[control.CellRuntime] != "" {
-			text, style = "runtime", s.y.Render
-		}
-	}
-	return text, style
-}
-
-func thousands(n int64) string {
-	s := strconv.FormatInt(n, 10)
-	neg := strings.HasPrefix(s, "-")
-	s = strings.TrimPrefix(s, "-")
-	var out []string
-	for len(s) > 3 {
-		out = append([]string{s[len(s)-3:]}, out...)
-		s = s[:len(s)-3]
-	}
-	out = append([]string{s}, out...)
-	r := strings.Join(out, ",")
-	if neg {
-		r = "-" + r
-	}
-	return r
+	text, tone := display.Cell(col, row)
+	return text, m.st.tone(tone).Render
 }
 
 func wrap(s string, w int) []string {
@@ -380,7 +254,7 @@ func (m *Model) title(n control.ConsoleNode, fallback string) string {
 	if n.Title != "" {
 		return n.Title
 	}
-	if p := panelOf(m.conSpec(), n.Panel); p != nil && p.Title != "" {
+	if p := display.PanelOf(m.conSpec(), n.Panel); p != nil && p.Title != "" {
 		return p.Title
 	}
 	return fallback
@@ -395,11 +269,11 @@ func (m *Model) conSpec() *control.ConsoleSpec {
 
 func (m *Model) drawTable(n control.ConsoleNode, w, h int) []string {
 	s, c := m.st, m.con
-	p := panelOf(m.conSpec(), n.Panel)
+	p := display.PanelOf(m.conSpec(), n.Panel)
 	if p == nil || c == nil {
 		return m.unknown(n, w, h, "no data source "+n.Panel)
 	}
-	id := blockID(n)
+	id := display.BlockID(n)
 	focused := c.focus == id
 	rows := c.tables[n.Panel]
 	var cols []control.ConsoleColumn
@@ -503,7 +377,7 @@ func (m *Model) drawTable(n control.ConsoleNode, w, h int) []string {
 
 func (m *Model) drawStat(n control.ConsoleNode, w, h int) []string {
 	s, c := m.st, m.con
-	p := panelOf(m.conSpec(), n.Panel)
+	p := display.PanelOf(m.conSpec(), n.Panel)
 	if p == nil || c == nil {
 		return m.unknown(n, w, h, "no data source "+n.Panel)
 	}
@@ -529,48 +403,14 @@ func (m *Model) drawStat(n control.ConsoleNode, w, h int) []string {
 	return box(s.border, caption, "", []string{strings.Join(labels, ""), strings.Join(values, "")}, w, h)
 }
 
-// detailRows are the key and value pairs of a detail block: the columns of the
-// selected row of the table it follows, or of the first row of its own panel.
+// detailRows are the key and value pairs of a detail block, from the console
+// state: nothing before the console has started.
 func (m *Model) detailRows(n control.ConsoleNode) [][2]string {
 	c := m.con
 	if c == nil {
 		return nil
 	}
-	panel := n.Panel
-	var row *control.ConsoleRow
-	if n.From != "" {
-		var src *control.ConsoleNode
-		if body, ok := bodyOf(c.spec, m.currentTabID); ok {
-			walk(body, func(x control.ConsoleNode) {
-				if x.Kind == "table" && (blockID(x) == n.From || x.Panel == n.From || x.ID == n.From) && src == nil {
-					y := x
-					src = &y
-				}
-			})
-		}
-		if src != nil {
-			rows := c.tables[src.Panel]
-			if len(rows) > 0 {
-				i := min(c.sel[blockID(*src)], len(rows)-1)
-				row = &rows[i]
-				if panel == "" {
-					panel = src.Panel
-				}
-			}
-		}
-	} else if rows := c.tables[panel]; len(rows) > 0 {
-		row = &rows[0]
-	}
-	p := panelOf(c.spec, panel)
-	if row == nil || p == nil {
-		return nil
-	}
-	var out [][2]string
-	for _, col := range p.Columns {
-		t, _ := m.render(col, *row)
-		out = append(out, [2]string{col.Title, t})
-	}
-	return out
+	return display.DetailRows(c.spec, m.currentTabID, c.tables, c.sel, n)
 }
 
 func (m *Model) drawDetail(n control.ConsoleNode, w, h int) []string {
@@ -599,7 +439,7 @@ func (m *Model) drawDetail(n control.ConsoleNode, w, h int) []string {
 
 func (m *Model) drawStream(n control.ConsoleNode, w, h int) []string {
 	s, c := m.st, m.con
-	p := panelOf(m.conSpec(), n.Panel)
+	p := display.PanelOf(m.conSpec(), n.Panel)
 	if p == nil || c == nil {
 		return m.unknown(n, w, h, "no data source "+n.Panel)
 	}
@@ -672,9 +512,9 @@ func (m *Model) drawActions(n control.ConsoleNode, w, h int) []string {
 		if len(n.Actions) > 0 && !contains(n.Actions, a.ID) {
 			continue
 		}
-		label := s.cap(actionKey(a), a.Label)
+		label := s.cap(display.ActionKey(a), a.Label)
 		if a.Destructive {
-			label = s.key.Render(actionKey(a)) + " " + s.r.Render(a.Label)
+			label = s.key.Render(display.ActionKey(a)) + " " + s.r.Render(a.Label)
 		}
 		parts = append(parts, label)
 	}
@@ -704,14 +544,14 @@ func (m *Model) drawNote(n control.ConsoleNode, w, h int) []string {
 
 func (m *Model) drawChart(n control.ConsoleNode, w, h int) []string {
 	s, c := m.st, m.con
-	p := panelOf(m.conSpec(), n.Panel)
+	p := display.PanelOf(m.conSpec(), n.Panel)
 	if p == nil || c == nil {
 		return m.unknown(n, w, h, "no data source "+n.Panel)
 	}
 	var vals []float64
 	for _, r := range c.tables[n.Panel] {
 		for _, col := range p.Columns {
-			if f, err := strconv.ParseFloat(strings.ReplaceAll(r.Cells[col.Key], ",", ""), 64); err == nil && col.Key != firstCol(p) {
+			if f, err := strconv.ParseFloat(strings.ReplaceAll(r.Cells[col.Key], ",", ""), 64); err == nil && col.Key != display.FirstCol(p) {
 				vals = append(vals, f)
 			}
 		}
@@ -755,16 +595,17 @@ func (m *Model) consoleTab(v control.InstanceView, tabID string, w, h int) []str
 	if c.err != "" {
 		return box(s.borderBad, s.r.Render("console"), "", []string{s.r.Render(c.err)}, w, h)
 	}
-	body, ok := bodyOf(c.spec, tabID)
+	body, ok := display.ConsoleBody(c.spec, tabID)
 	if !ok {
 		return box(s.border, s.d.Render("console"), "", []string{s.d.Render("this module has not described a console")}, w, h)
 	}
 	if c.focus == "" {
-		walk(body, func(n control.ConsoleNode) {
+		display.Walk(body, func(n control.ConsoleNode) {
 			if n.Kind == "table" && c.focus == "" {
-				c.focus = blockID(n)
+				c.focus = display.BlockID(n)
 			}
 		})
+
 	}
 	return m.drawNode(body, w, h, 0)
 }
@@ -783,7 +624,7 @@ func (m *Model) syncConsole() {
 	if m.tab >= len(ts) || !strings.HasPrefix(ts[m.tab].ID, "console:") {
 		return
 	}
-	if body, ok := bodyOf(m.con.spec, ts[m.tab].ID); ok {
+	if body, ok := display.ConsoleBody(m.con.spec, ts[m.tab].ID); ok {
 		m.followStream(body)
 	}
 }

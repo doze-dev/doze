@@ -88,7 +88,7 @@ func (m *Model) focusHints(v control.InstanceView, ts []tab, cur tab) []hint {
 	if strings.HasPrefix(cur.ID, "console:") && m.con != nil {
 		hs = append(hs, hint{"↑↓", "select", "move through the rows of the focused table", 2})
 		for _, a := range m.con.actions {
-			hs = append(hs, hint{actionKey(a), strings.ToLower(a.Label), "the module's action: " + a.Label, 3})
+			hs = append(hs, hint{display.ActionKey(a), strings.ToLower(a.Label), "the module's action: " + a.Label, 3})
 		}
 	}
 	if cur.ID == tabWeb {

@@ -2,10 +2,6 @@ package dash
 
 import (
 	"context"
-	"fmt"
-	"strconv"
-	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -35,10 +31,7 @@ type consoleState struct {
 	gen     int
 }
 
-type rateSample struct {
-	v  float64
-	at time.Time
-}
+type rateSample = display.RateSample
 
 type consoleMsg struct {
 	inst string
@@ -115,57 +108,10 @@ func (m *Model) applyConsole(msg consoleMsg) {
 	}
 }
 
-// withRates works out each rate column from successive totals, as the module
-// contract says: the module sends a running total and the dash the speed.
+// withRates works out each rate column from successive totals, keeping the
+// last totals in the console state.
 func (m *Model) withRates(panel string, rows []control.ConsoleRow) []control.ConsoleRow {
-	c := m.con
-	spec := panelOf(c.spec, panel)
-	if spec == nil {
-		return rows
-	}
-	out := make([]control.ConsoleRow, len(rows))
-	for i, r := range rows {
-		cells := make(map[string]string, len(r.Cells)+1)
-		for k, v := range r.Cells {
-			cells[k] = v
-		}
-		for _, col := range spec.Columns {
-			if col.Role != "rate" {
-				continue
-			}
-			key := panel + "/" + firstCol(spec) + "=" + r.Cells[firstCol(spec)] + "/" + col.Key
-			v, err := strconv.ParseFloat(strings.ReplaceAll(r.Cells[col.Key], ",", ""), 64)
-			if err != nil {
-				continue
-			}
-			if p, ok := c.prev[key]; ok && m.now.After(p.at) && v >= p.v {
-				per := (v - p.v) / m.now.Sub(p.at).Seconds()
-				cells["_rate:"+col.Key] = fmt.Sprintf("%.0f/s", per)
-			}
-			c.prev[key] = rateSample{v, m.now}
-		}
-		out[i] = control.ConsoleRow{Cells: cells, Tone: r.Tone}
-	}
-	return out
-}
-
-func panelOf(spec *control.ConsoleSpec, id string) *control.ConsolePanel {
-	if spec == nil {
-		return nil
-	}
-	for i := range spec.Panels {
-		if spec.Panels[i].ID == id {
-			return &spec.Panels[i]
-		}
-	}
-	return nil
-}
-
-func firstCol(p *control.ConsolePanel) string {
-	if len(p.Columns) > 0 {
-		return p.Columns[0].Key
-	}
-	return ""
+	return display.Rates(m.con.spec, panel, rows, m.con.prev, m.now)
 }
 
 // selectedKey is the key of the selected row of a table block.
@@ -182,11 +128,11 @@ func (m *Model) selectedKey(blockID, panel string) string {
 	if i >= len(rows) {
 		i = len(rows) - 1
 	}
-	p := panelOf(c.spec, panel)
+	p := display.PanelOf(c.spec, panel)
 	if p == nil {
 		return ""
 	}
-	return rows[i].Cells[firstCol(p)]
+	return rows[i].Cells[display.FirstCol(p)]
 }
 
 // followStream makes the subscription follow the selected row of the table the
@@ -197,16 +143,17 @@ func (m *Model) followStream(body control.ConsoleNode) {
 		return
 	}
 	var stream *control.ConsoleNode
-	walk(body, func(n control.ConsoleNode) {
+	display.Walk(body, func(n control.ConsoleNode) {
 		if n.Kind == "stream" && stream == nil {
 			x := n
 			stream = &x
 		}
 	})
+
 	if stream == nil {
 		return
 	}
-	p := panelOf(c.spec, stream.Panel)
+	p := display.PanelOf(c.spec, stream.Panel)
 	if p == nil {
 		return
 	}
@@ -218,12 +165,13 @@ func (m *Model) followStream(body control.ConsoleNode) {
 	if from != "" {
 		// the table block it follows, named by its id or by the panel it draws
 		found := false
-		walk(body, func(n control.ConsoleNode) {
+		display.Walk(body, func(n control.ConsoleNode) {
 			if n.Kind == "table" && !found && (n.ID == from || n.Panel == from) {
 				found = true
-				sector = m.selectedKey(blockID(n), n.Panel)
+				sector = m.selectedKey(display.BlockID(n), n.Panel)
 			}
 		})
+
 	}
 	if c.panel == stream.Panel && c.sector == sector {
 		return
@@ -231,20 +179,6 @@ func (m *Model) followStream(body control.ConsoleNode) {
 	c.panel, c.sector = stream.Panel, sector
 	delete(c.streams, stream.Panel)
 	m.subscribeConsole()
-}
-
-func blockID(n control.ConsoleNode) string {
-	if n.ID != "" {
-		return n.ID
-	}
-	return n.Kind + ":" + n.Panel
-}
-
-func walk(n control.ConsoleNode, f func(control.ConsoleNode)) {
-	f(n)
-	for _, ch := range n.Children {
-		walk(ch, f)
-	}
 }
 
 // consoleKey handles a key on a console tab. It returns whether it was the
@@ -255,20 +189,21 @@ func (m *Model) consoleKey(k string, body control.ConsoleNode) (tea.Cmd, bool) {
 		return nil, false
 	}
 	var tables []control.ConsoleNode
-	walk(body, func(n control.ConsoleNode) {
+	display.Walk(body, func(n control.ConsoleNode) {
 		if n.Kind == "table" {
 			tables = append(tables, n)
 		}
 	})
+
 	focused := -1
 	for i, t := range tables {
-		if blockID(t) == c.focus {
+		if display.BlockID(t) == c.focus {
 			focused = i
 		}
 	}
 	if focused < 0 && len(tables) > 0 {
 		focused = 0
-		c.focus = blockID(tables[0])
+		c.focus = display.BlockID(tables[0])
 	}
 	switch k {
 	case "up", "k":
@@ -285,7 +220,7 @@ func (m *Model) consoleKey(k string, body control.ConsoleNode) (tea.Cmd, bool) {
 		return nil, true
 	case "tab":
 		if len(tables) > 1 {
-			c.focus = blockID(tables[(focused+1)%len(tables)])
+			c.focus = display.BlockID(tables[(focused+1)%len(tables)])
 			return nil, true
 		}
 		return nil, false // the one table: tab moves to the next tab
@@ -293,20 +228,12 @@ func (m *Model) consoleKey(k string, body control.ConsoleNode) (tea.Cmd, bool) {
 	// an action: its key is the first letter of its id, capitalised
 	if len(k) == 1 {
 		for _, a := range c.actions {
-			if actionKey(a) == k {
+			if display.ActionKey(a) == k {
 				return m.runAction(a, tables, focused), true
 			}
 		}
 	}
 	return nil, false
-}
-
-func actionKey(a control.ActionView) string {
-	r := []rune(a.ID)
-	if len(r) == 0 {
-		return ""
-	}
-	return strings.ToUpper(string(r[0]))
 }
 
 // runAction runs a module's action on the selected row of the table it is for,
@@ -315,12 +242,12 @@ func (m *Model) runAction(a control.ActionView, tables []control.ConsoleNode, fo
 	c := m.con
 	resource := ""
 	for _, t := range tables {
-		if p := panelOf(c.spec, t.Panel); p != nil && p.Source == a.Kind {
-			resource = m.selectedKey(blockID(t), t.Panel)
+		if p := display.PanelOf(c.spec, t.Panel); p != nil && p.Source == a.Kind {
+			resource = m.selectedKey(display.BlockID(t), t.Panel)
 		}
 	}
 	if resource == "" && focused >= 0 && a.Kind != "" {
-		resource = m.selectedKey(blockID(tables[focused]), tables[focused].Panel)
+		resource = m.selectedKey(display.BlockID(tables[focused]), tables[focused].Panel)
 	}
 	inst := c.inst
 	do := func(input string) tea.Cmd {

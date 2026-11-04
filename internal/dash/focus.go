@@ -682,7 +682,7 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	}
 	ts := m.tabs(v)
 	if m.tab < len(ts) && strings.HasPrefix(ts[m.tab].ID, "console:") && m.con != nil {
-		if body, ok := bodyOf(m.con.spec, ts[m.tab].ID); ok {
+		if body, ok := display.ConsoleBody(m.con.spec, ts[m.tab].ID); ok {
 			if cmd, handled := m.consoleKey(k, body); handled {
 				return cmd, true
 			}
