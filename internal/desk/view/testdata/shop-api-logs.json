@@ -1,0 +1,56 @@
+{
+  "instance": "api",
+  "total": 10,
+  "from": 0,
+  "lines": [
+    {
+      "time": "2026-10-11T13:50:40Z",
+      "ago": "14m",
+      "line": "INFO listening addr=:8080",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "2026-10-11T13:50:40Z",
+      "ago": "14m",
+      "line": "INFO postgres connected host=db.shop.doze pool=4",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "2026-10-11T13:50:40Z",
+      "ago": "14m",
+      "line": "INFO mongo connected host=mongo.shop.doze",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "2026-10-11T14:00:40Z",
+      "ago": "4m",
+      "line": "INFO GET /products 200 12ms",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "2026-10-11T14:01:00Z",
+      "ago": "3m",
+      "line": "INFO GET /cart 200 44ms",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    }
+  ],
+  "runs": [
+    1
+  ],
+  "levels": [
+    "everything",
+    "info and up",
+    "warnings and up",
+    "errors only"
+  ]
+}

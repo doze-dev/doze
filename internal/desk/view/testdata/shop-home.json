@@ -1,0 +1,274 @@
+{
+  "stack": "shop",
+  "dir": "~/code/shop",
+  "running": true,
+  "banner": {
+    "ok": true
+  },
+  "meters": {
+    "mem": {
+      "total": "552",
+      "shares": [
+        {
+          "name": "web",
+          "part": 0.386,
+          "label": "213"
+        },
+        {
+          "name": "mongo",
+          "part": 0.268,
+          "label": "148"
+        },
+        {
+          "name": "db",
+          "part": 0.174,
+          "label": "96"
+        },
+        {
+          "name": "api",
+          "part": 0.152,
+          "label": "84"
+        },
+        {
+          "name": "cache",
+          "part": 0.02,
+          "label": "11"
+        }
+      ],
+      "idle": 2
+    },
+    "cpu": {
+      "total": "0.03 cores",
+      "shares": [
+        {
+          "name": "api",
+          "part": 0.623,
+          "label": "0.02 cores"
+        },
+        {
+          "name": "db",
+          "part": 0.247,
+          "label": "0.01 cores"
+        },
+        {
+          "name": "web",
+          "part": 0.13,
+          "label": "\u003c0.01 cores"
+        }
+      ],
+      "idle": 4
+    }
+  },
+  "groups": [
+    {
+      "title": "APPS",
+      "what": "your code",
+      "rows": [
+        {
+          "name": "api",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "what": "go run ./cmd/api",
+          "because": "nothing holds it",
+          "mem": "84 MB",
+          "addr": "http://api.shop.doze",
+          "port": ":8080",
+          "awake": true,
+          "trouble": false,
+          "depth": 0
+        },
+        {
+          "name": "web",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "what": "pnpm dev",
+          "because": "nothing holds it",
+          "mem": "213 MB",
+          "awake": true,
+          "trouble": false,
+          "depth": 0
+        },
+        {
+          "name": "worker",
+          "kind": "app",
+          "look": {
+            "word": "waking",
+            "glyph": "◌",
+            "tone": "cool"
+          },
+          "what": "waiting on events",
+          "because": "waiting on events",
+          "mem": "—",
+          "hint": "waiting on events",
+          "awake": false,
+          "trouble": false,
+          "depth": 0
+        }
+      ]
+    },
+    {
+      "title": "MODULES",
+      "what": "from the doze registry",
+      "rows": [
+        {
+          "name": "cache",
+          "kind": "module",
+          "look": {
+            "word": "dozing",
+            "glyph": "◐",
+            "tone": "warn"
+          },
+          "what": "valkey 9",
+          "because": "idle: sleeps soon",
+          "mem": "11 MB",
+          "awake": true,
+          "trouble": false,
+          "depth": 1
+        },
+        {
+          "name": "cloud",
+          "kind": "module",
+          "look": {
+            "word": "asleep",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "what": "aws",
+          "because": "wakes on a connection",
+          "mem": "0",
+          "awake": false,
+          "trouble": false,
+          "depth": 0
+        },
+        {
+          "name": "db",
+          "kind": "module",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "what": "postgres 17",
+          "because": "api needs it · 4 connections",
+          "mem": "96 MB",
+          "addr": "postgres://shop@db.shop.doze:5432/shop",
+          "awake": true,
+          "trouble": false,
+          "depth": 1
+        },
+        {
+          "name": "events",
+          "kind": "module",
+          "look": {
+            "word": "waking",
+            "glyph": "◌",
+            "tone": "cool"
+          },
+          "what": "kafka · woken by worker",
+          "because": "woken by worker",
+          "mem": "—",
+          "hint": "woken by worker",
+          "awake": false,
+          "trouble": false,
+          "depth": 1
+        }
+      ]
+    },
+    {
+      "title": "OUTSIDE",
+      "what": "brought in by you",
+      "rows": [
+        {
+          "name": "mailpit",
+          "kind": "service",
+          "look": {
+            "word": "asleep",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "what": "mailpit --smtp 127.0.0.1:$PORT",
+          "because": "starts when needed",
+          "mem": "0",
+          "addr": "http://mailpit.shop.doze",
+          "awake": false,
+          "trouble": false,
+          "depth": 0
+        },
+        {
+          "name": "mongo",
+          "kind": "service",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "what": "bin/mongod --dbpath $DATA",
+          "because": "api needs it",
+          "mem": "148 MB",
+          "awake": true,
+          "trouble": false,
+          "depth": 1
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "look": {
+            "word": "asleep",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "what": "docker run getmeili/meilisearch",
+          "because": "starts when needed",
+          "mem": "0",
+          "awake": false,
+          "trouble": false,
+          "depth": 0
+        }
+      ]
+    },
+    {
+      "title": "TASKS",
+      "what": "run once, then out of the way",
+      "rows": [
+        {
+          "name": "migrate",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "what": "ran 2m ago in 1.2s",
+          "because": "ran 2m ago in 1.2s",
+          "awake": false,
+          "trouble": false,
+          "depth": 1
+        },
+        {
+          "name": "seed",
+          "kind": "task",
+          "look": {
+            "word": "ready",
+            "glyph": "▸",
+            "tone": "dim"
+          },
+          "what": "not run yet",
+          "because": "not run yet",
+          "awake": false,
+          "trouble": false,
+          "depth": 0
+        }
+      ]
+    }
+  ],
+  "awake": 5,
+  "total": 10
+}

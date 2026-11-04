@@ -1,0 +1,72 @@
+{
+  "stack": "shop",
+  "name": "migrate",
+  "kind": "task",
+  "engine": "process",
+  "look": {
+    "word": "done",
+    "glyph": "✓",
+    "tone": "good"
+  },
+  "what": "ran 2m ago in 1.2s",
+  "because": "ran 2m ago in 1.2s",
+  "tabs": [
+    {
+      "id": "last run",
+      "title": "last run"
+    }
+  ],
+  "runs": [
+    {
+      "at": "2026-10-11T14:02:40Z",
+      "ago": "2m",
+      "why": "0015_orders_index.sql changed",
+      "took": "0:01",
+      "ok": true,
+      "done": true
+    },
+    {
+      "at": "2026-10-11T11:04:40Z",
+      "ago": "3h",
+      "why": "0014_carts.sql changed",
+      "took": "0:00",
+      "ok": false,
+      "done": true
+    },
+    {
+      "at": "2026-10-10T12:04:40Z",
+      "ago": "26h",
+      "why": "you asked",
+      "took": "0:01",
+      "ok": true,
+      "done": true
+    },
+    {
+      "at": "2026-10-11T14:02:40Z",
+      "ago": "2m",
+      "why": "0015_orders_index.sql changed",
+      "took": "0:01",
+      "ok": true,
+      "done": true
+    },
+    {
+      "at": "2026-10-11T11:04:40Z",
+      "ago": "3h",
+      "why": "0014_carts.sql changed",
+      "took": "0:00",
+      "ok": false,
+      "done": true
+    },
+    {
+      "at": "2026-10-10T12:04:40Z",
+      "ago": "26h",
+      "why": "you asked",
+      "took": "0:01",
+      "ok": true,
+      "done": true
+    }
+  ],
+  "banner": {
+    "ok": true
+  }
+}

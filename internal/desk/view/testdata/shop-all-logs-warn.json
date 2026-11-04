@@ -1,0 +1,25 @@
+{
+  "instance": "",
+  "total": 1,
+  "from": 0,
+  "lines": [
+    {
+      "instance": "api",
+      "time": "2026-10-11T14:02:40Z",
+      "ago": "2m",
+      "line": "WARN slow query 212ms SELECT * FROM orders WHERE customer_id = $1",
+      "level": "WRN",
+      "rank": 2,
+      "run": 1
+    }
+  ],
+  "runs": [
+    1
+  ],
+  "levels": [
+    "everything",
+    "info and up",
+    "warnings and up",
+    "errors only"
+  ]
+}

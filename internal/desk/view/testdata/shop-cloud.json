@@ -1,0 +1,26 @@
+{
+  "stack": "shop",
+  "name": "cloud",
+  "kind": "module",
+  "engine": "aws",
+  "look": {
+    "word": "asleep",
+    "glyph": "·",
+    "tone": "dim"
+  },
+  "what": "aws",
+  "because": "wakes on a connection",
+  "tabs": [
+    {
+      "id": "overview",
+      "title": "overview"
+    },
+    {
+      "id": "logs",
+      "title": "logs"
+    }
+  ],
+  "banner": {
+    "ok": true
+  }
+}
