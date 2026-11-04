@@ -150,7 +150,7 @@ var measureLine = regexp.MustCompile(`^(?:desk|page): (.+?)(?: (\d+)ms.*)?$`)
 func runApp(t *testing.T, doze string, args ...string) *app {
 	t.Helper()
 	cmd := exec.Command(doze, args...)
-	cmd.Env = append(os.Environ(), "DOZE_HOME="+t.TempDir())
+	cmd.Env = append(os.Environ(), "DOZE_HOME="+t.TempDir(), "DOZE_DESK_INSTANCE=.bench")
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		t.Fatal(err)

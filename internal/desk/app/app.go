@@ -79,7 +79,9 @@ func Run(o Options) error {
 		Linux:   application.LinuxOptions{DisableQuitOnLastWindowClosed: true},
 		Windows: application.WindowsOptions{DisableQuitOnLastWindowClosed: true},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "dev.doze.app",
+			// DOZE_DESK_INSTANCE lets the desk bench and tests run beside a
+			// real app without being handed off to it.
+			UniqueID: "dev.doze.app" + os.Getenv("DOZE_DESK_INSTANCE"),
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				d.open(dirFrom(data))
 			},
