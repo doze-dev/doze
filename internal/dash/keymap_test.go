@@ -469,11 +469,3 @@ func TestMetersNameWhoConsumesAndSayOfNothing(t *testing.T) {
 		t.Errorf("a 30-row window has no room for the key")
 	}
 }
-
-func TestCoresSaysWhatTheNumberIs(t *testing.T) {
-	for pct, want := range map[float64]string{0: "0 cores", 0.1: "<0.01 cores", 22.6: "0.23 cores", 100: "1 core", 250: "2.5 cores", 1020: "10.2 cores"} {
-		if got := cores(pct); got != want {
-			t.Errorf("cores(%v) = %q, want %q", pct, got, want)
-		}
-	}
-}

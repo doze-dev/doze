@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 func plain(rows []string) []string {
@@ -89,7 +90,7 @@ func TestZoomShowsDriftAndSitsFlatInTheMiddle(t *testing.T) {
 // ends at the right edge and is not stretched across the width.
 func TestChartsWithLittleOrNoHistory(t *testing.T) {
 	m := board()
-	empty := plain(m.charts([]trace{{name: "mem", unit: bytesLabel, now: "148 MB", cur: 148 << 20, zoom: true, st: lipgloss.NewStyle()}}, 60, 3))
+	empty := plain(m.charts([]trace{{name: "mem", unit: display.BytesLabel, now: "148 MB", cur: 148 << 20, zoom: true, st: lipgloss.NewStyle()}}, 60, 3))
 	if j := strings.Join(empty, "\n"); !strings.Contains(j, "148 MB") || !strings.Contains(j, "now") {
 		t.Errorf("no history should still say its figure and end at now:\n%s", j)
 	}
@@ -131,9 +132,9 @@ func TestChartsDrawnAcross(t *testing.T) {
 	m := board()
 	st := lipgloss.NewStyle()
 	ts := []trace{
-		{"cpu", []float64{1, 2, 3}, 5, false, pct, "1%", 1, st},
-		{"mem", []float64{1, 2, 3}, 0, true, bytesLabel, "84 MB", 1, st},
-		{"conns", []float64{1, 2, 3}, 8, false, count, "4", 1, st},
+		{"cpu", []float64{1, 2, 3}, 5, false, display.Pct, "1%", 1, st},
+		{"mem", []float64{1, 2, 3}, 0, true, display.BytesLabel, "84 MB", 1, st},
+		{"conns", []float64{1, 2, 3}, 8, false, display.Count, "4", 1, st},
 	}
 	out := plain(m.charts(ts, 180, 3))
 	if !strings.Contains(out[0], "cpu") || !strings.Contains(out[0], "mem") || !strings.Contains(out[0], "conns") {
@@ -150,32 +151,6 @@ func TestChartsDrawnAcross(t *testing.T) {
 	}
 }
 
-// The whole of the history is drawn, whatever the width: readings are merged by
-// their highest, from the newest back, so a spike survives and the right edge
-// is now.
-func TestSqueezeKeepsTheSpikeAndTheNewest(t *testing.T) {
-	vs := make([]float64, 240)
-	vs[100] = 9
-	vs[239] = 5
-	out := squeeze(vs, 60)
-	if len(out) > 60 {
-		t.Fatalf("%d columns, want at most 60", len(out))
-	}
-	hi := 0.0
-	for _, v := range out {
-		hi = max(hi, v)
-	}
-	if hi != 9 {
-		t.Errorf("the spike was lost: highest is %v", hi)
-	}
-	if out[len(out)-1] != 5 {
-		t.Errorf("the newest reading is not at the right edge: %v", out[len(out)-1])
-	}
-	if got := squeeze([]float64{1, 2, 3}, 60); len(got) != 3 {
-		t.Errorf("a short series was changed: %v", got)
-	}
-}
-
 // The metrics view is ntcharts' time-series chart: a value axis, a time axis
 // ending at now, and every line the width asked for.
 func TestNTChartHasAxesAndTheWidthAsked(t *testing.T) {
@@ -184,7 +159,7 @@ func TestNTChartHasAxesAndTheWidthAsked(t *testing.T) {
 	for i := range vals {
 		vals[i] = 80 + float64(i%9)
 	}
-	tr := trace{name: "mem", vals: vals, zoom: true, unit: bytesLabel, now: "84 MB", cur: 84 << 20, st: lipgloss.NewStyle()}
+	tr := trace{name: "mem", vals: vals, zoom: true, unit: display.BytesLabel, now: "84 MB", cur: 84 << 20, st: lipgloss.NewStyle()}
 	for i := range tr.vals {
 		tr.vals[i] *= 1 << 20
 	}

@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"math"
 	"strings"
-	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/doze-dev/doze/internal/display"
@@ -23,10 +22,6 @@ import (
 // gutter is the width of the scale at a chart's left edge.
 const gutter = 8
 
-// sampleEvery is how often the daemon samples the meters (control.Options
-// leaves it at one second).
-const sampleEvery = time.Second
-
 // trace is one metric to draw.
 type trace struct {
 	name  string
@@ -39,38 +34,9 @@ type trace struct {
 	st    lipgloss.Style
 }
 
-// stats is the highest and the mean of what the chart holds.
-func stats(vs []float64) (peak, mean float64) {
-	for _, v := range vs {
-		peak = max(peak, v)
-		mean += v
-	}
-	if len(vs) > 0 {
-		mean /= float64(len(vs))
-	}
-	return
-}
-
-// scale is the range the chart stands for: zero to a little above the highest
-// reading (no lower than floor), or, zoomed, a little either side of the
-// readings so that a steady series reads as steady and a drift as a drift.
-func (t trace) scale(vs []float64) (lo, hi float64) {
-	if len(vs) == 0 {
-		return 0, max(t.floor, 1)
-	}
-	mn, mx := vs[0], vs[0]
-	for _, v := range vs {
-		mn, mx = min(mn, v), max(mx, v)
-	}
-	if t.zoom {
-		pad := max((mx-mn)*0.25, mx*0.03)
-		if pad == 0 {
-			pad = 1
-		}
-		return max(mn-pad, 0), mx + pad
-	}
-	return 0, max(t.floor, mx*1.15, 1)
-}
+// scale is the range the chart stands for, as display works it out from the
+// trace's floor and whether it zooms.
+func (t trace) scale(vs []float64) (lo, hi float64) { return display.Scale(vs, t.floor, t.zoom) }
 
 // plot draws vs cells wide and rows tall between lo and hi, newest at the right
 // edge, and returns the rows top first. More than a reading to a cell are merged
@@ -154,29 +120,6 @@ func (s styles) dimmed(st lipgloss.Style) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(mix(hex(fg), s.pal.bg, 0.38)))
 }
 
-// squeeze fits vs into w columns by merging neighbours by their highest, from
-// the newest back, so the whole of the history is drawn and a spike is never
-// lost to the width. Shorter than w it is returned as it is.
-func squeeze(vs []float64, w int) []float64 {
-	n := len(vs)
-	if n <= w || w < 1 {
-		return vs
-	}
-	per := (n + w - 1) / w
-	cols := (n + per - 1) / per
-	out := make([]float64, cols)
-	for i := cols - 1; i >= 0; i-- {
-		end := n - per*(cols-1-i)
-		start := max(end-per, 0)
-		m := vs[start]
-		for _, v := range vs[start:end] {
-			m = max(m, v)
-		}
-		out[i] = m
-	}
-	return out
-}
-
 // A chart is never drawn wider than maxChart cells, which is as wide as a
 // line gets before it only grows thinner, and never narrower than minChart.
 const (
@@ -243,42 +186,4 @@ func (m *Model) charts(ts []trace, w, rows int) []string {
 		}
 	}
 	return out
-}
-
-// spanWord is how long n readings cover, in the words of the axis.
-func spanWord(n int) string {
-	d := time.Duration(max(n, 1)) * sampleEvery
-	if d >= time.Minute && d%time.Minute != 0 && d < 10*time.Minute {
-		return fmt.Sprintf("%dm %02ds", int(d.Minutes()), int(d.Seconds())%60)
-	}
-	return display.Ago(d)
-}
-
-// pct and count are the scales' labels.
-func pct(v float64) string { return fmt.Sprintf("%.0f%%", v) }
-func count(v float64) string {
-	return fmt.Sprintf("%.0f", v)
-}
-func bytesLabel(v float64) string { return display.MB(int64(v)) }
-
-// squeezeTimed is squeeze for readings that carry the time they were taken: the
-// merged column keeps the newest of the times it covers.
-func squeezeTimed(vs []float64, at []time.Time, w int) ([]float64, []time.Time) {
-	n := len(vs)
-	if n <= w || w < 1 || len(at) != n {
-		return vs, at
-	}
-	per := (n + w - 1) / w
-	cols := (n + per - 1) / per
-	outV, outT := make([]float64, cols), make([]time.Time, cols)
-	for i := cols - 1; i >= 0; i-- {
-		end := n - per*(cols-1-i)
-		start := max(end-per, 0)
-		m := vs[start]
-		for _, v := range vs[start:end] {
-			m = max(m, v)
-		}
-		outV[i], outT[i] = m, at[end-1]
-	}
-	return outV, outT
 }

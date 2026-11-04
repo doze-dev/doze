@@ -7,6 +7,7 @@ import (
 
 	"github.com/NimbleMarkets/ntcharts/v2/linechart"
 	"github.com/NimbleMarkets/ntcharts/v2/linechart/timeserieslinechart"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // A chart is ntcharts' time-series line chart: braille dots on a canvas with a
@@ -33,15 +34,15 @@ func (m *Model) chart(t trace, cw, rows int) []string {
 		copy(at, st[len(st)-len(t.vals):])
 	} else {
 		for i := range at {
-			at[i] = now.Add(-time.Duration(len(at)-1-i) * sampleEvery)
+			at[i] = now.Add(-time.Duration(len(at)-1-i) * display.SampleEvery)
 		}
 	}
-	vals, at = squeezeTimed(vals, at, 2*cw)
+	vals, at = display.SqueezeTimed(vals, at, 2*cw)
 	lo, hi := t.scale(vals)
 	start := at[0]
 	span := now.Sub(start)
-	if span < sampleEvery {
-		span = sampleEvery
+	if span < display.SampleEvery {
+		span = display.SampleEvery
 		start = now.Add(-span)
 	}
 	epoch := func(t time.Time) float64 { return float64(t.UnixMilli()) / 1e3 }
@@ -80,7 +81,7 @@ func (m *Model) chart(t trace, cw, rows int) []string {
 	}
 	c.DrawBraille()
 
-	peak, mean := stats(t.vals)
+	peak, mean := display.Stats(t.vals)
 	head := s.w.Render(t.name) + "  " + s.b.Render(t.now)
 	if len(t.vals) > 1 {
 		head += s.d.Render(fmt.Sprintf("   peak %s · avg %s", t.unit(peak), t.unit(mean)))

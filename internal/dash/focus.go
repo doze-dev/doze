@@ -360,8 +360,8 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		// the column is narrow: each metric a line of figures over two rows of
 		// bars, with a blank between so the two do not run into each other
 		for i, t := range []trace{
-			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
+			{"cpu", m.cpu[v.Name], 5, false, display.Pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+			{"mem", m.ram[v.Name], 0, true, display.BytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
 		} {
 			if m.vitalsOn {
 				break // the vitals are across the top; this box does not say them twice
@@ -369,12 +369,12 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 			if i == 0 {
 				run = append(run, "")
 			}
-			vals := squeeze(t.vals, rw-4)
+			vals := display.Squeeze(t.vals, rw-4)
 			if len(vals) == 0 {
 				vals = []float64{t.cur}
 			}
 			lo, hi := t.scale(vals)
-			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now)+s.d.Render("  last "+spanWord(m.spanSeconds(v.Name, len(t.vals)))))
+			run = append(run, s.d.Render(fit(t.name, 4))+s.b.Render(t.now)+s.d.Render("  last "+display.SpanWord(m.spanSeconds(v.Name, len(t.vals)))))
 			run = append(run, plot(vals, rw-4, 2, lo, hi, t.st, s.dimmed(t.st))...)
 			run = append(run, "")
 		}
@@ -492,9 +492,9 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	vit := []string{}
 	if display.AwakeNow(v) {
 		ts := []trace{
-			{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-			{"mem", m.ram[v.Name], 0, true, bytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
-			{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
+			{"cpu", m.cpu[v.Name], 5, false, display.Pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+			{"mem", m.ram[v.Name], 0, true, display.BytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
+			{"conns", m.conns[v.Name], 8, false, display.Count, fmt.Sprint(v.Conns), float64(v.Conns), s.g},
 		}
 		room := h - len(out) - len(m.extensions("vitals", w)) - 2 - 1 - 10
 		if r := chartH(room, chartGroups(w-4, len(ts))); r > 0 {
@@ -916,11 +916,11 @@ func (m *Model) stamp(at time.Time) string {
 func (m *Model) vitalsStrip(v control.InstanceView, w, maxH int, withConns bool) []string {
 	s := m.st
 	ts := []trace{
-		{"cpu", m.cpu[v.Name], 5, false, pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
-		{"mem", m.ram[v.Name], 0, true, bytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
+		{"cpu", m.cpu[v.Name], 5, false, display.Pct, fmt.Sprintf("%.1f%%", v.CPU), v.CPU, s.a},
+		{"mem", m.ram[v.Name], 0, true, display.BytesLabel, display.MB(v.RAM), float64(v.RAM), s.a},
 	}
 	if withConns {
-		ts = append(ts, trace{"conns", m.conns[v.Name], 8, false, count, fmt.Sprint(v.Conns), float64(v.Conns), s.g})
+		ts = append(ts, trace{"conns", m.conns[v.Name], 8, false, display.Count, fmt.Sprint(v.Conns), float64(v.Conns), s.g})
 	}
 	groups := chartGroups(w-4, len(ts))
 	for r := 5; r >= 2; r-- {

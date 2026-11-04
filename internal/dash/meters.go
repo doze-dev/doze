@@ -2,7 +2,6 @@ package dash
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -14,11 +13,8 @@ import (
 // first, and the line under it names the runs in the same colours. There is no
 // "of": a bar is not how full anything is, so nothing is said to be a limit.
 
-// share is one instance's part of a total.
-type share struct {
-	name string
-	v    float64
-}
+// share is one instance's part of a total, as display works the shares out.
+type share = display.Share
 
 // shareColours are the runs of a bar, largest first; the rest are dim. Red is
 // not among them: it means something is wrong.
@@ -60,40 +56,12 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 	const head = 6 + 11 // "mem   " and the total's column
 	inner := max(cells-head-2, 8)
 	// an instance doing next to nothing has no run to show: it is counted, not drawn
-	var shares []share
-	idle := 0
-	for _, x := range all {
-		if x.v > floor {
-			shares = append(shares, x)
-		} else {
-			idle++
-		}
-	}
-	sort.SliceStable(shares, func(i, j int) bool { return shares[i].v > shares[j].v })
-	var sum float64
-	for _, x := range shares {
-		sum += x.v
-	}
+	shares, idle, sum := display.Shares(all, floor)
 
 	// the runs: every share at least a cell, the rest in proportion
 	var bar strings.Builder
 	if sum > 0 {
-		cellsOf := make([]int, len(shares))
-		left := inner
-		for i, x := range shares {
-			cellsOf[i] = max(int(x.v/sum*float64(inner)+0.5), 1)
-			left -= cellsOf[i]
-		}
-		// take or give the difference from the largest, so the bar is exactly full
-		for i := 0; left != 0 && i < len(cellsOf); i++ {
-			d := left
-			if cellsOf[i]+d < 1 {
-				d = 1 - cellsOf[i]
-			}
-			cellsOf[i] += d
-			left -= d
-		}
-		for i, n := range cellsOf {
+		for i, n := range display.ShareCells(shares, sum, inner) {
 			bar.WriteString(m.runStyle(i).Render(strings.Repeat(runChar(s.plain, i), n)))
 		}
 	} else {
@@ -116,9 +84,9 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 		if i >= shown {
 			break
 		}
-		nm := ansiTruncate(x.name, 14)
-		part := m.runStyle(i).Render(nm) + " " + s.d.Render(unit(x.v))
-		w := width(nm) + 1 + width(unit(x.v))
+		nm := ansiTruncate(x.Name, 14)
+		part := m.runStyle(i).Render(nm) + " " + s.d.Render(unit(x.V))
+		w := width(nm) + 1 + width(unit(x.V))
 		if s.plain {
 			part = runChar(true, i) + " " + part
 			w += 2
@@ -141,7 +109,7 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 	if rest := len(shares) - len(parts); rest > 0 {
 		var restSum float64
 		for _, x := range shares[len(parts):] {
-			restSum += x.v
+			restSum += x.V
 		}
 		line2 += s.d.Render(fmt.Sprintf(" · +%d more · %s", rest, sumOf(restSum)))
 	}
@@ -149,34 +117,4 @@ func (m *Model) composition(name, total string, all []share, floor float64, cell
 		line2 += s.d.Render(fmt.Sprintf(" · %d idle", idle))
 	}
 	return []string{line, line2}
-}
-
-// memUnit formats a share of memory: plain megabytes while the total is under a
-// gigabyte, so the key reads as a column of numbers.
-func memUnit(total float64) func(float64) string {
-	if total >= 1<<30 {
-		return func(v float64) string { return display.MB(int64(v)) }
-	}
-	return func(v float64) string { return fmt.Sprintf("%d", (int64(v)+(1<<19))>>20) }
-}
-
-// cores says a CPU figure (ps's percent, one core being 100) as cores, which is
-// what it is: 0.23 cores is a fifth of one.
-func cores(pct float64) string {
-	c := pct / 100
-	switch {
-	case c <= 0:
-		return "0 cores"
-	case c < 0.005:
-		return "<0.01 cores"
-	case c < 0.995:
-		return fmt.Sprintf("%.2f cores", c)
-	case c < 1.05:
-		return "1 core"
-	}
-	return fmt.Sprintf("%.1f cores", c)
-}
-
-func coresUnit(pct float64) string {
-	return strings.TrimSuffix(strings.TrimSuffix(cores(pct), " cores"), " core")
 }

@@ -170,8 +170,8 @@ func (m *Model) homeTable(w, h int) []string {
 			asleep++
 		}
 		if display.AwakeNow(v) {
-			memShares = append(memShares, share{v.Name, float64(v.RAM)})
-			cpuShares = append(cpuShares, share{v.Name, v.CPU})
+			memShares = append(memShares, share{Name: v.Name, V: float64(v.RAM)})
+			cpuShares = append(cpuShares, share{Name: v.Name, V: v.CPU})
 			ram += v.RAM
 			cpu += v.CPU
 			conns += v.Conns
@@ -220,8 +220,8 @@ func (m *Model) homeTable(w, h int) []string {
 	if ram == 0 {
 		memTotal = "0 MB"
 	}
-	left := m.composition("mem", memTotal, memShares, 0, mc, memUnit(float64(ram)), func(v float64) string { return display.MB(int64(v)) }, keyed)
-	left = append(left, m.composition("cpu", cores(cpu), cpuShares, 0.5, mc, coresUnit, cores, keyed)...)
+	left := m.composition("mem", memTotal, memShares, 0, mc, display.MemUnit(float64(ram)), func(v float64) string { return display.MB(int64(v)) }, keyed)
+	left = append(left, m.composition("cpu", display.Cores(cpu), cpuShares, 0.5, mc, display.CoresUnit, display.Cores, keyed)...)
 	left = append(left, s.a.Bold(true).Render(fit("conns", 6))+s.text.Render(fmt.Sprint(conns))+s.d.Render(" open across the stack"))
 	state := s.g.Render("●") + fmt.Sprintf(" %d awake", awakeN)
 	if dozing > 0 {
