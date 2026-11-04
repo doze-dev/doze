@@ -49,7 +49,7 @@ func (m *Model) stackLogsKey(k string) (tea.Cmd, bool) {
 		m.scrollKey(k)
 		return nil, true
 	case "f":
-		m.level = (m.level + 1) % len(levelNames)
+		m.level = (m.level + 1) % len(display.LevelNames)
 		m.pinned = false
 		return nil, true
 	case "t":
@@ -111,7 +111,7 @@ func (m *Model) stackLines(n int) []string {
 	q := strings.ToLower(m.search)
 	var items []item
 	for i, l := range m.all {
-		r, tag := rank(l.Line)
+		r, tag := display.Rank(l.Line)
 		if r < m.level {
 			continue
 		}
@@ -177,7 +177,7 @@ func (m *Model) stackLogs(w, h int) []string {
 	if m.paused {
 		state = s.y.Render("paused")
 	}
-	r := state + s.d.Render(" · "+levelNames[m.level])
+	r := state + s.d.Render(" · "+display.LevelNames[m.level])
 	out := []string{l + strings.Repeat(" ", max(w-width(l)-width(r), 1)) + r}
 
 	lines, newer := m.window(m.stackLines(0), h-4)

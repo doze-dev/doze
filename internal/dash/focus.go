@@ -21,19 +21,15 @@ import (
 // ones whose data the daemon supplies. The rest of a kind's tabs (env, config,
 // history, data, console) are on their boards and not built.
 
-type tab struct{ id, title string }
+// The tabs and their ids are display's; the dash keeps its short names.
+type tab = display.Tab
 
 const (
-	tabLogs     = "logs"
-	tabOverview = "overview"
-	tabLastRun  = "last run"
-	tabWeb      = "web console"
+	tabLogs     = display.TabLogs
+	tabOverview = display.TabOverview
+	tabLastRun  = display.TabLastRun
+	tabWeb      = display.TabWeb
 )
-
-// hasWeb says the instance has a console of its own to open.
-func hasWeb(v control.InstanceView) bool { return v.Console != "" || v.WebURL != "" }
-
-func webURL(v control.InstanceView) string { return orStr(v.Console, v.WebURL) }
 
 func orStr(a, b string) string {
 	if a != "" {
@@ -42,30 +38,14 @@ func orStr(a, b string) string {
 	return b
 }
 
-// tabs is what the instance opens on first, then the rest, by kind.
+// tabs is what the instance opens on first, then the rest, by kind, with the
+// console's own tabs once its spec has arrived.
 func (m *Model) tabs(v control.InstanceView) []tab {
-	if v.HasConsole && v.Kind != "task" {
-		var spec *control.ConsoleSpec
-		if m.con != nil && m.con.inst == v.Name {
-			spec = m.con.spec
-		}
-		out := consoleTabs(spec)
-		if v.ConsoleFront != "console" && v.ConsoleFront != "" {
-			out = append([]tab{{tabOverview, "overview"}}, out...)
-		}
-		return append(out, tab{tabLogs, "logs"})
+	var spec *control.ConsoleSpec
+	if m.con != nil && m.con.inst == v.Name {
+		spec = m.con.spec
 	}
-	switch {
-	case v.Kind == "task":
-		return []tab{{tabLastRun, "last run"}}
-	case hasWeb(v):
-		// ViewMap.dc.html: a module that ships a good UI (temporal) and a service
-		// that was told where its own is both open on it.
-		return []tab{{tabWeb, "web console"}, {tabLogs, "logs"}}
-	case v.Kind == "module" || v.Kind == "":
-		return []tab{{tabOverview, "overview"}, {tabLogs, "logs"}}
-	}
-	return []tab{{tabLogs, "logs"}}
+	return display.Tabs(v, spec)
 }
 
 // open shows the selected instance in the frame, on its front tab.
@@ -80,29 +60,13 @@ func (m *Model) open() {
 	}
 }
 
-// level ranks, for the logs tab's "info and up".
+// The level ranks are display's; the dash keeps its short names.
 const (
-	lvDebug = iota
-	lvInfo
-	lvWarn
-	lvError
+	lvDebug = display.LevelDebug
+	lvInfo  = display.LevelInfo
+	lvWarn  = display.LevelWarn
+	lvError = display.LevelError
 )
-
-var levelNames = []string{"debug and up", "info and up", "warnings and up", "errors only"}
-
-func rank(line string) (int, string) {
-	switch display.Level(line) {
-	case "error":
-		return lvError, "ERR"
-	case "warn":
-		return lvWarn, "WRN"
-	case "info":
-		return lvInfo, "INF"
-	case "debug":
-		return lvDebug, "DBG"
-	}
-	return lvInfo, ""
-}
 
 // stream is what the instance printed and what doze did about it, newest
 // last, at min level and up. Untagged lines count as info.
@@ -129,7 +93,7 @@ func (m *Model) streamAll(v control.InstanceView, min int, onlyRun int) []string
 		if onlyRun > 0 && l.Run != onlyRun {
 			continue
 		}
-		r, tag := rank(l.Line)
+		r, tag := display.Rank(l.Line)
 		if r < min {
 			continue
 		}
@@ -235,9 +199,9 @@ func (m *Model) focus(w, h int) []string {
 	var bar []string
 	for i, t := range ts {
 		if i == m.tab {
-			bar = append(bar, s.pillOn.Render(t.title))
+			bar = append(bar, s.pillOn.Render(t.Title))
 		} else {
-			bar = append(bar, s.d.Render(t.title))
+			bar = append(bar, s.d.Render(t.Title))
 		}
 	}
 	r := strings.Join(bar, "  ")
@@ -252,21 +216,21 @@ func (m *Model) focus(w, h int) []string {
 	// module overview has it in its own place, and the others get it across the
 	// top when the window has the room.
 	var strip []string
-	if cur.id != tabOverview && cur.id != tabLastRun && display.AwakeNow(v) && v.Kind != "task" && bodyH >= 30 {
+	if cur.ID != tabOverview && cur.ID != tabLastRun && display.AwakeNow(v) && v.Kind != "task" && bodyH >= 30 {
 		strip = m.vitalsStrip(v, w, min(11, bodyH-18), true)
 	}
 	m.vitalsOn = len(strip) > 0
 	bodyH -= len(strip)
 	var body []string
-	m.currentTabID = cur.id
+	m.currentTabID = cur.ID
 	switch {
-	case strings.HasPrefix(cur.id, "console:"):
-		body = m.consoleTab(v, cur.id, w, bodyH)
-	case cur.id == tabOverview:
+	case strings.HasPrefix(cur.ID, "console:"):
+		body = m.consoleTab(v, cur.ID, w, bodyH)
+	case cur.ID == tabOverview:
 		body = m.overview(v, w, bodyH)
-	case cur.id == tabLastRun:
+	case cur.ID == tabLastRun:
 		body = m.lastRun(v, w, bodyH)
-	case cur.id == tabWeb:
+	case cur.ID == tabWeb:
 		body = m.web(v, w, bodyH)
 	default:
 		body = m.logsTab(v, w, bodyH)
@@ -284,7 +248,7 @@ func (m *Model) focus(w, h int) []string {
 
 func (m *Model) focusKeys(v control.InstanceView, ts []tab, cur tab, w int) string {
 	s := m.st
-	if cur.id == tabLogs {
+	if cur.ID == tabLogs {
 		if m.selecting {
 			return m.selectBar()
 		}
@@ -315,7 +279,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		if display.Level(l.Line) == "" {
 			untagged++ // the program did not say; not counted as info
 		} else {
-			r, _ := rank(l.Line)
+			r, _ := display.Rank(l.Line)
 			counts[r]++
 		}
 		n++
@@ -333,7 +297,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 	} else {
 		m.shown = lines
 	}
-	cap := "following · " + levelNames[m.level]
+	cap := "following · " + display.LevelNames[m.level]
 	if newer > 0 {
 		cap = fmt.Sprintf("scrolled back · %d newer lines · G to follow", newer)
 		if m.atTop {
@@ -345,7 +309,7 @@ func (m *Model) logsTab(v control.InstanceView, w, h int) []string {
 		rcap += " · " + z
 	}
 	if m.runSel > 0 {
-		cap = "not following · " + levelNames[m.level]
+		cap = "not following · " + display.LevelNames[m.level]
 		rcap = fmt.Sprintf("run %d of %d", indexOf(runs, m.runSel)+1, len(runs))
 	}
 	if m.search != "" || m.searching {
@@ -477,7 +441,7 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 		case "dependant":
 			why = append(why, s.w.Render(fit(hd.Name, 8))+" "+s.text.Render("needs it"))
 		case "connection":
-			why = append(why, s.w.Render(fit("clients", 8))+" "+s.text.Render(fmt.Sprintf("%d connection%s", hd.Count, plural(hd.Count))))
+			why = append(why, s.w.Render(fit("clients", 8))+" "+s.text.Render(fmt.Sprintf("%d connection%s", hd.Count, display.Plural(hd.Count))))
 		case "pin":
 			why = append(why, s.w.Render(fit("you", 8))+" "+s.text.Render("pinned it awake"))
 		}
@@ -570,13 +534,6 @@ func (m *Model) overview(v control.InstanceView, w, h int) []string {
 	return append(out, after...)
 }
 
-func plural(n int) string {
-	if n == 1 {
-		return ""
-	}
-	return "s"
-}
-
 // lastRun is the front tab of a task (View-Task.dc.html): how it last ran, and
 // when it runs.
 func (m *Model) lastRun(v control.InstanceView, w, h int) []string {
@@ -648,7 +605,7 @@ func (m *Model) web(v control.InstanceView, w, h int) []string {
 	s := m.st
 	label := func(k string) string { return s.d.Render(fit(k, 10)) + " " }
 	var top []string
-	top = append(top, s.b.Render(webURL(v)))
+	top = append(top, s.b.Render(display.WebURL(v)))
 	if display.AwakeNow(v) {
 		top = append(top, s.d.Render("It is awake."))
 	} else {
@@ -724,8 +681,8 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		return nil, true
 	}
 	ts := m.tabs(v)
-	if m.tab < len(ts) && strings.HasPrefix(ts[m.tab].id, "console:") && m.con != nil {
-		if body, ok := bodyOf(m.con.spec, ts[m.tab].id); ok {
+	if m.tab < len(ts) && strings.HasPrefix(ts[m.tab].ID, "console:") && m.con != nil {
+		if body, ok := bodyOf(m.con.spec, ts[m.tab].ID); ok {
 			if cmd, handled := m.consoleKey(k, body); handled {
 				return cmd, true
 			}
@@ -749,48 +706,48 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 		return nil, true
 	case "l":
 		for i, t := range ts {
-			if t.id == tabLogs {
+			if t.ID == tabLogs {
 				m.tab = i
 			}
 		}
 		return nil, true
 	case "f":
-		m.level = (m.level + 1) % len(levelNames)
+		m.level = (m.level + 1) % len(display.LevelNames)
 		m.pinned = false
 		return nil, true
 	case "t":
-		if ts[m.tab].id == tabLogs {
+		if ts[m.tab].ID == tabLogs {
 			m.timeRel = !m.timeRel
 			return nil, true
 		}
 	case "o":
-		if hasWeb(v) {
-			return openURL(webURL(v)), true
+		if display.HasWeb(v) {
+			return openURL(display.WebURL(v)), true
 		}
 		m.say(v.Name + " has no console of its own")
 		return nil, true
 	case "enter":
-		if ts[m.tab].id == tabWeb {
-			return openURL(webURL(v)), true
+		if ts[m.tab].ID == tabWeb {
+			return openURL(display.WebURL(v)), true
 		}
 		return nil, true
 	case "/":
-		if ts[m.tab].id == tabLogs {
+		if ts[m.tab].ID == tabLogs {
 			m.searching = true
 			return nil, true
 		}
 	case "v":
-		if ts[m.tab].id == tabLogs {
+		if ts[m.tab].ID == tabLogs {
 			m.beginSelect(len(m.shown) - 1)
 			return nil, true
 		}
 	case "[", "]":
-		if ts[m.tab].id == tabLogs {
+		if ts[m.tab].ID == tabLogs {
 			m.stepRun(k == "]")
 			return nil, true
 		}
 	case "y", "Y":
-		if ts[m.tab].id == tabLogs {
+		if ts[m.tab].ID == tabLogs {
 			return m.yankLines(v, k == "Y"), true
 		}
 		return m.yankURL(v, k == "Y"), true
@@ -806,7 +763,7 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	case "up", "down", "j", "k", "home", "end", "g", "G", "right", "pgup", "pgdown", "ctrl+u", "ctrl+d":
 		// the frame is one instance and the list is behind esc; on a page of logs
 		// the same keys move through the lines
-		if ts[m.tab].id == tabLogs && k != "right" {
+		if ts[m.tab].ID == tabLogs && k != "right" {
 			m.scrollKey(k)
 		}
 		return nil, true
@@ -814,82 +771,31 @@ func (m *Model) focusKey(k string) (tea.Cmd, bool) {
 	return nil, false
 }
 
-// causeWords says in a few words what made a run happen.
-func causeWords(c journal.Cause) string {
-	switch c.Kind {
-	case journal.ByDependency:
-		return c.By + " needs it"
-	case journal.ByCommand:
-		return "you asked"
-	case journal.ByWatch:
-		return c.By + " changed"
-	case journal.ByConnection:
-		return "a connection"
-	case journal.ByRestart:
-		return "restart policy"
-	}
-	return "doze up"
-}
-
-// runHistory is a task's earlier runs from the journal, newest first: when, why
-// it ran, how long it took and how it ended. A run is a wake and what follows
-// it, a ready or a failure.
+// runHistory draws a task's earlier runs from the journal, newest first: when,
+// why it ran, how long it took and how it ended.
 func (m *Model) runHistory(name string, w int) []string {
 	s := m.st
-	type run struct {
-		at   time.Time
-		why  string
-		took time.Duration
-		ok   bool
-		done bool
-	}
-	var runs []run
-	for _, e := range m.events {
-		if e.Instance != name {
-			continue
-		}
-		switch e.Kind {
-		case journal.Wake:
-			runs = append(runs, run{at: e.Time, why: causeWords(e.Cause)})
-		case journal.Ready:
-			if n := len(runs); n > 0 && !runs[n-1].done {
-				runs[n-1].took, runs[n-1].ok, runs[n-1].done = e.Took, true, true
-			}
-		case journal.Failed:
-			if n := len(runs); n > 0 && !runs[n-1].done {
-				runs[n-1].took, runs[n-1].done = e.Took, true
-			}
-		}
-	}
+	runs := display.RunHistory(m.events, name, m.taskOf(name))
 	if len(runs) == 0 {
-		// the journal has not kept it: the last run is still known from the task
-		if t := m.taskOf(name); t != nil && !t.RanAt.IsZero() {
-			why := t.Why
-			if why == "" {
-				why = "doze up"
-			}
-			runs = []run{{at: t.RanAt, why: why, took: time.Duration(t.TookMS) * time.Millisecond, ok: t.Result == "done", done: true}}
-		} else {
-			return nil
-		}
+		return nil
 	}
 	whyW := max(w-9-2-7-2-2, 8)
 	out := []string{s.d.Render(fit("when", 9) + "  " + fit("why", whyW) + "  " + right("took", 7))}
 	for i := len(runs) - 1; i >= 0; i-- {
 		r := runs[i]
-		when := r.at.In(m.loc).Format("15:04:05")
-		if m.now.Sub(r.at) > 18*time.Hour {
-			when = r.at.In(m.loc).Format("Jan 2")
+		when := r.At.In(m.loc).Format("15:04:05")
+		if m.now.Sub(r.At) > 18*time.Hour {
+			when = r.At.In(m.loc).Format("Jan 2")
 		}
 		took, mark := "", s.d.Render("…")
-		if r.done {
-			took = fmt.Sprintf("%.1fs", r.took.Seconds())
+		if r.Done {
+			took = fmt.Sprintf("%.1fs", r.Took.Seconds())
 			mark = s.g.Render("✓")
-			if !r.ok {
+			if !r.OK {
 				mark = s.r.Render("✗")
 			}
 		}
-		out = append(out, s.d.Render(fit(when, 9))+"  "+s.text.Render(fit(r.why, whyW))+"  "+right(s.d.Render(took), 7)+" "+mark)
+		out = append(out, s.d.Render(fit(when, 9))+"  "+s.text.Render(fit(r.Why, whyW))+"  "+right(s.d.Render(took), 7)+" "+mark)
 	}
 	return out
 }

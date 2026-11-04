@@ -55,7 +55,6 @@ func (m *Model) ordered() []row {
 	if m.sortBy == sortName {
 		return rs
 	}
-	rank := display.StateRank
 	if m.sortBy != sortName && m.now.Before(m.holdUntil) && m.heldBy == m.sortBy && len(m.held) > 0 {
 		at := map[string]int{}
 		for i, n := range m.held {
@@ -90,7 +89,7 @@ func (m *Model) ordered() []row {
 		case sortMem:
 			return a.V.RAM > b.V.RAM
 		case sortState:
-			return rank(a.V) < rank(b.V)
+			return display.StateRank(a.V) < display.StateRank(b.V)
 		}
 		return false
 	})

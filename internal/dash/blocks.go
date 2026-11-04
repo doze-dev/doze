@@ -780,10 +780,10 @@ func (m *Model) syncConsole() {
 		return
 	}
 	ts := m.tabs(v)
-	if m.tab >= len(ts) || !strings.HasPrefix(ts[m.tab].id, "console:") {
+	if m.tab >= len(ts) || !strings.HasPrefix(ts[m.tab].ID, "console:") {
 		return
 	}
-	if body, ok := bodyOf(m.con.spec, ts[m.tab].id); ok {
+	if body, ok := bodyOf(m.con.spec, ts[m.tab].ID); ok {
 		m.followStream(body)
 	}
 }

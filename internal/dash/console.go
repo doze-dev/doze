@@ -167,22 +167,6 @@ func firstCol(p *control.ConsolePanel) string {
 	return ""
 }
 
-// consoleTabs are the tabs a console contributes, from its spec: each Tab, or
-// one called "console" for a spec of panels with none.
-func consoleTabs(spec *control.ConsoleSpec) []tab {
-	if spec == nil {
-		return []tab{{"console:_", "console"}}
-	}
-	var out []tab
-	for _, t := range spec.Tabs {
-		out = append(out, tab{"console:" + t.ID, t.Title})
-	}
-	if len(out) == 0 && len(spec.Panels) > 0 {
-		out = append(out, tab{"console:_", "console"})
-	}
-	return out
-}
-
 // selectedKey is the key of the selected row of a table block.
 func (m *Model) selectedKey(blockID, panel string) string {
 	c := m.con

@@ -84,16 +84,16 @@ func (m *Model) focusHints(v control.InstanceView, ts []tab, cur tab) []hint {
 	if len(ts) > 1 {
 		hs = append(hs, hint{"tab", "next tab", "the next tab of this instance (1-5 go straight to one)", 2})
 	}
-	logs := cur.id == tabLogs
-	if strings.HasPrefix(cur.id, "console:") && m.con != nil {
+	logs := cur.ID == tabLogs
+	if strings.HasPrefix(cur.ID, "console:") && m.con != nil {
 		hs = append(hs, hint{"↑↓", "select", "move through the rows of the focused table", 2})
 		for _, a := range m.con.actions {
 			hs = append(hs, hint{actionKey(a), strings.ToLower(a.Label), "the module's action: " + a.Label, 3})
 		}
 	}
-	if cur.id == tabWeb {
+	if cur.ID == tabWeb {
 		hs = append(hs, hint{"⏎", "open in browser", "open its own console in the browser", 2})
-	} else if hasWeb(v) {
+	} else if display.HasWeb(v) {
 		hs = append(hs, hint{"o", "open console", "open its own console in the browser", 4})
 	}
 	if !logs && v.Kind != "task" {

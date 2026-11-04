@@ -143,8 +143,8 @@ func TestLIsThisInstanceAndCapitalLIsEveryInstance(t *testing.T) {
 		t.Fatalf("l: page=%d sel=%s", m.page, m.sel)
 	}
 	ts := m.tabs(func() control.InstanceView { v, _ := m.selected(); return v }())
-	if ts[m.tab].id != tabLogs {
-		t.Errorf("l should land on the logs tab, got %q", ts[m.tab].id)
+	if ts[m.tab].ID != tabLogs {
+		t.Errorf("l should land on the logs tab, got %q", ts[m.tab].ID)
 	}
 	m = board()
 	m.Update(tea.KeyPressMsg{Code: 'L', Text: "L"})
@@ -354,7 +354,7 @@ func TestLogTimesNameTheirZone(t *testing.T) {
 	m.cache = map[string][]control.LogFrame{"api": m.logs}
 	m.page = pageFocus
 	for i, tb := range m.tabs(func() control.InstanceView { v, _ := m.selected(); return v }()) {
-		if tb.id == tabLogs {
+		if tb.ID == tabLogs {
 			m.tab = i
 		}
 	}

@@ -99,7 +99,7 @@ func (m *Model) actions() []action {
 			m.sel = n
 			m.page = pageFocus
 			for i, t := range m.tabs(v) {
-				if t.id == tabLogs || t.id == tabLastRun {
+				if t.ID == tabLogs || t.ID == tabLastRun {
 					m.tab = i
 				}
 			}
@@ -747,7 +747,7 @@ func (m *Model) openInstanceLogs() {
 	}
 	m.open()
 	for i, t := range m.tabs(v) {
-		if t.id == tabLogs || t.id == tabLastRun {
+		if t.ID == tabLogs || t.ID == tabLastRun {
 			m.tab = i
 		}
 	}
