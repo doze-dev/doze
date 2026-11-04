@@ -2,13 +2,12 @@ package dash
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // What the dash knows about its daemon, and says. A screen that goes on showing
@@ -24,10 +23,6 @@ const (
 	connConnecting
 	connDown
 )
-
-// staleAfter is how long without a frame before the page says its picture is
-// old. The daemon sends the meters every second, so three is already late.
-const staleAfter = 3 * time.Second
 
 type connMsg struct {
 	up    bool
@@ -74,21 +69,11 @@ func keepSubscribed(ctx context.Context, d control.Daemon, sub func() control.Su
 // health says whether what the page shows can be believed, and if not, what to
 // put at the top right of it in place of the resident total.
 func (m *Model) health() (ok bool, banner string) {
-	switch {
-	case m.conn == connConnecting:
-		return false, "connecting to the daemon…"
-	case m.conn == connDown:
-		out := "daemon not responding"
-		if left := m.retryAt.Sub(m.now).Round(time.Second); left > 0 {
-			out += fmt.Sprintf(" · retrying in %ds", int(left.Seconds()))
-		} else {
-			out += " · retrying"
-		}
-		return false, out
-	case !m.lastFrame.IsZero() && m.now.Sub(m.lastFrame) > staleAfter:
-		return false, fmt.Sprintf("last update %ds ago", int(m.now.Sub(m.lastFrame).Seconds()))
+	var since time.Duration
+	if !m.lastFrame.IsZero() {
+		since = m.now.Sub(m.lastFrame)
 	}
-	return true, ""
+	return display.Banner(m.conn == connConnecting, m.conn == connDown, m.retryAt.Sub(m.now), since)
 }
 
 // refuse is what a verb does while the daemon cannot be reached: it says so,
@@ -98,22 +83,6 @@ func (m *Model) refuse() tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg { return failMsg("the daemon is not responding: nothing was sent") }
-}
-
-// humanise makes a connection error one short sentence: what happened first,
-// the path it happened on last.
-func humanise(err error) string {
-	if err == nil {
-		return ""
-	}
-	s := err.Error()
-	switch {
-	case strings.Contains(s, "connection refused"), strings.Contains(s, "no such file"), strings.Contains(s, "not reachable"):
-		return "the daemon is not reachable"
-	case strings.Contains(s, "EOF"), strings.Contains(s, "broken pipe"), strings.Contains(s, "connection reset"):
-		return "the daemon closed the connection"
-	}
-	return s
 }
 
 // seenLine says whether an instance's kept lines already hold this one, which is

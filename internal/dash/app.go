@@ -202,7 +202,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.snapshot()
 			}
 		} else {
-			m.conn, m.downErr, m.retryAt = connDown, humanise(msg.err), m.now.Add(msg.retry)
+			m.conn, m.downErr, m.retryAt = connDown, display.Humanise(msg.err), m.now.Add(msg.retry)
 		}
 	case snapshotMsg:
 		if msg.err == nil {
@@ -259,7 +259,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyConsole(msg)
 	case doneMsg:
 		if msg.err != nil {
-			m.fail(fmt.Sprintf("%s %s failed: %s", msg.verb, msg.target, humanise(msg.err)))
+			m.fail(fmt.Sprintf("%s %s failed: %s", msg.verb, msg.target, display.Humanise(msg.err)))
 		} else if msg.verb == control.VerbTask {
 			m.reportTask = msg.target
 		} else {

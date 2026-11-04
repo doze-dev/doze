@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // A module's console, as the dash holds it: the spec the module described, the
@@ -330,7 +331,7 @@ func (m *Model) runAction(a control.ActionView, tables []control.ConsoleNode, fo
 		return func() tea.Msg {
 			out, err := d.Admin(contextBackground(), inst, a.ID, resource, input)
 			if err != nil {
-				return failMsg(a.Label + ": " + humanise(err))
+				return failMsg(a.Label + ": " + display.Humanise(err))
 			}
 			if out == "" {
 				out = a.Label + " done"
