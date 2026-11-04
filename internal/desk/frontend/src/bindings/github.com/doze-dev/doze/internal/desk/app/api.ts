@@ -70,6 +70,13 @@ export function DoAll(key: string, verb: string, targets: string[] | null): $Can
 }
 
 /**
+ * Empty is the page for a folder with no doze.hcl yet.
+ */
+export function Empty(dir: string): $CancellablePromise<view$0.Empty> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Empty", dir);
+}
+
+/**
  * Focus says what the page shows; the hub and the pushes follow it.
  */
 export function Focus(f: serve$0.Focus): $CancellablePromise<void> {
@@ -138,6 +145,13 @@ export function Recent(): $CancellablePromise<serve$0.Notice[] | null> {
  */
 export function Say(text: string, bad: boolean): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Say", text, bad);
+}
+
+/**
+ * Setup sets a folder up: init, add <arg>, or a starter file.
+ */
+export function Setup(dir: string, action: string, arg: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Setup", dir, action, arg);
 }
 
 /**

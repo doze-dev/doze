@@ -33,7 +33,15 @@ With no display (SSH, CI) it prints the status table instead.`,
 			if serveAddr != "" {
 				// The page and its API over HTTP, no window: for a browser,
 				// Playwright and the Vite dev server.
-				return devserve.Run(cmd.Context(), devserve.Options{Addr: serveAddr, Fixture: fixture, Out: os.Stderr, Version: version})
+				open := ""
+				if len(args) == 1 {
+					open, _ = filepath.Abs(args[0])
+				}
+				var setup func(dir, action, arg string) error
+				if fixture == "" {
+					setup = setupFolder
+				}
+				return devserve.Run(cmd.Context(), devserve.Options{Addr: serveAddr, Fixture: fixture, Out: os.Stderr, Version: version, Open: open, Setup: setup})
 			}
 			dir := ""
 			if len(args) == 1 {
@@ -65,7 +73,7 @@ With no display (SSH, CI) it prints the status table instead.`,
 				fmt.Fprintln(cmd.ErrOrStderr(), "no display here; showing the status table instead")
 				return treeCmd().RunE(cmd, nil)
 			}
-			return app.Run(app.Options{Open: dir, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version})
+			return app.Run(app.Options{Open: dir, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
 		},
 	}
 	c.Flags().BoolVar(&measure, "measure", false, "print timings to stderr for the desk bench")

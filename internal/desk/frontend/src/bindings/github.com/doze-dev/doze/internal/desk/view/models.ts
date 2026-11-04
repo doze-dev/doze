@@ -76,6 +76,20 @@ export interface Chart {
 }
 
 /**
+ * Choice is one way to start.
+ */
+export interface Choice {
+    "n": number;
+
+    /**
+     * init, add, empty
+     */
+    "action": string;
+    "title": string;
+    "what": string;
+}
+
+/**
  * Col is one column of a table or a stream.
  */
 export interface Col {
@@ -216,6 +230,12 @@ export interface Dialog {
     "instance"?: string;
 
     /**
+     * Setup is the folder the buttons set up (Verb is the way: init, add,
+     * empty; the input is the name to add).
+     */
+    "setup"?: string;
+
+    /**
      * Buttons in the dash's order; Default is the index Enter presses.
      */
     "buttons": Button[] | null;
@@ -238,6 +258,30 @@ export interface Doing {
     "ask"?: boolean;
     "page"?: string;
     "text"?: string;
+}
+
+/**
+ * Empty is the page of a folder with no doze.hcl yet (the NewTab board):
+ * what doze found there, and the three ways to start, in the words bare
+ * doze uses in an empty folder.
+ */
+export interface Empty {
+    "dir": string;
+    "name": string;
+    "title": string;
+
+    /**
+     * Found is what the project says: "found 2 apps, 1 module · nothing was
+     * started", or "" when nothing was recognised.
+     */
+    "found"?: string;
+    "choices": Choice[] | null;
+    "note": string;
+
+    /**
+     * Add is the dialog "Add one thing" opens: the name to add.
+     */
+    "add": Dialog;
 }
 
 /**

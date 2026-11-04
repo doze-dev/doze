@@ -17,3 +17,17 @@ var EmptyChoices = [3]Choice{
 // EmptyNothingFound is what the first choice says instead when the project
 // has nothing doze recognises.
 const EmptyNothingFound = "nothing recognised here; it asks instead"
+
+// StarterFile is what "start with an empty file" writes: the four nouns, and
+// what each is for, with nothing declared. Both faces write the same one.
+const StarterFile = `# doze.hcl: what this project runs, and what it needs.
+#
+#   app     "name" { run = "..." }          your code
+#   module  postgres "db" { }              from the doze registry
+#   service "name" { run = "..." }         anything else
+#   task    "name" { run = "..." }         runs once, then gets out of the way
+#
+# doze add postgres   adds one for you.   doze up   starts it all.
+
+stack = "my-project"
+`

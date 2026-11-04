@@ -43,6 +43,9 @@ type Options struct {
 	CloseAfter, QuitAfter time.Duration
 	// Version is the doze this is, shown in the sidebar.
 	Version string
+	// Setup sets a folder with no doze.hcl up (init, add, empty) and starts
+	// its daemon; the CLI provides it.
+	Setup func(dir, action, arg string) error
 }
 
 // Run starts the app and blocks until it quits. A second launch hands its
@@ -58,6 +61,7 @@ func Run(o Options) error {
 	d := &desk{o: o, hub: h}
 	d.svc = serve.New(d.hub, nil)
 	d.svc.SetVersion(o.Version)
+	d.svc.SetSetup(o.Setup)
 	// A menu bar app: no Dock icon, and closing the window does not quit.
 	// Asked for a project, it starts as a regular app so macOS lets it come
 	// forward at launch; the window's close puts it back in the menu bar.

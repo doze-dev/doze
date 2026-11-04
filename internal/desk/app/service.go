@@ -99,3 +99,9 @@ func (a *API) Action(key, name string, act view.Action) view.Dialog {
 func (a *API) Admin(key, name, action, resource, input string) error {
 	return a.s.Admin(key, name, action, resource, input)
 }
+
+// Empty is the page for a folder with no doze.hcl yet.
+func (a *API) Empty(dir string) view.Empty { return a.s.Empty(dir) }
+
+// Setup sets a folder up: init, add <arg>, or a starter file.
+func (a *API) Setup(dir, action, arg string) error { return a.s.Setup(dir, action, arg) }

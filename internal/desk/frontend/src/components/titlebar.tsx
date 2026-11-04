@@ -4,7 +4,7 @@ import { transport, type serve } from "../transport";
 // with its dot, name and a red count when something needs you, the + for a
 // new tab, and the ⌘K command button. Double-click zooms the window, as
 // any title bar does; the strip itself is the drag region.
-export function Titlebar({ stacks, current, onPick, onCommand }: { stacks: serve.StackSummary[]; current: string; onPick: (key: string) => void; onCommand: () => void }) {
+export function Titlebar({ stacks, current, onPick, onCommand, pending }: { stacks: serve.StackSummary[]; current: string; onPick: (key: string) => void; onCommand: () => void; pending?: { name: string; dir: string } }) {
   return (
     <header
       className="titlebar"
@@ -28,6 +28,13 @@ export function Titlebar({ stacks, current, onPick, onCommand }: { stacks: serve
             {s.trouble && <span className="badge">{s.troubled || "!"}</span>}
           </button>
         ))}
+        {pending && (
+          <button role="tab" aria-selected className="stab on" title={pending.dir}>
+            <span className="dot" aria-hidden />
+            <b>{pending.name}</b>
+            <small>no doze.hcl</small>
+          </button>
+        )}
         <button className="stab add" title="New tab (⌘T) — arrives with setup" disabled>
           +
         </button>

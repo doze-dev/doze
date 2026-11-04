@@ -10,6 +10,7 @@ import { HomePage } from "./pages/home";
 import { InstancePage } from "./pages/instance";
 import { LogsPage } from "./pages/logs";
 import { RecentPage } from "./pages/recent";
+import { EmptyPage } from "./pages/empty";
 import { transport, type view } from "./transport";
 
 // The window, as every board lays it out: the title bar with a tab per
@@ -17,8 +18,9 @@ import { transport, type view } from "./transport";
 // Go; this decides only which page is mounted, and which overlay.
 export function App() {
   useBoot();
-  const { stacks, where, home, instance, error, version, dialog, palette, help, selected } = useSlice((s) => ({
+  const { stacks, where, home, instance, empty, error, version, dialog, palette, help, selected } = useSlice((s) => ({
     stacks: s.stacks,
+    empty: s.empty,
     where: s.where,
     home: s.home,
     instance: s.instance,
@@ -99,7 +101,12 @@ export function App() {
 
   return (
     <div className="win">
-      <Titlebar stacks={stacks} current={where?.key ?? ""} onPick={(key) => void go({ key, page: "home" })} onCommand={() => set({ palette: true, dialog: null })} />
+      <Titlebar
+        stacks={stacks}
+        current={where?.key ?? ""}
+        pending={where?.page === "empty" && empty ? { name: empty.name, dir: empty.dir } : undefined}
+        onPick={(key) => void go({ key, page: "home" })}
+        onCommand={() => set({ palette: true, dialog: null })} />
       <div className="body">
         <Sidebar where={where} side={side ?? []} version={version} stacks={stacks.length} />
         <main className="main" data-page={where?.page ?? "none"}>
@@ -117,11 +124,12 @@ export function App() {
           {where?.page === "home" && home && <HomePage home={home} stackKey={where.key} />}
           {where?.page === "instance" && instance && <InstancePage inst={instance} stackKey={where.key} />}
           {where?.page === "logs" && <LogsPage stackKey={where.key} instance={where.instance ?? ""} />}
+          {where?.page === "empty" && empty && <EmptyPage e={empty} />}
           {where?.page === "recent" && <RecentPage stackKey={where.key} stack={stacks.find((s) => s.key === where.key)?.name ?? ""} />}
         </main>
       </div>
       {dialog && <Dialog d={dialog.d} onChoose={(b, text) => void choose(b, text)} onCancel={() => set({ dialog: null })} />}
-      {palette && where && <Palette stackKey={where.key} selected={picked} onPick={pick} onClose={() => set({ palette: false })} />}
+      {palette && where && where.key && <Palette stackKey={where.key} selected={picked} onPick={pick} onClose={() => set({ palette: false })} />}
       {help && <Help version={version} onClose={() => set({ help: false })} />}
       <Toasts />
     </div>

@@ -1252,3 +1252,56 @@ button {
 .sheet .meters b {
   color: var(--bright);
 }
+
+/* a folder with no doze.hcl (the NewTab board) */
+.startgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 0 20px;
+  flex: 1;
+  min-height: 0;
+}
+.cap {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+.choice {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  text-align: left;
+  color: inherit;
+  width: 100%;
+}
+.choice.on {
+  border-color: var(--accent);
+  background: var(--pick-soft, color-mix(in srgb, var(--accent) 12%, var(--panel)));
+}
+.choice .k {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--sel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bright);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.stab small {
+  color: var(--dim);
+  font-size: 11px;
+  margin-left: 6px;
+}

@@ -6,6 +6,7 @@ package devserve
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/serve"
 	"github.com/doze-dev/doze/internal/desk/web"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 // Options says what to serve and where.
@@ -33,6 +35,12 @@ type Options struct {
 	Out *os.File
 	// Version is the doze this is.
 	Version string
+	// Open is a folder to open first, as doze open dir does; with a fixture
+	// it is for a folder with no doze.hcl, whose setup writes the starter
+	// file only.
+	Open string
+	// Setup sets a folder up; nil with a fixture writes the starter file.
+	Setup func(dir, action, arg string) error
 }
 
 // Fixtures are the scripted stacks a fixture run can serve.
@@ -51,6 +59,14 @@ func Run(ctx context.Context, o Options) error {
 	defer cleanup()
 	svc := serve.New(h, nil)
 	svc.SetVersion(o.Version)
+	setup := o.Setup
+	if setup == nil && o.Fixture != "" {
+		setup = starterOnly
+	}
+	svc.SetSetup(setup)
+	if o.Open != "" {
+		svc.Open(o.Open)
+	}
 	api := serve.Handler(svc) // sets the service's emitter to its event stream
 	mux := http.NewServeMux()
 	mux.Handle("/api/", api)
@@ -106,4 +122,13 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 	f := make(time.Now())
 	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return f }})
 	return h, func() { _ = os.RemoveAll(home) }, nil
+}
+
+// starterOnly is the fixture run's setup: it writes the starter file and
+// can do nothing else, since there is no CLI behind it.
+func starterOnly(dir, action, _ string) error {
+	if action != "empty" {
+		return errors.New("only the starter file can be written here")
+	}
+	return os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(display.StarterFile), 0o644)
 }

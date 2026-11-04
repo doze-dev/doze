@@ -107,6 +107,23 @@ func Handler(s *Service) http.Handler {
 		}
 		return map[string]bool{"ok": true}, nil
 	})
+	call("empty", func(b json.RawMessage) (any, error) {
+		var a struct{ Dir string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.Empty(a.Dir), nil
+	})
+	call("setup", func(b json.RawMessage) (any, error) {
+		var a struct{ Dir, Action, Arg string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		if err := s.Setup(a.Dir, a.Action, a.Arg); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+	})
 	call("palette", func(b json.RawMessage) (any, error) {
 		var a struct{ Key, Selected, Query string }
 		if err := json.Unmarshal(b, &a); err != nil {

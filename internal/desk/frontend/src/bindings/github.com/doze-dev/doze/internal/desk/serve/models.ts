@@ -29,6 +29,11 @@ export interface Focus {
 export interface Nav {
     "key": string;
     "page": string;
+
+    /**
+     * Dir is the folder an "empty" page is for: one with no doze.hcl yet.
+     */
+    "dir"?: string;
 }
 
 /**

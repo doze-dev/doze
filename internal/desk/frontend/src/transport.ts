@@ -16,6 +16,8 @@ export interface LogsChanged {
 export interface Nav {
   key: string;
   page: string;
+  /** dir is the folder an "empty" page is for: one with no doze.hcl yet. */
+  dir?: string;
 }
 
 export interface Transport {
@@ -43,6 +45,10 @@ export interface Transport {
   /** say tells Go something the page did, so it is toasted and remembered. */
   say(text: string, bad: boolean): Promise<void>;
   theme(theme: string): Promise<void>;
+  /** empty is the page for a folder with no doze.hcl yet. */
+  empty(dir: string): Promise<view.Empty>;
+  /** setup sets a folder up: init, add <arg>, or a starter file. */
+  setup(dir: string, action: string, arg: string): Promise<void>;
   painted(ms: number): void;
   /** log sends a line to the app's stderr (a no-op in a browser). */
   log(line: string): void;
@@ -81,6 +87,8 @@ async function wails(): Promise<Transport> {
     recent: () => api.Recent().then((r) => r ?? []),
     say: (text, bad) => api.Say(text, bad),
     theme: (theme) => api.Theme(theme),
+    empty: (dir) => api.Empty(dir),
+    setup: (dir, action, arg) => api.Setup(dir, action, arg),
     painted: (ms) => void api.Painted(ms),
     log: (line) => void api.Log(line),
     zoom: () => void Window.ToggleMaximise(),
@@ -135,6 +143,8 @@ function http(): Transport {
     recent: () => call<serve.Notice[] | null>("recent", {}).then((r) => r ?? []),
     say: (text, bad) => call("say", { text, bad }),
     theme: (theme) => call("theme", { theme }),
+    empty: (dir) => call("empty", { dir }),
+    setup: (dir, action, arg) => call("setup", { dir, action, arg }),
     painted: () => {},
     log: (line) => console.log(line),
     zoom: () => {},

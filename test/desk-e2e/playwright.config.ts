@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 // The app's page in a browser, against `doze open --serve --fixture`: no
 // window, no daemon, the same Go views the app shows. WebKit is what the
@@ -10,10 +13,18 @@ const bin = process.env.DOZE_BIN ?? "../../doze";
 const port = Number(process.env.DOZE_E2E_PORT ?? 7731);
 const viewport = { width: 1280, height: 800 };
 
+// The empty spec opens a folder with no doze.hcl; the fixture server's setup
+// writes the starter file there, and the spec reads it back.
+// It is shared with the workers through the environment: this file runs
+// again in each of them.
+process.env.DOZE_E2E_EMPTY_DIR ??= fs.mkdtempSync(path.join(os.tmpdir(), "doze-empty-"));
+const emptyDir = process.env.DOZE_E2E_EMPTY_DIR;
+
 const fixtures = [
-  { name: "shop", port, match: /(home|parity)\.spec\.ts/ },
-  { name: "crash", port: port + 1, match: /crash\.spec\.ts/ },
-  { name: "modules", port: port + 2, match: /console\.spec\.ts/ },
+  { name: "shop", port, match: /(home|parity)\.spec\.ts/, args: "", fixture: "" },
+  { name: "crash", port: port + 1, match: /crash\.spec\.ts/, args: "", fixture: "" },
+  { name: "modules", port: port + 2, match: /console\.spec\.ts/, args: "", fixture: "" },
+  { name: "empty", port: port + 3, match: /empty\.spec\.ts/, args: " " + emptyDir, fixture: "shop" },
 ];
 
 export default defineConfig({
@@ -44,7 +55,7 @@ export default defineConfig({
     },
   ]),
   webServer: fixtures.map((f) => ({
-    command: `${bin} open --serve 127.0.0.1:${f.port} --fixture ${f.name}`,
+    command: `${bin} open --serve 127.0.0.1:${f.port} --fixture ${f.fixture || f.name}${f.args}`,
     url: `http://127.0.0.1:${f.port}/`,
     reuseExistingServer: false,
     timeout: 15_000,

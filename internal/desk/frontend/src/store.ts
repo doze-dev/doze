@@ -7,12 +7,14 @@ import { useEffect } from "react";
 import { Store, useSelector } from "@tanstack/react-store";
 import { transport, type LogsChanged, type Nav, type serve, type view } from "./transport";
 
-export type Page = "home" | "instance" | "logs" | "recent";
+export type Page = "home" | "instance" | "logs" | "recent" | "empty";
 
 export interface Where {
   key: string;
   page: Page;
   instance?: string;
+  /** dir is the folder an empty page is for. */
+  dir?: string;
 }
 
 export type Theme = "dark" | "light" | "system";
@@ -30,6 +32,8 @@ export interface State {
   where: Where | null;
   home: view.Home | null;
   instance: view.Instance | null;
+  /** empty is the page of a folder with no doze.hcl yet. */
+  empty: view.Empty | null;
   /** selected is the row the home table has picked; its logs fill the dock. */
   selected: string;
   /** show, on the merged logs page, is the instances ticked in the sidebar; null is all. */
@@ -57,6 +61,7 @@ export const store = new Store<State>({
   where: null,
   home: null,
   instance: null,
+  empty: null,
   selected: "",
   show: null,
   logsVersion: 0,
@@ -140,6 +145,9 @@ export async function go(where: Where) {
     } else if (where.page === "instance" && where.instance) {
       const instance = await t.instance(where.key, where.instance);
       if (n === nav) set({ instance });
+    } else if (where.page === "empty" && where.dir) {
+      const empty = await t.empty(where.dir);
+      if (n === nav) set({ empty });
     }
   } catch (e) {
     t.log(`go ${where.page} failed: ${String(e)}`);
@@ -185,7 +193,8 @@ export async function choose(b: view.Button, text = "") {
   if (!dialog || !b.verb) return;
   const t = await transport();
   try {
-    if (dialog.d.action) await t.admin(dialog.key, dialog.d.instance ?? "", b.verb, b.targets?.[0] ?? "", text);
+    if (dialog.d.setup) await t.setup(dialog.d.setup, b.verb, text);
+    else if (dialog.d.action) await t.admin(dialog.key, dialog.d.instance ?? "", b.verb, b.targets?.[0] ?? "", text);
     else await t.doAll(dialog.key, b.verb, b.targets ?? []);
   } catch (e) {
     t.log(`${b.label} failed: ${String(e)}`);
@@ -278,14 +287,15 @@ export function useBoot() {
           if (w?.page === "instance" && instance.key === w.key && instance.name === w.instance) set({ instance });
         }),
         t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
-        t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home" })),
+        t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir })),
         t.on<serve.Notice>("notice", toast),
       ];
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);
       set({ stacks, version });
       const first = stacks.find((s) => s.key === pending.key) ?? stacks[0];
-      if (!get().where && first) await go({ key: first.key, page: "home" });
+      if (pending.page === "empty" && pending.dir) await go({ key: "", page: "empty", dir: pending.dir });
+      else if (!get().where && first) await go({ key: first.key, page: "home" });
       const onVisibility = () => {
         const s = get();
         if (document.hidden) void t.blur();

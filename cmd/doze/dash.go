@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/doze-dev/doze/internal/display"
 	"os"
 	"os/exec"
 	"strings"
@@ -105,16 +106,5 @@ func tildePath(p string) string {
 	return p
 }
 
-// starterFile is what "start with an empty file" writes: the four nouns, and
-// what each is for, with nothing declared.
-const starterFile = `# doze.hcl: what this project runs, and what it needs.
-#
-#   app     "name" { run = "..." }          your code
-#   module  postgres "db" { }              from the doze registry
-#   service "name" { run = "..." }         anything else
-#   task    "name" { run = "..." }         runs once, then gets out of the way
-#
-# doze add postgres   adds one for you.   doze up   starts it all.
-
-stack = "` + "my-project" + `"
-`
+// starterFile is display.StarterFile: the app writes the same one.
+const starterFile = display.StarterFile

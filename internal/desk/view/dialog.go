@@ -35,6 +35,9 @@ type Dialog struct {
 	Hint     string `json:"hint,omitempty"`
 	Action   bool   `json:"action,omitempty"`
 	Instance string `json:"instance,omitempty"`
+	// Setup is the folder the buttons set up (Verb is the way: init, add,
+	// empty; the input is the name to add).
+	Setup string `json:"setup,omitempty"`
 	// Buttons in the dash's order; Default is the index Enter presses.
 	Buttons []Button `json:"buttons"`
 	Default int      `json:"default"`

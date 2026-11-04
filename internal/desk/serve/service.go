@@ -9,7 +9,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/fnv"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +20,7 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/view"
+	"github.com/doze-dev/doze/internal/detect"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -92,6 +96,8 @@ type LogsChanged struct {
 type Nav struct {
 	Key  string `json:"key"`
 	Page string `json:"page"`
+	// Dir is the folder an "empty" page is for: one with no doze.hcl yet.
+	Dir string `json:"dir,omitempty"`
 }
 
 // Emitter delivers a push to the page.
@@ -115,10 +121,13 @@ type Service struct {
 	// so what an action answered is said with its label even after its
 	// console is no longer watched.
 	labels map[string]string
-	theme  string
-	sent   map[string]uint64 // event name → hash of what was last sent
-	dirty  bool
-	wake   chan struct{}
+	// setup sets a folder up (init, add, empty) and starts its daemon; the
+	// CLI provides it. Nil says the face cannot.
+	setup func(dir, action, arg string) error
+	theme string
+	sent  map[string]uint64 // event name → hash of what was last sent
+	dirty bool
+	wake  chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -491,6 +500,11 @@ func (s *Service) Pending() Nav {
 	}
 	key := s.KeyFor(dir)
 	if key == "" {
+		if noConfig(dir) {
+			// Nothing to run yet: the page offers the three ways to start,
+			// and the folder stays pending until a daemon appears there.
+			return Nav{Page: "empty", Dir: dir}
+		}
 		return Nav{}
 	}
 	s.mu.Lock()
@@ -566,5 +580,66 @@ func (s *Service) Admin(key, name, action, resource, input string) error {
 		out = label + " done"
 	}
 	s.Say(out, false)
+	return nil
+}
+
+// noConfig says a folder exists but has no doze.hcl.
+func noConfig(dir string) bool {
+	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(dir, "doze.hcl"))
+	return os.IsNotExist(err)
+}
+
+// SetSetup says how a folder is set up: the CLI's init, add and starter
+// file, then its daemon started.
+func (s *Service) SetSetup(fn func(dir, action, arg string) error) {
+	s.mu.Lock()
+	s.setup = fn
+	s.mu.Unlock()
+}
+
+// Empty is the page for a folder with no doze.hcl: what doze finds there
+// and the three ways to start.
+func (s *Service) Empty(dir string) view.Empty {
+	var found []string
+	if res, err := detect.Scan(dir); err == nil {
+		for _, c := range []struct {
+			n    int
+			what string
+		}{{len(res.Apps), "app"}, {len(res.Modules), "module"}, {len(res.Services), "service"}, {len(res.Tasks), "task"}} {
+			if c.n > 0 {
+				found = append(found, fmt.Sprintf("%d %s%s", c.n, c.what, display.Plural(c.n)))
+			}
+		}
+	}
+	return view.EmptyOf(dir, found)
+}
+
+// Setup sets a folder up the way chosen and says so; the stack is shown
+// once its daemon is up (Open).
+func (s *Service) Setup(dir, action, arg string) error {
+	s.mu.Lock()
+	fn := s.setup
+	s.mu.Unlock()
+	if fn == nil {
+		err := errors.New("this doze cannot set a folder up from here")
+		s.Say(err.Error(), true)
+		return err
+	}
+	if err := fn(dir, action, arg); err != nil {
+		s.Say("setting up "+display.Tilde(dir)+" failed: "+display.Humanise(err), true)
+		return errors.New(display.Humanise(err))
+	}
+	switch action {
+	case "init":
+		s.Say("wrote doze.hcl from what "+display.Tilde(dir)+" says", false)
+	case "add":
+		s.Say("wrote doze.hcl with "+arg+" in "+display.Tilde(dir), false)
+	default:
+		s.Say("wrote a starter doze.hcl in "+display.Tilde(dir)+" — fill it in, then: doze up", false)
+	}
+	s.Open(dir)
 	return nil
 }
