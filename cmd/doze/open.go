@@ -39,7 +39,7 @@ With no display (SSH, CI) it prints the status table instead.`,
 			// so the first thing the app shows is live.
 			if cfg, err := loadConfig(); err == nil {
 				if dir == "" {
-					dir = configDir(configPath)
+					dir, _ = filepath.Abs(configDir(configPath))
 				}
 				if !daemonRunning(cfg) {
 					if err := startDaemon(cfg); err != nil {

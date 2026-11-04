@@ -1,0 +1,103 @@
+//go:build purego
+
+package app
+
+import (
+	"context"
+	_ "embed"
+	"fmt"
+	"os"
+	"sync"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"github.com/doze-dev/doze/internal/control"
+	"github.com/doze-dev/doze/internal/desk/tray"
+)
+
+// The menu bar bat, black on transparent, as a template image so the system
+// draws it for light and dark menu bars. 44 px is the 2x image the bar wants.
+//
+//go:embed icons/bat-44.png
+var batIcon []byte
+
+// bar turns the tray package's model into the native menu bar item, and
+// rebuilds it only when the model changes: the hub reports every frame, and
+// most frames change nothing a menu shows.
+type bar struct {
+	item *application.SystemTray
+
+	mu    sync.Mutex
+	shown string
+}
+
+func (d *desk) startTray() {
+	d.item = d.app.SystemTray.New()
+	d.item.SetTemplateIcon(batIcon)
+	d.item.SetTooltip("doze")
+	d.refreshTray()
+}
+
+// refreshTray runs on the hub's goroutine; the menu is built there and
+// handed to the main thread whole.
+func (d *desk) refreshTray() {
+	m := tray.Build(d.hub.Stacks())
+	sig := fmt.Sprintf("%+v", m)
+	d.mu.Lock()
+	same := sig == d.shown
+	d.shown = sig
+	d.mu.Unlock()
+	if same {
+		return
+	}
+	menu := d.menu(m)
+	application.InvokeSync(func() {
+		d.item.SetLabel(m.Label)
+		d.item.SetTooltip(m.Tooltip)
+		d.item.SetMenu(menu)
+	})
+}
+
+func (d *desk) menu(m tray.Model) *application.Menu {
+	menu := d.app.NewMenu()
+	if len(m.Sections) == 0 {
+		menu.Add("No stack is running").SetEnabled(false)
+	}
+	for _, sec := range m.Sections {
+		menu.AddSectionHeader(sec.Title)
+		for _, r := range sec.Rows {
+			sub := menu.AddSubmenu(r.Label)
+			key, name := sec.Key, r.Name
+			sub.Add("Wake").SetEnabled(!r.Awake).OnClick(func(*application.Context) {
+				d.run(key, control.Verb{Name: control.VerbWake, Target: name})
+			})
+			sub.Add("Sleep").SetEnabled(r.Awake).OnClick(func(*application.Context) {
+				d.run(key, control.Verb{Name: control.VerbSleep, Target: name})
+			})
+		}
+		dir := sec.Dir
+		menu.Add("Open " + sec.Name).OnClick(func(*application.Context) { d.open(dir) })
+		menu.AddSeparator()
+	}
+	for _, s := range m.Stopped {
+		dir := s.Dir
+		menu.Add(s.Name + " · stopped").OnClick(func(*application.Context) { d.open(dir) })
+	}
+	if len(m.Stopped) > 0 {
+		menu.AddSeparator()
+	}
+	menu.Add("Quit doze").OnClick(func(*application.Context) { d.app.Quit() })
+	return menu
+}
+
+// run sends a verb off the main thread and refreshes once it is done, so a
+// click's result shows without waiting for the next frame.
+func (d *desk) run(key string, verb control.Verb) {
+	go func() {
+		if err := d.hub.Do(context.Background(), key, verb); err != nil {
+			fmt.Fprintf(os.Stderr, "doze: %s %s: %v\n", verb.Name, verb.Target, err)
+		}
+		d.hub.Refresh()
+		d.refreshTray()
+	}()
+}
