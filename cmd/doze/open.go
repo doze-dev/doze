@@ -143,7 +143,7 @@ func detachApp(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer logf.Close()
+	defer func() { _ = logf.Close() }() // the child has its own copy
 	c := exec.Command(exe, args...)
 	c.Env = append(os.Environ(), envAppChild+"=1")
 	c.Stdout, c.Stderr = logf, logf
