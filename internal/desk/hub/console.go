@@ -42,7 +42,6 @@ type consoleState struct {
 	// panel and sector are the stream being followed, and which row of its
 	// table; they scope the subscription.
 	panel, sector string
-	want          int
 	gen           int
 	cancel        context.CancelFunc
 }
@@ -54,36 +53,24 @@ func newConsoleState() *consoleState {
 	}
 }
 
-// watchConsole adds a page's interest in an instance's console; the first
-// opens the subscription, the last release closes it and forgets the rows.
-func (s *stack) watchConsole(inst string) (release func()) {
+// setConsoleWanted opens an instance's console subscription, or closes it
+// and forgets the rows. The hub decides what is wanted from the pages'
+// interest, so a stack that comes back after its daemon restarted is
+// asked again from the start.
+func (s *stack) setConsoleWanted(inst string, wanted bool) {
 	s.mu.Lock()
 	c := s.consoles[inst]
-	if c == nil {
-		c = newConsoleState()
-		s.consoles[inst] = c
-	}
-	c.want++
-	first := c.want == 1
-	s.mu.Unlock()
-	if first {
+	switch {
+	case wanted && c == nil:
+		s.consoles[inst] = newConsoleState()
+		s.mu.Unlock()
 		s.resubConsole(inst)
+		return
+	case !wanted && c != nil:
+		c.cancel()
+		delete(s.consoles, inst)
 	}
-	var once sync.Once
-	return func() {
-		once.Do(func() {
-			s.mu.Lock()
-			c := s.consoles[inst]
-			if c != nil {
-				c.want--
-				if c.want <= 0 {
-					c.cancel()
-					delete(s.consoles, inst)
-				}
-			}
-			s.mu.Unlock()
-		})
-	}
+	s.mu.Unlock()
 }
 
 // followConsole makes the subscription follow a stream panel and the row of
@@ -219,16 +206,39 @@ func (s *stack) admin(ctx context.Context, inst, action, resource, input string)
 }
 
 // WatchConsole says a page shows an instance's console, so the hub subscribes
-// to it; the returned func says it stopped. A stack that is not running has
-// no console to watch: the release is a no-op.
+// to it; the returned func says it stopped. The interest is kept by key,
+// as Watch keeps it, so a stack whose daemon restarts streams the console
+// again as soon as it is back.
 func (h *Hub) WatchConsole(key, inst string) (release func()) {
 	h.mu.Lock()
+	if h.consoleWants[key] == nil {
+		h.consoleWants[key] = map[string]int{}
+	}
+	h.consoleWants[key][inst]++
 	s := h.stacks[key]
 	h.mu.Unlock()
-	if s == nil {
-		return func() {}
+	if s != nil {
+		s.setConsoleWanted(inst, true)
 	}
-	return s.watchConsole(inst)
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			h.mu.Lock()
+			still := 0
+			if m := h.consoleWants[key]; m != nil && m[inst] > 0 {
+				m[inst]--
+				still = m[inst]
+				if still == 0 {
+					delete(m, inst)
+				}
+			}
+			s := h.stacks[key]
+			h.mu.Unlock()
+			if still == 0 && s != nil {
+				s.setConsoleWanted(inst, false)
+			}
+		})
+	}
 }
 
 // FollowConsole makes a watched console's subscription follow a stream

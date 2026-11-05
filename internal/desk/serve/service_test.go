@@ -290,3 +290,41 @@ func TestAConsoleTabIsWatchedFollowedAndPushed(t *testing.T) {
 	}
 	t.Error("the consoles stayed watched after blur")
 }
+
+func TestANotificationsShowOpensTheInstanceOnceAndTheTailIsTheLastRun(t *testing.T) {
+	h, key := newHub(t, fixture.Crash(epoch))
+	rec := &recorder{}
+	s := New(h, rec.emit)
+	s.SetClock(func() time.Time { return epoch })
+	st, _ := s.stack(key)
+	// A cold open from a notification: Pending carries the instance, once.
+	s.OpenAt(st.Dir, "api")
+	if nav := s.Pending(); nav.Page != "instance" || nav.Instance != "api" || nav.Key != key {
+		t.Fatalf("Pending after OpenAt = %+v", nav)
+	}
+	if nav := s.Pending(); nav.Key != "" {
+		t.Fatalf("Pending answered twice: %+v", nav)
+	}
+	// Another folder forgets an older Show's instance.
+	s.OpenAt(st.Dir, "api")
+	s.Open(filepath.Join(t.TempDir(), "elsewhere"))
+	s.mu.Lock()
+	inst := s.pendingInstance
+	s.mu.Unlock()
+	if inst != "" {
+		t.Errorf("an older Show's instance survived a new Open: %q", inst)
+	}
+	// The crash tail is the last run only (logs stream while a page watches).
+	t.Cleanup(h.Watch(key, control.TopicLogs))
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(h.Logs(key, "api")) >= 15 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	v := s.Instance(key, "api")
+	if v.Crash == nil || len(v.Crash.LastRun) != 5 || v.Crash.LastRun[0].Line != "started go run ./cmd/api" || v.Crash.LastTry != "fifth" {
+		t.Fatalf("crash tail = %+v", v.Crash)
+	}
+}

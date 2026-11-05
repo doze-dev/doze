@@ -312,8 +312,13 @@ func (s *Service) Instance(key, name string) view.Instance {
 	st, _ := s.stack(key)
 	out := view.InstanceOf(st, name, s.now())
 	if out.Crash != nil {
-		// Its last run: the tail of what it said before it exited.
-		logs := view.LogsOf(view.LogsQuery{Instance: name}, s.hub.Logs(key, name), st.Events, s.now())
+		// Its last run: the tail of what it said before it exited, from that
+		// run only.
+		kept := s.hub.Logs(key, name)
+		logs := view.LogsOf(view.LogsQuery{Instance: name}, kept, st.Events, s.now())
+		if n := len(logs.Runs); n > 0 {
+			logs = view.LogsOf(view.LogsQuery{Instance: name, Run: logs.Runs[n-1]}, kept, st.Events, s.now())
+		}
 		if n := len(logs.Lines); n > 8 {
 			logs.Lines = logs.Lines[n-8:]
 		}
@@ -497,6 +502,9 @@ func (s *Service) Open(dir string) {
 		return
 	}
 	s.mu.Lock()
+	if s.pendingDir != dir {
+		s.pendingInstance = "" // an older Show's instance is not for this folder
+	}
 	s.pendingDir = dir
 	s.mu.Unlock()
 	s.hub.Refresh() // a socket that appeared since the last look
@@ -523,11 +531,16 @@ func (s *Service) Pending() Nav {
 		return Nav{}
 	}
 	s.mu.Lock()
+	nav := Nav{Key: key, Page: "home"}
 	if s.pendingDir == dir {
 		s.pendingDir = ""
+		if s.pendingInstance != "" {
+			nav.Page, nav.Instance = "instance", s.pendingInstance
+			s.pendingInstance = ""
+		}
 	}
 	s.mu.Unlock()
-	return Nav{Key: key, Page: "home"}
+	return nav
 }
 
 // KeyFor is the hub key of the stack at a project folder, or "" when no
@@ -573,6 +586,18 @@ func (s *Service) rememberLabels(key, name string, st hub.StackView) {
 func (s *Service) Action(key, name string, a view.Action) view.Dialog {
 	st, _ := s.stack(key)
 	s.rememberLabels(key, name, st)
+	// The row it acts on is the one selected now, not the one the page
+	// last drew: a key pressed right after ↓ means the new row.
+	s.mu.Lock()
+	f := s.focus
+	s.mu.Unlock()
+	if f.Key == key && f.Instance == name && f.Tab != "" {
+		for _, blk := range collectActions(view.ConsoleOf(st, name, f.Tab, f.Sel).Body) {
+			if blk.ID == a.ID {
+				a.Resource = blk.Resource
+			}
+		}
+	}
 	return view.ActionDialog(st, name, a)
 }
 
@@ -693,8 +718,18 @@ func (s *Service) reportOutside() {
 // OpenAt is Open, then that instance's page: where a notification's Show
 // goes. The nav waits with the folder until the hub knows its stack.
 func (s *Service) OpenAt(dir, instance string) {
+	s.Open(dir)
 	s.mu.Lock()
 	s.pendingInstance = instance
 	s.mu.Unlock()
-	s.Open(dir)
+	s.changed()
+}
+
+// collectActions is every action in a console tree.
+func collectActions(n view.Node) []view.Action {
+	out := append([]view.Action(nil), n.Actions...)
+	for _, ch := range n.Children {
+		out = append(out, collectActions(ch)...)
+	}
+	return out
 }

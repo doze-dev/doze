@@ -17,12 +17,16 @@ import (
 type window struct {
 	win      *application.WebviewWindow
 	openedAt time.Time
+	lastDir  string
 }
 
 // open brings the window forward at a project. The tab for the project
 // arrives with the hub's views in P1; for now the window is the shell.
 func (d *desk) open(dir string) {
 	d.measure("open %s", dir)
+	if dir != "" {
+		d.lastDir = dir // the project the window last showed, for prefs
+	}
 	d.svc.Open(dir)
 	application.InvokeSync(func() {
 		if d.win != nil {
@@ -65,8 +69,8 @@ func (d *desk) open(dir string) {
 					p := prefs.Load(d.hub.Home())
 					p.Window.W, p.Window.H = w.Size()
 					p.Window.X, p.Window.Y = w.Position()
-					if dir != "" {
-						p.LastDir = dir
+					if d.lastDir != "" {
+						p.LastDir = d.lastDir
 					}
 					if err := prefs.Save(d.hub.Home(), p); err != nil {
 						d.measure("prefs not saved: %v", err)

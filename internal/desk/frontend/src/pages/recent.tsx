@@ -7,10 +7,19 @@ import { Keys } from "../components/keys";
 // said, newest first.
 export function RecentPage({ stackKey, stack }: { stackKey: string; stack: string }) {
   const [recent, setRecent] = useState<serve.Notice[]>([]);
-  const version = 0;
   useEffect(() => {
     transport().then(async (t) => setRecent((await t.recent()) ?? []));
-  }, [version]);
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        void go({ key: stackKey, page: "home" });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stackKey]);
   return (
     <>
       <div className="head">
@@ -28,7 +37,7 @@ export function RecentPage({ stackKey, stack }: { stackKey: string; stack: strin
         {recent.map((n, i) => (
           <div key={i} className="l">
             <span className="dim mono">{new Date(n.at).toLocaleTimeString([], { hour12: false })}</span>
-            <span className={n.bad ? "bad" : ""}>{n.text}</span>
+            <span className={n.bad ? "bad" : ""}>{n.bad ? "✗ " : ""}{n.text}</span>
           </div>
         ))}
         {recent.length === 0 && (

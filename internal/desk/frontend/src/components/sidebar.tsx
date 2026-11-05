@@ -6,6 +6,19 @@ import type { view } from "../transport";
 export function Sidebar({ where, side, version, stacks }: { where: Where | null; side: view.Side[]; version: string; stacks: number }) {
   const show = useStore((s) => s.show);
   const key = where?.key ?? "";
+  if (where?.page === "empty") {
+    // No stack yet: nothing to view until one of the ways to start is chosen.
+    return (
+      <nav className="side" aria-label="Views">
+        <div className="foot">
+          <span className="acc" aria-hidden>
+            z
+          </span>
+          doze {version || ""} · {stacks} {stacks === 1 ? "stack" : "stacks"}
+        </div>
+      </nav>
+    );
+  }
   return (
     <nav className="side" aria-label="Views">
       <h4>View</h4>

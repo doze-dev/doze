@@ -5,6 +5,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -20,6 +21,9 @@ import (
 // inBundle says this binary runs from inside a .app, where the system
 // notification centre will take it.
 func inBundle() bool {
+	if runtime.GOOS != "darwin" {
+		return true // Linux notifies over D-Bus from any binary
+	}
 	exe, err := os.Executable()
 	return err == nil && strings.Contains(exe, ".app/Contents/MacOS/")
 }

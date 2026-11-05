@@ -2,6 +2,7 @@ package view
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
@@ -55,7 +56,21 @@ func PaletteOf(st hub.StackView, selected, theme, query string) Palette {
 	}
 	var all []ranked
 	rank := 0
+	seenVerb := map[string]bool{}
 	add := func(r PaletteRow) {
+		// With nothing typed the palette offers what is at hand: the selected
+		// instance and the stack. Typing reaches every instance; and a couple
+		// of letters match one verb on every instance, so the first of each
+		// is enough until the person says which. Both as the dash's hits did.
+		if query == "" && rank > 1 {
+			return
+		}
+		if verb, _, _ := strings.Cut(r.Label, " "); rank == 2 && len(query) < 3 {
+			if seenVerb[verb] {
+				return
+			}
+			seenVerb[verb] = true
+		}
 		at, ok := display.FuzzyMatch(query, r.Label)
 		if !ok {
 			return

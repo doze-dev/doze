@@ -40,48 +40,6 @@
         "target": "api",
         "ask": true
       }
-    },
-    {
-      "label": "sleep web",
-      "at": [
-        0,
-        1
-      ],
-      "cli": "doze sleep web",
-      "do": {
-        "kind": "verb",
-        "verb": "sleep",
-        "target": "web",
-        "ask": true
-      }
-    },
-    {
-      "label": "sleep cache",
-      "at": [
-        0,
-        1
-      ],
-      "cli": "doze sleep cache",
-      "do": {
-        "kind": "verb",
-        "verb": "sleep",
-        "target": "cache",
-        "ask": true
-      }
-    },
-    {
-      "label": "sleep mongo",
-      "at": [
-        0,
-        1
-      ],
-      "cli": "doze sleep mongo",
-      "do": {
-        "kind": "verb",
-        "verb": "sleep",
-        "target": "mongo",
-        "ask": true
-      }
     }
   ]
 }

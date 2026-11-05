@@ -86,9 +86,12 @@ type Hub struct {
 	refreshed bool // Refresh has run once; the first run always reports
 	// wants counts the pages watching each topic of each key, kept here so
 	// a stack that appears or is replaced later streams what is wanted.
-	wants    map[string]map[string]int
-	onChange []func()
-	ctx      context.Context
+	wants map[string]map[string]int
+	// consoleWants counts the pages showing each instance's console, by
+	// stack key and instance, as wants does for topics.
+	consoleWants map[string]map[string]int
+	onChange     []func()
+	ctx          context.Context
 }
 
 // New makes a hub; Run starts it.
@@ -105,7 +108,7 @@ func New(o Options) *Hub {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
-	return &Hub{o: o, stacks: map[string]*stack{}, stopped: map[string]projects.Project{}, wants: map[string]map[string]int{}}
+	return &Hub{o: o, stacks: map[string]*stack{}, stopped: map[string]projects.Project{}, wants: map[string]map[string]int{}, consoleWants: map[string]map[string]int{}}
 }
 
 // home is doze's folder: $DOZE_HOME, else ~/.doze.
@@ -179,6 +182,9 @@ func (h *Hub) Refresh() {
 		}
 		h.stacks[key] = s
 		s.start(ctx)
+		for inst := range h.consoleWants[key] {
+			s.setConsoleWanted(inst, true) // a console a page still shows
+		}
 		changed = true
 	}
 	for key, s := range h.stacks {

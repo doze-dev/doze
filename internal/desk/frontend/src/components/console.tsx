@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { askAction, setConsole, useSlice } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "./keys";
@@ -95,9 +95,9 @@ export function ConsoleTab({ stackKey, inst, tab }: { stackKey: string; inst: st
         </p>
       )}
       {con.missing && <div className="empty dim">the module has no such tab</div>}
-      {!con.awake && !con.missing && (
+      {con.state && !con.awake && !con.missing && (
         <div className="dim" style={{ padding: "10px 20px 0" }}>
-          {inst} is {con.state || "asleep"} · the console never wakes it; what it last showed is kept
+          {inst} is {con.state} · the console never wakes it; what it last showed is kept
         </div>
       )}
       <div className="con" data-tab={tab}>
@@ -267,10 +267,16 @@ function TableBlock(p: BlockProps & { style: React.CSSProperties }) {
 
 function StreamBlock({ n, style }: { n: view.Node; style: React.CSSProperties }) {
   const rows = n.rows ?? [];
+  // The newest line stays in view, as the dash drew the tail.
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = list.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [rows.length, rows[rows.length - 1]?.key]);
   return (
-    <section className="card con-stream" style={{ ...style, padding: 0 }} aria-label={n.title || n.id}>
+    <section className="card con-stream" style={{ ...style, padding: 0, minHeight: 0 }} aria-label={n.title || n.id}>
       <h3 style={{ padding: "12px 14px 0" }}>{n.title}</h3>
-      <div className="tbl" style={{ margin: 0, border: 0, borderRadius: 0, background: "transparent" }}>
+      <div ref={list} className="tbl" style={{ margin: 0, border: 0, borderRadius: 0, background: "transparent", overflow: "auto", flex: 1, minHeight: 0 }}>
         <div className="tr h" style={{ "--c": cols(n) } as React.CSSProperties}>
           {(n.cols ?? []).map((c) => (
             <span key={c.key} className={c.align === "right" ? "r" : ""}>

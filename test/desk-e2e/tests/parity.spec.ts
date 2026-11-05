@@ -79,9 +79,11 @@ test("reset db wants the name typed and defaults to Cancel, as the Reset board d
   await page.screenshot({ path: `.desk-look/Reset-${info.project.name}.png` });
   await dlg.getByLabel("Type db to confirm").fill("db");
   await expect(resetBtn).toBeEnabled();
-  // Enter on the default is Cancel, even once the name is typed.
+  // Typing the name moves the default onto Reset, as the dash did: ⏎ resets.
+  await expect(resetBtn).toHaveClass(/ring2/);
   await page.keyboard.press("Enter");
   await expect(dlg).toBeHidden();
+  await expect(page.locator(".toast", { hasText: "reset db failed" })).toHaveCount(0);
 });
 
 test("⌘K lists actions with their commands, as the Search board does", async ({ page }, info) => {
@@ -133,7 +135,8 @@ test("what was said is toasted and kept in recent messages, as the Notices board
   await expect(msgs.locator(".l").first().locator(".mono")).toHaveText(/^\d\d:\d\d:\d\d$/);
   await page.screenshot({ path: `.desk-look/Notices-${info.project.name}.png` });
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await expect(msgs).toBeHidden();
+  await expect(page.locator(".keys")).toContainText("the same keys as the TUI");
 });
 
 test("the theme switches from ⌘K and is remembered", async ({ page }) => {

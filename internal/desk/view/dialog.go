@@ -121,7 +121,7 @@ func sleepDialog(v control.InstanceView) Dialog {
 
 func restartDialog(v control.InstanceView) Dialog {
 	d := Dialog{Kind: "restart", Title: "Restart " + v.Name + "?"}
-	if display.InUse(v) == "" || !display.Awake(v.State) || v.Kind == "task" {
+	if display.InUse(v) == "" || !display.AwakeNow(v) || v.Kind == "task" {
 		return d
 	}
 	d.Needed = true

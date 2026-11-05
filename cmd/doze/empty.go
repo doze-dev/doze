@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -34,7 +35,7 @@ func setupFolder(dir, action, arg string) error {
 		c.Dir = dir
 		c.Env = append(os.Environ(), "NO_COLOR=1")
 		if out, err := c.CombinedOutput(); err != nil {
-			return fmt.Errorf("doze %s: %s", action, firstLine(string(out), err.Error()))
+			return fmt.Errorf("doze %s: %s", action, lastLine(string(out), err.Error()))
 		}
 	case "empty":
 		if err := os.WriteFile(path, []byte(display.StarterFile), 0o644); err != nil {
@@ -44,8 +45,7 @@ func setupFolder(dir, action, arg string) error {
 		return fmt.Errorf("no way to start called %q", action)
 	}
 	// The stack is shown live: its daemon is started as doze open does.
-	configPath = path
-	cfg, err := loadConfig()
+	cfg, err := config.Load(path, activeHost.ConfigHooks())
 	if err != nil {
 		return err
 	}
@@ -55,8 +55,8 @@ func setupFolder(dir, action, arg string) error {
 	return nil
 }
 
-// firstLine is the last non-empty line of a command's output, or fallback.
-func firstLine(out, fallback string) string {
+// lastLine is the last non-empty line of a command's output, or fallback.
+func lastLine(out, fallback string) string {
 	last := ""
 	start := 0
 	for i := 0; i <= len(out); i++ {

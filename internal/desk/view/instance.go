@@ -143,8 +143,11 @@ type Crash struct {
 	Error string `json:"error"`
 	// Where is the rest of the error after its first line: the frame, the
 	// file and line, as the Crash board shows it under the message.
-	Where    string  `json:"where,omitempty"`
-	Tries    string  `json:"tries,omitempty"` // "try 3 of 5"
+	Where string `json:"where,omitempty"`
+	Tries string `json:"tries,omitempty"` // "try 3 of 5"
+	// LastTry is the last try as a word, "fifth", for "after the fifth it
+	// stops".
+	LastTry  string  `json:"lastTry,omitempty"`
 	Fraction float64 `json:"fraction"`
 	NextIn   string  `json:"nextIn,omitempty"` // "4 s"
 	GaveUp   bool    `json:"gaveUp"`
@@ -237,6 +240,7 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 		c := &Crash{Error: display.FirstLine(v.LastError), Where: afterFirstLine(v.LastError), GaveUp: v.State == "failed" || v.State == "error"}
 		if v.RestartMax > 0 {
 			c.Tries = fmt.Sprintf("try %d of %d", v.RestartCount, v.RestartMax)
+			c.LastTry = ordinal(v.RestartMax)
 			c.Fraction = part(float64(v.RestartCount), float64(v.RestartMax))
 		}
 		if !v.NextRestart.IsZero() && v.NextRestart.After(now) {
@@ -406,4 +410,13 @@ func extensions(st hub.StackView, name string) []Extend {
 		out = append(out, Extend{After: e.After, Node: r.node(e.Node)})
 	}
 	return out
+}
+
+// ordinal is a small count as a word: "fifth"; larger ones as "10th".
+func ordinal(n int) string {
+	words := []string{"", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"}
+	if n > 0 && n < len(words) {
+		return words[n]
+	}
+	return fmt.Sprintf("%dth", n)
 }

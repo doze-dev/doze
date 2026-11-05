@@ -13,7 +13,7 @@ rendered at 1280×800 and looked at. Boards: `docs/design/desktop/boards/`.
 | 1 | Home: meters, grouped table, state·name·what·because·mem·url, selected instance's logs | Home page: four vitals, APPS/MODULES/OUTSIDE/TASKS table, the dock | `home.spec.ts` | Main | **Green.** Not carried: sort (`o`), tree (`t`), filter (`/`), line selection (`v`); the dock stands in for the detail pane |
 | 2 | Instance page: logs (levels, search, runs, clock/relative), overview, last run, web console | Instance page with the same tabs, plus a module's console tabs | `home.spec.ts`, `console.spec.ts` | Instance, AppLogs, Task, PgActivity | **Green.** Not carried: `y` copies the URL, not the lines; `Y` (write a file) |
 | 3 | All logs: merged, pause, level, search | Logs page: merged with doze's own lines, Show list, level, search; pause by scrolling up | `home.spec.ts` | Logs | **Green.** `space` is not bound; scrolling up pauses, the cap says so |
-| 4 | Palette with the CLI form beside each row, Help, notices | ⌘K with `doze …` at the right of each row, `?` Keys sheet, toasts and Recent messages | `parity.spec.ts` | Search, Help, Notices | **Green** |
+| 4 | Palette with the CLI form beside each row, Help, notices | ⌘K with `doze …` at the right of each row (nothing typed: the selected instance and the stack; under three letters: one row per verb, as the dash), `?` Keys sheet, toasts and Recent messages | `parity.spec.ts` | Search, Help, Notices | **Green.** The Help board also draws `o` open console and `⏎` open in browser, which neither the sheet nor the page binds yet |
 | 5 | Dialogs: Sleep (and dependants / only / Cancel), Restart, Reset (type the name, Cancel default, the script line), Ask, input | The same sentences and button order, over the dimmed window; a module action with input or a destructive one asks | `parity.spec.ts`, `console.spec.ts` | Confirm, Dialogs, Reset | **Green.** The Dialogs board draws restart with Cancel first and the "what happens" line as prose; the app keeps the dash's order and rows for every dialog |
 | 6 | Verbs: wake, sleep, restart, reset, task, pin, up, apply; refusal while the daemon is down | Buttons on the head, the TUI's letter keys, every verb in ⌘K; a refusal is a toast in the dash's words | `parity.spec.ts` (sleep, restart, reset, task), Go `serve` tests (refusal) | Main, Instance | **Green** |
 | 7 | Crash loop: "try n of m · next in Ns", last error | The row says it; the page opens on It exited, What doze does next, Its last run | `crash.spec.ts` | Crash | **Green.** Stop retrying, Open in editor, Env, Waiting on it, Told you are tagged new on the board and not built |
@@ -24,9 +24,10 @@ rendered at 1280×800 and looked at. Boards: `docs/design/desktop/boards/`.
 
 ## Beyond the TUI, built in P2
 
-- Notifications (D8): a crash, an instance that gave up, a failed task; once
-  per episode; silent while on screen; nothing about what was already so when
-  the app first looked. `internal/desk/notify`, tested. Delivered through the
+- Notifications (D8): a crash, an instance that gave up or never became
+  ready, a failed task; once per episode (a crash loop's tries are one
+  episode); silent while on screen; nothing about what a stack already showed
+  when it was first seen. `internal/desk/notify`, tested. Delivered through the
   system only from inside `Doze.app`; a bare binary prints what it would say.
 - The window's frame is remembered across launches
   (`$DOZE_HOME/desk/prefs.json`); the theme is remembered by the page.

@@ -836,6 +836,7 @@
     "error": "panic: STRIPE_KEY is required",
     "where": "main.loadConfig cmd/api/config.go:41",
     "tries": "try 3 of 5",
+    "lastTry": "fifth",
     "fraction": 0.6,
     "nextIn": "4 s",
     "gaveUp": false

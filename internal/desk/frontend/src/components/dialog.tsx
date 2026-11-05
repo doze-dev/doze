@@ -13,6 +13,13 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
   // A reset waits for the name; an action with input waits for a line.
   const armed = d.typeName ? typed === d.typeName : d.input ? typed.trim() !== "" : true;
   const text = d.input ? typed : "";
+  // Typing the name moves the default onto the reset, as the dash did: ⏎
+  // then resets. Before that, and once the name is wrong again, Cancel.
+  useEffect(() => {
+    if (!d.typeName) return;
+    setAt(armed ? Math.max(0, buttons.findIndex((b) => !b.cancel)) : d.default);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed]);
   const enabled = (b: view.Button) => b.cancel || armed || (!b.danger && !d.input);
 
   useEffect(() => {

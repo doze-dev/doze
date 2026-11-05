@@ -168,6 +168,12 @@ export interface Crash {
      * "try 3 of 5"
      */
     "tries"?: string;
+
+    /**
+     * LastTry is the last try as a word, "fifth", for "after the fifth it
+     * stops".
+     */
+    "lastTry"?: string;
     "fraction": number;
 
     /**

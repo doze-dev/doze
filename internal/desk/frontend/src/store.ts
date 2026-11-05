@@ -176,8 +176,10 @@ export async function run(key: string, verb: string, target: string) {
 /** ask runs a verb on an instance, after the dash's confirmation when one is due. */
 export async function ask(key: string, name: string, verb: string) {
   const t = await transport();
+  const n = nav; // a dialog for a page that was left meanwhile is dropped
   try {
     const d = await t.dialog(key, name, verb);
+    if (n !== nav) return;
     if (!d.needed) return run(key, verb, name);
     set({ dialog: { key, d }, palette: false });
   } catch (e) {

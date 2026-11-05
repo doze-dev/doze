@@ -9,12 +9,12 @@ const BAD_MS = 12000;
 // The right edge counts down, as the board's does.
 export function Toasts() {
   const toasts = useStore((s) => s.toasts);
-  const [now, setNow] = useState(Date.now());
+  const [, setTick] = useState(0);
   useEffect(() => {
     if (toasts.length === 0) return;
     const tick = setInterval(() => {
       const t = Date.now();
-      setNow(t);
+      setTick(t);
       set((s) => ({ toasts: s.toasts.filter((x) => x.shownAt + (x.bad ? BAD_MS : GOOD_MS) > t) }));
     }, 1000);
     return () => clearInterval(tick);
@@ -24,7 +24,7 @@ export function Toasts() {
   return (
     <div className="toasts" aria-live="polite">
       {toasts.map((t) => {
-        const left = Math.max(1, Math.ceil((t.shownAt + (t.bad ? BAD_MS : GOOD_MS) - now) / 1000));
+        const left = Math.max(1, Math.ceil((t.shownAt + (t.bad ? BAD_MS : GOOD_MS) - Date.now()) / 1000));
         return (
           <div key={t.id} className="toast" style={t.bad ? { borderColor: "var(--bad)" } : undefined}>
             <span className={t.bad ? "bad" : "warn"}>{t.bad ? "✗" : "●"}</span>

@@ -187,7 +187,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
                 <>It stopped retrying and waits for you; nothing else in the stack is touched.</>
               ) : (
                 <>
-                  next try in <b className="bright">{inst.crash.nextIn || "a moment"}</b>. After the last it stops and waits for you; nothing else in the stack is touched.
+                  next try in <b className="bright">{inst.crash.nextIn || "a moment"}</b>. After the {inst.crash.lastTry || "last"} it stops and waits for you; nothing else in the stack is touched.
                 </>
               )}
             </div>

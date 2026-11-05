@@ -32,9 +32,15 @@ func TestACrashIsSaidOncePerEpisodeAndNeverWhileOnScreen(t *testing.T) {
 	if len(n) != 1 || n[0].Title != "api crashed · shop" || n[0].Body != "panic: STRIPE_KEY is required" || n[0].Sub != "try 3 of 5 · next in 4s" || n[0].ID != "shop-1/api/crash" {
 		t.Fatalf("crash note = %+v", n)
 	}
-	// Still crashing, still the same episode: nothing more.
+	// Still crashing, still the same episode: nothing more; nor between
+	// the tries, when it boots again.
 	if n := r.Next(stack(crash), hidden, epoch.Add(time.Second)); len(n) != 0 {
 		t.Fatalf("second look said %+v", n)
+	}
+	booting := control.InstanceView{Name: "api", Kind: "app", State: "booting"}
+	r.Next(stack(booting), hidden, epoch)
+	if n := r.Next(stack(crash), hidden, epoch); len(n) != 0 {
+		t.Fatalf("the next try said %+v", n)
 	}
 	// Up again, then down again: a new episode.
 	r.Next(stack(fine), hidden, epoch)
@@ -81,5 +87,22 @@ func TestAFailedTaskIsSaidOncePerRun(t *testing.T) {
 	done.Task = &control.TaskView{Result: "done", RanAt: epoch.Add(2 * time.Minute), TookMS: 900}
 	if n := r.Next(stack(done), hidden, epoch); len(n) != 0 {
 		t.Fatalf("a run that went well said %+v", n)
+	}
+}
+
+func TestAStackSeenLaterIsPrimedOnItsOwn(t *testing.T) {
+	r := New()
+	crash := control.InstanceView{Name: "api", Kind: "app", State: "crashing", LastError: "boom"}
+	r.Next(stack(crash), hidden, epoch)
+	// A second stack appears later, already crashing: on screen, not news.
+	other := hub.StackView{Key: "data-1", Name: "data", Dir: "~/code/data", Instances: []control.InstanceView{crash}}
+	if n := r.Next(append(stack(crash), other), hidden, epoch); len(n) != 0 {
+		t.Fatalf("a stack first seen crashing said %+v", n)
+	}
+	notReady := control.InstanceView{Name: "api", Kind: "app", State: "failed", LastError: "did not become ready within 1m30s"}
+	r.Next(stack(control.InstanceView{Name: "api", Kind: "app", State: "active"}), hidden, epoch)
+	n := r.Next(stack(notReady), hidden, epoch)
+	if len(n) != 1 || n[0].Title != "api did not become ready within 1m30s · shop" {
+		t.Fatalf("not-ready note = %+v", n)
 	}
 }
