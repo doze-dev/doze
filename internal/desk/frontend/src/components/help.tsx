@@ -75,7 +75,7 @@ const ANYWHERE: Array<[string, string]> = [
 
 const ROW: Array<[string, string]> = [
   ["↑↓ j k", "move"],
-  ["space", "on / off: part of this run or not"],
+  ["space", "wake · sleep: the same switch as on a tile"],
   ["w s", "wake · sleep"],
   ["p", "pin awake · unpin"],
   ["r", "restart"],

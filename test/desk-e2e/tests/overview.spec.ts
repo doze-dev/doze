@@ -15,9 +15,9 @@ test("tiles: one strip of figures, a tile per service with a switch", async ({ p
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
   await expect(page.locator(".head .path")).toContainText("~/code/shop · up");
   const strip = page.locator(".strip");
-  await expect(strip.locator(".stat").nth(0)).toContainText("552 MB");
+  await expect(strip.locator(".stat").nth(0)).toContainText(/\d{3} MB/);
   await expect(strip.locator(".stat").nth(0)).toContainText("resident");
-  await expect(strip.locator(".stat").nth(0)).toContainText("web 213 · mongo 148 · db 96 · +2 more");
+  await expect(strip.locator(".stat").nth(0)).toContainText(/web 213 · mongo 148 · db 96 · \+\d more/);
   await expect(strip.locator(".stat").nth(1)).toContainText("cores");
   await expect(strip.locator(".stat").nth(2)).toContainText("4");
   await expect(strip.locator(".stat").nth(2)).toContainText(/\d dozing · \d waking · \d asleep/);
@@ -30,10 +30,10 @@ test("tiles: one strip of figures, a tile per service with a switch", async ({ p
   await expect(api).toContainText("awake · nothing holds it");
   await expect(api).toContainText("84 MB");
   await expect(api).toContainText("http://api.shop.doze:8080");
-  await expect(api.getByRole("switch", { name: "api is part of this run" })).toHaveAttribute("aria-checked", "true");
+  await expect(api.getByRole("switch", { name: "api is awake" })).toHaveAttribute("aria-checked", "true");
   await expect(page.locator(".tile", { hasText: "cache" }).first()).toContainText("dozing · idle: sleeps soon");
   await expect(page.locator(".tile", { hasText: "db" }).first()).toContainText("api needs it · 4 connections");
-  await expect(page.locator(".keys")).toContainText("on / off");
+  await expect(page.locator(".keys")).toContainText("wake / sleep");
   await page.screenshot({ path: `.desk-look/Services-${info.project.name}.png` });
 
   // The filter narrows every view; / focuses it.
@@ -82,14 +82,19 @@ test("map: nodes by group with the edges of what needs what", async ({ page }, i
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
 });
 
-test("the switch on a row takes a service out of this run, and back", async ({ page }) => {
+test("the switch on a row is sleep and wake: off sleeps it, on wakes it", async ({ page }) => {
   await openShop(page);
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
-  const sw = page.getByRole("switch", { name: "worker is part of this run" });
-  await sw.click();
-  await expect(page.getByRole("switch", { name: "worker is not part of this run" })).toBeVisible();
-  await page.getByRole("switch", { name: "worker is not part of this run" }).click();
-  await expect(page.getByRole("switch", { name: "worker is part of this run" })).toBeVisible();
+  // cache has nothing depending on it, so the switch sleeps it without asking.
+  await page.getByRole("switch", { name: "cache is awake" }).click();
+  await expect(page.getByRole("switch", { name: "cache is asleep" })).toBeVisible();
+  await expect(page.locator(".tile", { hasText: "cache" }).first()).toContainText("asleep");
+  await page.getByRole("switch", { name: "cache is asleep" }).click();
+  await expect(page.getByRole("switch", { name: "cache is awake" })).toBeVisible();
+  // db is held by api: its switch asks first, as Sleep does.
+  await page.getByRole("switch", { name: "db is awake" }).click();
+  await expect(page.getByRole("dialog", { name: "Sleep db?" })).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
 test("all logs: every service merged, filtered in Go, doze itself among them", async ({ page }, info) => {

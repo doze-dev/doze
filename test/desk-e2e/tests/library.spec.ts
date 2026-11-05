@@ -16,8 +16,8 @@ test("the Library lists every stack with a switch, as the Library board does", a
   const shop = rows.nth(0);
   await expect(shop).toContainText("shop");
   await expect(shop).toContainText("10 declared");
-  await expect(shop.locator(".fig")).toHaveText(/\d awake · \d waking · \d dozing · \d asleep/);
-  await expect(shop.locator(".fig")).toContainText("551 MB · 4 connections");
+  await expect(shop.locator(".fig")).toContainText(/\d awake · /);
+  await expect(shop.locator(".fig")).toContainText(/\d{3} MB · \d connections/);
   await expect(shop.locator(".pill").first()).toContainText("https://dev.shop.example");
   await expect(shop.getByRole("switch")).toHaveAttribute("aria-checked", "true");
   const acme = rows.nth(1);

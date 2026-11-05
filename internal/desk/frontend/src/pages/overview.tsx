@@ -214,7 +214,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
       <Keys
         keys={[
           ["↑↓", "move"],
-          ["space", "on / off"],
+          ["space", "wake / sleep"],
           ["p", "pin"],
           ["⏎", "open"],
           ["l", "logs"],
@@ -234,7 +234,11 @@ function toggle(stackKey: string, r: view.Row) {
     void run(stackKey, "task", r.name);
     return;
   }
-  void run(stackKey, r.on ? "off" : "on", r.name);
+  // The switch is awake or asleep. Sleeping asks when something depends on
+  // it; a service doze off took out of the run comes back in first.
+  if (r.off) void run(stackKey, "on", r.name);
+  else if (r.on) void ask(stackKey, r.name, "sleep");
+  else void run(stackKey, "wake", r.name);
 }
 
 function Strip({ v, narrow, tight }: { v: view.Vitals4; narrow?: boolean; tight?: boolean }) {
@@ -321,10 +325,11 @@ function Switch({ r, stackKey }: { r: view.Row; stackKey: string }) {
   }
   return (
     <button
-      className={"sw" + (r.on ? " on" : "")}
+      className={"sw" + (r.on ? " on" : "") + (r.off ? " dis" : "")}
       role="switch"
       aria-checked={r.on}
-      aria-label={r.on ? `${r.name} is part of this run` : `${r.name} is not part of this run`}
+      aria-label={r.on ? `${r.name} is awake` : r.off ? `${r.name} is off` : `${r.name} is asleep`}
+      title={r.off ? "doze off took it out of this run; the switch puts it back" : undefined}
       onClick={(e) => {
         e.stopPropagation();
         toggle(stackKey, r);

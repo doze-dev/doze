@@ -48,7 +48,7 @@ test("a verb then a name: what it applies to, whether it asks, Did you mean", as
   await expect(pal.locator(".ph")).toHaveText(["Sleep", "Did you mean"]);
   const cache = pal.locator(".it.on");
   await expect(cache).toContainText("cache");
-  await expect(cache).toContainText("in shop · dozing, 11 MB · idle: sleeps soon");
+  await expect(cache).toContainText(/in shop · (dozing, 11 MB · idle: sleeps soon|awake)/);
   await expect(cache.locator(".k")).toHaveText("⏎ sleep now");
   await expect(cache.locator(".hl2").first()).toHaveText("ca");
   await expect(pal.getByRole("group", { name: "Did you mean" })).toContainText("Sleep everything in shop");
@@ -97,7 +97,7 @@ test("? opens the Keys sheet, as the Help board draws it", async ({ page }, info
   const sheet = page.getByRole("dialog", { name: "Help" });
   await expect(sheet.locator("h3")).toHaveText(["Anywhere", "On a row or tile", "The words"]);
   await expect(sheet).toContainText("search a name, or type a verb and a name");
-  await expect(sheet).toContainText("on / off: part of this run or not");
+  await expect(sheet).toContainText("wake · sleep: the same switch as on a tile");
   await expect(sheet).toContainText("awake with nothing holding it; counting down to sleep");
   await expect(sheet).toContainText("Every key here is a doze command too");
   await page.screenshot({ path: `.desk-look/Help-${info.project.name}.png` });

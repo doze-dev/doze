@@ -121,9 +121,11 @@ type Row struct {
 	// uses, empty when it is not http.
 	Address string `json:"address,omitempty"`
 	URL     string `json:"url,omitempty"`
-	// On says it is part of this run; off is declared but not started and
-	// nothing wakes it. Pinned says it never sleeps.
+	// On is the switch: awake, or on its way (waking, dozing, even crashing);
+	// off is asleep. Off says doze off took it out of this run, so the
+	// switch is off and greyed. Pinned says it never sleeps.
 	On     bool `json:"on"`
+	Off    bool `json:"off,omitempty"`
 	Pinned bool `json:"pinned"`
 	// Err is the first line of what it last said before exiting, while it
 	// is crashing.
@@ -211,7 +213,7 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 					row.Up = display.Ago(now.Sub(v.StartedAt))
 				}
 			}
-			row.On, row.Pinned = !v.Disabled, v.KeepAwake
+			row.On, row.Off, row.Pinned = !v.Disabled && display.LookOf(v).Word != "asleep", v.Disabled, v.KeepAwake
 			if row.Trouble && v.LastError != "" {
 				row.Err = display.FirstLine(v.LastError)
 			}

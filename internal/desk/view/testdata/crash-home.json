@@ -173,7 +173,7 @@
           "awake": false,
           "trouble": false,
           "depth": 0,
-          "on": true,
+          "on": false,
           "pinned": false
         },
         {
@@ -240,7 +240,7 @@
           "depth": 0,
           "address": "http://mailpit.shop.doze",
           "url": "http://mailpit.shop.doze",
-          "on": true,
+          "on": false,
           "pinned": false
         },
         {
@@ -277,7 +277,7 @@
           "awake": false,
           "trouble": false,
           "depth": 0,
-          "on": true,
+          "on": false,
           "pinned": false
         }
       ]

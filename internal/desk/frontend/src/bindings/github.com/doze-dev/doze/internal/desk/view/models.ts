@@ -1036,10 +1036,12 @@ export interface Row {
     "url"?: string;
 
     /**
-     * On says it is part of this run; off is declared but not started and
-     * nothing wakes it. Pinned says it never sleeps.
+     * On is the switch: awake, or on its way (waking, dozing, even crashing);
+     * off is asleep. Off says doze off took it out of this run, so the
+     * switch is off and greyed. Pinned says it never sleeps.
      */
     "on": boolean;
+    "off"?: boolean;
     "pinned": boolean;
 
     /**

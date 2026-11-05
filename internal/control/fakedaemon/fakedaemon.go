@@ -252,6 +252,21 @@ func (f *Fake) Do(_ context.Context, verb control.Verb) error {
 			}
 		})
 	}
+	if err == nil && (verb.Name == control.VerbSleep || verb.Name == control.VerbWake) && verb.Target != "" {
+		// Sleep stops it, keeping its data; wake brings it back. The fake
+		// changes the state as a daemon would, so a switch sees its answer.
+		f.Mutate(func(s *control.Snapshot) {
+			for i := range s.Instances {
+				if s.Instances[i].Name == verb.Target && !s.Instances[i].Disabled {
+					if verb.Name == control.VerbSleep {
+						s.Instances[i].State, s.Instances[i].RAM, s.Instances[i].CPU, s.Instances[i].Conns = "reaped", 0, 0, 0
+					} else {
+						s.Instances[i].State = "active"
+					}
+				}
+			}
+		})
+	}
 	if err == nil && (verb.Name == control.VerbOff || verb.Name == control.VerbOn) {
 		// Off takes an instance out of the run: the daemon stops it and marks
 		// it disabled until on; the fake does the same to its snapshot.

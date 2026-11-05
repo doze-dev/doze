@@ -21,6 +21,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
   const word = inst.look.word;
   const awake = word === "awake" || word === "dozing";
   const off = word === "disabled";
+  const on = !off && word !== "asleep";
   const asleep = word === "asleep";
   const url = inst.connect?.find((r) => /^https?:\/\//.test(r.copy ?? ""))?.copy;
 
@@ -109,8 +110,8 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
         ) : (
           <>
             <span className="swl">
-              {off ? "off" : "on"}
-              <button className={"sw" + (off ? "" : " on")} role="switch" aria-checked={!off} aria-label={off ? `${inst.name} is not part of this run` : `${inst.name} is part of this run`} onClick={() => void run(stackKey, off ? "on" : "off", inst.name)} />
+              {on ? "awake" : off ? "off" : "asleep"}
+              <button className={"sw" + (on ? " on" : "") + (off ? " dis" : "")} role="switch" aria-checked={on} aria-label={on ? `${inst.name} is awake` : off ? `${inst.name} is off` : `${inst.name} is asleep`} onClick={() => void (off ? run(stackKey, "on", inst.name) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name))} />
             </span>
             {inst.crash ? (
               <>
