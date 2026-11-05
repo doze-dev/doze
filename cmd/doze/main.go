@@ -183,6 +183,8 @@ func rootCmd() *cobra.Command {
 		grouped(groupOne, jsonCapable(mutating(resetCmd()))),
 		grouped(groupOne, jsonCapable(mutating(taskCmd()))),
 		grouped(groupOne, jsonCapable(pinCmd())),
+		grouped(groupOne, jsonCapable(offCmd())),
+		grouped(groupOne, jsonCapable(onCmd())),
 		grouped(groupOne, jsonCapable(logsCmd())),
 		grouped(groupOne, jsonCapable(urlCmd())),
 		// Before-the-dash tools

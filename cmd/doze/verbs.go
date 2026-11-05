@@ -176,6 +176,70 @@ func sleepCmd() *cobra.Command {
 	}
 }
 
+func offCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "off <name…>",
+		Short: "Take a service out of this run: stop it, and nothing wakes it until doze on",
+		Long: "off stops the named services and keeps them stopped: a connection does not\n" +
+			"wake one, and neither does a dependant. It is the row's switch in the app.\n" +
+			"Data stays. `doze on <name>` puts it back; `doze up` starts it as usual.",
+		Args:              cobra.MinimumNArgs(1),
+		ValidArgsFunction: instanceCompletion,
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			if _, err := targetsOrAll(cfg, args); err != nil {
+				return err
+			}
+			if !daemonRunning(cfg) {
+				return fault.With(fault.DaemonDown, fmt.Errorf("the daemon is not running (doze up starts it)"))
+			}
+			return runOnOff(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, args, true)
+		},
+	}
+}
+
+func onCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "on <name…>",
+		Short: "Put a service back into this run; it wakes on its next connection",
+		Long: "on undoes `doze off`: the named services are part of the run again, and\n" +
+			"wake on their next connection or the next `doze wake`. Nothing starts now.",
+		Args:              cobra.MinimumNArgs(1),
+		ValidArgsFunction: instanceCompletion,
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			if _, err := targetsOrAll(cfg, args); err != nil {
+				return err
+			}
+			if !daemonRunning(cfg) {
+				return fault.With(fault.DaemonDown, fmt.Errorf("the daemon is not running (doze up starts it)"))
+			}
+			return runOnOff(commandContext(), daemonFor(cfg), os.Stdout, os.Stderr, args, false)
+		},
+	}
+}
+
+func runOnOff(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string, off bool) error {
+	r := newVerbReport(out, errw)
+	verb, state := control.VerbOn, "on"
+	if off {
+		verb, state = control.VerbOff, "off"
+	}
+	for _, name := range names {
+		if err := d.Do(ctx, control.Verb{Name: verb, Target: name}); err != nil {
+			return r.fail(name, err)
+		}
+		r.ok(name, state, state, 0)
+	}
+	return nil
+}
+
 func runSleep(ctx context.Context, d control.Daemon, out, errw io.Writer, names []string) error {
 	r := newVerbReport(out, errw)
 	if len(names) == 0 {

@@ -3,22 +3,19 @@ import { useStore } from "../store";
 import { transport, type view } from "../transport";
 import { LogList } from "../components/vlist";
 import { Keys } from "../components/keys";
-import { Sparkline } from "../components/chart";
-import { Dot } from "../components/sidebar";
 
 const WINDOW = 200;
 
-// Logs, as the Logs and AppLogs boards lay them out: the level and time
-// segments, the search, the run stepping, then the lines in a dock. Merged
-// across the stack ("" instance) the Show list in the sidebar picks the
-// instances and doze's own events ride along. Filtering is Go's; the page
-// asks for a window and is told when there is more.
+// Logs, as the InstanceLogs and AllLogs boards lay them out: a filter, the
+// level, the run and the time as segments, then the lines in a dock that
+// follows. Merged across the stack ("" instance) the Show list in the
+// sidebar picks the instances and doze's own events ride along. Filtering
+// is Go's; the page asks for a window and is told when there is more.
 export function LogsPage({
   stackKey,
   instance,
   embedded,
   bare,
-  inst,
 }: {
   stackKey: string;
   instance: string;
@@ -32,7 +29,7 @@ export function LogsPage({
   const [level, setLevel] = useState(1);
   const [search, setSearch] = useState("");
   const [runIdx, setRunIdx] = useState(0); // 0 = every run; otherwise an index into logs.runs from the newest
-  const [clock, setClock] = useState(true);
+  const [clock, setClock] = useState(false);
   const [logs, setLogs] = useState<view.Logs | null>(null);
   const [pinned, setPinned] = useState(true);
   const want = useRef(0);
@@ -80,11 +77,18 @@ export function LogsPage({
           e.preventDefault();
           searchBox.current?.focus();
           break;
-        case "f":
-          setLevel((l) => (l + 1) % 4);
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+          setLevel(Number(e.key) - 1);
           break;
         case "t":
           setClock((c) => !c);
+          break;
+        case " ":
+          e.preventDefault();
+          setPinned((p) => !p);
           break;
         case "[":
           setRunIdx((i) => Math.min(i + 1, logs?.runs?.length ?? 0));
@@ -115,207 +119,90 @@ export function LogsPage({
   );
   if (bare) return <div className="lg mono">{list}</div>;
 
+  const total = logs?.total ?? 0;
   return (
     <>
       {!embedded && (
-        <div className="head" style={{ gap: 10 }}>
-          <label className="search big grow">
-            <span className="dim">/</span>
-            <input ref={searchBox} aria-label="Search logs" placeholder="search" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {search && (
-              <span className="dim">
-                {logs?.matches ?? 0} {logs?.matches === 1 ? "match" : "matches"}
-              </span>
-            )}
-          </label>
-          <select className="pill" aria-label="Level" value={level} onChange={(e) => setLevel(Number(e.target.value))}>
-            {(logs?.levels ?? LEVELS).map((name, i) => (
-              <option key={name} value={i}>
-                Level: {name}
-              </option>
-            ))}
-          </select>
-          <select className="pill" aria-label="Run" value={runIdx} onChange={(e) => setRunIdx(Number(e.target.value))}>
-            <option value={0}>Run: every run</option>
-            {runs.map((r, i) => (
-              <option key={r} value={runs.length - i}>
-                Run: {i === runs.length - 1 ? "this one" : `${r}`}
-              </option>
-            ))}
-          </select>
-          <button className="pill" onClick={() => setClock((c) => !c)} aria-label="Time">
-            Time: {clock ? "clock" : "relative"} ▾
-          </button>
-          <button className={"btn" + (pinned ? " pri" : "")} onClick={() => setPinned(true)}>
-            {pinned ? "Following" : "↓ Follow"}
+        <div className="head">
+          <h1>All logs</h1>
+          <span className="path">every service, merged · {pinned ? "following" : "paused"}</span>
+          <span className="grow" />
+          <button className="btn" onClick={() => setPinned((p) => !p)}>
+            {pinned ? "Pause" : "Follow"} <kbd>space</kbd>
           </button>
         </div>
       )}
-      {embedded && (
-        <div className="lbar">
-          <div className="seg" aria-label="Level">
-            {LEVELS.map((name, i) => (
-              <button key={name} className={i === level ? "on" : ""} onClick={() => setLevel(i)}>
-                {name}
-              </button>
-            ))}
+      <div className="toolbar" style={{ paddingTop: embedded ? 12 : 0 }}>
+        <label className="filter">
+          <input ref={searchBox} aria-label="Filter the lines" placeholder="Filter text" value={search} onChange={(e) => setSearch(e.target.value)} />
+          {search && (
+            <span className="dim" style={{ whiteSpace: "nowrap" }}>
+              {logs?.matches ?? 0} of {total}
+            </span>
+          )}
+          <kbd>/</kbd>
+        </label>
+        <div className="seg" role="group" aria-label="Level">
+          {LEVELS.map((name, i) => (
+            <button key={name} className={i === level ? "on" : ""} aria-pressed={i === level} onClick={() => setLevel(i)}>
+              {name}
+            </button>
+          ))}
+        </div>
+        {runs.length > 1 && (
+          <div className="seg" role="group" aria-label="Run">
+            <button className={runIdx === 1 ? "on" : ""} onClick={() => setRunIdx(1)}>
+              This run
+            </button>
+            <button className={runIdx === 0 ? "on" : ""} onClick={() => setRunIdx(0)}>
+              All {runs.length} runs
+            </button>
+            {runIdx > 1 && <button className="on">run {runs.length - runIdx + 1} of {runs.length}</button>}
           </div>
-          <label className="search">
-            <span className="dim">/</span>
-            <input ref={searchBox} aria-label="Search" placeholder="search" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {search && <span className="dim">{logs?.matches ?? 0}</span>}
-          </label>
+        )}
+        <div className="seg" role="group" aria-label="Time">
+          <button className={!clock ? "on" : ""} onClick={() => setClock(false)}>
+            Relative
+          </button>
+          <button className={clock ? "on" : ""} onClick={() => setClock(true)}>
+            Clock
+          </button>
+        </div>
+        <span className="grow" />
+        {logs && (
+          <span className="dim" style={{ fontSize: 12 }}>
+            {logs.counts[3] > 0 && <span className="bad">{logs.counts[3]} errors · </span>}
+            {logs.counts[2] > 0 && <span className="warn">{logs.counts[2]} warnings · </span>}
+            {total} lines kept
+          </span>
+        )}
+      </div>
+      <div className="dock" style={{ marginTop: 0 }}>
+        {list}
+        <div className="cap" style={{ borderTop: "1px solid var(--line)", borderBottom: 0 }}>
+          <span>{pinned ? "▼ following · new lines appear at the end" : "paused · scrolled away from the end"}</span>
           <span className="grow" />
-          <div className="seg" aria-label="Time">
-            <button className={clock ? "on" : ""} onClick={() => setClock(true)}>
-              clock
+          {!pinned && (
+            <button className="copy" onClick={() => setPinned(true)}>
+              Follow again
             </button>
-            <button className={!clock ? "on" : ""} onClick={() => setClock(false)}>
-              relative
-            </button>
-          </div>
-          {runs.length > 1 && (
-            <>
-              <button className="btn small" onClick={() => setRunIdx((i) => Math.min(i + 1, runs.length))} disabled={runIdx >= runs.length} aria-label="Earlier run">
-                ‹ <kbd>[</kbd>
-              </button>
-              <span className="dim small">{runIdx === 0 ? `every run` : `run ${runs.length - runIdx + 1} of ${runs.length}`}</span>
-              <button className="btn small" onClick={() => setRunIdx((i) => Math.max(i - 1, 0))} disabled={runIdx === 0} aria-label="Later run">
-                <kbd>]</kbd> ›
-              </button>
-            </>
           )}
         </div>
-      )}
-      <div className="logs-body">
-        <div className="dock" style={{ margin: 0 }}>
-          <div className="cap">
-            <b>{instance || "all logs"}</b>
-            <span>
-              {pinned ? "following" : "paused"} · {LEVELS[level]}
-            </span>
-            <span className="grow" />
-            <span>
-              {logs?.total ?? 0} lines · {runIdx === 0 ? "every run" : "this run"} · {clock ? "local time" : "relative"}
-            </span>
-          </div>
-          {list}
-        </div>
-        {embedded && inst && <About inst={inst} logs={logs} />}
       </div>
       {!embedded && (
         <Keys
           keys={[
-            ["/", "search"],
-            ["f", "level"],
+            ["space", "pause"],
+            ["/", "filter"],
+            ["1-4", "level"],
+            ["t", "relative / clock"],
             ["[ ]", "run"],
-            ["t", "time"],
           ]}
-          note="select text with the mouse, as in any window"
+          note="from Overview: All logs, or L"
         />
       )}
     </>
   );
 }
 
-const LEVELS = ["debug and up", "info and up", "warnings and up", "errors only"];
-
-// About is the AppLogs board's right column: needs, this run, processes,
-// levels.
-function About({ inst, logs }: { inst: view.Instance; logs: view.Logs | null }) {
-  const url = inst.connect?.find((r) => r.k === "URL" || r.k === "Address")?.v;
-  const domain = inst.connect?.find((r) => r.k === "Domain")?.v;
-  const subdomains = inst.connect?.find((r) => r.k === "Subdomains")?.v;
-  return (
-    <aside className="rcol" aria-label="About this run">
-      {(inst.needs ?? []).length > 0 && (
-        <section className="box">
-          <h3>needs</h3>
-          {(inst.needs ?? []).map((n) => (
-            <div key={n.name} className="nd">
-              <Dot look={n.look} />
-              {n.name}
-              <small>{n.task ? (n.look.word === "done" ? "ran first" : n.look.word) : n.look.word}</small>
-            </div>
-          ))}
-        </section>
-      )}
-      <section className="box">
-        <h3>
-          this run <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· last {inst.vitals?.ram.span ?? "run"}</span>
-        </h3>
-        {domain && (
-          <div className="nd">
-            <span className="k">https</span>
-            <span className="mono bright">{domain}</span>
-          </div>
-        )}
-        {subdomains && (
-          <div className="nd">
-            <span className="k">any</span>
-            <span className="mono dim">{subdomains.replace("https://", "").split(" ")[0]}</span>
-          </div>
-        )}
-        {url && (
-          <div className="nd">
-            <span className="k">url</span>
-            <span className="mono bright">{url}</span>
-          </div>
-        )}
-        {inst.up && (
-          <div className="nd">
-            <span className="k">up</span>
-            <span>
-              {inst.up}
-              {inst.pid ? ` · pid ${inst.pid}` : ""}
-            </span>
-          </div>
-        )}
-        {inst.vitals && (
-          <>
-            <div className="nd">
-              <span className="k">cpu</span>
-              <Sparkline points={inst.vitals.cpu.points ?? []} color="accent" />
-              <small>{inst.vitals.cpu.peak}</small>
-            </div>
-            <div className="nd">
-              <span className="k">mem</span>
-              <Sparkline points={inst.vitals.ram.points ?? []} color="cool" />
-              <small>{inst.vitals.ram.now}</small>
-            </div>
-          </>
-        )}
-      </section>
-      {(inst.procs ?? []).length > 0 && (
-        <section className="box">
-          <h3>
-            Processes <span className="new">new</span>
-          </h3>
-          <div className="pt">
-            <span className="dim">command</span>
-            <span className="dim r">pid</span>
-            <span className="dim r">mem</span>
-          </div>
-          {(inst.procs ?? []).map((p) => (
-            <div key={p.pid} className="pt">
-              <span className={p.depth === 0 ? "bright" : ""}>{(p.depth > 0 ? "└ " : "") + p.cmd}</span>
-              <span className="r">{p.pid}</span>
-              <span className="r">{p.mem}</span>
-            </div>
-          ))}
-        </section>
-      )}
-      {logs && (
-        <section className="box">
-          <h3>levels</h3>
-          <div>
-            {logs.counts[3] > 0 && <span className="bad">{logs.counts[3]} errors · </span>}
-            {logs.counts[2] > 0 && <span className="warn">{logs.counts[2]} warn · </span>}
-            {logs.counts[1]} info
-          </div>
-          <div className="dim">{logs.counts[0] > 0 ? `${logs.counts[0]} debug lines` : "no debug lines"}</div>
-        </section>
-      )}
-    </aside>
-  );
-}
+const LEVELS = ["Debug", "Info+", "Warn+", "Errors"];

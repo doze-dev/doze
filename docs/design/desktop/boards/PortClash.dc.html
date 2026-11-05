@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>doze · shop · port in use</title>
+<title>doze · shop · a port is taken</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -11,54 +11,34 @@
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
 <style>body{margin:0;background:#0d0b12}
-.way{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
-.way:first-of-type{border-top:0}
-.way .n{width:24px;height:24px;border-radius:50%;background:var(--sel);color:var(--bright);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-.log2{background:#120f19;border:1px solid #2c2840;border-radius:10px;padding:10px 14px;line-height:19px}</style>
+.opt{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.opt.on{border-color:var(--accent)}
+.opt .k{width:24px;height:24px;border-radius:7px;background:var(--sel);display:flex;align-items:center;justify-content:center;color:var(--bright);font:600 12px 'JetBrains Mono',monospace}
+.opt b{color:var(--bright);font-weight:600;display:block}
+.opt span{color:var(--dim);font-size:12px;display:block;line-height:17px}</style>
 </helmet>
 <div class="win">
-  <div class="titlebar tabbed">
-    <div class="lights"><span></span><span></span><span></span></div>
-    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot r"></span><b>shop</b><span class="badge">!</span></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
-    <div class="grow"></div>
-    <span class="btn"><kbd>⌘K</kbd> Command</span>
-  </div>
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot y"></span><span class="t">shop</span><span class="badge">1</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">data</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
   <div class="body">
-    <nav class="side" aria-label="Stack">
-      <h4>View</h4>
-      <div class="space on"><b>Services</b></div>
-      <div class="space">Map <span class="new">new</span></div>
-      <div class="space">Timeline <span class="new">new</span></div>
-      <h4>Instances</h4>
-      <div class="space"><span class="dot"></span>api<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>web<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>worker<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>cache<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>cloud<small>asleep</small></div>
-      <div class="space on"><span class="dot r"></span><b>db</b><small>no port</small></div>
-      <div class="space"><span class="dot"></span>events<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>mongo<small>asleep</small></div>
+    <nav class="side" aria-label="shop">
+      <div class="si on"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot y"></span><span class="t">web</span><small class="warn">port taken</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
     </nav>
     <main class="main">
-      <div class="head">
-        <span class="dot r" style="width:10px;height:10px"></span>
-        <h1>db can't have port 5432</h1><span class="path">Up stopped · nothing else was started</span>
+      <div class="head"><h1>shop</h1><span class="path">~/code/shop · up 2 s · one thing in the way</span><span class="grow"></span><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button></span></div>
+      <div class="banner warn"><span class="dot y"></span><div class="t"><b>web wants port 3000 on 127.0.0.1, and something else has it: <span class="mono">node</span>, pid 7731, started from a terminal 2 hours ago.</b><span>web is not started. api and db are up and waiting for it. Three ways out, none of them destructive.</span></div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:0 20px">
+        <div class="opt on"><span class="k">1</span><div><b>Stop pid 7731 and start web</b><span>doze sends it a polite TERM. It is yours, from a terminal; nothing of doze's.</span></div><span class="btn pri">Do that</span></div>
+        <div class="opt"><span class="k">2</span><div><b>Give every service an address of its own</b><span>Then two things can share a port: web on 198.19.0.3:3000, your node on 127.0.0.1:3000. One admin prompt, once.</span></div><span class="btn">Set up</span></div>
+        <div class="opt"><span class="k">3</span><div><b>Use another port</b><span>Change <span class="mono">port = 3000</span> in doze.hcl; web.shop.doze keeps working on whatever you pick.</span></div><span class="btn">Edit doze.hcl</span></div>
       </div>
-      <div style="padding:0 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
-        <div class="mono log2"><div class="bad">daemon exited during startup:</div><div>listen tcp 127.0.0.1:5432: bind: address already in use</div><div class="dim">the last lines of the daemon's log, as doze up prints them</div></div>
-        <section class="card">
-          <h3>Who has it</h3>
-          <div class="mono">held by <b class="bright">postgres</b> (pid 812) on 127.0.0.1:5432</div>
-          <div class="dim" style="font-size:12px">From doze doctor's port check. This machine isn't set up to give each service its own address, so every Postgres wants 127.0.0.1:5432.</div>
-        </section>
-        <section class="card" style="gap:0">
-          <h3 style="margin-bottom:4px">Three ways out</h3>
-          <div class="way"><span class="n">1</span><div><b class="bright">Stop it</b><div class="dim mono" style="font-size:12px">kill 812</div></div><span class="btn">Stop postgres (pid 812)</span></div>
-          <div class="way"><span class="n">2</span><div><b class="bright">Give db its own address</b> <span class="dim">(every service gets one, so ports never clash)</span><div class="dim mono" style="font-size:12px">doze doctor --fix · one admin prompt</div></div><span class="btn pri">Set up .doze names…</span></div>
-          <div class="way"><span class="n">3</span><div><b class="bright">Use another port</b><div class="dim mono" style="font-size:12px">port = … in the "db" block of doze.hcl</div></div><span class="btn">Open doze.hcl at "db" <span class="new">new</span></span></div>
-        </section>
-      </div>
-      <div class="keys"><span>The words are doctor's; the buttons do what each line says</span></div>
+      <div class="model" style="margin-top:14px">doze never kills a process it did not start without asking, which is why this is a question and not a thing that happened.</div>
+      <div class="keys"><span><kbd>1-3</kbd>pick</span><span><kbd>⏎</kbd>choose</span><span><kbd>esc</kbd>leave web off for now</span><span class="note">on Up, when a port is already bound by a process outside the stack</span></div>
     </main>
   </div>
 </div>

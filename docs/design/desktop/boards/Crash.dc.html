@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>doze · api crashing</title>
+<title>doze · search · crashing</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -10,84 +10,70 @@
 <x-dc>
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
-<style>body{margin:0;background:#0d0b12}</style>
+<style>body{margin:0;background:#0d0b12}
+.tries{display:flex;gap:6px;align-items:center}
+.tries i{display:block;width:26px;height:8px;border-radius:4px;background:var(--track)}
+.tries i.x{background:var(--bad)}.tries i.now{background:var(--warn)}
+.holder{display:grid;grid-template-columns:90px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:26px;font-size:12.5px}
+.holder .k{color:var(--dim)}</style>
 </helmet>
 <div class="win">
-  <div class="titlebar tabbed">
-    <div class="lights"><span></span><span></span><span></span></div>
-    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot r"></span><b>shop</b><span class="badge">1</span></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
-    <div class="grow"></div>
-    <span class="btn"><kbd>⌘K</kbd> Command</span>
-  </div>
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot r"></span><span class="t">shop</span><span class="badge">1</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">data</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
   <div class="body">
-    <nav class="side" aria-label="Stacks">
-      <h4>View</h4>
-      <div class="space on"><b>Services</b></div>
-      <div class="space">Map <span class="new">new</span></div>
-      <div class="space">Timeline <span class="new">new</span></div>
-      <h4>Instances</h4>
-      <div class="space on"><span class="dot r"></span><b>api</b><span class="badge">!</span></div>
-      <div class="space"><span class="dot g"></span>web<small>212 MB</small></div>
-      <div class="space"><span class="ring"></span>worker<small>waking</small></div>
-      <div class="space"><span class="dot g"></span>db<small>96 MB</small></div>
-      <div class="space"><span class="dot y"></span>cache<small>dozing</small></div>
+    <nav class="side" aria-label="shop">
+      <div class="si"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <h4>Outside</h4>
+      <div class="si"><span class="dot"></span><span class="t">mailpit</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">mongo</span><small>148 MB</small></div>
+      <div class="si on"><span class="dot r"></span><span class="t">search</span><small class="bad">crashing</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
     </nav>
     <main class="main">
-      <div class="head">
-        <span class="dot r" style="width:10px;height:10px"></span>
-        <h1>api</h1><span class="path">go run ./cmd/api · crashing</span>
-        <span class="grow"></span>
-        <span class="btn">Stop retrying <span class="nw">needs work</span></span>
-        <span class="btn pri">Retry now <kbd>r</kbd></span>
-      </div>
-      <div class="tabs"><span class="tab on">Overview</span><span class="tab">Logs</span><span class="tab">Last run <span class="new">new</span></span><span class="tab">Terminal <span class="new">new</span></span></div>
-      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:16px 20px">
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-          <section class="card" style="border-color:#FF7A93">
-            <h3 class="bad">It exited</h3>
-            <div class="mono" style="font-size:13px;line-height:22px">
-              <div class="bright">panic: STRIPE_KEY is required</div>
-              <div class="dim">  main.loadConfig  <span class="link">cmd/api/config.go:41</span></div>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn">Open config.go:41 in your editor <span class="new">new</span></span><span class="btn">Copy the error</span></div>
-          </section>
-          <section class="card">
-            <h3>What doze does next</h3>
-            <div style="display:flex;align-items:center;gap:12px">
-              <div class="bar" style="flex:1;height:8px"><i style="width:60%;background:#FF7A93"></i></div>
-              <span class="bright">try 3 of 5</span>
-            </div>
-            <div>next try in <b class="bright">4 s</b>. After the fifth it stops and waits for you; nothing else in the stack is touched.</div>
-          </section>
+      <div class="head"><span class="dot r"></span><h1>search</h1><span class="path">meilisearch · crashing · try 2 of 5 · next in 8 s</span><span class="grow"></span><span class="swl">on<button class="sw on" role="switch" aria-checked="true" aria-label="search is part of this run"></button></span><span class="btn">Stop trying <kbd>s</kbd></span><span class="btn pri">Try now <kbd>r</kbd></span></div>
+      <div class="ptabs"><span class="ptab on">Overview</span><span class="ptab">Logs</span></div>
+      <div class="banner bad"><span class="dot r"></span><div class="t"><b>It exits 0.4 s after starting, with code 1. doze will try 3 more times, then stop and leave it off until you say.</b><span>The last thing it said is below. Fix it and press Try now, or stop trying while you look.</span></div><div class="tries" aria-label="Tries"><i class="x"></i><i class="now"></i><i></i><i></i><i></i></div></div>
+      <div class="two" style="padding-top:0">
+        <div class="col">
           <section class="card" style="flex:1">
-            <h3>Its last run</h3>
-            <div class="mono" style="display:flex;flex-direction:column;gap:1px">
-              <div><span class="dim">14:05:02</span> <span class="dim">started</span> go run ./cmd/api</div>
-              <div><span class="dim">14:05:03</span> <span class="bad">panic: STRIPE_KEY is required</span></div>
-              <div><span class="dim">14:05:03</span> <span class="dim">goroutine 1 [running]:</span></div>
-              <div><span class="dim">14:05:03</span> <span class="dim">main.loadConfig()</span></div>
-              <div><span class="dim">14:05:03</span> <span class="dim">exit status 2 · ran 1.1s</span></div>
-            </div>
+            <h3>What it said <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">· the last 12 lines of try 2</span><span class="copy">Copy</span></h3>
+            <div class="code" style="flex:1"><span class="c">doze: starting meilisearch --http-addr 127.0.0.1:7700 --db-path ~/.doze/shop/search</span>
+888b     d888          d8b 888 d8b
+<span class="dim">[...]</span>
+Config file path:       "./config.toml"
+Database path:          "~/.doze/shop/search"
+Server listening on:    "http://127.0.0.1:7700"
+<span class="bad">Error: listen EADDRINUSE: address already in use 127.0.0.1:7700</span>
+<span class="c">doze: search exited 1 after 0.4 s · try 2 of 5 · next in 8 s</span></div>
           </section>
         </div>
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="col">
           <section class="card">
-            <h3>Env doze gives it <span class="new">new</span></h3>
-            <div class="kv"><span class="k mono">DATABASE_URL</span><span class="mono dim">module.db.url</span><span></span></div>
-            <div class="kv"><span class="k mono">CACHE_ADDR</span><span class="mono dim">module.cache.address</span><span></span></div>
-            <div class="kv"><span class="k mono">MONGO_URL</span><span class="mono dim">service.mongo.url</span><span></span></div>
-            <div style="display:flex;gap:8px;margin-top:4px"><span class="btn">Open doze.hcl at app "api" <span class="new">new</span></span></div>
+            <h3>What doze can tell you</h3>
+            <div class="holder"><span class="k">port 7700</span><span><b class="bright">held by</b> <span class="mono">meilisearch</span> · pid 2210 · not started by doze · running 3 days</span><span class="copy">Show</span></div>
+            <div class="dim" style="font-size:12px">A copy of it is already running outside this stack, probably from a terminal. Stop that one, or give this search a different port in <span class="mono">doze.hcl</span>.</div>
           </section>
           <section class="card">
-            <h3>Waiting on it <span class="new">new</span></h3>
-            <div class="dim">Nothing in doze.hcl needs api, so nothing else is held up. It runs after migrate, and needs db, mongo and cache.</div>
+            <h3>Where it looks</h3>
+            <div class="kv"><span class="k">command</span><span class="v b">meilisearch --http-addr $HOST:$PORT</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">data</span><span class="v">~/.doze/shop/search</span><span class="copy">Reveal</span></div>
+            <div class="kv"><span class="k">port</span><span class="v">7700 · from doze.hcl</span><span class="copy">Edit</span></div>
           </section>
-          <section class="card" style="flex:1">
-            <h3>Told you <span class="new">new</span></h3>
-            <div class="dim">A notification went out at the first crash. The bat in the menu bar has a red dot until api is up or you stop it.</div>
+          <section class="card">
+            <h3>This episode</h3>
+            <div class="kv"><span class="k">14:04:48</span><span class="v">try 1 · exit 1 after 0.4 s</span><span></span></div>
+            <div class="kv"><span class="k">14:04:52</span><span class="v">try 2 · exit 1 after 0.4 s</span><span></span></div>
+            <div class="kv"><span class="k">14:05:00</span><span class="v dim">try 3 · in 8 s</span><span></span></div>
+            <div class="dim" style="font-size:12px">After 5, search stays off; its switch turns it on again. One notification was sent for this episode, no more will be.</div>
           </section>
         </div>
       </div>
+      <div class="keys" style="margin-top:0"><span><kbd>r</kbd>try now</span><span><kbd>s</kbd>stop trying</span><span><kbd>l</kbd>full logs</span><span><kbd>⌘E</kbd>edit doze.hcl</span><span class="note">from a notification's Show, the red row, or the badge on the tab</span></div>
     </main>
   </div>
 </div>

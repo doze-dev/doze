@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · daemon not responding</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.stale{opacity:.45}
+.row{--c:3px 60px minmax(120px,1.1fr) 68px minmax(140px,2fr) 64px 46px 48px minmax(120px,1.2fr) 34px}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot y"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">data</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side stale" aria-label="shop">
+      <div class="si on"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><h1>shop</h1><span class="path">~/code/shop</span><span class="grow"></span><span class="swl stale"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop was up"></button></span></div>
+      <div class="banner warn"><span class="ring" style="border-color:var(--warn)"></span><div class="t"><b>The stack's daemon is not answering. Retrying in 4 s.</b><span>What you see is from 38 s ago and may be stale. The services themselves are probably still running; it is the process that watches them that went quiet. If it does not come back, doze starts a new one and picks the services up as they are.</span></div><span class="btn">Retry now</span><span class="btn">Show the daemon's log</span></div>
+      <div class="vitals stale">
+        <div class="vital"><span class="k">Memory</span><span class="v">551 MB<small>38 s ago</small></span><div class="bar"><i style="width:38%;background:var(--cool)"></i><i style="width:27%;background:var(--accent)"></i><i style="width:17%;background:var(--good)"></i><i style="width:15%;background:var(--warn)"></i></div><span class="sub">web 212 · mongo 148 · db 96 · api 84</span></div>
+        <div class="vital"><span class="k">CPU</span><span class="v">0.03<small>cores</small></span><div class="bar"><i style="width:72%;background:var(--cool)"></i><i style="width:28%;background:var(--accent)"></i></div><span class="sub">last reading 38 s ago</span></div>
+        <div class="vital"><span class="k">Services</span><span class="v">4<small>awake, then</small></span><div class="legend"><span class="ok">● 4 awake</span><span class="warn">◐ 1 dozing</span><span class="dim">· 3 asleep</span></div><span class="sub">no changes seen since</span></div>
+        <div class="vital"><span class="k">Connections</span><span class="v">4<small>open, then</small></span><span class="sub">counts freeze while the daemon is away</span></div>
+      </div>
+      <div class="list stale">
+        <div class="row h"><span></span><span>60 s</span><span>Name</span><span>State</span><span>Why</span><span class="r">Mem</span><span class="r">Conn</span><span class="r">Up</span><span>Address</span><span></span></div>
+        <div class="grp"><span class="car">▾</span>APPS<span class="cnt">2</span></div>
+        <div class="row g"><span class="edge"></span><span></span><div class="nm"><b>api</b><span>go run ./cmd/api</span></div><span class="ok">awake</span><div class="why"><span>runs until stopped</span></div><span class="r">84 MB</span><span class="r">0</span><span class="r">14m</span><div class="addr"><span class="t">api.shop.doze:8080</span></div><span></span></div>
+        <div class="row g"><span class="edge"></span><span></span><div class="nm"><b>web</b><span>pnpm dev</span></div><span class="ok">awake</span><div class="why"><span>pinned</span></div><span class="r">212 MB</span><span class="r">2</span><span class="r">14m</span><div class="addr"><span class="t">shop.acme.dev</span></div><span></span></div>
+        <div class="grp"><span class="car">▾</span>MODULES<span class="cnt">2</span></div>
+        <div class="row y"><span class="edge"></span><span></span><div class="nm"><b>cache</b><span>valkey 9</span></div><span class="warn">dozing</span><div class="why"><span class="warn">was sleeping in 3:12</span></div><span class="r">11 MB</span><span class="r">0</span><span class="r">9m</span><div class="addr"><span class="t">cache.shop.doze:6379</span></div><span></span></div>
+        <div class="row g"><span class="edge"></span><span></span><div class="nm"><b>db</b><span>postgres 17</span></div><span class="ok">awake</span><div class="why"><span>api needs it · 4 connections</span></div><span class="r">96 MB</span><span class="r">4</span><span class="r">14m</span><div class="addr"><span class="t">db.shop.doze:5432</span></div><span></span></div>
+      </div>
+      <div class="model" style="margin-top:12px">Switches and actions are off until the daemon answers; the addresses still work, because the services never stopped.</div>
+      <div class="keys"><span><kbd>⏎</kbd>retry now</span><span><kbd>y</kbd>copy address, still fine</span><span class="note">appears over whatever page you were on when the daemon stopped answering</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

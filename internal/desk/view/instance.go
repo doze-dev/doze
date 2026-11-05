@@ -131,13 +131,19 @@ type Recent struct {
 
 // Run is one run of a task, newest first on the page.
 type Run struct {
+	// Seq counts the runs kept, the oldest 1: "run 4".
+	Seq  int    `json:"seq"`
 	At   string `json:"at"`
 	When string `json:"when"` // clock time today, else the date
 	Ago  string `json:"ago"`
 	Why  string `json:"why"`
 	Took string `json:"took,omitempty"`
-	OK   bool   `json:"ok"`
-	Done bool   `json:"done"`
+	// Secs is how long it took, for the bar beside the figure.
+	Secs float64 `json:"secs,omitempty"`
+	OK   bool    `json:"ok"`
+	Done bool    `json:"done"`
+	// Exit is the exit code: the daemon's for the last run, else 0 or 1.
+	Exit int `json:"exit"`
 }
 
 // Crash is what the Crash board shows: the error, the tries, the next try.
@@ -192,10 +198,23 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 	for _, t := range display.Tabs(v, spec) {
 		out.Tabs = append(out.Tabs, Tab{ID: t.ID, Title: t.Title})
 	}
-	// A crashing app opens on the Crash board's overview: the error, the
-	// tries, its last run. The TUI showed those over its logs.
-	if display.Troubled(v) && v.Kind != "task" && (len(out.Tabs) == 0 || out.Tabs[0].ID != display.TabOverview) {
-		out.Tabs = append([]Tab{{ID: display.TabOverview, Title: "overview"}}, out.Tabs...)
+	// Every service opens on its overview, as the inside boards do: what it
+	// is reachable at, why it is awake, its charts; a crashing one, the
+	// error and the tries. The TUI opened an app on its logs.
+	if v.Kind != "task" {
+		at := -1
+		for i, t := range out.Tabs {
+			if t.ID == display.TabOverview {
+				at = i
+			}
+		}
+		switch {
+		case at < 0:
+			out.Tabs = append([]Tab{{ID: display.TabOverview, Title: "overview"}}, out.Tabs...)
+		case at > 0:
+			t := out.Tabs[at]
+			out.Tabs = append([]Tab{t}, append(out.Tabs[:at:at], out.Tabs[at+1:]...)...)
+		}
 	}
 	out.Connect = connectRows(v)
 	out.Extend = extensions(st, name)
@@ -232,10 +251,17 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 		runs := display.RunHistory(st.Events, name, v.Task)
 		for i := len(runs) - 1; i >= 0; i-- {
 			r := runs[i]
-			out.Runs = append(out.Runs, Run{
-				At: r.At.UTC().Format(time.RFC3339), When: when(r.At, now), Ago: ago(r.At, now), Why: r.Why,
-				Took: took(r), OK: r.OK, Done: r.Done,
-			})
+			run := Run{
+				Seq: i + 1, At: r.At.UTC().Format(time.RFC3339), When: when(r.At, now), Ago: ago(r.At, now), Why: r.Why,
+				Took: took(r), Secs: r.Took.Seconds(), OK: r.OK, Done: r.Done,
+			}
+			if r.Done && !r.OK {
+				run.Exit = 1
+			}
+			if i == len(runs)-1 && v.Task != nil && r.Done {
+				run.Exit = v.Task.ExitCode
+			}
+			out.Runs = append(out.Runs, run)
 		}
 	}
 	if display.Troubled(v) && v.Kind != "task" {
@@ -261,11 +287,18 @@ func pathLine(v control.InstanceView, in Instance, now time.Time) string {
 	var parts []string
 	switch v.Kind {
 	case "task":
-		parts = append(parts, "task", in.Look.Word)
-		if v.Task != nil {
-			parts = append(parts, fmt.Sprintf("ran %s ago in %s", display.Ago(now.Sub(v.Task.RanAt)), (time.Duration(v.Task.TookMS)*time.Millisecond).Round(100*time.Millisecond)))
-		} else {
-			parts = append(parts, "has not run")
+		parts = append(parts, "task")
+		if v.Run != "" {
+			parts = append(parts, display.ShortRun(v.Run))
+		}
+		switch {
+		case in.Look.Word == "running":
+			parts = append(parts, "running now")
+		case v.Task != nil:
+			took := (time.Duration(v.Task.TookMS) * time.Millisecond).Round(100 * time.Millisecond)
+			parts = append(parts, "last run "+display.Ago(now.Sub(v.Task.RanAt))+" ago", fmt.Sprintf("exit %d in %s", v.Task.ExitCode, took))
+		default:
+			parts = append(parts, "not run yet")
 		}
 	case "module":
 		parts = append(parts, engine(v))

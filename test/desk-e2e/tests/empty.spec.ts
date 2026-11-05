@@ -4,9 +4,10 @@ import path from "node:path";
 
 const emptyDir = process.env.DOZE_E2E_EMPTY_DIR ?? "";
 
-// A folder with no doze.hcl, opened in the app (the NewTab board): the
-// three ways to start, in bare doze's words; the third writes the starter
-// file. The server opens emptyDir over the shop fixture.
+// A folder with no doze.hcl, opened in the app, against the OpenFolder
+// board: what doze found, the three ways to start, the third writing the
+// starter file. The server opens emptyDir over the shop fixture.
+test.use({ viewport: { width: 1280, height: 800 } });
 
 test("a folder with no doze.hcl offers the three ways to start", async ({ page }, info) => {
   // Each browser starts from an empty folder: the last one wrote the file.
@@ -14,20 +15,20 @@ test("a folder with no doze.hcl offers the three ways to start", async ({ page }
   await page.goto("/");
   const tab = page.locator(".stab.on");
   await expect(tab).toContainText(path.basename(emptyDir));
-  await expect(tab).toContainText("no doze.hcl");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`No doze.hcl in ${emptyDir.replace(process.env.HOME ?? "", "~")} yet.`);
-  const choices = page.locator(".choice");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(path.basename(emptyDir));
+  await expect(page.locator(".head .path")).toContainText("no doze.hcl yet");
+  const banner = page.getByRole("status");
+  await expect(banner).toContainText("Nothing has started.");
+  await expect(banner).toContainText("Nothing runs until you bring the stack up.");
+  const choices = page.locator(".tile");
   await expect(choices).toHaveText([/1\s*Set it up from this repo/, /2\s*Add one thing/, /3\s*Start with an empty file/]);
-  await expect(choices.first()).toContainText("nothing recognised here; it asks instead");
   await expect(choices.nth(2)).toContainText("writes a short doze.hcl, with comments, to fill in");
-  await expect(choices.first()).toHaveClass(/on/);
-  await expect(page.locator(".keys")).toContainText("nothing starts until you choose");
-  await page.screenshot({ path: `.desk-look/NewTab-${info.project.name}.png` });
+  await expect(choices.first()).toHaveClass(/sel/);
+  await expect(page.locator(".model")).toContainText("doze never edits doze.hcl behind your back");
+  await expect(page.locator(".keys")).toContainText("close without writing anything");
+  await page.screenshot({ path: `.desk-look/OpenFolder-${info.project.name}.png` });
 
-  // ↓ ↓ moves to the third; ⏎ writes the starter file and says so.
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
-  await expect(choices.nth(2)).toHaveClass(/on/);
+  // 2 asks for a name; esc; 3 writes the starter file and says so.
   await page.keyboard.press("2");
   const dlg = page.getByRole("dialog", { name: "Add one thing" });
   await expect(dlg).toContainText("name a module or a service");
@@ -38,5 +39,4 @@ test("a folder with no doze.hcl offers the three ways to start", async ({ page }
   await expect(page.locator(".toast").first()).toContainText("wrote a starter doze.hcl");
   const written = fs.readFileSync(path.join(emptyDir, "doze.hcl"), "utf8");
   expect(written).toContain('stack = "my-project"');
-  expect(written).toContain("doze add postgres   adds one for you.");
 });

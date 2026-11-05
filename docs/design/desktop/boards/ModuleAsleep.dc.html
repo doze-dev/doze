@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · mailpit · asleep</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <div class="si"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <div class="si"><span class="dot"></span><span class="t dim">worker</span><small>off</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot"></span><span class="t">cloud</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="si"><span class="ring"></span><span class="t">events</span><small>waking</small></div>
+      <h4>Outside</h4>
+      <div class="si on"><span class="dot"></span><span class="t">mailpit</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">mongo</span><small>148 MB</small></div>
+      <div class="si"><span class="dot r"></span><span class="t">search</span><small class="bad">crashing</small></div>
+      <h4>Tasks</h4>
+      <div class="si"><span class="ok" style="width:8px;text-align:center">✓</span><span class="t">migrate</span><small>2m ago</small></div>
+      <div class="si"><span class="acc" style="width:8px;text-align:center">▸</span><span class="t">seed</span><small>ready</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><span class="dot"></span><h1>mailpit</h1><span class="path">mailpit · asleep · last awake 40m ago, for 12m</span><span class="grow"></span><span class="swl">on<button class="sw on" role="switch" aria-checked="true" aria-label="mailpit is part of this run"></button></span><span class="btn">Pin awake <kbd>p</kbd></span><span class="btn pri">Wake <kbd>w</kbd></span></div>
+      <div class="ptabs"><span class="ptab on">Overview</span><span class="ptab dis">Console · wakes it</span><span class="ptab">Logs</span></div>
+      <div class="empty">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="color:var(--dim)"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.4A7 7 0 0 1 13.4 3.1C13 3 12.5 3 12 3z"/></svg>
+        <h2>mailpit is asleep.</h2>
+        <p>It wakes on the next connection to <span class="mono">mailpit.shop.doze:1025</span> (SMTP) or <span class="mono">:8025</span> (its web console), in about 300 ms, and sleeps again after 5 minutes with nothing connected. Its mailbox stays on disk in between. Nothing here needs it right now: no service that sends mail is awake.</p>
+        <div class="acts"><span class="btn pri">Wake and open the console</span><span class="btn">Just wake</span></div>
+      </div>
+      <div style="padding:0 20px 16px">
+        <section class="card">
+          <h3>Connect <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">· works while asleep: the first connection wakes it</span></h3>
+          <div class="kv"><span class="k">SMTP</span><span class="v b">smtp://mailpit.shop.doze:1025</span><span class="copy">Copy</span></div>
+          <div class="kv"><span class="k">Console</span><span class="v">http://mailpit.shop.doze:8025</span><span class="copy">Copy</span></div>
+          <div class="kv"><span class="k">Env var</span><span class="v">SMTP_URL</span><span class="dim" style="font-size:12px">set on api, worker</span></div>
+        </section>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>w</kbd>wake</span><span><kbd>p</kbd>pin</span><span><kbd>y</kbd>copy address</span><span><kbd>esc</kbd>back</span><span class="note">from Overview: an asleep row</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

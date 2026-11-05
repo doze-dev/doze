@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · list, with the selected one beside it</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}.win{height:980px}
+.strip{display:flex;align-items:center;gap:32px;margin:0 24px 14px;padding:0 0 20px;border-bottom:1px solid var(--line)}
+.stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .v{font-size:22px;line-height:26px;font-weight:600;color:var(--bright);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:12px;font-weight:400;color:var(--dim);margin-left:6px}
+.stat .s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .bar{width:200px;height:6px}
+.stat.wide{flex:1 1 0}
+.ql{margin:0 24px;display:flex;flex-direction:column}
+.qh{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:16px 14px 8px}
+.qr{display:grid;grid-template-columns:10px minmax(110px,1fr) minmax(170px,2fr) 66px 34px;column-gap:16px;align-items:center;height:48px;padding:0 14px;border-radius:9px;white-space:nowrap}
+.qr>*{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.qr.sel{background:var(--pick)}
+.qr b{font-size:14px;font-weight:600;color:var(--bright)}
+.qr .why{color:var(--dim);font-size:13px}
+.qr .why .w{font-weight:600}
+.qr .m{color:var(--text);text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
+.qr.off b{color:var(--dim)}
+.qr.bad .why{color:var(--bad)}
+.qr .runbtn{justify-self:end}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <main class="main">
+      <div class="head" style="padding:22px 24px 18px"><h1>shop</h1><span class="path">~/code/shop · up 14m</span><span class="grow"></span><div class="seg" role="group" aria-label="View"><button>Tiles</button><button class="on">List</button><button>Map</button></div><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button><button class="ib" aria-label="More ways to start shop">▾</button></span></div>
+      <div class="strip">
+        <div class="stat wide"><span class="v">551 MB<small>resident</small></span><div class="bar"><i style="width:38%;background:var(--cool)"></i><i style="width:27%;background:var(--accent)"></i><i style="width:17%;background:var(--good)"></i><i style="width:15%;background:var(--warn)"></i><i style="width:3%;background:var(--extra)"></i></div><span class="s">web 212 · mongo 148 · db 96 · api 84 · cache 11</span></div>
+        <div class="stat"><span class="v">4<small>awake</small></span><span class="s"><span class="warn">1 dozing</span> · <span class="cool">2 waking</span> · 3 asleep · 1 off · <span class="bad">1 crashing</span></span></div>
+        <div class="stat"><span class="v">4<small>connections</small></span><span class="s">db 4 · web 2 clients</span></div>
+      </div>
+      <div class="ql">
+        <div class="qh">Apps</div>
+        <div class="qr"><span class="dot g"></span><b>api</b><span class="why"><span class="w ok">awake</span> · runs until stopped</span><span class="m">84 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="api is on"></button></div>
+        <div class="qr sel"><span class="dot g"></span><b>web</b><span class="why"><span class="w ok">awake</span> · pinned, never sleeps</span><span class="m">212 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="web is on"></button></div>
+        <div class="qr off"><span class="dot"></span><b>worker</b><span class="why"><span class="w">off</span> · not part of this run · would bring events</span><span class="m"></span><button class="sw" role="switch" aria-checked="false" aria-label="worker is off"></button></div>
+        <div class="qh">Modules</div>
+        <div class="qr"><span class="dot y"></span><b>cache</b><span class="why"><span class="w warn">dozing</span> · sleeps in 3:12, nothing holds it</span><span class="m">11 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="cache is on"></button></div>
+        <div class="qr"><span class="dot"></span><b>cloud</b><span class="why"><span class="w">asleep</span> · wakes on a connection</span><span class="m"></span><button class="sw on" role="switch" aria-checked="true" aria-label="cloud is on"></button></div>
+        <div class="qr"><span class="dot g"></span><b>db</b><span class="why"><span class="w ok">awake</span> · api needs it · 4 connections</span><span class="m">96 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="db is on"></button></div>
+        <div class="qr"><span class="ring"></span><b>events</b><span class="why"><span class="w cool">waking</span> · worker asked for it, 3 s so far</span><span class="m"></span><button class="sw on" role="switch" aria-checked="true" aria-label="events is on"></button></div>
+        <div class="qh">Outside</div>
+        <div class="qr bad"><span class="dot r"></span><b>search</b><span class="why"><span class="w">crashing</span> · try 2 of 5 · listen EADDRINUSE 127.0.0.1:7700</span><span class="m"></span><button class="sw on" role="switch" aria-checked="true" aria-label="search is on"></button></div>
+        <div class="qr"><span class="dot g"></span><b>mongo</b><span class="why"><span class="w ok">awake</span> · api needs it</span><span class="m">148 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="mongo is on"></button></div>
+        <div class="qr"><span class="dot"></span><b>mailpit</b><span class="why"><span class="w">asleep</span> · starts when something needs it</span><span class="m"></span><button class="sw on" role="switch" aria-checked="true" aria-label="mailpit is on"></button></div>
+        <div class="qh">Tasks</div>
+        <div class="qr"><span class="ok" style="width:10px;text-align:center;font-size:12px">✓</span><b>migrate</b><span class="why"><span class="w ok">done</span> · 2m ago · 1.2 s · exit 0</span><span class="m"></span><button class="runbtn">Run</button></div>
+        <div class="qr"><span class="acc" style="width:10px;text-align:center;font-size:12px">▸</span><b>seed</b><span class="why"><span class="w acc">ready</span> · not run yet · needs db</span><span class="m"></span><button class="runbtn">Run</button></div>
+      </div>
+      <div class="keys" style="margin-top:auto;padding:0 24px"><span><kbd>↑↓</kbd>move, the pane follows</span><span><kbd>⏎</kbd>open the service</span><span><kbd>y</kbd>copy address</span><span><kbd>e</kbd>copy .env</span><span class="note">the List view: rows, and whichever is selected, in full, beside them</span></div>
+    </main>
+    <aside class="insp" aria-label="web, in full">
+      <div class="ih"><span class="dot g" style="width:10px;height:10px"></span><h2>web</h2><span class="sub">pnpm dev · awake 14m · pid 4120</span><span class="grow"></span></div>
+      <div class="sec"><h3>Addresses</h3>
+        <div class="kv"><span class="k">domain</span><span class="v b">https://shop.acme.dev</span><span class="copy">Copy</span></div>
+        <div class="kv"><span class="k">name</span><span class="v">http://web.shop.doze</span><span class="copy">Copy</span></div>
+        <div class="kv"><span class="k">bound to</span><span class="v">198.19.0.3:3000 → :51877</span><span class="dim" style="font-size:11px">via the daemon</span></div>
+        <div class="kv"><span class="k">front door</span><span class="v">:80 and :443, this doze</span><span></span></div>
+      </div>
+      <div class="sec"><h3>Run</h3>
+        <div class="kv"><span class="k">command</span><span class="v b">pnpm dev</span><span class="copy">Copy</span></div>
+        <div class="kv"><span class="k">folder</span><span class="v">~/code/shop/web</span><span class="copy">Reveal</span></div>
+        <div class="kv"><span class="k">started</span><span class="v">13:50:41 · ready in 1.9 s</span><span></span></div>
+        <div class="kv"><span class="k">restarts</span><span class="v">0 this run</span><span></span></div>
+        <div class="kv"><span class="k">sleep</span><span class="v">never · pinned</span><span class="copy">Unpin</span></div>
+      </div>
+      <div class="sec"><h3>Environment it was given <span class="copy">Copy as .env</span></h3>
+        <div class="env"><span class="l"><span class="n">PORT</span><span class="eq">=</span><span class="val">51877</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">HOST</span><span class="eq">=</span><span class="val">127.0.0.1</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">DATABASE_URL</span><span class="eq">=</span><span class="val">postgres://shop@db.shop.doze:5432/shop</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">VALKEY_URL</span><span class="eq">=</span><span class="val">redis://cache.shop.doze:6379</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">API_URL</span><span class="eq">=</span><span class="val">http://api.shop.doze</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">DOZE_CA_FILE</span><span class="eq">=</span><span class="val">~/.doze/ca/root.crt</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">SSL_CERT_FILE</span><span class="eq">=</span><span class="val">~/.doze/ca/bundle.pem</span></span><span class="copy">⧉</span></div>
+        <div class="env"><span class="l"><span class="n">NODE_EXTRA_CA_CERTS</span><span class="eq">=</span><span class="val">~/.doze/ca/root.crt</span></span><span class="copy">⧉</span></div>
+        <div class="dim" style="font-size:11px">8 vars · 3 from doze.hcl · 5 from doze</div>
+      </div>
+      <div class="sec"><h3>Needs · held by</h3>
+        <div class="chips"><span class="chip"><span class="dot g"></span>db</span><span class="chip"><span class="dot y"></span>cache</span><span class="chip"><span class="dot g"></span>api</span></div>
+        <div class="dim" style="font-size:12px">These wake with web. Nothing holds web; it runs until stopped.</div>
+      </div>
+      <div class="sec"><h3>Certificate</h3>
+        <div class="kv"><span class="k">for</span><span class="v b">shop.acme.dev</span><span></span></div>
+        <div class="kv"><span class="k">from</span><span class="v">doze local CA · Srini-MBP</span><span class="copy">Show</span></div>
+        <div class="kv"><span class="k">expires</span><span class="v">in 27 days · renewed under 7</span><span></span></div>
+        <div class="kv"><span class="k">route</span><span class="v">resolves here · 198.19.0.3</span><span class="ok" style="font-size:11px">✓</span></div>
+      </div>
+      <div style="margin-top:auto;display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)"><span class="btn">Logs <kbd>l</kbd></span><span class="btn">Restart <kbd>r</kbd></span><span class="grow"></span><span class="btn pri">Open <kbd>⏎</kbd></span></div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":980}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

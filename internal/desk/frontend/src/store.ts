@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { Store, useSelector } from "@tanstack/react-store";
 import { transport, type LogsChanged, type Nav, type serve, type view } from "./transport";
 
-export type Page = "home" | "instance" | "logs" | "recent" | "empty";
+export type Page = "library" | "home" | "instance" | "logs" | "recent" | "empty" | "settings";
 
 export interface Where {
   key: string;
@@ -17,7 +17,7 @@ export interface Where {
   dir?: string;
 }
 
-export type Theme = "dark" | "light" | "system";
+export type Theme = "system" | "violet" | "teal" | "burgundy" | "amber" | "slate" | "light" | "dark";
 
 export interface Toast {
   id: number;
@@ -30,6 +30,8 @@ export interface State {
   stacks: serve.StackSummary[];
   version: string;
   where: Where | null;
+  /** library is the first tab: every stack, the help strip, the machine line. */
+  library: view.Library | null;
   home: view.Home | null;
   instance: view.Instance | null;
   /** empty is the page of a folder with no doze.hcl yet. */
@@ -59,6 +61,7 @@ export const store = new Store<State>({
   stacks: [],
   version: "",
   where: null,
+  library: null,
   home: null,
   instance: null,
   empty: null,
@@ -134,7 +137,10 @@ export async function go(where: Where) {
   await focus(where, sameStack ? s.selected : "");
   // The first paint does not wait for a push.
   try {
-    if (where.page === "home") {
+    if (where.page === "library" || where.page === "settings") {
+      const library = await t.library();
+      if (n === nav) set({ library });
+    } else if (where.page === "home") {
       const home = await t.home(where.key);
       if (n === nav) {
         const first = home.groups?.[0]?.rows?.[0]?.name ?? "";
@@ -153,6 +159,36 @@ export async function go(where: Where) {
     t.log(`go ${where.page} failed: ${String(e)}`);
     if (n === nav) set({ error: String(e) });
   }
+}
+
+/** stackAction acts on a whole stack from the Library: up-last, up-all, up with names, down, forget. */
+export async function stackAction(key: string, action: string, names: string[] = []) {
+  const t = await transport();
+  try {
+    await t.stack(key, action, names);
+  } catch (e) {
+    t.log(`${action} ${key} failed: ${String(e)}`);
+  }
+}
+
+/** setView remembers a stack's overview view (tiles, list, map); Go pushes the page back with it set. */
+export async function setView(key: string, view: string) {
+  set((s) => (s.home && s.home.key === key ? { home: { ...s.home, view } } : {}));
+  const t = await transport();
+  await t.setView(key, view);
+}
+
+/** dismissHints hides the Library's help strip for good. */
+export async function dismissHints() {
+  const t = await transport();
+  await t.dismissHints();
+  set((s) => (s.library ? { library: { ...s.library, steps: undefined } } : {}));
+}
+
+/** chooseFolder asks for a project folder; the app opens it, which lands on its tab or the empty page. */
+export async function chooseFolder() {
+  const t = await transport();
+  await t.chooseFolder();
 }
 
 /** select picks a row on home; the dock follows it. */
@@ -258,7 +294,8 @@ export async function setTheme(theme: Theme) {
 function storedTheme(): Theme {
   try {
     const v = localStorage.getItem(themeKey);
-    if (v === "dark" || v === "light") return v;
+    if (v === "dark") return "violet";
+    if (v && v !== "system") return v as Theme;
   } catch {
     // no storage
   }
@@ -274,9 +311,9 @@ export function useBoot() {
     transport().then(async (t) => {
       if (gone) return;
       off = [
-        t.on<serve.StackSummary[]>("stacks", (stacks) => {
-          set({ stacks: stacks ?? [] });
-          if (!get().where && stacks?.length) void go({ key: stacks[0].key, page: "home" });
+        t.on<serve.StackSummary[]>("stacks", (stacks) => set({ stacks: stacks ?? [] })),
+        t.on<view.Library>("library", (library) => {
+          if (get().where?.page === "library" || get().where?.page === "settings") set({ library });
         }),
         // A push is for the stack and page in focus; one computed for the
         // last focus, still in flight, is dropped.
@@ -295,9 +332,11 @@ export function useBoot() {
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);
       set({ stacks, version });
-      const first = stacks.find((s) => s.key === pending.key) ?? stacks[0];
+      // The window opens on the Library, unless it was opened at a project.
+      const asked = stacks.find((s) => s.key === pending.key);
       if (pending.page === "empty" && pending.dir) await go({ key: "", page: "empty", dir: pending.dir });
-      else if (!get().where && first) await go({ key: first.key, page: "home" });
+      else if (asked) await go({ key: asked.key, page: "home" });
+      else if (!get().where) await go({ key: "", page: "library" });
       const onVisibility = () => {
         const s = get();
         if (document.hidden) void t.blur();

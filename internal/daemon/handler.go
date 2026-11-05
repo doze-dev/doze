@@ -72,12 +72,12 @@ func (h *handler) snapshot() []control.InstanceView {
 			continue
 		}
 		state := "reaped"
-		if !decl.Enabled {
+		if !decl.Enabled || h.d.rt.IsOff(decl.Name) {
 			state = "disabled"
 		}
 		v := control.InstanceView{
 			Name: decl.Name, Kind: decl.Kind, Engine: decl.Type, State: state,
-			Version: decl.Version.String(), Declared: true, Disabled: !decl.Enabled,
+			Version: decl.Version.String(), Declared: true, Disabled: state == "disabled",
 		}
 		v.Task = h.taskView(decl)
 		h.hydrateDecl(&v, decl)
@@ -103,7 +103,7 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 		v.Task = h.taskView(decl)
 		h.hydrateDecl(&v, decl)
 	}
-	v.Disabled = decl != nil && !decl.Enabled
+	v.Disabled = (decl != nil && !decl.Enabled) || h.d.rt.IsOff(inst.Name)
 	v.Holders = h.holders(inst.Name)
 	h.hydrateEndpoint(&v, eps[inst.Name])
 	h.hydrateConsole(&v, decl)
@@ -257,6 +257,14 @@ func (h *handler) KeepAwake(name string) error {
 	}
 	h.d.rt.ToggleKeepAwake(name)
 	return nil
+}
+
+// SetOff takes an instance out of this run, or puts it back.
+func (h *handler) SetOff(ctx context.Context, name string, off bool) error {
+	if name == "" {
+		return fmt.Errorf("off and on need an instance name")
+	}
+	return h.d.rt.SetOff(ctx, name, off)
 }
 
 // logBacklog is how many lines of the newest run a reader gets before it

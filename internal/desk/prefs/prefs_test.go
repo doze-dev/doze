@@ -3,6 +3,7 @@ package prefs
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -15,7 +16,7 @@ func TestPrefsRoundTripAndForgiveABrokenFile(t *testing.T) {
 	if err := Save(home, want); err != nil {
 		t.Fatal(err)
 	}
-	if got := Load(home); got != want {
+	if got := Load(home); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Load = %+v, want %+v", got, want)
 	}
 	if _, err := os.Stat(Path(home) + ".tmp"); !os.IsNotExist(err) {

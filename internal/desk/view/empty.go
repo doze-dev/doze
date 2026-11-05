@@ -18,8 +18,18 @@ type Empty struct {
 	Found   string   `json:"found,omitempty"`
 	Choices []Choice `json:"choices"`
 	Note    string   `json:"note"`
+	// Items is what was found, one line each: the name, where it came
+	// from, and the block it becomes. The service fills it.
+	Items []Found `json:"items,omitempty"`
 	// Add is the dialog "Add one thing" opens: the name to add.
 	Add Dialog `json:"add"`
+}
+
+// Found is one thing the detector saw in a folder.
+type Found struct {
+	Name    string `json:"name"`
+	Where   string `json:"where"`
+	Becomes string `json:"becomes"`
 }
 
 // Choice is one way to start.

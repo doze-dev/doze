@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · db · overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.tr{display:grid;grid-template-columns:minmax(0,1fr) 70px 90px 90px;column-gap:12px;align-items:center;height:26px;white-space:nowrap}
+.tr.h{color:var(--dim);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <div class="si"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <div class="si"><span class="dot"></span><span class="t dim">worker</span><small>off</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot"></span><span class="t">cloud</span><small>asleep</small></div>
+      <div class="si on"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="si"><span class="ring"></span><span class="t">events</span><small>waking</small></div>
+      <h4>Outside</h4>
+      <div class="si"><span class="dot"></span><span class="t">mailpit</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">mongo</span><small>148 MB</small></div>
+      <div class="si"><span class="dot r"></span><span class="t">search</span><small class="bad">crashing</small></div>
+      <h4>Tasks</h4>
+      <div class="si"><span class="ok" style="width:8px;text-align:center">✓</span><span class="t">migrate</span><small>2m ago</small></div>
+      <div class="si"><span class="acc" style="width:8px;text-align:center">▸</span><span class="t">seed</span><small>ready</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><span class="dot g"></span><h1>db</h1><span class="path">postgres 17 · awake for 14m · pid 612</span><span class="grow"></span><span class="swl">on<button class="sw on" role="switch" aria-checked="true" aria-label="db is part of this run"></button></span><span class="btn">Pin awake <kbd>p</kbd></span><span class="btn">Restart <kbd>r</kbd></span><span class="btn">Sleep <kbd>s</kbd></span></div>
+      <div class="ptabs"><span class="ptab on">Overview</span><span class="ptab">Activity</span><span class="ptab">Logs</span></div>
+      <div class="two">
+        <div class="col">
+          <section class="card">
+            <h3>Connect</h3>
+            <div class="kv"><span class="k">URL</span><span class="v b">postgres://shop@db.shop.doze:5432/shop</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">Name</span><span class="v">db.shop.doze:5432</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">Env var</span><span class="v">DATABASE_URL</span><span class="dim" style="font-size:12px">set on api, web, migrate, seed</span></div>
+            <div class="kv"><span class="k">Password</span><span class="v dim">none · local, trust auth</span><span></span></div>
+          </section>
+          <section class="card" style="flex:1;gap:10px">
+            <h3>From your code <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">· the same URL, in the language you are in</span></h3>
+            <div class="ctabs" role="tablist" aria-label="Language"><button class="on" role="tab">Node</button><button role="tab">Python</button><button role="tab">Go</button><button role="tab">Shell</button><button role="tab">psql</button><button role="tab">.env</button><button role="tab">TablePlus</button></div>
+            <div class="code"><span class="kw">import</span> pg <span class="kw">from</span> <span class="s">"pg"</span>
+
+<span class="c">// DATABASE_URL is already set when doze starts your app.</span>
+<span class="c">// From a terminal: eval "$(doze env)"</span>
+<span class="kw">const</span> db = <span class="kw">new</span> pg.<span class="fn">Pool</span>({ connectionString: process.env.DATABASE_URL })
+
+<span class="kw">const</span> { rows } = <span class="kw">await</span> db.<span class="fn">query</span>(<span class="s">"select now()"</span>)<button class="copybtn">Copy</button></div>
+            <div class="dim" style="font-size:12px">Inside the stack there is nothing to configure: the name resolves and the variable is there. The first connection wakes db if it is asleep, in about 200 ms.</div>
+          </section>
+        </div>
+        <div class="col">
+          <section class="card">
+            <h3>Why it's awake</h3>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>api needs it</span><span class="dim">a dependant that is awake keeps it awake</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>4 connections</span><span class="dim">open clients, through doze's proxy</span></div>
+            </div>
+            <div class="dim">With neither, it sleeps after 5:00. Its data stays; the next connection wakes it.</div>
+          </section>
+          <section class="card">
+            <h3>Memory · last 4m</h3>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:24px;font-weight:600;color:var(--bright)">96 MB</span><span class="dim">resident</span></div>
+            <svg viewBox="0 0 400 80" width="100%" height="80" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="2" points="0,60 30,58 60,55 90,52 120,48 150,46 180,42 210,40 240,36 270,34 300,32 330,30 360,29 400,28"/><polygon fill="#82AAFF" fill-opacity=".12" points="0,60 30,58 60,55 90,52 120,48 150,46 180,42 210,40 240,36 270,34 300,32 330,30 360,29 400,28 400,80 0,80"/></svg>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Databases <span class="copy">Activity ▸</span></h3>
+            <div class="tr h"><span>Database</span><span class="r">Size</span><span class="r">Connections</span><span>Owner</span></div>
+            <div class="tr"><span class="mono bright">shop</span><span class="r">38 MB</span><span class="r">4</span><span class="dim">shop</span></div>
+            <div class="tr"><span class="mono">shop_test</span><span class="r">9 MB</span><span class="r">0</span><span class="dim">shop</span></div>
+            <div class="tr"><span class="mono">postgres</span><span class="r">8 MB</span><span class="r">0</span><span class="dim">postgres</span></div>
+            <div class="dim" style="font-size:12px;margin-top:auto">Data in <span class="mono">~/.doze/shop/db</span> · <span class="copy">Reveal</span> · <span class="copy">Reset to empty…</span></div>
+          </section>
+        </div>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>esc</kbd>back</span><span><kbd>tab</kbd>next tab</span><span><kbd>y</kbd>copy URL</span><span><kbd>1-7</kbd>language</span><span class="note">from Overview: a row's name, or ⏎</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

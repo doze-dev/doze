@@ -244,6 +244,9 @@ type Handler interface {
 	// topic needs — sampling, following — only while a subscription is open.
 	Subscribe(ctx context.Context, sub Subscription, emit func(Frame) error) error
 	KeepAwake(db string) error // toggle the idle-reaper exemption for db
+	// SetOff takes db out of the run (stopped, and nothing wakes it) or puts
+	// it back.
+	SetOff(ctx context.Context, db string, off bool) error
 	Apply(ctx context.Context, db string) error
 	Destroy(ctx context.Context, db string) error
 	// Reset stops an instance and wipes its data + socket dirs so the next

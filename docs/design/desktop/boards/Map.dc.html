@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>doze · the living map</title>
+<title>doze · shop · map</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -10,79 +10,83 @@
 <x-dc>
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
-<style>body{margin:0;background:#0d0b12}
-.node{position:absolute;width:150px;height:56px;border-radius:10px;background:#1b1927;border:1px solid #37324b;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px}
-.node b{color:#f4f1ff;font-weight:600;display:flex;align-items:center;gap:7px}
-.node small{color:#8a85a8;font-size:11px;line-height:14px}
-.node.awake{border-color:#3f6e48}
-.node.waking{border-color:#82AAFF;box-shadow:0 0 0 4px rgba(130,170,255,.15)}
-.node.doze{border-color:#6e5d36}
-.node.asleep{opacity:.55;border-style:dashed}
-.node.sel{box-shadow:0 0 0 2px #BD93F9}
-.elabel{position:absolute;font:500 11px Inter,sans-serif;color:#cfcbe3;background:#15131d;padding:0 5px;border-radius:4px;white-space:nowrap}
-</style>
+<style>body{margin:0;background:#0d0b12}.win{height:900px}
+.strip{display:flex;align-items:center;gap:36px;margin:0 28px 20px;padding:0 0 22px;border-bottom:1px solid var(--line)}
+.stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .v{font-size:22px;line-height:26px;font-weight:600;color:var(--bright);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:12px;font-weight:400;color:var(--dim);margin-left:6px}
+.stat .s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .bar{width:220px;height:6px}
+.stat.wide{flex:1 1 0}
+.map{position:relative;flex:1;margin:0 28px 20px;min-height:0;border:1px solid var(--line);border-radius:12px;background:var(--well);overflow:hidden}
+.map svg.edges{position:absolute;left:0;top:0}
+.col{position:absolute;top:16px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.col span{font-weight:400;letter-spacing:0;text-transform:none;opacity:.8}
+.node{position:absolute;width:224px;display:flex;flex-direction:column;gap:5px;padding:12px 14px 11px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+.node .top{display:flex;align-items:center;gap:8px;min-width:0}
+.node .top b{font-size:14px;font-weight:650;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .top .pin{color:var(--accent);display:inline-flex;flex:none}
+.node .top .m{margin-left:auto;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;flex:none}
+.node .st{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .st b{font-weight:600}
+.node.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.node.bad{border-color:color-mix(in srgb,var(--bad) 55%,var(--line));background:color-mix(in srgb,var(--bad) 7%,var(--panel))}
+.node.off{background:transparent;border-style:dashed}
+.node.off .top b{color:var(--dim)}
+.node.task{border-radius:8px;width:200px}
+.legend{position:absolute;right:16px;bottom:14px;display:flex;align-items:center;gap:18px;font-size:12px;color:var(--dim);white-space:nowrap}
+.legend i{display:inline-block;width:26px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:6px}
+.legend i.dim{border-top-color:var(--line2)}
+.legend i.dash{border-top-style:dashed;border-top-color:var(--line2)}
+.conn{position:absolute;font:600 11px 'JetBrains Mono',monospace;color:var(--bright);background:var(--sel);border-radius:9px;padding:1px 7px}</style>
 </helmet>
 <div class="win">
-  <div class="titlebar tabbed">
-    <div class="lights"><span></span><span></span><span></span></div>
-    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot g"></span><b>shop</b></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
-    <div class="grow"></div>
-    <span class="btn"><kbd>⌘K</kbd> Command</span>
-  </div>
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
   <div class="body">
-    <nav class="side" aria-label="Stacks">
-      <h4>View</h4>
-      <div class="space">Services</div>
-      <div class="space on"><b>Map</b> <span class="new">new</span></div>
-      <div class="space">Timeline <span class="new">new</span></div>
-    </nav>
     <main class="main">
-      <div class="head">
-        <h1>shop</h1><span class="path">who uses what, from doze.hcl · live</span>
-        <span class="grow"></span>
-        <span class="pill"><span class="dot g"></span>awake</span><span class="pill"><span class="ring"></span>waking</span><span class="pill"><span class="dot y"></span>dozing</span><span class="pill" style="opacity:.6">asleep</span>
+      <div class="head" style="padding:22px 28px 18px"><h1>shop</h1><span class="path">~/code/shop · up 14m</span><span class="grow"></span><div class="seg" role="group" aria-label="View"><button>Tiles</button><button>List</button><button class="on">Map</button></div><span class="btn quiet">All logs <kbd>L</kbd></span><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button><button class="ib" aria-label="More ways to start shop">▾</button></span></div>
+      <div class="strip">
+        <div class="stat wide"><span class="v">551 MB<small>resident</small></span><div class="bar"><i style="width:38%;background:var(--cool)"></i><i style="width:27%;background:var(--accent)"></i><i style="width:17%;background:var(--good)"></i><i style="width:15%;background:var(--warn)"></i><i style="width:3%;background:var(--extra)"></i></div><span class="s">web 212 · mongo 148 · db 96 · api 84 · cache 11</span></div>
+        <div class="stat"><span class="v">0.03<small>cores</small></span><span class="s">api 2.1% · db 0.8% · the rest idle</span></div>
+        <div class="stat"><span class="v">4<small>awake</small></span><span class="s"><span class="warn">1 dozing</span> · <span class="cool">2 waking</span> · 3 asleep · 1 off · <span class="bad">1 crashing</span></span></div>
+        <div class="stat"><span class="v">4<small>connections</small></span><span class="s">db 4 · web 2 clients</span></div>
       </div>
-      <div style="flex:1;min-height:0;display:flex;gap:14px;padding:0 20px 16px">
-        <div style="flex:1;min-width:0;position:relative;border:1px solid #2c2840;border-radius:12px;background:radial-gradient(#221e30 1px,transparent 1px) 0 0/22px 22px #120f19">
-          <svg width="723" height="690" viewBox="0 0 723 690" style="position:absolute;left:0;top:0" aria-hidden="true">
-            <path d="M190 278 C300 278 310 68 420 68" stroke="#7EE787" stroke-width="3" fill="none"/>
-            <path d="M190 278 C300 278 310 178 420 178" stroke="#6e5d36" stroke-width="2" fill="none"/>
-            <path d="M190 278 C300 278 310 288 420 288" stroke="#7EE787" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
-            <path d="M190 468 C300 468 310 398 420 398" stroke="#82AAFF" stroke-width="3" stroke-dasharray="6 5" fill="none"/>
-          </svg>
-          <div class="node awake" style="left:40px;top:60px"><b><span class="dot g"></span>web</b><small>app · pnpm dev</small></div>
-          <div class="node awake sel" style="left:40px;top:250px"><b><span class="dot g"></span>api</b><small>app · 84 MB</small></div>
-          <div class="node waking" style="left:40px;top:440px"><b><span class="ring"></span>worker</b><small>app · waiting on events</small></div>
-          <div class="node awake" style="left:420px;top:40px"><b><span class="dot g"></span>db</b><small>postgres 17 · 96 MB</small></div>
-          <div class="node doze" style="left:420px;top:150px"><b><span class="dot y"></span>cache</b><small>valkey 9 · sleeps in 3:12</small></div>
-          <div class="node waking" style="left:420px;top:370px"><b><span class="ring"></span>events</b><small>kafka · topic orders</small></div>
-          <div class="node asleep" style="left:420px;top:480px"><b><span class="dot"></span>mailpit</b><small>service · asleep</small></div>
-          <div class="node asleep" style="left:420px;top:590px"><b><span class="dot"></span>cloud</b><small>aws · queue orders, bucket uploads</small></div>
-          <div class="node awake" style="left:420px;top:260px"><b><span class="dot g"></span>mongo</b><small>service · api needs it</small></div>
-          <span class="elabel" style="left:270px;top:150px">DATABASE_URL · 4 open</span>
-          <span class="elabel" style="left:236px;top:446px;color:#82AAFF">KAFKA_BROKERS · waking it</span>
-        </div>
-        <aside class="card" style="width:270px;flex:none" aria-label="What just happened">
-          <h3>Just now</h3>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div><span class="cool">events is waking</span><div class="dim" style="font-size:12px">woke (worker needed it) · 3m</div></div>
-            <div><span class="cool">worker is waking</span><div class="dim" style="font-size:12px">waiting on events</div></div>
-            <div><span class="ok">db woke</span><div class="dim" style="font-size:12px">woke (migrate needed it) · ready in 180ms</div></div>
-            <div><span class="warn">cache is dozing</span><div class="dim" style="font-size:12px">nothing has held it for 1:48</div></div>
-            <div><span class="dim">cloud is asleep</span><div class="dim" style="font-size:12px">went to sleep (idle) · its data stays</div></div>
-          </div>
-          <div style="margin-top:auto;border-top:1px solid #2c2840;padding-top:10px;display:flex;flex-direction:column;gap:6px">
-            <span class="dim" style="font-size:12px">Lines are the env references in doze.hcl. A solid line has connections open now; dashed, none.</span>
-            <span class="dim" style="font-size:12px">The count on a line (“4 open”) <span class="nw">needs work</span>: doze counts an instance's connections, not which app holds them.</span>
-            <span class="dim" style="font-size:12px">Click a box to open it, or a line to see its traffic.</span>
-          </div>
-        </aside>
+      <div class="map" role="img" aria-label="The stack as a map: what needs what, and what is keeping what awake">
+        <svg class="edges" width="1222" height="652" aria-hidden="true">
+          <path d="M140 300 C140 260, 140 230, 140 196" fill="none" stroke="#BD93F9" stroke-width="2"/>
+          <path d="M254 332 C340 332, 350 108, 436 108" fill="none" stroke="#BD93F9" stroke-width="2"/>
+          <path d="M254 332 C340 332, 350 232, 436 232" fill="none" stroke="#BD93F9" stroke-width="2"/>
+          <path d="M254 164 C340 164, 350 108, 436 108" fill="none" stroke="#BD93F9" stroke-width="2"/>
+          <path d="M254 164 C340 164, 350 232, 436 232" fill="none" stroke="#BD93F9" stroke-width="2"/>
+          <path d="M254 164 C560 164, 560 108, 836 108" fill="none" stroke="#BD93F9" stroke-width="2"/>
+          <path d="M254 500 C340 500, 350 356, 436 356" fill="none" stroke="#37324b" stroke-width="2" stroke-dasharray="6 5"/>
+          <path d="M836 468 C760 468, 760 108, 660 108" fill="none" stroke="#37324b" stroke-width="2"/>
+          <path d="M836 540 C740 540, 740 108, 660 108" fill="none" stroke="#37324b" stroke-width="2"/>
+        </svg>
+        <div class="col" style="left:30px">Apps <span>your code</span></div>
+        <div class="col" style="left:436px">Modules <span>from the registry</span></div>
+        <div class="col" style="left:836px">Outside <span>brought in by you</span></div>
+        <div class="col" style="left:836px;top:412px">Tasks <span>run once</span></div>
+        <div class="node" style="left:30px;top:132px"><div class="top"><span class="dot g"></span><b>api</b><span class="m">84 MB</span></div><div class="st"><b class="ok">awake</b> · runs until stopped</div></div>
+        <div class="node" style="left:30px;top:300px"><div class="top"><span class="dot g"></span><b>web</b><span class="pin"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1.5h4l-.8 4.2L12 8.5V10H8.6V15H7.4V10H4V8.5l2.8-2.8z" fill="currentColor"/></svg></span><span class="m">212 MB</span></div><div class="st"><b class="ok">awake</b> · pinned · keeps api, db, cache awake</div></div>
+        <div class="node off" style="left:30px;top:468px"><div class="top"><span class="dot"></span><b>worker</b></div><div class="st"><b>off</b> · would bring events</div></div>
+        <div class="node sel" style="left:436px;top:76px"><div class="top"><span class="dot g"></span><b>db</b><span class="m">96 MB</span></div><div class="st"><b class="ok">awake</b> · held by api, web · 4 connections</div></div>
+        <div class="conn" style="left:402px;top:98px">4</div>
+        <div class="node" style="left:436px;top:200px"><div class="top"><span class="dot y"></span><b>cache</b><span class="m">11 MB</span></div><div class="st"><b class="warn">dozing</b> · api and web need it, neither is using it</div></div>
+        <div class="node" style="left:436px;top:324px"><div class="top"><span class="ring"></span><b>events</b></div><div class="st"><b class="cool">waking</b> · worker asked for it</div></div>
+        <div class="node" style="left:436px;top:448px"><div class="top"><span class="dot"></span><b>cloud</b></div><div class="st"><b>asleep</b> · nothing needs it right now</div></div>
+        <div class="node" style="left:836px;top:76px"><div class="top"><span class="dot g"></span><b>mongo</b><span class="m">148 MB</span></div><div class="st"><b class="ok">awake</b> · held by api</div></div>
+        <div class="node bad" style="left:836px;top:200px"><div class="top"><span class="dot r"></span><b>search</b></div><div class="st"><b class="bad">crashing</b> · try 2 of 5 · nothing depends on it</div></div>
+        <div class="node" style="left:836px;top:324px"><div class="top"><span class="dot"></span><b>mailpit</b></div><div class="st"><b>asleep</b> · starts when something needs it</div></div>
+        <div class="node task" style="left:836px;top:440px"><div class="top"><span class="ok" style="font-size:12px">✓</span><b>migrate</b><span class="m">2m ago</span></div><div class="st"><b class="ok">done</b> · needed db</div></div>
+        <div class="node task" style="left:836px;top:512px"><div class="top"><span class="acc" style="font-size:12px">▸</span><b>seed</b></div><div class="st"><b class="acc">ready</b> · will wake db if asleep</div></div>
+        <div class="legend"><span><i></i>needs, and keeps it awake</span><span><i class="dim"></i>needs, not right now</span><span><i class="dash"></i>would need, if on</span><span>· ⏎ opens · i inspects · drag to tidy, remembered</span></div>
       </div>
     </main>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
 class Component extends DCLogic {
 renderVals() { return {}; }
 }

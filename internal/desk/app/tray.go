@@ -89,19 +89,34 @@ func (d *desk) menu(m tray.Model) *application.Menu {
 				d.run(key, control.Verb{Name: control.VerbSleep, Target: name})
 			})
 		}
-		dir := sec.Dir
+		dir, key := sec.Dir, sec.Key
 		menu.Add("Open " + sec.Name).OnClick(func(*application.Context) { d.open(dir) })
+		menu.Add("Down").OnClick(func(*application.Context) { d.stack(key, "down") })
 		menu.AddSeparator()
 	}
 	for _, s := range m.Stopped {
-		dir := s.Dir
-		menu.Add(s.Name + " · stopped").OnClick(func(*application.Context) { d.open(dir) })
+		// A stopped stack, with the switch's two sides: open it, or bring it
+		// up as last time without the window.
+		sub := menu.AddSubmenu(s.Name + " · stopped")
+		dir, key := s.Dir, s.Key
+		sub.Add("Up as last time").OnClick(func(*application.Context) { d.stack(key, "up-last") })
+		sub.Add("Open").OnClick(func(*application.Context) { d.open(dir) })
 	}
 	if len(m.Stopped) > 0 {
 		menu.AddSeparator()
 	}
+	menu.Add("Open doze").OnClick(func(*application.Context) { d.open("") })
 	menu.Add("Quit doze").OnClick(func(*application.Context) { d.app.Quit() })
 	return menu
+}
+
+// stack acts on a whole stack from the menu, off the main thread.
+func (d *desk) stack(key, action string) {
+	go func() {
+		if err := d.svc.Stack(key, action, nil); err != nil {
+			fmt.Fprintf(os.Stderr, "doze: %s: %v\n", action, err)
+		}
+	}()
 }
 
 // run sends a verb off the main thread and refreshes once it is done, so a

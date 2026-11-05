@@ -62,6 +62,9 @@ type Runtime struct {
 	runs         map[string]*logstore.Run      // instance -> the log run of its running command
 	readyPending map[string]bool               // running, but left not ready by a failed on_ready
 	restarts     map[string]*restartEntry      // pending supervised restarts, cancellable by Stop/shutdown
+	// off names the instances taken out of this run with `doze off`: stopped,
+	// and refused a boot until `doze on`. It is runtime state, not config.
+	off map[string]bool
 
 	// shuttingDown gates boots and crash restarts once the daemon has begun its
 	// final reap (BeginShutdown). Without it, a restart-policy process that
@@ -109,6 +112,7 @@ func New(cfg *config.Config) (*Runtime, error) {
 		readyPending: map[string]bool{},
 		deps:         map[string][]string{},
 		restarts:     map[string]*restartEntry{},
+		off:          map[string]bool{},
 		statePath:    state.Path(cfg.Path()),
 		logs: logstore.Open(filepath.Join(cfg.ProjectDir(), "logs"), logstore.Options{
 			MaxRuns: cfg.Defaults.LogRuns, MaxBytes: cfg.Defaults.LogBytes,
@@ -275,6 +279,9 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	decl := r.cfg.Lookup(name)
 	if decl == nil {
 		return engine.Endpoint{}, fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared in %s", name, configName(r.cfg)))
+	}
+	if r.IsOff(name) {
+		return engine.Endpoint{}, fmt.Errorf("%s is off: `doze on %s` puts it back into this run", name, name)
 	}
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
@@ -495,6 +502,35 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 	r.logf("%q ready (pid %d)", name, proc.PID())
 	r.startWatch(name, decl, drv)
 	return inst.Endpoint, nil
+}
+
+// SetOff takes an instance out of this run, or puts it back. Off stops it
+// and refuses every boot until on: a connection to its address is answered
+// by doze's listener and dropped, a dependant that needs it fails to wake,
+// and `doze wake` says so. On changes nothing at once; the next connection
+// or wake starts it as usual.
+func (r *Runtime) SetOff(ctx context.Context, name string, off bool) error {
+	if r.cfg.Lookup(name) == nil {
+		return fault.With(fault.NotFound, fmt.Errorf("instance %q is not declared in %s", name, configName(r.cfg)))
+	}
+	r.mu.Lock()
+	if off {
+		r.off[name] = true
+	} else {
+		delete(r.off, name)
+	}
+	r.mu.Unlock()
+	if !off {
+		return nil
+	}
+	return r.Stop(ctx, name)
+}
+
+// IsOff reports whether an instance was taken out of this run.
+func (r *Runtime) IsOff(name string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.off[name]
 }
 
 // ToggleKeepAwake flips an instance's idle-reaper exemption and returns the new

@@ -106,9 +106,8 @@ func Build(stacks []hub.StackView) Model {
 		m.Sections = append(m.Sections, sec)
 	}
 	sort.SliceStable(m.Sections, func(i, j int) bool { return m.Sections[i].Title < m.Sections[j].Title })
-	if awake > 0 {
-		m.Label = fmt.Sprint(awake)
-	}
+	// The bat stands alone: no number beside it, ever (the owner's call).
+	// What needs you is the red dot; the count is in the tooltip.
 	if len(m.Sections) > 0 {
 		m.Tooltip = fmt.Sprintf("doze · %d awake", awake)
 	}

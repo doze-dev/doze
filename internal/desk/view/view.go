@@ -38,7 +38,9 @@ func BannerOf(st hub.StackView, now time.Time) Banner {
 		return Banner{OK: true}
 	}
 	var since time.Duration
-	if !st.LastFrame.IsZero() {
+	// Only a metered stack is expected to speak every second; a quiet one
+	// with nothing changing is not stale, its socket is open.
+	if st.Metered && !st.LastFrame.IsZero() {
 		since = now.Sub(st.LastFrame)
 	}
 	ok, text := display.Banner(st.Conn == hub.ConnConnecting, st.Conn == hub.ConnDown, st.RetryAt.Sub(now), since)

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { view } from "../transport";
 
-// A confirmation over the dimmed window, as the Confirm, Dialogs and Reset
-// boards draw it, in the dash's words: the question, who is using it, what
+// A confirmation over the dimmed window, as the ConfirmSleep and Reset
+// boards draw it, in Go's words: the question, who is using it, what
 // happens, the buttons in the dash's order, the footer. Enter presses the
 // default, Escape cancels, ←→ move between buttons; a reset waits for the
 // name to be typed and defaults to Cancel.
@@ -64,31 +64,36 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
   return (
     <div className="scrim" onClick={onCancel}>
       <section className={"dialog " + d.kind + (d.danger ? " danger" : "")} role="dialog" aria-label={d.title} onClick={(e) => e.stopPropagation()}>
-        <h2>{d.danger ? <span className="bad">{d.title}</span> : d.title}</h2>
-        {(d.sentence ?? []).length > 0 && (
-          <div className="say">
-            {(d.sentence ?? []).map((s, i) => (s.strong ? <b key={i} className="bright">{s.text}</b> : <span key={i}>{s.text}</span>))}
+        <h2>{d.title}</h2>
+        {(d.sentence ?? []).length > 0 && <p>{(d.sentence ?? []).map((s, i) => (s.strong ? <b key={i} className="bright">{s.text}</b> : <span key={i}>{s.text}</span>))}</p>}
+        {(d.rows ?? []).length > 0 && (
+          <div className="lib" style={{ margin: 0, background: "var(--well)" }}>
+            {(d.rows ?? []).map((r, i) =>
+              r.k ? (
+                <div key={r.k} className="lrow" style={{ gridTemplateColumns: "10px 120px minmax(0,1fr)", padding: "8px 12px" }}>
+                  <span className="dot g" aria-hidden />
+                  <b className="bright">{r.k}</b>
+                  <span className="dim" style={{ whiteSpace: "normal" }}>{r.v}</span>
+                </div>
+              ) : (
+                <div key={i} className="lrow" style={{ gridTemplateColumns: "minmax(0,1fr)", padding: "8px 12px" }}>
+                  <span className="dim">{r.v}</span>
+                </div>
+              ),
+            )}
           </div>
         )}
-        {(d.rows ?? []).map((r, i) =>
-          r.k ? (
-            <div key={r.k} className="row2">
-              <span className="k">{r.k}</span>
-              <span>{r.v}</span>
-            </div>
-          ) : (
-            <div key={i} className="say">
-              {r.v}
-            </div>
-          ),
+        {d.input && (
+          <label className="input">
+            <input autoFocus aria-label={d.hint} placeholder={d.hint} value={typed} onChange={(e) => setTyped(e.target.value)} />
+          </label>
         )}
-        {d.input && <input className="field" autoFocus aria-label={d.hint} placeholder={d.hint} value={typed} onChange={(e) => setTyped(e.target.value)} />}
         {(d.facts ?? []).length > 0 && (
-          <div className="lines">
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {(d.facts ?? []).map((f) => (
-              <div key={f.k} style={{ display: "contents" }}>
+              <div key={f.k} className="kv" style={{ gridTemplateColumns: "110px minmax(0,1fr)" }}>
                 <span className="k">{f.k}</span>
-                <span className={"tone-" + f.tone}>
+                <span className={"tone-" + f.tone} style={{ whiteSpace: "normal" }}>
                   {(f.spans ?? []).map((s, i) =>
                     s.strong || s.mono ? (
                       <b key={i} className={(s.mono ? "mono " : "") + "bright"}>
@@ -105,17 +110,35 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
         )}
         {d.typeName && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span>
+            <span className="dim" style={{ fontSize: 12.5 }}>
               Type <b className="mono bright">{d.typeName}</b> to confirm
             </span>
-            <input className="typed" autoFocus aria-label={`Type ${d.typeName} to confirm`} value={typed} onChange={(e) => setTyped(e.target.value)} />
+            <label className="input">
+              <input autoFocus aria-label={`Type ${d.typeName} to confirm`} value={typed} onChange={(e) => setTyped(e.target.value)} className="mono" />
+            </label>
           </div>
         )}
-        <div className="btns">
+        {(d.foot ?? []).length > 0 && (
+          <p className="dim" style={{ fontSize: 12 }}>
+            {(d.foot ?? []).map((f, i) => (
+              <span key={i}>
+                {f.startsWith("From a script: ") ? (
+                  <>
+                    From a script: <span className="mono bright">{f.slice("From a script: ".length)}</span>
+                  </>
+                ) : (
+                  f
+                )}{" "}
+              </span>
+            ))}
+          </p>
+        )}
+        <div className="acts">
           {buttons.map((b, i) => (
             <button
               key={b.label}
-              className={"btn" + (b.primary ? " pri" : "") + (b.danger ? " danger" : "") + (i === at && !b.primary ? " ring2" : "") + (!enabled(b) ? " off" : "")}
+              className={"btn" + (b.primary ? " pri" : "") + (b.danger ? " danger" : "")}
+              style={i === at && !b.primary && !b.danger ? { borderColor: "var(--accent)" } : undefined}
               disabled={!enabled(b)}
               onClick={() => (b.cancel ? onCancel() : onChoose(b, text))}
               onMouseEnter={() => setAt(i)}
@@ -125,13 +148,6 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
             </button>
           ))}
         </div>
-        {(d.foot ?? []).length > 0 && (
-          <div className="foot">
-            {(d.foot ?? []).map((f, i) => (
-              <span key={i}>{f.startsWith("From a script: ") ? <>From a script: <span className="mono bright">{f.slice("From a script: ".length)}</span></> : f}</span>
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );

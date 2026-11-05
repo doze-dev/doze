@@ -23,7 +23,7 @@ func TestTokensCSSIsCurrent(t *testing.T) {
 // frontend's own CSS may only use var(--…).
 func TestNoLiteralColoursOutsideTokens(t *testing.T) {
 	hex := regexp.MustCompile(`#[0-9a-fA-F]{3,8}\b`)
-	for _, f := range []string{"../desk/frontend/src/app.css", "../desk/frontend/src/shell.css"} {
+	for _, f := range []string{"../desk/frontend/src/shell.css"} {
 		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)

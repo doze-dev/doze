@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · ⌘K · typed "sleep ca"</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.back{opacity:.35;pointer-events:none}
+.pal.b{top:400px;width:600px}</style>
+</helmet>
+<div class="win">
+  <div class="tb back"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div></div>
+  <div class="body back">
+    <nav class="side" aria-label="shop"><div class="si on"><span class="t">Overview</span></div><h4>Apps</h4><div class="si"><span class="dot g"></span><span class="t">api</span></div><div class="si"><span class="dot g"></span><span class="t">web</span></div><h4>Modules</h4><div class="si"><span class="dot y"></span><span class="t">cache</span></div><div class="si"><span class="dot g"></span><span class="t">db</span></div></nav>
+    <main class="main"><div class="head"><h1>shop</h1><span class="path">~/code/shop · up 14m</span></div></main>
+  </div>
+  <div class="scrim" style="background:rgba(9,8,14,.35)"></div>
+  <div class="pal" role="dialog" aria-label="Search or do: sleep ca">
+    <div class="in"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><b>sleep ca</b><span class="caret"></span></div>
+    <div class="ph">Sleep</div>
+    <div class="it on"><span class="dot y"></span><b>cache</b><span class="m">in shop · dozing, 11 MB · nothing holds it</span><span class="k">⏎ sleep now</span></div>
+    <div class="it"><span class="dot g"></span><b>cache</b><span class="m">in data · awake, 9 MB · held by api in data</span><span class="k">⏎ asks first</span></div>
+    <div class="ph">Did you mean</div>
+    <div class="it"><span class="dim">↓</span><b>Sleep everything in shop</b><span class="m">4 awake</span><span class="k">sleep all</span></div>
+    <div class="foot"><span><kbd>⏎</kbd>do it</span><span><kbd>esc</kbd>clear</span><span class="grow"></span><span>verbs: up · down · sleep · wake · restart · pin · logs · copy · open · run</span></div>
+  </div>
+  <div class="pal b" role="dialog" aria-label="Search or do: no match">
+    <div class="in"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><b>restart kafkaa</b><span class="caret"></span></div>
+    <div class="it"><span class="dim">?</span><span class="m">Nothing called <b>kafkaa</b> in shop or data. Closest: <b>events</b> (kafka, in shop).</span><span class="k">⏎ restart events</span></div>
+    <div class="foot"><span>a verb alone lists what it can apply to; a name alone opens it with its actions</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

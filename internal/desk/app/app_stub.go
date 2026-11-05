@@ -26,6 +26,8 @@ type Options struct {
 	CloseAfter, QuitAfter time.Duration
 	// Version is the doze this is, shown in the sidebar.
 	Version string
+	// Setup sets a folder with no doze.hcl up; unused without the app.
+	Setup func(dir, action, arg string) error
 }
 
 // ErrNotBuilt is returned when this binary was built without the app.

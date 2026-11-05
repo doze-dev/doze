@@ -1,0 +1,137 @@
+{
+  "query": "",
+  "sections": [
+    {
+      "title": "Recent",
+      "rows": [
+        {
+          "glyph": "dot",
+          "tone": "g",
+          "label": "db",
+          "note": "in shop · copy URL, sleep, restart",
+          "key": "⏎",
+          "do": {
+            "kind": "page",
+            "stackKey": "shop-1",
+            "target": "db",
+            "page": "instance"
+          },
+          "acts": [
+            {
+              "label": "copy URL",
+              "do": {
+                "kind": "copy",
+                "stackKey": "shop-1",
+                "target": "db",
+                "text": "postgres://shop@db.shop.doze:5432/shop"
+              }
+            },
+            {
+              "label": "sleep",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "sleep",
+                "target": "db",
+                "ask": true
+              }
+            },
+            {
+              "label": "restart",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "restart",
+                "target": "db",
+                "ask": true
+              }
+            },
+            {
+              "label": "logs",
+              "do": {
+                "kind": "page",
+                "stackKey": "shop-1",
+                "target": "db",
+                "page": "logs"
+              }
+            }
+          ]
+        },
+        {
+          "glyph": "▸",
+          "tone": "acc",
+          "label": "Run migrate",
+          "note": "in shop · last run 2m ago",
+          "key": "⏎",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "task",
+            "target": "migrate"
+          },
+          "acts": [
+            {
+              "label": "run",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "task",
+                "target": "migrate"
+              }
+            },
+            {
+              "label": "logs",
+              "do": {
+                "kind": "page",
+                "stackKey": "shop-1",
+                "target": "migrate",
+                "page": "logs"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Do",
+      "rows": [
+        {
+          "glyph": "↓",
+          "tone": "dim",
+          "label": "Sleep everything in shop",
+          "note": "wakes on connect; nothing is lost",
+          "key": "sleep all",
+          "cli": "doze sleep",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "sleep"
+          }
+        },
+        {
+          "glyph": "↑",
+          "tone": "dim",
+          "label": "Up acme",
+          "note": "stopped · as last time: api, web",
+          "key": "up acme",
+          "cli": "doze up --last",
+          "do": {
+            "kind": "stack",
+            "stackKey": "acme",
+            "verb": "up-last"
+          }
+        },
+        {
+          "glyph": "⌘O",
+          "tone": "dim",
+          "label": "Open folder…",
+          "note": "add a project to the Library",
+          "key": "open",
+          "do": {
+            "kind": "folder"
+          }
+        }
+      ]
+    }
+  ]
+}

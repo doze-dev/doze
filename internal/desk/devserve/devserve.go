@@ -48,6 +48,7 @@ var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
 	"shop":    fixture.Shop,
 	"crash":   fixture.Crash,
 	"modules": fixture.Modules,
+	"long":    fixture.Long,
 }
 
 // Run serves until ctx ends.
@@ -99,7 +100,7 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 	if name == "" {
 		return hub.New(hub.Options{}), func() {}, nil
 	}
-	make, ok := Fixtures[name]
+	build, ok := Fixtures[name]
 	if !ok {
 		var names []string
 		for n := range Fixtures {
@@ -119,9 +120,43 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 	if err := os.WriteFile(sock, nil, 0o644); err != nil {
 		return nil, nil, err
 	}
-	f := make(time.Now())
+	if err := seedStopped(home, time.Now()); err != nil {
+		return nil, nil, err
+	}
+	f := build(time.Now())
+	// The meters every second after the script, as a daemon sends them, so
+	// a metered page is never told its picture is old.
+	stop := make(chan struct{})
+	if last := lastStats(f.Frames); last != nil {
+		go func() {
+			t := time.NewTicker(time.Second)
+			defer t.Stop()
+			for {
+				select {
+				case <-stop:
+					return
+				case <-t.C:
+					f.Push(*last)
+				}
+			}
+		}()
+	}
 	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return f }})
-	return h, func() { _ = os.RemoveAll(home) }, nil
+	return h, func() {
+		close(stop)
+		_ = os.RemoveAll(home)
+	}, nil
+}
+
+// lastStats is the script's last meters frame, or nil when it has none.
+func lastStats(frames []control.Frame) *control.Frame {
+	for i := len(frames) - 1; i >= 0; i-- {
+		if frames[i].Topic == control.TopicStats {
+			fr := frames[i]
+			return &fr
+		}
+	}
+	return nil
 }
 
 // starterOnly is the fixture run's setup: it writes the starter file and

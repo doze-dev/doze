@@ -9,7 +9,7 @@
     "glyph": "✓",
     "tone": "good"
   },
-  "path": "task · done · ran 2m ago in 1.2s",
+  "path": "task · last run 2m ago · exit 0 in 1.2s",
   "because": "ran 2m ago in 1.2s",
   "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
   "tabs": [
@@ -62,36 +62,46 @@
   ],
   "runs": [
     {
+      "seq": 3,
       "at": "2026-10-11T14:02:40Z",
       "when": "19:32:40",
       "ago": "2m",
       "why": "0015_orders_index.sql changed",
       "took": "1.2s",
+      "secs": 1.2,
       "ok": true,
-      "done": true
+      "done": true,
+      "exit": 0
     },
     {
+      "seq": 2,
       "at": "2026-10-11T11:04:40Z",
       "when": "16:34:40",
       "ago": "3h",
       "why": "0014_carts.sql changed",
       "took": "400ms",
+      "secs": 0.4,
       "ok": false,
-      "done": true
+      "done": true,
+      "exit": 1
     },
     {
+      "seq": 1,
       "at": "2026-10-10T12:04:40Z",
       "when": "Oct 10",
       "ago": "26h",
       "why": "you asked",
       "took": "900ms",
+      "secs": 0.9,
       "ok": true,
-      "done": true
+      "done": true,
+      "exit": 0
     }
   ],
   "side": [
     {
       "name": "api",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -102,6 +112,7 @@
     },
     {
       "name": "web",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -112,6 +123,7 @@
     },
     {
       "name": "worker",
+      "kind": "app",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -122,6 +134,7 @@
     },
     {
       "name": "cache",
+      "kind": "module",
       "look": {
         "word": "dozing",
         "glyph": "◐",
@@ -132,6 +145,7 @@
     },
     {
       "name": "cloud",
+      "kind": "module",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -142,6 +156,7 @@
     },
     {
       "name": "db",
+      "kind": "module",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -152,6 +167,7 @@
     },
     {
       "name": "events",
+      "kind": "module",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -162,6 +178,7 @@
     },
     {
       "name": "mailpit",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -172,6 +189,7 @@
     },
     {
       "name": "mongo",
+      "kind": "service",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -182,6 +200,7 @@
     },
     {
       "name": "search",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -192,6 +211,7 @@
     },
     {
       "name": "migrate",
+      "kind": "task",
       "look": {
         "word": "done",
         "glyph": "✓",
@@ -202,6 +222,7 @@
     },
     {
       "name": "seed",
+      "kind": "task",
       "look": {
         "word": "ready",
         "glyph": "▸",

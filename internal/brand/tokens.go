@@ -3,8 +3,8 @@
 // site. The app's tokens.css is generated from here (go generate), and a test
 // keeps the values the CLI holds in step.
 //
-// The app's two themes are the design boards' (docs/design/desktop/boards/
-// app.css and Light.dc.html): the dash's violet palette as a native window.
+// The app's themes are the dash's five palettes (docs/design/desktop/boards/
+// app.css draws every board in them) and a light one chosen for a window.
 package brand
 
 import (
@@ -17,41 +17,86 @@ import (
 
 //go:generate go run ./gen -o ../desk/frontend/src/tokens.css
 
-// Theme is one set of colours, named as the boards name them.
+// Theme is one set of colours, named as the dash names them.
 type Theme struct {
-	// Name is "light" or "dark".
+	// Name is the theme's name: violet, teal, burgundy, amber, slate, light.
 	Name string
+	// About is the one line Settings shows under the swatch.
+	About string
 	// Surfaces: the window, the sidebar and title bar, cards and tables,
-	// and the two line weights.
-	Bg, Side, Panel, Line, Line2 string
+	// the two line weights, and the well (an input, a log, a code block).
+	Bg, Side, Panel, Line, Line2, Well string
 	// Text, dim text, and the brightest text (names, figures, headings).
 	Text, Dim, Bright string
-	// The accent (doze's violet) and the four state colours, shared with
-	// the CLI and the dash.
-	Accent, Good, Warn, Cool, Bad string
-	// Selection and the picked row.
-	Sel, Pick string
+	// The accent and the four state colours, shared with the CLI and the
+	// dash, plus the fifth run of a meter.
+	Accent, Good, Warn, Cool, Bad, Extra string
+	// Selection, the picked row, and a bar's track.
+	Sel, Pick, Track string
 }
 
-// Dark and Light are the app's two themes. Dark is the dash's palette, so
-// its state colours and accent are the CLI's dark ones; Light is the
-// board's, chosen for a window.
+// The themes, in the order Settings lists them. Violet is the default and
+// the dash's own; its state colours and accent are the CLI's dark ones.
 var (
-	Dark = Theme{
-		Name: "dark",
-		Bg:   "#15131d", Side: "#110f18", Panel: "#1b1927", Line: "#2c2840", Line2: "#37324b",
+	Violet = Theme{
+		Name: "violet", About: "the default: violet on a dark plum",
+		Bg: "#15131d", Side: "#110f18", Panel: "#1b1927", Line: "#2c2840", Line2: "#37324b", Well: "#120f19",
 		Text: "#cfcbe3", Dim: "#8a85a8", Bright: "#f4f1ff",
-		Accent: ui.AccentDark, Good: ui.GoodDark, Warn: ui.WarnDark, Cool: ui.CoolDark, Bad: ui.BadDark,
-		Sel: "#2b2542", Pick: "#3a3170",
+		Accent: ui.AccentDark, Good: ui.GoodDark, Warn: ui.WarnDark, Cool: ui.CoolDark, Bad: ui.BadDark, Extra: "#FF9E64",
+		Sel: "#2b2542", Pick: "#3a3170", Track: "#262236",
+	}
+	Teal = Theme{
+		Name: "teal", About: "teal and green on a deep sea ground",
+		Bg: "#0e1816", Side: "#0b1312", Panel: "#14201e", Line: "#1d3330", Line2: "#27423e", Well: "#0b1312",
+		Text: "#c6dcd8", Dim: "#84a39e", Bright: "#effaf8",
+		Accent: "#4FD6C4", Good: "#86E08A", Warn: "#F2C879", Cool: "#8FBDFF", Bad: "#FF8497", Extra: "#FFB070",
+		Sel: "#1d3330", Pick: "#1f4540", Track: "#1d2b29",
+	}
+	Burgundy = Theme{
+		Name: "burgundy", About: "rose on a burgundy ground",
+		Bg: "#1a0f13", Side: "#150b0f", Panel: "#22151a", Line: "#3a1d27", Line2: "#4a2733", Well: "#150b0f",
+		Text: "#e0cdd2", Dim: "#a88a93", Bright: "#fff1f4",
+		Accent: "#F08FA6", Good: "#8FE0A0", Warn: "#F2C879", Cool: "#8DB4F5", Bad: "#FF6F5E", Extra: "#C9A0FF",
+		Sel: "#3a1d27", Pick: "#4d2030", Track: "#2e1a21",
+	}
+	Amber = Theme{
+		Name: "amber", About: "gold on a dark olive ground",
+		Bg: "#16140b", Side: "#111009", Panel: "#1d1a0f", Line: "#332d12", Line2: "#443c18", Well: "#111009",
+		Text: "#e0dcc2", Dim: "#a39e7e", Bright: "#fffbe6",
+		Accent: "#F2E04A", Good: "#9BE07A", Warn: "#FF9A3C", Cool: "#7FC4F5", Bad: "#FF7E7E", Extra: "#C9A0FF",
+		Sel: "#332d12", Pick: "#3b3412", Track: "#2a2612",
+	}
+	Slate = Theme{
+		Name: "slate", About: "cool grey with a steel-blue accent",
+		Bg: "#12161b", Side: "#0e1115", Panel: "#181d23", Line: "#28313c", Line2: "#34404d", Well: "#0e1115",
+		Text: "#c9d1da", Dim: "#8592a0", Bright: "#f1f5f9",
+		Accent: "#9DB7D5", Good: "#8FD694", Warn: "#E8C27A", Cool: "#5FD0E0", Bad: "#F7808F", Extra: "#F0B27A",
+		Sel: "#28313c", Pick: "#2d3b4b", Track: "#222a33",
 	}
 	Light = Theme{
-		Name: "light",
-		Bg:   "#fbfaff", Side: "#f3f1fa", Panel: "#ffffff", Line: "#e4e0f0", Line2: "#d4cde6",
+		Name: "light", About: "for a bright room; follows macOS by default",
+		Bg: "#fbfaff", Side: "#f3f1fa", Panel: "#ffffff", Line: "#e4e0f0", Line2: "#d4cde6", Well: "#f6f4fb",
 		Text: "#3a3550", Dim: "#6f6888", Bright: "#17141f",
-		Accent: "#7a4fe0", Good: "#1d8a4a", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#cc3550",
-		Sel: "#ece6fb", Pick: "#e3d9ff",
+		Accent: "#7a4fe0", Good: "#1d8a4a", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#cc3550", Extra: "#b85c00",
+		Sel: "#ece6fb", Pick: "#e3d9ff", Track: "#ece8f5",
 	}
+
+	// Dark is the default dark theme, by its older name.
+	Dark = Violet
 )
+
+// Themes is every theme, in Settings' order.
+var Themes = []Theme{Violet, Teal, Burgundy, Amber, Slate, Light}
+
+// Named is the theme called name, ignoring case; Violet when there is none.
+func Named(name string) Theme {
+	for _, t := range Themes {
+		if strings.EqualFold(t.Name, name) {
+			return t
+		}
+	}
+	return Violet
+}
 
 // Bat colours, from website/brand: the bat on its tile.
 const (
@@ -60,65 +105,60 @@ const (
 )
 
 // Sizes and type, in CSS, as the boards set them: Inter 13/20 for text,
-// JetBrains Mono 12 for anything a machine wrote, a 40 px title bar, a
-// 232 px sidebar, 30 px table rows.
+// JetBrains Mono 12 for anything a machine wrote, a 42 px title bar, a
+// 224 px sidebar, 48 px list rows.
 var sizes = map[string]string{
-	"font-ui":      `"Inter Variable", Inter, -apple-system, system-ui, sans-serif`,
-	"font-mono":    `"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, monospace`,
-	"text-xs":      "11px",
-	"text-sm":      "12px",
-	"text-base":    "13px",
-	"text-lg":      "16px",
-	"text-xl":      "20px",
-	"text-figure":  "18px",
-	"line":         "20px",
-	"space-1":      "4px",
-	"space-2":      "8px",
-	"space-3":      "12px",
-	"space-4":      "16px",
-	"space-5":      "20px",
-	"space-6":      "24px",
-	"radius":       "7px",
-	"radius-lg":    "10px",
-	"radius-xl":    "12px",
-	"titlebar":     "40px",
-	"sidebar":      "232px",
-	"row":          "30px",
-	"row-head":     "28px",
-	"row-group":    "26px",
-	"keys":         "34px",
-	"dock-caption": "32px",
+	"font-ui":     `"Inter Variable", Inter, -apple-system, system-ui, sans-serif`,
+	"font-mono":   `"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, monospace`,
+	"text-xs":     "11px",
+	"text-sm":     "12px",
+	"text-base":   "13px",
+	"text-md":     "14px",
+	"text-lg":     "16px",
+	"text-xl":     "20px",
+	"text-figure": "22px",
+	"line":        "20px",
+	"space-1":     "4px",
+	"space-2":     "8px",
+	"space-3":     "12px",
+	"space-4":     "16px",
+	"space-5":     "20px",
+	"space-6":     "24px",
+	"space-7":     "28px",
+	"radius":      "7px",
+	"radius-lg":   "10px",
+	"radius-xl":   "12px",
+	"titlebar":    "42px",
+	"sidebar":     "224px",
+	"pane":        "372px",
+	"row":         "48px",
+	"tile":        "112px",
+	"keys":        "34px",
 }
 
 // vars is a theme as CSS custom properties.
 func (t Theme) vars() []string {
 	return []string{
-		"--bg: " + t.Bg, "--side: " + t.Side, "--panel: " + t.Panel, "--line: " + t.Line, "--line2: " + t.Line2,
+		"--bg: " + t.Bg, "--side: " + t.Side, "--panel: " + t.Panel, "--line: " + t.Line, "--line2: " + t.Line2, "--well: " + t.Well,
 		"--text: " + t.Text, "--dim: " + t.Dim, "--bright: " + t.Bright,
-		"--accent: " + t.Accent, "--good: " + t.Good, "--warn: " + t.Warn, "--cool: " + t.Cool, "--bad: " + t.Bad,
-		"--sel: " + t.Sel, "--pick: " + t.Pick,
-		// Names the page's own CSS reads, for text on a filled accent or
-		// state colour, and the bar's track.
-		"--on-accent: " + t.onAccent(), "--track: " + t.track(),
+		"--accent: " + t.Accent, "--good: " + t.Good, "--warn: " + t.Warn, "--cool: " + t.Cool, "--bad: " + t.Bad, "--extra: " + t.Extra,
+		"--sel: " + t.Sel, "--pick: " + t.Pick, "--track: " + t.Track,
+		// Text on a filled accent or state colour: the ground on a dark
+		// theme, white on the light one.
+		"--ink: " + t.ink(), "--on-accent: " + t.ink(),
 	}
 }
 
-func (t Theme) onAccent() string {
+func (t Theme) ink() string {
 	if t.Name == "light" {
 		return "#ffffff"
 	}
 	return t.Bg
 }
 
-func (t Theme) track() string {
-	if t.Name == "light" {
-		return "#ece8f5"
-	}
-	return "#262236"
-}
-
-// CSS renders tokens.css: sizes for every theme, dark by default (the dash's
-// palette), light when the system or the page asks for it.
+// CSS renders tokens.css: the sizes, violet by default, light when the
+// system asks for it and nothing was chosen, and every theme by name under
+// [data-theme], which is what Settings sets on the document.
 func CSS() string {
 	var b strings.Builder
 	b.WriteString("/* Generated by go generate ./internal/brand; do not edit. */\n:root {\n")
@@ -130,17 +170,20 @@ func CSS() string {
 	for _, k := range keys {
 		fmt.Fprintf(&b, "  --%s: %s;\n", k, sizes[k])
 	}
-	for _, v := range Dark.vars() {
+	for _, v := range Violet.vars() {
 		fmt.Fprintf(&b, "  %s;\n", v)
 	}
-	b.WriteString("}\n@media (prefers-color-scheme: light) {\n  :root:not([data-theme=\"dark\"]) {\n")
+	b.WriteString("}\n@media (prefers-color-scheme: light) {\n  :root:not([data-theme]) {\n")
 	for _, v := range Light.vars() {
 		fmt.Fprintf(&b, "    %s;\n", v)
 	}
-	b.WriteString("  }\n}\n:root[data-theme=\"light\"] {\n")
-	for _, v := range Light.vars() {
-		fmt.Fprintf(&b, "  %s;\n", v)
+	b.WriteString("  }\n}\n")
+	for _, t := range Themes {
+		fmt.Fprintf(&b, ":root[data-theme=%q] {\n", t.Name)
+		for _, v := range t.vars() {
+			fmt.Fprintf(&b, "  %s;\n", v)
+		}
+		b.WriteString("}\n")
 	}
-	b.WriteString("}\n")
 	return b.String()
 }

@@ -51,6 +51,16 @@ export interface Transport {
   empty(dir: string): Promise<view.Empty>;
   /** setup sets a folder up: init, add <arg>, or a starter file. */
   setup(dir: string, action: string, arg: string): Promise<void>;
+  /** library is the first tab: every stack, the help strip, the machine line. */
+  library(): Promise<view.Library>;
+  /** stack acts on a whole stack: up-last, up-all, up with names, down, forget. */
+  stack(key: string, action: string, names: string[]): Promise<void>;
+  /** dismissHints hides the Library's help strip for good. */
+  dismissHints(): Promise<void>;
+  /** chooseFolder shows the folder picker and opens what was chosen; "" when cancelled. */
+  chooseFolder(): Promise<string>;
+  /** setView remembers a stack's overview view: tiles, list or map. */
+  setView(key: string, view: string): Promise<void>;
   painted(ms: number): void;
   /** log sends a line to the app's stderr (a no-op in a browser). */
   log(line: string): void;
@@ -93,6 +103,11 @@ async function wails(): Promise<Transport> {
     theme: (theme) => api.Theme(theme),
     empty: (dir) => api.Empty(dir),
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
+    library: () => api.Library(),
+    stack: (key, action, names) => api.Stack(key, action, names),
+    dismissHints: () => api.DismissHints(),
+    chooseFolder: () => api.ChooseFolder(),
+    setView: (key, view) => api.SetView(key, view),
     painted: (ms) => void api.Painted(ms),
     log: (line) => void api.Log(line),
     zoom: () => void Window.ToggleMaximise(),
@@ -150,6 +165,16 @@ function http(): Transport {
     theme: (theme) => call("theme", { theme }),
     empty: (dir) => call("empty", { dir }),
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),
+    library: () => call("library", {}),
+    stack: (key, action, names) => call("stack", { key, action, names }),
+    dismissHints: () => call("dismisshints", {}),
+    setView: (key, view) => call("setview", { key, view }),
+    chooseFolder: async () => {
+      // No native picker in a browser: a path typed in is opened the same way.
+      const dir = window.prompt("Project folder") ?? "";
+      if (dir) await call("open", { dir });
+      return dir;
+    },
     painted: () => {},
     log: (line) => console.log(line),
     zoom: () => {},

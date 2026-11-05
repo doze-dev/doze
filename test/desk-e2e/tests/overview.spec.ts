@@ -1,0 +1,120 @@
+import { expect, test } from "@playwright/test";
+
+// A stack's overview in its three views, against the Services (tiles),
+// ServicesList and Map boards, over the shop fixture.
+test.use({ viewport: { width: 1280, height: 800 } });
+
+async function openShop(page: import("@playwright/test").Page) {
+  await page.goto("/");
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+}
+
+test("tiles: one strip of figures, a tile per service with a switch", async ({ page }, info) => {
+  await openShop(page);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
+  await expect(page.locator(".head .path")).toContainText("~/code/shop · up");
+  const strip = page.locator(".strip");
+  await expect(strip.locator(".stat").nth(0)).toContainText("552 MB");
+  await expect(strip.locator(".stat").nth(0)).toContainText("resident");
+  await expect(strip.locator(".stat").nth(0)).toContainText("web 213 · mongo 148 · db 96 · +2 more");
+  await expect(strip.locator(".stat").nth(1)).toContainText("cores");
+  await expect(strip.locator(".stat").nth(2)).toContainText("4");
+  await expect(strip.locator(".stat").nth(2)).toContainText(/\d dozing · \d waking · \d asleep/);
+  await expect(strip.locator(".stat").nth(3)).toContainText("6");
+  await expect(strip.locator(".stat").nth(3)).toContainText("tasks ✓ 1 done · ▸ 1 ready");
+  await expect(page.getByRole("status")).toContainText("dev.shop.example is not reachable here yet");
+  await expect(page.getByRole("status").getByRole("button")).toContainText("Copy doze trust");
+  await expect(page.locator(".gl")).toHaveText([/Apps\s*your code/, /Modules\s*from the doze registry/, /Outside\s*brought in by you/, /Tasks\s*run once, then out of the way/]);
+  const api = page.locator(".tile", { hasText: "api" }).first();
+  await expect(api).toContainText("awake · nothing holds it");
+  await expect(api).toContainText("84 MB");
+  await expect(api).toContainText("http://api.shop.doze:8080");
+  await expect(api.getByRole("switch", { name: "api is part of this run" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".tile", { hasText: "cache" }).first()).toContainText("dozing · idle: sleeps soon");
+  await expect(page.locator(".tile", { hasText: "db" }).first()).toContainText("api needs it · 4 connections");
+  await expect(page.locator(".keys")).toContainText("on / off");
+  await page.screenshot({ path: `.desk-look/Services-${info.project.name}.png` });
+
+  // The filter narrows every view; / focuses it.
+  await page.keyboard.press("/");
+  await page.getByRole("textbox", { name: "Filter the services" }).fill("db");
+  await expect(page.locator(".tile")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+});
+
+test("list: rows with the details pane beside them; ⏎ opens the page", async ({ page }, info) => {
+  await openShop(page);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  const rows = page.locator(".ql .qr");
+  await expect(rows.first()).toContainText("api");
+  await expect(rows.first()).toHaveClass(/sel/);
+  const pane = page.getByRole("complementary", { name: "api, in full" });
+  await expect(pane).toContainText("process · go run ./cmd/api · awake 14m");
+  await expect(pane).toContainText("api.shop.doze:8080");
+  await expect(pane).toContainText("go run ./cmd/api");
+  await expect(pane.locator(".chip")).toContainText(["db", "mongo", "cache", "migrate"]);
+  await expect(pane.getByRole("button", { name: /Open/ })).toBeVisible();
+  await page.screenshot({ path: `.desk-look/ServicesList-${info.project.name}.png` });
+
+  // j moves, the pane follows; ⏎ opens the page; esc comes back.
+  await page.keyboard.press("j");
+  await expect(page.getByRole("complementary", { name: "web, in full" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("web");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  // The view is remembered in Go: a reload lands on the list.
+  await page.reload();
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await expect(page.locator(".ql")).toBeVisible();
+});
+
+test("map: nodes by group with the edges of what needs what", async ({ page }, info) => {
+  await openShop(page);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Map" }).click();
+  const map = page.getByRole("img", { name: /The stack as a map/ });
+  await expect(map.locator(".node")).toHaveCount(12);
+  await expect(map.locator(".node", { hasText: "api" }).first()).toContainText("84 MB");
+  await expect(map.locator("svg path")).not.toHaveCount(0);
+  await expect(page.locator(".legend")).toBeVisible();
+  await page.screenshot({ path: `.desk-look/Map-${info.project.name}.png` });
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
+});
+
+test("the switch on a row takes a service out of this run, and back", async ({ page }) => {
+  await openShop(page);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
+  const sw = page.getByRole("switch", { name: "worker is part of this run" });
+  await sw.click();
+  await expect(page.getByRole("switch", { name: "worker is not part of this run" })).toBeVisible();
+  await page.getByRole("switch", { name: "worker is not part of this run" }).click();
+  await expect(page.getByRole("switch", { name: "worker is part of this run" })).toBeVisible();
+});
+
+test("all logs: every service merged, filtered in Go, doze itself among them", async ({ page }, info) => {
+  await openShop(page);
+  await page.keyboard.press("Shift+L");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("All logs");
+  await expect(page.locator(".head .path")).toContainText("every service, merged");
+  await expect(page.locator(".side")).toContainText("doze itself");
+  await expect(page.locator(".ln.merged .who.acc").first()).toHaveText("doze");
+  await page.getByRole("group", { name: "Level" }).getByRole("button", { name: "Warn+" }).click();
+  await expect(page.locator(".lg .ln")).toHaveCount(1);
+  await expect(page.locator(".lg .ln").first()).toContainText("slow query");
+  await page.getByRole("group", { name: "Level" }).getByRole("button", { name: "Debug" }).click();
+  await page.getByRole("textbox", { name: "Filter the lines" }).fill("vite");
+  await expect(page.locator(".hl").first()).toHaveText(/vite/i);
+  await page.screenshot({ path: `.desk-look/AllLogs-${info.project.name}.png` });
+});
+
+test("narrow: the strip and the head give way, nothing overlaps", async ({ page }, info) => {
+  await page.setViewportSize({ width: 900, height: 620 });
+  await openShop(page);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".strip")).toHaveClass(/narrow/);
+  await expect(page.locator(".strip .stat").nth(1)).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "api, in full" })).toBeVisible();
+  await page.screenshot({ path: `.desk-look/Narrow-${info.project.name}.png` });
+});

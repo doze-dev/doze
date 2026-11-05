@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · shop · overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}.win{height:900px}
+.strip{display:flex;align-items:center;gap:36px;margin:0 28px 28px;padding:0 0 22px;border-bottom:1px solid var(--line)}
+.stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .v{font-size:22px;line-height:26px;font-weight:600;color:var(--bright);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:12px;font-weight:400;color:var(--dim);margin-left:6px}
+.stat .s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .bar{width:220px;height:6px}
+.stat.wide{flex:1 1 0}
+.gl{margin:0 28px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:flex;align-items:baseline;gap:10px}
+.gl span{font-weight:400;letter-spacing:0;text-transform:none;color:var(--dim);opacity:.8}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 28px 26px}
+.tile{position:relative;display:flex;flex-direction:column;gap:8px;padding:16px 18px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);min-height:112px;overflow:hidden}
+.tile.sel{border-color:var(--accent)}
+.tile.bad{border-color:color-mix(in srgb,var(--bad) 55%,var(--line));background:color-mix(in srgb,var(--bad) 7%,var(--panel))}
+.tile.off{background:transparent;border-style:dashed}
+.tile .top{display:flex;align-items:center;gap:8px;min-width:0}
+.tile .top b{font-size:15px;font-weight:650;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.tile.off .top b{color:var(--dim)}
+.tile .top .sw{margin-left:auto}
+.tile .top .pin{color:var(--accent);flex:none;display:inline-flex}
+.tile .st{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim)}
+.tile .st b{font-weight:600}
+.tile .ft{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--dim);white-space:nowrap;min-width:0;margin-top:auto}
+.tile .ft .m{color:var(--text);font-variant-numeric:tabular-nums;flex:none}
+.tile .ft .a{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-variant-ligatures:none;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.tile .ft .copy{flex:none}
+.tile .runbtn{margin-left:auto}
+.tile .err{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;color:var(--bad);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <main class="main">
+      <div class="head" style="padding:22px 28px 18px"><h1>shop</h1><span class="path">~/code/shop · up 14m</span><span class="grow"></span><div class="seg" role="group" aria-label="View"><button class="on">Tiles</button><button>List</button><button>Map</button></div><span class="btn quiet">All logs <kbd>L</kbd></span><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button><button class="ib" aria-label="More ways to start shop">▾</button></span></div>
+      <div class="strip">
+        <div class="stat wide"><span class="v">551 MB<small>resident</small></span><div class="bar"><i style="width:38%;background:var(--cool)"></i><i style="width:27%;background:var(--accent)"></i><i style="width:17%;background:var(--good)"></i><i style="width:15%;background:var(--warn)"></i><i style="width:3%;background:var(--extra)"></i></div><span class="s">web 212 · mongo 148 · db 96 · api 84 · cache 11</span></div>
+        <div class="stat"><span class="v">0.03<small>cores</small></span><span class="s">api 2.1% · db 0.8% · the rest idle</span></div>
+        <div class="stat"><span class="v">4<small>awake</small></span><span class="s"><span class="warn">1 dozing</span> · <span class="cool">2 waking</span> · 3 asleep · 1 off · <span class="bad">1 crashing</span></span></div>
+        <div class="stat"><span class="v">4<small>connections</small></span><span class="s">db 4 · web 2 clients</span></div>
+      </div>
+      <div class="gl">Apps <span>your code</span></div>
+      <div class="tiles">
+        <div class="tile sel"><div class="top"><span class="dot g"></span><b>api</b><button class="sw on" role="switch" aria-checked="true" aria-label="api is part of this run"></button></div><div class="st"><b class="ok">awake</b> · runs until stopped</div><div class="ft"><span class="m">84 MB</span><span class="a">http://api.shop.doze</span><span class="copy">⧉</span></div></div>
+        <div class="tile"><div class="top"><span class="dot g"></span><b>web</b><span class="pin" aria-label="pinned"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1.5h4l-.8 4.2L12 8.5V10H8.6V15H7.4V10H4V8.5l2.8-2.8z" fill="currentColor"/></svg></span><button class="sw on" role="switch" aria-checked="true" aria-label="web is part of this run"></button></div><div class="st"><b class="ok">awake</b> · pinned, never sleeps</div><div class="ft"><span class="m">212 MB</span><span class="a link">https://shop.acme.dev</span><span class="copy">⧉</span></div></div>
+        <div class="tile off"><div class="top"><span class="dot"></span><b>worker</b><button class="sw" role="switch" aria-checked="false" aria-label="worker is not part of this run"></button></div><div class="st"><b>off</b> · not part of this run</div><div class="ft"><span class="a">would bring events</span></div></div>
+      </div>
+      <div class="gl">Modules <span>from the registry</span></div>
+      <div class="tiles">
+        <div class="tile"><div class="top"><span class="dot y"></span><b>cache</b><button class="sw on" role="switch" aria-checked="true" aria-label="cache is part of this run"></button></div><div class="st"><b class="warn">dozing</b> · sleeps in 3:12, nothing holds it</div><div class="ft"><span class="m">11 MB</span><span class="a">cache.shop.doze:6379</span><span class="copy">⧉</span></div></div>
+        <div class="tile"><div class="top"><span class="dot"></span><b>cloud</b><button class="sw on" role="switch" aria-checked="true" aria-label="cloud is part of this run"></button></div><div class="st"><b>asleep</b> · wakes on a connection</div><div class="ft"><span class="a">cloud.shop.doze</span><span class="copy">⧉</span></div></div>
+        <div class="tile"><div class="top"><span class="dot g"></span><b>db</b><button class="sw on" role="switch" aria-checked="true" aria-label="db is part of this run"></button></div><div class="st"><b class="ok">awake</b> · api needs it · 4 connections</div><div class="ft"><span class="m">96 MB</span><span class="a">db.shop.doze:5432</span><span class="copy">⧉</span></div></div>
+        <div class="tile"><div class="top"><span class="ring"></span><b>events</b><button class="sw on" role="switch" aria-checked="true" aria-label="events is part of this run"></button></div><div class="st"><b class="cool">waking</b> · worker asked for it, 3 s so far, usually ready in about 8 s</div><div class="ft"><span class="a">events.shop.doze:9092</span><span class="copy">⧉</span></div></div>
+      </div>
+      <div class="gl">Outside <span>brought in by you</span></div>
+      <div class="tiles">
+        <div class="tile bad"><div class="top"><span class="dot r"></span><b>search</b><button class="sw on" role="switch" aria-checked="true" aria-label="search is part of this run"></button></div><div class="st"><b class="bad">crashing</b> · try 2 of 5 · next in 8 s</div><div class="err">listen EADDRINUSE 127.0.0.1:7700</div></div>
+        <div class="tile"><div class="top"><span class="dot g"></span><b>mongo</b><button class="sw on" role="switch" aria-checked="true" aria-label="mongo is part of this run"></button></div><div class="st"><b class="ok">awake</b> · api needs it</div><div class="ft"><span class="m">148 MB</span><span class="a">mongo.shop.doze:27017</span><span class="copy">⧉</span></div></div>
+        <div class="tile"><div class="top"><span class="dot"></span><b>mailpit</b><button class="sw on" role="switch" aria-checked="true" aria-label="mailpit is part of this run"></button></div><div class="st"><b>asleep</b> · starts when something needs it</div><div class="ft"><span class="a">http://mailpit.shop.doze · smtp mailpit.shop.doze:1025</span><span class="copy">⧉</span></div></div>
+      </div>
+      <div class="gl">Tasks <span>run once, then out of the way</span></div>
+      <div class="tiles">
+        <div class="tile"><div class="top"><span class="ok" style="width:8px;text-align:center;font-size:12px">✓</span><b>migrate</b><button class="runbtn">Run again</button></div><div class="st"><b class="ok">done</b> · 2m ago · 1.2 s · exit 0</div><div class="ft"><span class="a">go run ./cmd/migrate</span></div></div>
+        <div class="tile"><div class="top"><span class="acc" style="width:8px;text-align:center;font-size:12px">▸</span><b>seed</b><button class="runbtn">Run</button></div><div class="st"><b class="acc">ready</b> · not run yet · needs db</div><div class="ft"><span class="a">pnpm seed</span></div></div>
+      </div>
+      <div class="keys" style="margin-top:auto;padding:0 28px"><span><kbd>↑↓←→</kbd>move</span><span><kbd>space</kbd>on / off</span><span><kbd>⏎</kbd>open</span><span><kbd>i</kbd>inspect</span><span><kbd>l</kbd>logs</span><span><kbd>y</kbd>copy address</span><span><kbd>/</kbd>filter</span><span class="note">from Library: click a stack</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

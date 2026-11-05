@@ -844,6 +844,7 @@
   "side": [
     {
       "name": "api",
+      "kind": "app",
       "look": {
         "word": "crashing",
         "glyph": "✗",
@@ -854,6 +855,7 @@
     },
     {
       "name": "web",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -864,6 +866,7 @@
     },
     {
       "name": "worker",
+      "kind": "app",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -874,6 +877,7 @@
     },
     {
       "name": "cache",
+      "kind": "module",
       "look": {
         "word": "dozing",
         "glyph": "◐",
@@ -884,6 +888,7 @@
     },
     {
       "name": "cloud",
+      "kind": "module",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -894,6 +899,7 @@
     },
     {
       "name": "db",
+      "kind": "module",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -904,6 +910,7 @@
     },
     {
       "name": "events",
+      "kind": "module",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -914,6 +921,7 @@
     },
     {
       "name": "mailpit",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -924,6 +932,7 @@
     },
     {
       "name": "mongo",
+      "kind": "service",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -934,6 +943,7 @@
     },
     {
       "name": "search",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -944,6 +954,7 @@
     },
     {
       "name": "migrate",
+      "kind": "task",
       "look": {
         "word": "done",
         "glyph": "✓",
@@ -954,6 +965,7 @@
     },
     {
       "name": "seed",
+      "kind": "task",
       "look": {
         "word": "ready",
         "glyph": "▸",

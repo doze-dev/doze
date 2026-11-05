@@ -5,6 +5,8 @@ package app
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -107,4 +109,36 @@ func (a *API) Empty(dir string) view.Empty { return a.s.Empty(dir) }
 func (a *API) Setup(dir, action, arg string) error { return a.s.Setup(dir, action, arg) }
 
 // Open opens a URL in the person's browser: an app's own domain.
-func (a *API) Open(url string) { _ = application.Get().Browser.OpenURL(url) }
+// Open opens a URL in the browser, or a file in its app; a path written
+// with ~ is the person's home.
+func (a *API) Open(url string) {
+	if strings.HasPrefix(url, "file://~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			url = "file://" + filepath.Join(home, strings.TrimPrefix(url, "file://~/"))
+		}
+	}
+	_ = application.Get().Browser.OpenURL(url)
+}
+
+// Library is the first tab: every stack, the help strip, the machine line.
+func (a *API) Library() view.Library { return a.s.Library() }
+
+// Stack acts on a whole stack: up-last, up-all, up (with names), down, forget.
+func (a *API) Stack(key, action string, names []string) error { return a.s.Stack(key, action, names) }
+
+// DismissHints hides the Library's help strip for good.
+func (a *API) DismissHints() { a.s.DismissHints() }
+
+// SetView remembers a stack's overview view: tiles, list or map.
+func (a *API) SetView(key, name string) { a.s.SetView(key, name) }
+
+// ChooseFolder shows the folder picker and opens what was chosen, which
+// lands on the stack's tab, or on the page for a folder with no doze.hcl.
+func (a *API) ChooseFolder() string {
+	dir, err := application.Get().Dialog.OpenFile().CanChooseDirectories(true).CanChooseFiles(false).SetTitle("Open a project folder").PromptForSingleSelection()
+	if err != nil || dir == "" {
+		return ""
+	}
+	a.s.Open(dir)
+	return dir
+}

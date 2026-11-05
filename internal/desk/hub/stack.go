@@ -51,14 +51,25 @@ type stack struct {
 	resub context.CancelFunc
 	// consoles are the module consoles a page is showing, by instance.
 	consoles map[string]*consoleState
+	// since is when the hub first saw the daemon; lastSet is the project
+	// record's remembered start set.
+	since   time.Time
+	lastSet []string
 }
 
 func newStack(key, socket string, d control.Daemon, now func() time.Time, changed func()) *stack {
 	return &stack{
 		key: key, socket: socket, d: d, now: now, changed: changed, cancel: func() {},
 		series: map[string]*Series{}, lines: map[string]lines{}, want: map[string]int{}, added: map[string]uint64{},
-		consoles: map[string]*consoleState{},
+		consoles: map[string]*consoleState{}, since: now(),
 	}
+}
+
+// setRecord keeps what the project record says was started last time.
+func (s *stack) setRecord(lastSet []string) {
+	s.mu.Lock()
+	s.lastSet = lastSet
+	s.mu.Unlock()
 }
 
 // start opens the subscription and keeps it open until ctx ends, as the
@@ -257,11 +268,13 @@ func (s *stack) view() StackView {
 	defer s.mu.Unlock()
 	v := StackView{
 		Key: s.key, Name: s.name, Dir: s.dir, IdleTimeout: s.idle, Running: true,
-		Conn: s.conn, RetryAt: s.retryAt, LastFrame: s.lastFrame,
+		Conn: s.conn, RetryAt: s.retryAt, LastFrame: s.lastFrame, Metered: s.want[control.TopicStats] > 0,
 		Instances: append([]control.InstanceView(nil), s.instances...),
 		Events:    append([]journal.Event(nil), s.events...),
 		Series:    map[string]Series{},
 		Consoles:  s.consoleViews(),
+		LastSet:   append([]string(nil), s.lastSet...),
+		Since:     s.since,
 	}
 	for name, sr := range s.series {
 		v.Series[name] = sr.clone()

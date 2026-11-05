@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · a folder with no doze.hcl</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.found{margin:0 20px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.frow{display:grid;grid-template-columns:120px minmax(0,1fr) 150px;column-gap:14px;align-items:center;height:34px;padding:0 14px;border-top:1px solid var(--line);white-space:nowrap}
+.frow:first-child{border-top:0;background:var(--well);height:28px;color:var(--dim);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.frow b{color:var(--bright);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600}
+.frow .from{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.choice{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.choice.on{border-color:var(--accent)}
+.choice .k{width:26px;height:26px;border-radius:7px;background:var(--sel);display:flex;align-items:center;justify-content:center;color:var(--bright);font:600 12px 'JetBrains Mono',monospace}
+.choice b{color:var(--bright);font-weight:600;display:block}
+.choice span{color:var(--dim);font-size:12px;display:block;line-height:17px}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab on" role="tab"><span class="dot"></span><span class="t">ai-notes</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <main class="main">
+      <div class="head"><h1>ai-notes</h1><span class="path">~/code/ai-notes · no doze.hcl yet</span><span class="grow"></span><span class="btn quiet">Close tab <kbd>⌘W</kbd></span></div>
+      <div class="banner cool"><span class="dot c"></span><div class="t"><b>Nothing has started. doze read the folder and found this.</b><span>Pick one of the three ways below; each writes a doze.hcl you can open in your editor. Nothing runs until you bring the stack up.</span></div></div>
+      <div class="found">
+        <div class="frow"><span>Found</span><span>Where</span><span>Becomes</span></div>
+        <div class="frow"><b>api</b><span class="from">go.mod · main package in ./cmd/api · listens on 8080 by flag</span><span class="dim">app "api"</span></div>
+        <div class="frow"><b>web</b><span class="from">package.json · "dev": "next dev" · port 3000</span><span class="dim">app "web"</span></div>
+        <div class="frow"><b>postgres</b><span class="from">docker-compose.yml · image postgres:17 · POSTGRES_DB=notes</span><span class="dim">postgres "db"</span></div>
+        <div class="frow"><b>redis</b><span class="from">docker-compose.yml · image redis:7</span><span class="dim">valkey "cache" · Redis-compatible</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:0 20px">
+        <div class="choice on"><span class="k">1</span><div><b>Set it up from what was found</b><span>writes doze.hcl with the four above, wired: web gets DATABASE_URL and VALKEY_URL, api gets both. You can edit it after.</span></div></div>
+        <div class="choice"><span class="k">2</span><div><b>Add one thing</b><span>name a module or a service, postgres, valkey, kafka, mongo, or your own command. Build the file up a line at a time.</span></div></div>
+        <div class="choice"><span class="k">3</span><div><b>Start with an empty file</b><span>a short doze.hcl with comments, for a project that is not what the detector thinks it is.</span></div></div>
+      </div>
+      <div class="model" style="margin-top:14px">The same three choices as <span class="mono">doze</span> run in a terminal in this folder. doze never edits <span class="mono">doze.hcl</span> behind your back: after this, the file is yours.</div>
+      <div class="keys"><span><kbd>1-3</kbd>pick</span><span><kbd>⏎</kbd>choose</span><span><kbd>⌘W</kbd>close without writing anything</span><span class="note">from Library: Open folder, a drop, or doze open in a terminal</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

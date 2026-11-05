@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · acme · a domain needs one setup</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.row{--c:3px 60px minmax(120px,1.1fr) 68px minmax(140px,2fr) 64px minmax(120px,1.2fr) 34px}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">acme</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side" aria-label="acme">
+      <div class="si on"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>61 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>180 MB</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>90 MB</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><h1>acme</h1><span class="path">~/work/acme · up 1m</span><span class="grow"></span><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="acme is up"></button></span></div>
+      <div class="banner cool"><span class="dot c"></span><div class="t"><b>web declares https://dev.acme.com, which this Mac is not set up for yet. The stack works at web.acme.doze meanwhile.</b><span>One admin prompt does two things: sends dev.acme.com and everything under it to doze, and trusts doze's certificate authority for TLS on this machine. The prompt names exactly that.</span></div><span class="btn">Show the script</span><span class="btn pri">Set it up</span></div>
+      <div class="list">
+        <div class="row h"><span></span><span>60 s</span><span>Name</span><span>State</span><span>Why</span><span class="r">Mem</span><span>Address</span><span></span></div>
+        <div class="grp"><span class="car">▾</span>APPS<span class="cnt">2 · 2 on</span></div>
+        <div class="row g"><span class="edge"></span><svg class="spark" width="60" height="16" viewBox="0 0 60 16" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="1.5" points="0,12 60,8"/></svg><div class="nm"><b>api</b><span>go run ./cmd/api</span></div><span class="ok">awake</span><div class="why"><span>runs until stopped</span></div><span class="r">61 MB</span><div class="addr"><span class="t">api.acme.doze:8080</span><span class="copy">⧉</span></div><button class="sw on" role="switch" aria-checked="true" aria-label="api is on"></button></div>
+        <div class="row g sel"><span class="edge"></span><svg class="spark" width="60" height="16" viewBox="0 0 60 16" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="1.5" points="0,12 60,6"/></svg><div class="nm"><b>web</b><span>pnpm dev</span></div><span class="ok">awake</span><div class="why"><span>runs until stopped</span><span class="sep">·</span><span class="warn">https://dev.acme.com not reachable yet</span></div><span class="r">180 MB</span><div class="addr"><span class="t">web.acme.doze:3000</span><span class="copy">⧉</span></div><button class="sw on" role="switch" aria-checked="true" aria-label="web is on"></button></div>
+        <div class="grp"><span class="car">▾</span>MODULES<span class="cnt">1</span></div>
+        <div class="row g"><span class="edge"></span><svg class="spark" width="60" height="16" viewBox="0 0 60 16" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="1.5" points="0,12 60,9"/></svg><div class="nm"><b>db</b><span>postgres 17</span></div><span class="ok">awake</span><div class="why"><span>api needs it</span></div><span class="r">90 MB</span><div class="addr"><span class="t">db.acme.doze:5432</span><span class="copy">⧉</span></div><button class="sw on" role="switch" aria-checked="true" aria-label="db is on"></button></div>
+      </div>
+      <div class="model" style="margin-top:14px">What trusting the authority means: TLS on this machine, for names doze mints; like any root it could sign any name, so its key stays in <span class="mono">~/.doze/ca</span>, readable by you alone. Doctor shows it, rotates it, and removes it. A machine that declares no domain is never asked.</div>
+      <div class="keys"><span><kbd>⏎</kbd>set it up</span><span><kbd>esc</kbd>later, the banner stays until it is done</span><span class="note">on Up, the first time a stack on this machine declares a domain</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

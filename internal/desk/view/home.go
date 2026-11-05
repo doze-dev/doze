@@ -30,6 +30,16 @@ type Home struct {
 	// Awake and Total count the instances up and declared, tasks aside.
 	Awake int `json:"awake"`
 	Total int `json:"total"`
+	// View is the overview's view, remembered per stack: tiles, list, map.
+	// The service fills it from prefs.
+	View string `json:"view"`
+	// Map is the stack as a map: nodes placed by role, an edge per need.
+	Map MapView `json:"map"`
+	// Up is how long the daemon has been up: "14m".
+	Up string `json:"up,omitempty"`
+	// Stopped is set for a stack that is not running: what doze.hcl
+	// declares, to tick and bring up.
+	Stopped *Stopped `json:"stopped,omitempty"`
 }
 
 // Vitals4 are the four cards across the top of home.
@@ -63,6 +73,10 @@ type States struct {
 	Dozing int `json:"dozing"`
 	Waking int `json:"waking"`
 	Asleep int `json:"asleep"`
+	// Off counts the ones declared but not part of this run; Crashing the
+	// ones in trouble. Neither is in the four above.
+	Off      int `json:"off"`
+	Crashing int `json:"crashing"`
 	// Sleeps is the sentence under the counts: "sleeps after 5:00 with
 	// nothing holding it".
 	Sleeps string `json:"sleeps"`
@@ -102,11 +116,68 @@ type Row struct {
 	Trouble     bool   `json:"trouble"`
 	// Depth is the row's depth in the dependency tree, for the tree view.
 	Depth int `json:"depth"`
+	// Address is the row's address as shown: port-less for an app the
+	// front door serves, the name and port for a module; URL is what Open
+	// uses, empty when it is not http.
+	Address string `json:"address,omitempty"`
+	URL     string `json:"url,omitempty"`
+	// On says it is part of this run; off is declared but not started and
+	// nothing wakes it. Pinned says it never sleeps.
+	On     bool `json:"on"`
+	Pinned bool `json:"pinned"`
+	// Err is the first line of what it last said before exiting, while it
+	// is crashing.
+	Err string `json:"err,omitempty"`
+}
+
+// MapView is the stack as the Map view draws it: nodes in columns by
+// role, each with a place, and an edge per need.
+type MapView struct {
+	Columns []MapColumn `json:"columns"`
+	Nodes   []MapNode   `json:"nodes"`
+	Edges   []MapEdge   `json:"edges"`
+	// W and H are the drawing's size, so the page can scale it.
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// MapColumn is a heading over a column of nodes.
+type MapColumn struct {
+	Title string `json:"title"`
+	What  string `json:"what"`
+	X     int    `json:"x"`
+	Y     int    `json:"y"`
+}
+
+// MapNode is one instance, placed.
+type MapNode struct {
+	Name string `json:"name"`
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+	W    int    `json:"w"`
+	H    int    `json:"h"`
+	Task bool   `json:"task"`
+}
+
+// MapEdge is one need, from the one that needs to the one needed, with the
+// points to draw it between and its tone: on (keeps it awake), dim (needs
+// it, not right now), off (would need it, if on).
+type MapEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	X1   int    `json:"x1"`
+	Y1   int    `json:"y1"`
+	X2   int    `json:"x2"`
+	Y2   int    `json:"y2"`
+	Tone string `json:"tone"`
+	// Same says both ends are in one column, so the line runs vertically.
+	Same bool `json:"same"`
 }
 
 // Side is one instance in the sidebar's list: its dot and a word or figure.
 type Side struct {
 	Name    string `json:"name"`
+	Kind    string `json:"kind"` // app, module, service, task: the sidebar's groups
 	Look    Look   `json:"look"`
 	Note    string `json:"note"` // "84 MB", "dozing", "asleep", "done"
 	Trouble bool   `json:"trouble"`
@@ -140,6 +211,11 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 					row.Up = display.Ago(now.Sub(v.StartedAt))
 				}
 			}
+			row.On, row.Pinned = !v.Disabled, v.KeepAwake
+			if row.Trouble && v.LastError != "" {
+				row.Err = display.FirstLine(v.LastError)
+			}
+			row.Address, row.URL = addressOf(v)
 			grp.Rows = append(grp.Rows, row)
 			grp.Count++
 			if v.Kind != "task" {
@@ -155,6 +231,10 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 	}
 	h.Vitals = vitalsOf(st)
 	h.Side = SideOf(st)
+	if st.Running && !st.Since.IsZero() {
+		h.Up = display.Ago(now.Sub(st.Since))
+	}
+	h.Map = mapOf(st, rows)
 	return h
 }
 
@@ -163,7 +243,7 @@ func SideOf(st hub.StackView) []Side {
 	var out []Side
 	for _, r := range display.Rows(snapshot(st)) {
 		v := r.V
-		s := Side{Name: v.Name, Look: lookOf(v), Trouble: display.Troubled(v)}
+		s := Side{Name: v.Name, Kind: v.Kind, Look: lookOf(v), Trouble: display.Troubled(v)}
 		switch {
 		case s.Trouble && v.Kind != "task":
 			s.Note = "!"
@@ -219,12 +299,16 @@ func vitalsOf(st hub.StackView) Vitals4 {
 			}
 			continue
 		}
-		switch v.State {
-		case "active":
+		switch {
+		case v.Disabled:
+			v4.State.Off++
+		case display.Troubled(v):
+			v4.State.Crashing++
+		case v.State == "active":
 			v4.State.Awake++
-		case "idle":
+		case v.State == "idle":
 			v4.State.Dozing++
-		case "booting":
+		case v.State == "booting":
 			v4.State.Waking++
 		default:
 			v4.State.Asleep++

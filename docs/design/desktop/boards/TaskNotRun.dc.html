@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · seed · not run yet</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.plan{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.pstep{display:grid;grid-template-columns:28px 150px minmax(0,1fr) 110px;column-gap:12px;align-items:center;min-height:40px;padding:0 14px;border-top:1px solid var(--line);white-space:nowrap}
+.pstep:first-child{border-top:0}
+.pstep .num{width:22px;height:22px;border-radius:50%;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono',monospace;color:var(--dim)}
+.pstep b{color:var(--bright);font-weight:600}
+.pstep .d{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.pstep .w{color:var(--dim);font-size:12px;text-align:right}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <div class="si"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <div class="si"><span class="dot"></span><span class="t dim">worker</span><small>off</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot"></span><span class="t">cloud</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="si"><span class="ring"></span><span class="t">events</span><small>waking</small></div>
+      <h4>Tasks</h4>
+      <div class="si"><span class="ok" style="width:8px;text-align:center">✓</span><span class="t">migrate</span><small>2m ago</small></div>
+      <div class="si on"><span class="acc" style="width:8px;text-align:center">▸</span><span class="t">seed</span><small>ready</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><span class="acc" style="font-size:14px">▸</span><h1>seed</h1><span class="path">task · pnpm seed · not run yet</span><span class="grow"></span><span class="btn">Edit doze.hcl</span><span class="btn pri">Run <kbd>⏎</kbd></span></div>
+      <div class="ptabs"><span class="ptab on">Overview</span><span class="ptab dis">Runs · none yet</span></div>
+      <div class="two">
+        <div class="col">
+          <div class="empty" style="padding:28px 20px;flex:none;align-items:flex-start;text-align:left">
+            <h2>seed has not run yet.</h2>
+            <p>A task runs once when you say so, and then gets out of the way: it keeps nothing awake and nothing waits on it. Run does the three things below, and the output lands on this page as it comes.</p>
+          </div>
+          <div class="plan" aria-label="What Run does">
+            <div class="pstep"><span class="num">1</span><b>wake db</b><span class="d">it is awake now, so nothing to wait for; asleep, about 200 ms</span><span class="w">needs it</span></div>
+            <div class="pstep"><span class="num">2</span><b>run pnpm seed</b><span class="d">in ~/code/shop · with DATABASE_URL and the stack's other variables</span><span class="w">your command</span></div>
+            <div class="pstep"><span class="num">3</span><b>report</b><span class="d">exit code, how long it took, the output kept here; a notification only if it fails</span><span class="w">doze</span></div>
+          </div>
+          <div class="model" style="margin:14px 0 0;padding:0">From a terminal: <span class="mono bright">doze task seed</span>. From a script: the same, with <span class="mono">--json</span>.</div>
+        </div>
+        <div class="col">
+          <section class="card">
+            <h3>Command</h3>
+            <div class="kv"><span class="k">run</span><span class="v b">pnpm seed</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">in</span><span class="v">~/code/shop</span><span class="copy">Reveal</span></div>
+            <div class="kv"><span class="k">needs</span><span class="v">db</span><span></span></div>
+            <div class="kv"><span class="k">given</span><span class="v">DATABASE_URL, VALKEY_URL, API_URL</span><span class="copy">Show</span></div>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Output</h3>
+            <div class="code dim" style="flex:1;min-height:160px">nothing yet · appears here while it runs, and stays after</div>
+          </section>
+        </div>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>⏎</kbd>run</span><span><kbd>⌘E</kbd>edit doze.hcl</span><span><kbd>esc</kbd>back</span><span class="note">from Overview: a ready task, or Run ▸ on its row</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

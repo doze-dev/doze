@@ -64,6 +64,8 @@
       "dozing": 1,
       "waking": 2,
       "asleep": 3,
+      "off": 0,
+      "crashing": 0,
       "sleeps": "sleeps after 5:00 with nothing holding it"
     },
     "conns": {
@@ -96,7 +98,11 @@
           "port": ":8080",
           "awake": true,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "address": "http://api.shop.doze:8080",
+          "url": "http://api.shop.doze:8080",
+          "on": true,
+          "pinned": false
         },
         {
           "name": "web",
@@ -116,7 +122,11 @@
           "addr": "http://web.shop.doze:3000",
           "awake": true,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "address": "https://dev.shop.example",
+          "url": "https://dev.shop.example",
+          "on": true,
+          "pinned": false
         },
         {
           "name": "worker",
@@ -131,7 +141,9 @@
           "becauseTone": "warn",
           "awake": false,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "on": true,
+          "pinned": false
         }
       ]
     },
@@ -156,7 +168,9 @@
           "becauseTone": "warn",
           "awake": true,
           "trouble": false,
-          "depth": 1
+          "depth": 1,
+          "on": true,
+          "pinned": false
         },
         {
           "name": "cloud",
@@ -171,7 +185,9 @@
           "becauseTone": "dim",
           "awake": false,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "on": true,
+          "pinned": false
         },
         {
           "name": "db",
@@ -191,7 +207,10 @@
           "addr": "postgres://shop@db.shop.doze:5432/shop",
           "awake": true,
           "trouble": false,
-          "depth": 1
+          "depth": 1,
+          "address": "postgres://shop@db.shop.doze:5432/shop",
+          "on": true,
+          "pinned": false
         },
         {
           "name": "events",
@@ -206,7 +225,9 @@
           "becauseTone": "warn",
           "awake": false,
           "trouble": false,
-          "depth": 1
+          "depth": 1,
+          "on": true,
+          "pinned": false
         }
       ]
     },
@@ -229,7 +250,11 @@
           "addr": "http://mailpit.shop.doze",
           "awake": false,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "address": "http://mailpit.shop.doze",
+          "url": "http://mailpit.shop.doze",
+          "on": true,
+          "pinned": false
         },
         {
           "name": "mongo",
@@ -247,7 +272,9 @@
           "becauseTone": "dim",
           "awake": true,
           "trouble": false,
-          "depth": 1
+          "depth": 1,
+          "on": true,
+          "pinned": false
         },
         {
           "name": "search",
@@ -262,7 +289,9 @@
           "becauseTone": "dim",
           "awake": false,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "on": true,
+          "pinned": false
         }
       ]
     },
@@ -284,7 +313,9 @@
           "becauseTone": "dim",
           "awake": false,
           "trouble": false,
-          "depth": 1
+          "depth": 1,
+          "on": true,
+          "pinned": false
         },
         {
           "name": "seed",
@@ -299,7 +330,9 @@
           "becauseTone": "dim",
           "awake": false,
           "trouble": false,
-          "depth": 0
+          "depth": 0,
+          "on": true,
+          "pinned": false
         }
       ]
     }
@@ -307,6 +340,7 @@
   "side": [
     {
       "name": "api",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -317,6 +351,7 @@
     },
     {
       "name": "web",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -327,6 +362,7 @@
     },
     {
       "name": "worker",
+      "kind": "app",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -337,6 +373,7 @@
     },
     {
       "name": "cache",
+      "kind": "module",
       "look": {
         "word": "dozing",
         "glyph": "◐",
@@ -347,6 +384,7 @@
     },
     {
       "name": "cloud",
+      "kind": "module",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -357,6 +395,7 @@
     },
     {
       "name": "db",
+      "kind": "module",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -367,6 +406,7 @@
     },
     {
       "name": "events",
+      "kind": "module",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -377,6 +417,7 @@
     },
     {
       "name": "mailpit",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -387,6 +428,7 @@
     },
     {
       "name": "mongo",
+      "kind": "service",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -397,6 +439,7 @@
     },
     {
       "name": "search",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -407,6 +450,7 @@
     },
     {
       "name": "migrate",
+      "kind": "task",
       "look": {
         "word": "done",
         "glyph": "✓",
@@ -417,6 +461,7 @@
     },
     {
       "name": "seed",
+      "kind": "task",
       "look": {
         "word": "ready",
         "glyph": "▸",
@@ -427,5 +472,187 @@
     }
   ],
   "awake": 5,
-  "total": 10
+  "total": 10,
+  "view": "",
+  "map": {
+    "columns": [
+      {
+        "title": "APPS",
+        "what": "your code",
+        "x": 30,
+        "y": 32
+      },
+      {
+        "title": "MODULES",
+        "what": "from the doze registry",
+        "x": 430,
+        "y": 32
+      },
+      {
+        "title": "OUTSIDE",
+        "what": "brought in by you",
+        "x": 830,
+        "y": 32
+      },
+      {
+        "title": "TASKS",
+        "what": "run once, then out of the way",
+        "x": 830,
+        "y": 416
+      }
+    ],
+    "nodes": [
+      {
+        "name": "api",
+        "x": 30,
+        "y": 76,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "web",
+        "x": 30,
+        "y": 200,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "worker",
+        "x": 30,
+        "y": 324,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "cache",
+        "x": 430,
+        "y": 76,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "cloud",
+        "x": 430,
+        "y": 200,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "db",
+        "x": 430,
+        "y": 324,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "events",
+        "x": 430,
+        "y": 448,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "mailpit",
+        "x": 830,
+        "y": 76,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "mongo",
+        "x": 830,
+        "y": 200,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "search",
+        "x": 830,
+        "y": 324,
+        "w": 224,
+        "h": 64,
+        "task": false
+      },
+      {
+        "name": "migrate",
+        "x": 830,
+        "y": 460,
+        "w": 200,
+        "h": 64,
+        "task": true
+      },
+      {
+        "name": "seed",
+        "x": 830,
+        "y": 584,
+        "w": 200,
+        "h": 64,
+        "task": true
+      }
+    ],
+    "edges": [
+      {
+        "from": "api",
+        "to": "db",
+        "x1": 254,
+        "y1": 108,
+        "x2": 430,
+        "y2": 356,
+        "tone": "on",
+        "same": false
+      },
+      {
+        "from": "api",
+        "to": "mongo",
+        "x1": 254,
+        "y1": 108,
+        "x2": 830,
+        "y2": 232,
+        "tone": "on",
+        "same": false
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "x1": 254,
+        "y1": 108,
+        "x2": 430,
+        "y2": 108,
+        "tone": "on",
+        "same": false
+      },
+      {
+        "from": "api",
+        "to": "migrate",
+        "x1": 254,
+        "y1": 108,
+        "x2": 830,
+        "y2": 492,
+        "tone": "dim",
+        "same": false
+      },
+      {
+        "from": "worker",
+        "to": "events",
+        "x1": 254,
+        "y1": 356,
+        "x2": 430,
+        "y2": 480,
+        "tone": "dim",
+        "same": false
+      }
+    ],
+    "w": 1230,
+    "h": 784
+  },
+  "up": "0s"
 }

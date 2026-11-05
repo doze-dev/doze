@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>doze · shop · invalid config</title>
+<title>doze · shop · doze.hcl has an error</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -11,57 +11,58 @@
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
 <style>body{margin:0;background:#0d0b12}
-.diag{background:#120f19;border:1px solid #2c2840;border-radius:10px;padding:14px 16px;line-height:20px;white-space:pre;overflow:hidden}
-.diag .ln{color:#8a85a8}
-.diag .sq{text-decoration:underline wavy #FF7A93;text-underline-offset:3px;color:#f4f1ff}</style>
+.src{display:grid;grid-template-columns:40px minmax(0,1fr);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:20px;font-variant-ligatures:none;white-space:pre}
+.src .n{color:var(--dim);text-align:right;padding-right:12px}
+.src .bad-l{background:color-mix(in srgb,var(--bad) 14%,transparent);border-radius:3px}
+.src .u{text-decoration:underline wavy var(--bad);text-underline-offset:3px}</style>
 </helmet>
 <div class="win">
-  <div class="titlebar tabbed">
-    <div class="lights"><span></span><span></span><span></span></div>
-    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab on" role="tab"><span class="dot r"></span><b>shop</b><span class="badge">!</span></span><span class="stab" role="tab"><span class="dot g"></span>data</span><span class="stab add" title="New tab (⌘T)">+</span></div>
-    <div class="grow"></div>
-    <span class="btn"><kbd>⌘K</kbd> Command</span>
-  </div>
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot r"></span><span class="t">shop</span><span class="badge">1</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">data</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
   <div class="body">
-    <nav class="side" aria-label="Stack">
-      <h4>View</h4>
-      <div class="space on"><b>Services</b></div>
-      <div class="space">Map <span class="new">new</span></div>
-      <div class="space">Timeline <span class="new">new</span></div>
-      <h4>Instances</h4>
-      <div class="space dim" style="font-size:12px">not known until doze.hcl reads cleanly</div>
+    <nav class="side" aria-label="shop">
+      <div class="si on"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
     </nav>
     <main class="main">
-      <div class="head">
-        <span class="dot r" style="width:10px;height:10px"></span>
-        <h1>doze.hcl has an error</h1><span class="path">~/code/shop/doze.hcl · Up was refused, nothing started</span>
-      </div>
-      <div style="padding:0 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
-        <div class="mono diag"><span class="bad">error: invalid config —</span>
-
-<span class="bad">Error:</span> <b class="bright">reference to undeclared module "cahce"</b>
-
-  on doze.hcl line 89, in app "api":
-<span class="ln">  87:   env = {</span>
-<span class="ln">  88:     DATABASE_URL  = module.db.url</span>
-  89:     CACHE_ADDR    = <span class="sq">module.cahce.address</span>
-<span class="ln">  90:     MONGO_URL     = service.mongo.url</span>
-<span class="ln">  91:   }</span>
-
-no module named "cahce" is declared. Did you mean module.cache?</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="btn pri">Open doze.hcl:89 in your editor <span class="new">new</span></span>
-          <span class="btn">Copy the error</span>
-          <span class="grow"></span>
-          <span class="dim" style="font-size:12px">Saving the file tries again <span class="new">new</span></span>
-          <span class="btn">Try again <kbd>U</kbd></span>
+      <div class="head"><h1>shop</h1><span class="path">~/code/shop · running on the last good doze.hcl</span><span class="grow"></span><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button></span></div>
+      <div class="banner bad"><span class="dot r"></span><div class="t"><b>doze.hcl changed 20 s ago and does not load: the stack keeps running as it was.</b><span>Nothing is applied until the file loads. Fix it in your editor; doze reads it again on save and applies the difference.</span></div><span class="btn pri">Open in editor <kbd>⌘E</kbd></span></div>
+      <div class="two" style="padding-top:0">
+        <div class="col">
+          <section class="card" style="flex:1">
+            <h3>doze.hcl · line 14</h3>
+            <div class="src">
+<span class="n">11</span><span>app "worker" {</span>
+<span class="n">12</span><span>  run  = "go run ./cmd/worker"</span>
+<span class="n">13</span><span>  needs = ["events"]</span>
+<span class="n">14</span><span class="bad-l">  port = <span class="u">"8081"</span></span>
+<span class="n">15</span><span>}</span>
+<span class="n">16</span><span></span>
+<span class="n">17</span><span>postgres "db" {}</span></div>
+            <div class="bad" style="font-size:12.5px;margin-top:6px"><b>port</b> wants a number, got the string "8081". Write <span class="mono">port = 8081</span>.</div>
+            <div class="dim" style="font-size:12px">The same message as <span class="mono">doze lint</span> and the one the daemon logged.</div>
+          </section>
         </div>
-        <section class="card">
-          <h3>What's running</h3>
-          <div>Nothing changed. The stack was not running, and Up stopped at reading the file. A stack that is already running keeps what it started with: the daemon reads doze.hcl once, when it starts.</div>
-        </section>
+        <div class="col">
+          <section class="card">
+            <h3>What is running meanwhile</h3>
+            <div class="kv"><span class="k">from</span><span class="v">doze.hcl as saved at 13:50</span><span></span></div>
+            <div class="kv"><span class="k">services</span><span class="v">api, web, cache, db · as before</span><span></span></div>
+            <div class="kv"><span class="k">switches</span><span class="v">work, on the old file</span><span></span></div>
+            <div class="dim" style="font-size:12px">A new service in the broken file does not exist yet; a removed one keeps running until the file loads.</div>
+          </section>
+          <section class="card">
+            <h3>Other things doze checks on save</h3>
+            <div class="dim" style="font-size:12px;line-height:18px">A name used twice. A port two services both want. A module the registry does not have, with the closest name it does. A domain not under a public TLD. A <span class="mono">needs</span> that points at nothing.</div>
+          </section>
+        </div>
       </div>
-      <div class="keys"><span>The same text <b class="bright">doze up</b> prints; doze lint checks the file without starting anything</span></div>
+      <div class="keys" style="margin-top:0"><span><kbd>⌘E</kbd>open in editor</span><span><kbd>esc</kbd>back to overview, banner stays</span><span class="note">appears the moment a saved doze.hcl fails to load</span></div>
     </main>
   </div>
 </div>

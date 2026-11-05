@@ -20,8 +20,8 @@ func TestBuild(t *testing.T) {
 		{Key: "k-old", Name: "old", Dir: "/code/old"},
 	}
 	m := Build(stacks)
-	if m.Label != "2" {
-		t.Errorf("label = %q, want 2 (api and db are awake; a task is not counted)", m.Label)
+	if m.Label != "" {
+		t.Errorf("label = %q, want none: the bat stands alone, the count is the tooltip's", m.Label)
 	}
 	if !m.NeedsYou {
 		t.Error("a crashing app turns the red dot on")

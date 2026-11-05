@@ -25,6 +25,10 @@
   "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
   "tabs": [
     {
+      "id": "overview",
+      "title": "overview"
+    },
+    {
       "id": "logs",
       "title": "logs"
     }
@@ -833,6 +837,7 @@
   "side": [
     {
       "name": "api",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -843,6 +848,7 @@
     },
     {
       "name": "web",
+      "kind": "app",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -853,6 +859,7 @@
     },
     {
       "name": "worker",
+      "kind": "app",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -863,6 +870,7 @@
     },
     {
       "name": "cache",
+      "kind": "module",
       "look": {
         "word": "dozing",
         "glyph": "◐",
@@ -873,6 +881,7 @@
     },
     {
       "name": "cloud",
+      "kind": "module",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -883,6 +892,7 @@
     },
     {
       "name": "db",
+      "kind": "module",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -893,6 +903,7 @@
     },
     {
       "name": "events",
+      "kind": "module",
       "look": {
         "word": "waking",
         "glyph": "◌",
@@ -903,6 +914,7 @@
     },
     {
       "name": "mailpit",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -913,6 +925,7 @@
     },
     {
       "name": "mongo",
+      "kind": "service",
       "look": {
         "word": "awake",
         "glyph": "●",
@@ -923,6 +936,7 @@
     },
     {
       "name": "search",
+      "kind": "service",
       "look": {
         "word": "asleep",
         "glyph": "·",
@@ -933,6 +947,7 @@
     },
     {
       "name": "migrate",
+      "kind": "task",
       "look": {
         "word": "done",
         "glyph": "✓",
@@ -943,6 +958,7 @@
     },
     {
       "name": "seed",
+      "kind": "task",
       "look": {
         "word": "ready",
         "glyph": "▸",

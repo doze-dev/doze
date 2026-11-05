@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · sleep db · something depends on it</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.back{opacity:.5;pointer-events:none}
+.dep{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:26px;font-size:12.5px}
+.dep .m{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}</style>
+</helmet>
+<div class="win">
+  <div class="tb back"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span></div></div>
+  <div class="body back">
+    <nav class="side" aria-label="shop"><div class="si on"><span class="t">Overview</span></div><h4>Apps</h4><div class="si"><span class="dot g"></span><span class="t">api</span></div><div class="si"><span class="dot g"></span><span class="t">web</span></div><h4>Modules</h4><div class="si"><span class="dot g"></span><span class="t">db</span></div></nav>
+    <main class="main"><div class="head"><h1>shop</h1><span class="path">~/code/shop · up 14m</span></div></main>
+  </div>
+  <div class="scrim">
+    <div class="dialog" role="dialog" aria-label="Sleep db">
+      <h2>Sleep db?</h2>
+      <p>Two things are awake because of db. Putting it to sleep puts them to sleep too, in reverse order; the next connection to any of them wakes it all again, and nothing is lost.</p>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--well)">
+        <div class="dep"><span class="dot g"></span><b class="bright">api</b><span class="m">needs db · runs until stopped, so it will wake db back in a moment</span></div>
+        <div class="dep"><span class="dot g"></span><b class="bright">web</b><span class="m">needs db · pinned, so it will too</span></div>
+        <div class="dep"><span class="dot g"></span><b class="bright">4 connections</b><span class="m">open clients get disconnected; most reconnect</span></div>
+      </div>
+      <p class="dim" style="font-size:12.5px">Since api runs until stopped and web is pinned, db would wake again almost at once. To keep it down, sleep api and web as well, or turn db off for this run.</p>
+      <div class="acts"><span class="btn">Cancel <kbd>esc</kbd></span><span class="grow"></span><span class="btn">Turn db off</span><span class="btn">Sleep db only</span><span class="btn pri">Sleep db, api and web <kbd>⏎</kbd></span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

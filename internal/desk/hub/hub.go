@@ -64,6 +64,9 @@ type StackView struct {
 	Conn      Conn
 	RetryAt   time.Time
 	LastFrame time.Time
+	// Metered says a page is watching this stack's meters, so a frame is due
+	// every second and silence means something.
+	Metered bool
 	// Instances is the stack as last seen, in name order.
 	Instances []control.InstanceView
 	// Events is the journal kept, oldest first.
@@ -74,6 +77,11 @@ type StackView struct {
 	Consoles map[string]ConsoleView
 	// LastUp and LastDown are from the project record, for stopped stacks.
 	LastUp, LastDown time.Time
+	// LastSet is what doze up started last time, from the project record;
+	// empty means everything.
+	LastSet []string
+	// Since is when the hub first saw this stack's daemon: "up 14m".
+	Since time.Time
 }
 
 // Hub watches every stack.
@@ -202,6 +210,8 @@ func (h *Hub) Refresh() {
 		for _, p := range list {
 			if !seen[p.Dir()] {
 				stopped[p.Dir()] = p
+			} else if s := h.stacks[p.Dir()]; s != nil {
+				s.setRecord(p.LastSet) // what Up as last time would start
 			}
 		}
 	}
@@ -238,7 +248,7 @@ func (h *Hub) Stacks() []StackView {
 	for key, p := range h.stopped {
 		out = append(out, StackView{
 			Key: key, Name: p.Name, Dir: filepath.Dir(p.Config),
-			LastUp: p.LastUp, LastDown: p.LastDown,
+			LastUp: p.LastUp, LastDown: p.LastDown, LastSet: p.LastSet,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {

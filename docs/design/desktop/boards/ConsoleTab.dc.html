@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · cloud · the doze-aws console inside</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.frame{flex:1;min-height:0;margin:0 20px 0;border:1px solid var(--line);border-radius:10px;background:var(--well);display:flex;overflow:hidden}
+.crail{width:168px;flex:none;border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:2px;background:var(--side)}
+.crail .ci{height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:7px;color:var(--text);font-size:12.5px}
+.crail .ci.on{background:var(--sel);color:var(--bright);font-weight:600}
+.crail h5{margin:8px 10px 4px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.cbody{flex:1;min-width:0;display:flex;flex-direction:column}
+.ctop{height:44px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);color:var(--bright);font-weight:600}
+.ctop .crumb{color:var(--dim);font-weight:400}
+.ctable{margin:14px 16px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.ctr{display:grid;grid-template-columns:minmax(0,1.4fr) 120px 110px 120px;column-gap:12px;align-items:center;height:34px;padding:0 12px;border-top:1px solid var(--line);white-space:nowrap}
+.ctr:first-child{border-top:0;background:var(--well);height:28px;color:var(--dim);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.ctr b{color:var(--bright);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <div class="si"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <div class="si"><span class="dot"></span><span class="t dim">worker</span><small>off</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si on"><span class="dot g"></span><span class="t">cloud</span><small>awake</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="si"><span class="ring"></span><span class="t">events</span><small>waking</small></div>
+      <h4>Outside</h4>
+      <div class="si"><span class="dot"></span><span class="t">mailpit</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">mongo</span><small>148 MB</small></div>
+      <div class="si"><span class="dot r"></span><span class="t">search</span><small class="bad">crashing</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><span class="dot g"></span><h1>cloud</h1><span class="path">doze-aws · awake for 20 s · woke for this console</span><span class="grow"></span><span class="swl">on<button class="sw on" role="switch" aria-checked="true" aria-label="cloud is part of this run"></button></span><span class="btn">Pin awake <kbd>p</kbd></span><span class="btn">Open in browser <kbd>o</kbd></span></div>
+      <div class="ptabs"><span class="ptab">Overview</span><span class="ptab on">Console</span><span class="ptab">Logs</span></div>
+      <div class="frame" role="region" aria-label="doze-aws console, as it is, in this theme">
+        <div class="crail">
+          <h5>Storage</h5><div class="ci on">S3</div>
+          <h5>Messaging</h5><div class="ci">SQS</div><div class="ci">SNS</div>
+          <h5>Data</h5><div class="ci">DynamoDB</div>
+          <h5>Account</h5><div class="ci">IAM</div><div class="ci">Activity</div>
+        </div>
+        <div class="cbody">
+          <div class="ctop">S3 <span class="crumb">· buckets · ap-south-1</span><span class="grow"></span><span class="btn" style="height:28px">New bucket</span></div>
+          <div class="ctable">
+            <div class="ctr"><span>Bucket</span><span>Objects</span><span>Size</span><span>Created</span></div>
+            <div class="ctr"><b>shop-uploads</b><span>1,204</span><span>312 MB</span><span class="dim">3 days ago</span></div>
+            <div class="ctr"><b>shop-invoices</b><span>88</span><span>14 MB</span><span class="dim">3 days ago</span></div>
+            <div class="ctr"><b>shop-exports</b><span>0</span><span>0 B</span><span class="dim">20 s ago</span></div>
+          </div>
+          <div class="dim" style="padding:0 16px;font-size:12px">This is doze-aws's own console, loaded whole in the tab and told the app's theme by its address. Links inside it stay inside; ⌘W closes the tab, not the stack.</div>
+        </div>
+      </div>
+      <div class="keys"><span><kbd>o</kbd>open in a browser instead</span><span><kbd>⌘W</kbd>close tab, cloud keeps running</span><span><kbd>esc</kbd>back to overview</span><span class="note">from Overview: a module with a console, ⏎ wakes it and opens this</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

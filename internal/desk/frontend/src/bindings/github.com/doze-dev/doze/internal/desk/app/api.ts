@@ -42,6 +42,14 @@ export function Blur(): $CancellablePromise<void> {
 }
 
 /**
+ * ChooseFolder shows the folder picker and opens what was chosen, which
+ * lands on the stack's tab, or on the page for a folder with no doze.hcl.
+ */
+export function ChooseFolder(): $CancellablePromise<string> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.ChooseFolder");
+}
+
+/**
  * Console is an instance's console tab, resolved for the selection.
  */
 export function Console(key: string, name: string, tab: string, sel: { [_ in string]?: number } | null): $CancellablePromise<view$0.Console> {
@@ -53,6 +61,13 @@ export function Console(key: string, name: string, tab: string, sel: { [_ in str
  */
 export function Dialog(key: string, name: string, verb: string): $CancellablePromise<view$0.Dialog> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Dialog", key, name, verb);
+}
+
+/**
+ * DismissHints hides the Library's help strip for good.
+ */
+export function DismissHints(): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.DismissHints");
 }
 
 /**
@@ -98,6 +113,13 @@ export function Instance(key: string, name: string): $CancellablePromise<view$0.
 }
 
 /**
+ * Library is the first tab: every stack, the help strip, the machine line.
+ */
+export function Library(): $CancellablePromise<view$0.Library> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Library");
+}
+
+/**
  * Log is the page's line to the app's stderr: what it chose, what failed.
  * The web view's own console is not visible from outside the window.
  */
@@ -114,6 +136,8 @@ export function Logs(key: string, q: view$0.LogsQuery): $CancellablePromise<view
 
 /**
  * Open opens a URL in the person's browser: an app's own domain.
+ * Open opens a URL in the browser, or a file in its app; a path written
+ * with ~ is the person's home.
  */
 export function Open(url: string): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Open", url);
@@ -155,10 +179,24 @@ export function Say(text: string, bad: boolean): $CancellablePromise<void> {
 }
 
 /**
+ * SetView remembers a stack's overview view: tiles, list or map.
+ */
+export function SetView(key: string, name: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.SetView", key, name);
+}
+
+/**
  * Setup sets a folder up: init, add <arg>, or a starter file.
  */
 export function Setup(dir: string, action: string, arg: string): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Setup", dir, action, arg);
+}
+
+/**
+ * Stack acts on a whole stack: up-last, up-all, up (with names), down, forget.
+ */
+export function Stack(key: string, action: string, names: string[] | null): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Stack", key, action, names);
 }
 
 /**

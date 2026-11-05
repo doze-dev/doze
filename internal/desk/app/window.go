@@ -58,6 +58,13 @@ func (d *desk) open(dir string) {
 			opts.Width, opts.Height = p.Window.W, p.Window.H
 			opts.X, opts.Y = p.Window.X, p.Window.Y
 			opts.InitialPosition = application.WindowXY
+		} else if s := d.app.Screen.GetPrimary(); s != nil && s.WorkArea.Width > 0 {
+			// The first time, the whole visible screen (D18): the app works
+			// better with room, as Postman and the like open. Closed smaller,
+			// it comes back that size.
+			opts.Width, opts.Height = s.WorkArea.Width, s.WorkArea.Height
+			opts.X, opts.Y = s.WorkArea.X, s.WorkArea.Y
+			opts.InitialPosition = application.WindowXY
 		}
 		d.win = d.app.Window.NewWithOptions(opts)
 		// Window event listeners run on their own goroutine; d.win and the

@@ -241,6 +241,10 @@ func (s *Server) unary(ctx context.Context, req Request) Response {
 		return done(s.h.RemoveInstance(ctx, req.DB, req.Wipe))
 	case "keepawake", "pin":
 		return done(s.h.KeepAwake(req.DB))
+	case "off":
+		return done(s.h.SetOff(ctx, req.DB, true))
+	case "on":
+		return done(s.h.SetOff(ctx, req.DB, false))
 	case "resources":
 		res, acts, err := s.h.Resources(ctx, req.DB)
 		resp.Resources, resp.Actions = res, acts

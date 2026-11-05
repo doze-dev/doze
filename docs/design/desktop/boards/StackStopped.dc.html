@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>doze · ai-interview · not running</title>
+<title>doze · acme · stopped</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -11,72 +11,46 @@
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
 <style>body{margin:0;background:#0d0b12}
-.tr.off span{color:var(--dim)}
-.plan{display:flex;flex-direction:column;gap:6px}
-.plan div{display:flex;gap:10px;align-items:baseline}
-.plan b{min-width:74px;color:var(--bright);font-weight:600}.tr input{margin:0;accent-color:#BD93F9}
-.tr.grp span:first-child{display:none}
-.tbl .tr.grp{display:flex;gap:10px;padding-left:72px}</style>
+.row{--c:3px 26px minmax(120px,1fr) 90px minmax(160px,2fr) minmax(120px,1fr)}
+.box{width:14px;height:14px;border-radius:4px;border:1px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink)}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.box.half{background:var(--sel)}</style>
 </helmet>
 <div class="win">
-  <div class="titlebar tabbed">
-    <div class="lights"><span></span><span></span><span></span></div>
-    <div class="stabs" role="tablist" aria-label="Stacks"><span class="stab" role="tab"><span class="dot g"></span>shop</span><span class="stab on" role="tab"><span class="dot"></span><b>ai-interview</b></span><span class="stab add" title="New tab (⌘T)">+</span></div>
-    <div class="grow"></div>
-    <span class="btn"><kbd>⌘K</kbd> Command</span>
-  </div>
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab on" role="tab"><span class="dot"></span><span class="t">acme</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
   <div class="body">
-    <nav class="side" aria-label="Stack">
-      <h4>View</h4>
-      <div class="space on"><b>Services</b></div>
-      <div class="space">Map <span class="new">new</span></div>
-      <div class="space">Timeline <span class="new">new</span></div>
-      <h4>Instances</h4>
-      <div class="space"><span class="dot"></span>server<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>grader<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>db<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>cache<small>asleep</small></div>
-      <div class="space"><span class="dot"></span>migrate<small>task</small></div>
+    <nav class="side" aria-label="acme">
+      <div class="si on"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot"></span><span class="t">api</span></div>
+      <div class="si"><span class="dot"></span><span class="t">web</span></div>
+      <div class="si"><span class="dot"></span><span class="t">worker</span></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot"></span><span class="t">db</span></div>
+      <div class="si"><span class="dot"></span><span class="t">cache</span></div>
+      <div class="si"><span class="dot"></span><span class="t">cloud</span></div>
+      <h4>Tasks</h4>
+      <div class="si"><span class="dot"></span><span class="t">migrate</span></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
     </nav>
     <main class="main">
-      <div class="head">
-        <h1>ai-interview</h1><span class="path">~/code/ai-interview</span>
-        <span class="grow"></span>
-        <span class="btn">Open doze.hcl</span>
-        <span class="btn">Up everything</span>
-        <span class="btn pri">Up as last time <kbd>U</kbd></span>
+      <div class="head"><h1>acme</h1><span class="path">~/work/acme · stopped · last up 3 days ago</span><span class="grow"></span><span class="btn">Edit doze.hcl</span><span class="swl"><b>Up</b><button class="sw big" role="switch" aria-checked="false" aria-label="acme is down"></button></span></div>
+      <div class="banner"><span class="dot"></span><div class="t"><b>Nothing is running. Tick what should start; the rest wakes when something connects to it.</b><span>Last time you started api, web and db. That is ticked for you. Up starts the ticked ones in dependency order and remembers the set.</span></div><span class="btn pri">Up as last time <kbd>⏎</kbd></span><span class="btn">Up everything</span></div>
+      <div class="list">
+        <div class="row h"><span></span><span></span><span>Name</span><span>Kind</span><span>What it needs</span><span>Address when up</span></div>
+        <div class="grp"><span class="car">▾</span>APPS<span class="cnt">3 · 2 ticked</span></div>
+        <div class="row"><span class="edge"></span><span class="box on">✓</span><div class="nm"><b>api</b><span>go run ./cmd/api</span></div><span class="dim">process</span><div class="why"><span>db, cache</span><span class="sep">·</span><span>they start first</span></div><div class="addr"><span class="t">api.acme.doze:8080</span></div></div>
+        <div class="row sel"><span class="edge"></span><span class="box on">✓</span><div class="nm"><b>web</b><span>pnpm dev</span></div><span class="dim">process</span><div class="why"><span>api, db, cache</span><span class="sep">·</span><span class="link">https://dev.acme.com</span></div><div class="addr"><span class="t">dev.acme.com</span></div></div>
+        <div class="row off"><span class="edge"></span><span class="box"></span><div class="nm"><b>worker</b><span>go run ./cmd/worker</span></div><span class="dim">process</span><div class="why"><span>cloud</span><span class="sep">·</span><span>not last time</span></div><div class="addr"><span class="t">worker.acme.doze</span></div></div>
+        <div class="grp"><span class="car">▾</span>MODULES<span class="cnt">3 · wake when needed</span></div>
+        <div class="row"><span class="edge"></span><span class="box on">✓</span><div class="nm"><b>db</b><span>postgres 17</span></div><span class="dim">module</span><div class="why"><span>nothing</span><span class="sep">·</span><span>api and web need it, so it starts first</span></div><div class="addr"><span class="t">db.acme.doze:5432</span></div></div>
+        <div class="row off"><span class="edge"></span><span class="box half"></span><div class="nm"><b>cache</b><span>valkey 9</span></div><span class="dim">module</span><div class="why"><span>nothing</span><span class="sep">·</span><span>starts when api asks for it</span></div><div class="addr"><span class="t">cache.acme.doze:6379</span></div></div>
+        <div class="row off"><span class="edge"></span><span class="box half"></span><div class="nm"><b>cloud</b><span>aws · S3, SQS</span></div><span class="dim">module</span><div class="why"><span>nothing</span><span class="sep">·</span><span>starts when worker asks for it</span></div><div class="addr"><span class="t">cloud.acme.doze</span></div></div>
+        <div class="grp"><span class="car">▾</span>TASKS<span class="cnt">1 · run by hand</span></div>
+        <div class="row off"><span class="edge"></span><span></span><div class="nm"><b>migrate</b><span>go run ./cmd/migrate</span></div><span class="dim">task</span><div class="why"><span>db</span><span class="sep">·</span><span>runs when you say, not on Up</span></div><span></span></div>
       </div>
-      <div style="margin:0 20px 12px;display:flex;align-items:center;gap:10px" class="dim"><span class="dot"></span>doze is not running — showing declared services <span class="nw">needs work</span><span style="font-size:12px">found because doze recorded this folder when it last ran</span></div>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;padding:0 20px;flex:1;min-height:0">
-        <div class="tbl" style="margin:0;--c:44px 120px 96px 70px minmax(0,1fr);align-self:start">
-          <div class="tr h"><span>Up</span><span>Name</span><span>Engine</span><span>State</span><span>At Up</span></div>
-          <div class="tr grp"><span></span>APPS <span>2 · your code</span></div>
-          <div class="tr"><input type="checkbox" checked="checked" aria-label="Start server"><span class="n"><span class="dot"></span>server</span><span>process</span><span class="dim">asleep</span><span>starts · <span class="acc">you chose it last time</span></span></div>
-          <div class="tr off"><input type="checkbox" aria-label="Start grader"><span class="n"><span class="dot"></span>grader</span><span>process</span><span>asleep</span><span>stays asleep</span></div>
-          <div class="tr grp"><span></span>MODULES <span>2 · from the doze registry</span></div>
-          <div class="tr"><input type="checkbox" checked="checked" disabled="disabled" aria-label="db is needed by server"><span class="n"><span class="dot"></span>db</span><span>postgres 17</span><span class="dim">asleep</span><span>starts first · <span class="dim">server and migrate need it</span></span></div>
-          <div class="tr"><input type="checkbox" checked="checked" disabled="disabled" aria-label="cache is needed by server"><span class="n"><span class="dot"></span>cache</span><span>valkey 9</span><span class="dim">asleep</span><span>starts · <span class="dim">server needs it</span></span></div>
-          <div class="tr grp"><span></span>TASKS <span>1 · run once, then out of the way</span></div>
-          <div class="tr"><input type="checkbox" checked="checked" disabled="disabled" aria-label="migrate runs before server"><span class="n"><span class="dim">▸</span>migrate</span><span>task</span><span class="dim">ready</span><span>runs after db · <span class="dim">server needs it</span></span></div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-          <section class="card">
-            <h3>What Up does</h3>
-            <div class="plan">
-              <div><b>daemon</b><span>starts for this project</span></div>
-              <div><b>order</b><span>db and cache wake first, then migrate runs against db, then server starts</span></div>
-              <div><b>grader</b><span>stays asleep. Start it any time from its row; anything left asleep that something connects to still wakes</span></div>
-            </div>
-            <div class="dim" style="font-size:12px">The same as <b class="bright mono">doze up server</b>: the ones you tick, and what they need, in dependency order.</div>
-          </section>
-          <section class="card">
-            <h3>Remembered <span class="nw">needs work</span></h3>
-            <div style="font-size:12.5px">Last time this stack went down with <b class="bright">server</b> up, so that's ticked. Up everything ignores it.</div>
-            <div class="dim" style="font-size:12px">Down records which services were up; the next Up starts the same set. Your tabs, the page each was on and the window come back too <span class="new">new</span>.</div>
-          </section>
-        </div>
-      </div>
-      <div class="keys"><span><kbd>u</kbd>up as last time</span><span><kbd>U</kbd>up everything</span><span><kbd>space</kbd>tick</span><span><kbd>e</kbd>open doze.hcl</span><span class="grow"></span><span>nothing here costs memory until Up</span></div>
+      <div class="model" style="margin-top:12px"><b>Half-ticked</b> means it is not started on Up but wakes the moment something needs it. That is the normal state for a module.</div>
+      <div class="keys"><span><kbd>space</kbd>tick</span><span><kbd>⏎</kbd>up as ticked</span><span><kbd>a</kbd>tick all</span><span><kbd>⌘E</kbd>edit doze.hcl</span><span class="note">from Library: a stopped stack, or the switch's Choose</span></div>
     </main>
   </div>
 </div>

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/doze-dev/doze/internal/control/fakedaemon"
 	"github.com/doze-dev/doze/internal/control/fixture"
 	"github.com/doze-dev/doze/internal/desk/hub"
+	"github.com/doze-dev/doze/internal/desk/prefs"
 )
 
 var update = flag.Bool("update", false, "rewrite the goldens")
@@ -123,9 +125,14 @@ func TestBannerWords(t *testing.T) {
 	if b := BannerOf(st, epoch); b.OK || b.Text != "daemon not responding · retrying in 3s" {
 		t.Errorf("down banner = %+v", b)
 	}
-	st = hub.StackView{Running: true, Conn: hub.ConnLive, LastFrame: epoch.Add(-7 * time.Second)}
+	st = hub.StackView{Running: true, Conn: hub.ConnLive, Metered: true, LastFrame: epoch.Add(-7 * time.Second)}
 	if b := BannerOf(st, epoch); b.OK || b.Text != "last update 7s ago" {
 		t.Errorf("stale banner = %+v", b)
+	}
+	// A quiet stack nobody meters is not stale: nothing was due.
+	st.Metered = false
+	if b := BannerOf(st, epoch); !b.OK {
+		t.Errorf("unmetered quiet stack = %+v", b)
 	}
 	if b := BannerOf(hub.StackView{Running: true, Conn: hub.ConnConnecting}, epoch); b.Text != "connecting to the daemon…" {
 		t.Errorf("connecting banner = %+v", b)
@@ -195,20 +202,54 @@ func TestDialogsSayWhatTheDashSaid(t *testing.T) {
 	}
 }
 
-func TestPaletteMatchesWordStartsAndShowsTheCommand(t *testing.T) {
+func TestPaletteListsWhatIsAtHandThenAVerbThenNothing(t *testing.T) {
 	st, _, _ := stackOf(t, fixture.Shop(epoch))
 	st.Key = "shop-1"
-	p := PaletteOf(st, "db", "dark", "sl")
-	golden(t, "shop-palette-sl", p)
-	if len(p.Rows) == 0 || p.Rows[0].Label != "sleep db" || p.Rows[0].CLI != "doze sleep db" {
-		t.Errorf("first row for \"sl\" with db selected = %+v", p.Rows)
+	stacks := []hub.StackView{st, {Key: "acme", Name: "acme", Dir: "/w/acme", LastSet: []string{"api", "web"}}}
+	recent := []prefs.Recent{{Key: "shop-1", Name: "db"}, {Key: "shop-1", Name: "migrate"}}
+
+	// Nothing typed: Recent from prefs, Do with the running stack's sleep
+	// and the stopped stack's up.
+	p := PaletteOf(stacks, "shop-1", recent, "", epoch)
+	golden(t, "shop-palette-empty", p)
+	titles := func(p Palette) []string {
+		var out []string
+		for _, s := range p.Sections {
+			out = append(out, s.Title)
+		}
+		return out
 	}
-	all := PaletteOf(st, "db", "dark", "")
-	if all.Rows[0].Label != "sleep db" || all.Rows[len(all.Rows)-1].CLI == "" && all.Rows[len(all.Rows)-1].Do.Kind == "verb" {
-		t.Errorf("unfiltered rows start with the selected instance: %v", all.Rows[0].Label)
+	if got := titles(p); strings.Join(got, ",") != "Recent,Do" {
+		t.Errorf("sections = %v", got)
 	}
-	if n := PaletteOf(st, "db", "dark", "stripe"); len(n.Rows) != 0 {
-		t.Errorf("nothing does that: %v", n.Rows)
+	if r := p.Sections[0].Rows; r[0].Label != "db" || !strings.HasPrefix(r[0].Note, "in shop · copy URL") || r[1].Label != "Run migrate" {
+		t.Errorf("recent rows = %+v", r)
+	}
+	if r := p.Sections[1].Rows; r[0].Label != "Sleep everything in shop" || r[1].Label != "Up acme" || r[1].Note != "stopped · as last time: api, web" || r[2].Do.Kind != "folder" {
+		t.Errorf("do rows = %+v", r)
+	}
+
+	// A verb and a name: the services it applies to, best match first, with
+	// whether it asks, then Did you mean.
+	p = PaletteOf(stacks, "shop-1", nil, "sleep ca", epoch)
+	golden(t, "shop-palette-sleep-ca", p)
+	if got := titles(p); strings.Join(got, ",") != "Sleep,Did you mean" {
+		t.Errorf("sections = %v", got)
+	}
+	if r := p.Sections[0].Rows[0]; r.Label != "cache" || r.Do.Verb != "sleep" || r.CLI != "doze sleep cache" || r.Key != "⏎ sleep now" {
+		t.Errorf("first sleep row = %+v", r)
+	}
+
+	// A name alone opens it; a stack's name too.
+	p = PaletteOf(stacks, "shop-1", nil, "sho", epoch)
+	if len(p.Sections) != 1 || p.Sections[0].Rows[0].Label != "shop" || p.Sections[0].Rows[0].Do.Page != "home" {
+		t.Errorf("by name = %+v", p.Sections)
+	}
+
+	// Nothing called that: the closest name, with the verb carried over.
+	p = PaletteOf(stacks, "shop-1", nil, "restart cachee", epoch)
+	if p.Nothing == nil || p.Nothing.Closest != "cache" || p.Nothing.Where != "shop or acme" || p.Nothing.Do == nil || p.Nothing.Do.Verb != "restart" {
+		t.Errorf("nothing = %+v", p.Nothing)
 	}
 }
 

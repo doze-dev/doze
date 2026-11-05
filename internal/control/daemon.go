@@ -42,6 +42,8 @@ const (
 	VerbReset   = "reset"   // stop, wipe the data, provision fresh on the next wake
 	VerbTask    = "task"    // run a task now, whatever its state
 	VerbPin     = "pin"     // toggle: keep awake past the idle timeout
+	VerbOff     = "off"     // take out of this run: stop it, and nothing wakes it until on
+	VerbOn      = "on"      // put back into this run; it wakes on the next connection
 	VerbSync    = "apply"   // reconcile declared structure
 )
 

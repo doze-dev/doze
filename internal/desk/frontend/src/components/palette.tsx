@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { transport, type view } from "../transport";
 
-// The ⌘K palette, as the Search board's Actions pane draws it: every action
-// with its shell command at the right, the matched runes marked, ↑↓ to
-// move, ⏎ to run, tab to copy the command. Rows come from Go, ranked the
-// dash's way.
-export function Palette({ stackKey, selected, onPick, onClose }: { stackKey: string; selected: string; onPick: (row: view.PaletteRow) => void; onClose: () => void }) {
+// ⌘K, as the Palette boards draw it. Nothing typed: Needs you, Recent, Do.
+// A name finds services and stacks everywhere; a verb then a name finds
+// what the verb applies to; nothing found says so with the closest name.
+// ↑↓ move, ⏎ does the row, tab shows its actions, ⌘⏎ runs the first,
+// esc clears then closes. Every row and word comes from Go.
+export function Palette({ stackKey, onPick, onClose }: { stackKey: string; onPick: (d: view.Doing) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<view.PaletteRow[]>([]);
+  const [p, setP] = useState<view.Palette | null>(null);
   const [at, setAt] = useState(0);
+  const [open, setOpen] = useState(false); // the row's actions shown
   // fresh is false while the rows shown are for an older query, so Enter
   // never runs a row the person has typed past.
   const [fresh, setFresh] = useState(false);
@@ -18,17 +20,21 @@ export function Palette({ stackKey, selected, onPick, onClose }: { stackKey: str
     let gone = false;
     setFresh(false);
     transport().then(async (t) => {
-      const p = await t.palette(stackKey, selected, query);
+      const got = await t.palette(stackKey, "", query);
       if (!gone) {
-        setRows(p.rows ?? []);
+        setP(got);
         setAt(0);
+        setOpen(false);
         setFresh(true);
       }
     });
     return () => {
       gone = true;
     };
-  }, [stackKey, selected, query]);
+  }, [stackKey, query]);
+
+  const rows = (p?.sections ?? []).flatMap((s) => s.rows ?? []);
+  const row = rows[at];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -37,73 +43,143 @@ export function Palette({ stackKey, selected, onPick, onClose }: { stackKey: str
       switch (e.key) {
         case "Escape":
           e.preventDefault();
-          onClose();
+          if (open) setOpen(false);
+          else if (query) setQuery("");
+          else onClose();
           break;
         case "ArrowDown":
           e.preventDefault();
           setAt((i) => Math.min(i + 1, rows.length - 1));
+          setOpen(false);
           break;
         case "ArrowUp":
           e.preventDefault();
           setAt((i) => Math.max(i - 1, 0));
+          setOpen(false);
           break;
         case "Enter":
           e.preventDefault();
-          if (fresh && rows[at]) onPick(rows[at]);
+          if (!fresh) break;
+          if ((e.metaKey || e.ctrlKey) && row?.acts?.[0]) onPick(row.acts[0].do);
+          else if (row) onPick(row.do);
+          else if (p?.nothing?.do) onPick(p.nothing.do);
           break;
-        case "Tab": {
+        case "Tab":
           e.preventDefault();
-          const r = rows[at];
-          if (fresh && r?.cli) {
-            void navigator.clipboard?.writeText(r.cli);
-            transport().then((t) => t.say(`copied the command ${r.cli}`, false));
-            onClose();
-          }
+          if (row?.acts?.length) setOpen((o) => !o);
           break;
-        }
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [rows, at, fresh, onPick, onClose]);
+  }, [rows, row, at, fresh, query, open, p, onPick, onClose]);
 
+  let i = -1;
   return (
     <div className="scrim top" onClick={onClose}>
-      <section className="pal" role="dialog" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
+      <section className="pal" role="dialog" aria-label={query ? `Search or do: ${query}` : "Search or do"} onClick={(e) => e.stopPropagation()}>
         <div className="in">
-          <span className="dim">⌘K</span>
-          <input ref={box} autoFocus aria-label="Do what?" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="do what?" />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5 14 14" />
+          </svg>
+          <input ref={box} autoFocus aria-label="A service, a stack, or what to do" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="A service, a stack, or what to do…" />
         </div>
-        {rows.length > 0 && <div className="grp">Actions</div>}
-        {rows.length === 0 && <div className="none dim">nothing does that</div>}
-        <div className="list">
-          {rows.map((r, i) => (
-            <div key={r.label} className={"sr" + (i === at ? " on" : "")} onMouseEnter={() => setAt(i)} onClick={() => onPick(r)} role="option" aria-selected={i === at}>
-              <span />
+        {(p?.sections ?? []).map((s) => (
+          <div key={s.title} role="group" aria-label={s.title}>
+            <div className="ph">{s.title}</div>
+            {(s.rows ?? []).map((r) => {
+              i++;
+              const here = i;
+              const on = here === at;
+              return (
+                <button key={s.title + r.label + r.note} className={"it" + (on ? " on" : "")} onMouseEnter={() => setAt(here)} onClick={() => onPick(r.do)} role="option" aria-selected={on}>
+                  <Glyph r={r} />
+                  <b>
+                    <Marked text={r.label} at={r.at ?? []} />
+                  </b>
+                  {r.note && <span className={"m" + (r.bad ? " warn" : "")}>{r.note}</span>}
+                  {on && open && (r.acts ?? []).length > 0 ? (
+                    <span className="acts">
+                      {(r.acts ?? []).map((a) => (
+                        <kbd
+                          key={a.label}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPick(a.do);
+                          }}
+                        >
+                          {a.label}
+                        </kbd>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="k">{r.key}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        {p?.nothing && fresh && (
+          <button className="it" onClick={() => p.nothing?.do && onPick(p.nothing.do)}>
+            <span className="dim">?</span>
+            <span className="m">
+              Nothing called <b>{p.nothing.name}</b> in {p.nothing.where}.
+              {p.nothing.closest && (
+                <>
+                  {" "}
+                  Closest: <b>{p.nothing.closest}</b> ({p.nothing.why}).
+                </>
+              )}
+            </span>
+            {p.nothing.key && <span className="k">{p.nothing.key}</span>}
+          </button>
+        )}
+        <div className="foot">
+          {p?.nothing ? (
+            <span>a verb alone lists what it can apply to; a name alone opens it with its actions</span>
+          ) : query ? (
+            <>
               <span>
-                <Marked text={r.label} at={r.at ?? []} />
-                {r.note && (
-                  <small className={r.bad ? " warn" : ""}>
-                    {" "}
-                    · {r.note}
-                  </small>
-                )}
+                <kbd>⏎</kbd>do it
               </span>
               <span>
-                <span className="cmd">{r.cli}</span>
+                <kbd>esc</kbd>clear
               </span>
-            </div>
-          ))}
-        </div>
-        <div className="ft">
-          <span className="w">Every row is a shell command. The right column shows it.</span>
-          <span className="grow" />
-          <span>
-            <kbd>⏎</kbd>run <kbd>tab</kbd>copy command
-          </span>
+              <span className="grow" />
+              <span>verbs: up · down · sleep · wake · restart · pin · logs · copy · open · run</span>
+            </>
+          ) : (
+            <>
+              <span>
+                <kbd>↑↓</kbd>move
+              </span>
+              <span>
+                <kbd>⏎</kbd>open
+              </span>
+              <span>
+                <kbd>⌘⏎</kbd>first action
+              </span>
+              <span>
+                <kbd>tab</kbd>actions of a row
+              </span>
+              <span className="grow" />
+              <span>type a name, or a verb then a name: sleep db · logs api · copy web</span>
+            </>
+          )}
         </div>
       </section>
     </div>
+  );
+}
+
+function Glyph({ r }: { r: view.PaletteRow }) {
+  if (r.glyph === "dot") return <span className={"dot " + (r.tone ?? "")} aria-hidden />;
+  return (
+    <span className={r.tone ?? "dim"} aria-hidden>
+      {r.glyph}
+    </span>
   );
 }
 
@@ -117,7 +193,15 @@ function Marked({ text, at }: { text: string; at: number[] }) {
   let k = 0;
   const flush = () => {
     if (!run) return;
-    out.push(marked ? <span key={k++} className="hl2">{run}</span> : run);
+    out.push(
+      marked ? (
+        <span key={k++} className="hl2">
+          {run}
+        </span>
+      ) : (
+        run
+      ),
+    );
     run = "";
   };
   runes.forEach((ch, i) => {

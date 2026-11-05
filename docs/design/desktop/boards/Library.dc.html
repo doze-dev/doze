@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · Library</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab on" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <main class="main">
+      <div class="head"><h1>Library</h1><span class="path">4 stacks · 2 up</span><span class="grow"></span><span class="btn">Open folder… <kbd>⌘O</kbd></span><span class="btn">New stack… <kbd>⌘N</kbd></span></div>
+      <div class="steps" aria-label="Getting started">
+        <div class="step done"><span class="num">✓</span><div class="t"><b>Open a project</b><span>shop, from ~/code/shop</span></div></div>
+        <div class="step done"><span class="num">✓</span><div class="t"><b>Bring it up</b><span>4 awake; the rest wake when something connects</span></div></div>
+        <div class="step now"><span class="num">3</span><div class="t"><b>Connect to it</b><span>psql db.shop.doze · open http://web.shop.doze · or copy a URL from any row</span></div></div>
+        <div class="dismiss">Got it ×</div>
+      </div>
+      <div class="lib">
+        <div class="lrow h"><span></span><span>Stack</span><span>Running</span><span>Addresses</span><span class="r">Last</span><span></span></div>
+        <div class="lrow sel">
+          <span class="dot g"></span>
+          <div class="name"><b>shop</b><span class="dir">~/code/shop · 12 declared</span></div>
+          <div class="fig"><span><span class="ok">4 awake</span> · <span class="cool">2 waking</span> · 4 asleep</span><span class="dim">551 MB · 4 connections</span><svg class="spark" width="72" height="14" viewBox="0 0 72 14" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="1.5" points="0,11 8,10 16,10 24,9 32,8 40,8 48,6 56,6 64,5 72,4"/></svg></div>
+          <div class="pills"><span class="pill"><span class="dot g"></span><span class="t link">https://shop.acme.dev</span></span><span class="pill"><span class="t">web.shop.doze</span></span><span class="pill dim"><span class="t">+5</span></span></div>
+          <span class="when">up 14m</span>
+          <div class="act"><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button><button class="ib on" aria-label="More ways to start shop">▾</button></div>
+        </div>
+        <div class="lrow">
+          <span class="dot r"></span>
+          <div class="name"><b>data</b><span class="dir">~/code/data · 3 declared</span></div>
+          <div class="fig"><span><span class="ok">1 awake</span> · 1 asleep · <span class="bad">1 crashing</span></span><span class="dim">90 MB · no connections</span><svg class="spark" width="72" height="14" viewBox="0 0 72 14" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="1.5" points="0,8 72,8"/></svg></div>
+          <div class="pills"><span class="need">● <span class="t">search is crashing · try 2 of 5</span></span><span class="pill"><span class="t">api.data.doze</span></span></div>
+          <span class="when">up 2h</span>
+          <div class="act"><button class="sw big on" role="switch" aria-checked="true" aria-label="data is up"></button><button class="ib" aria-label="More ways to start data">▾</button></div>
+        </div>
+        <div class="lrow">
+          <span class="dot"></span>
+          <div class="name"><b class="dim">acme</b><span class="dir">~/work/acme · 7 declared</span></div>
+          <div class="fig"><span class="dim">stopped</span><span class="dim">last time: api, web, db</span></div>
+          <div class="pills"><span class="pill dim"><span class="dot"></span><span class="t">https://dev.acme.com</span></span></div>
+          <span class="when">up 3 days ago</span>
+          <div class="act"><button class="sw big" role="switch" aria-checked="false" aria-label="acme is down"></button><button class="ib" aria-label="More ways to start acme">▾</button></div>
+        </div>
+        <div class="lrow">
+          <span class="dot"></span>
+          <div class="name"><b class="dim">playground</b><span class="dir">~/tmp/playground · 2 declared</span></div>
+          <div class="fig"><span class="dim">stopped</span><span class="dim">last time: everything</span></div>
+          <div class="pills"><span class="pill dim"><span class="t">pg.playground.doze</span></span></div>
+          <span class="when">up 2 weeks ago</span>
+          <div class="act"><button class="sw big" role="switch" aria-checked="false" aria-label="playground is down"></button><button class="ib" aria-label="More ways to start playground">▾</button></div>
+        </div>
+      </div>
+      <div class="pop" style="top:318px;right:34px" role="menu" aria-label="Ways to start shop">
+        <div class="ph">Up</div>
+        <div class="pi on"><div class="t"><b>As last time</b><span>api, web, db, cache, and what they need</span></div><kbd>space</kbd></div>
+        <div class="pi"><div class="t"><b>Everything</b><span>all 12</span></div><kbd>⇧space</kbd></div>
+        <div class="ph">Choose what runs</div>
+        <div class="tick"><span class="box on">✓</span>api</div>
+        <div class="tick"><span class="box on">✓</span>web <span class="dim">brings db, cache, api</span></div>
+        <div class="tick"><span class="box"></span>worker <span class="dim">brings events</span></div>
+        <div class="tick"><span class="box"></span>mailpit</div>
+        <div class="tick"><span class="box"></span>search</div>
+        <div class="msep"></div>
+        <div class="pi"><div class="t"><b>Down</b><span>stops everything; this set is remembered</span></div></div>
+        <div class="pi"><div class="t"><b>Show in Finder</b></div></div>
+        <div class="pi"><div class="t"><b class="dim">Forget this stack</b><span>leaves every file where it is</span></div><kbd>⌫</kbd></div>
+      </div>
+      <div class="model" style="margin-top:12px">Drop a project folder anywhere in this window to add it. A stack appears here the first time it runs, and stays until you forget it.</div>
+      <div class="machine"><b>Machine</b><span class="it"><span class="dot g"></span>names</span><span class="it"><span class="dot g"></span>network daemon</span><span class="it"><span class="dot g"></span>domains: shop.acme.dev, dev.acme.com</span><span class="it"><span class="dot g"></span>ports 80 and 443 held by doze</span><span class="grow"></span><span class="btn" style="height:26px">Doctor</span></div>
+      <div class="keys"><span><kbd>↑↓</kbd>move</span><span><kbd>space</kbd>up / down</span><span><kbd>⏎</kbd>open</span><span><kbd>⌘O</kbd>open folder</span><span><kbd>⌫</kbd>forget</span><span><kbd>/</kbd>filter</span><span class="note">the first tab; it never closes</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

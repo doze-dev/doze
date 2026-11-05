@@ -1,57 +1,50 @@
 import { go, set, useStore, type Where } from "../store";
 import type { view } from "../transport";
+import { Bat } from "./titlebar";
 
-// The sidebar (the boards' .side): the View list, then the stack's
-// instances on an instance page, or the Show checkboxes on the logs page.
+// The sidebar inside a service, as the inside boards draw it: Overview,
+// then the stack's instances under their groups, each with its dot and a
+// word or figure; on the logs page, the Show checkboxes instead.
+const GROUPS: Array<[string, string]> = [
+  ["app", "Apps"],
+  ["module", "Modules"],
+  ["service", "Outside"],
+  ["task", "Tasks"],
+];
+
 export function Sidebar({ where, side, version, stacks }: { where: Where | null; side: view.Side[]; version: string; stacks: number }) {
   const show = useStore((s) => s.show);
   const key = where?.key ?? "";
-  if (where?.page === "empty") {
-    // No stack yet: nothing to view until one of the ways to start is chosen.
-    return (
-      <nav className="side" aria-label="Views">
-        <div className="foot">
-          <span className="acc" aria-hidden>
-            z
-          </span>
-          doze {version || ""} · {stacks} {stacks === 1 ? "stack" : "stacks"}
-        </div>
-      </nav>
-    );
-  }
   return (
-    <nav className="side" aria-label="Views">
-      <h4>View</h4>
-      <button className={"space" + (where?.page !== "logs" ? " on" : "")} onClick={() => key && void go({ key, page: "home" })}>
-        {where?.page !== "logs" ? <b>Services</b> : "Services"}
+    <nav className="side" aria-label={where?.page === "logs" ? "Show" : "Services"}>
+      <button className={"si" + (where?.page === "home" ? " on" : "")} onClick={() => key && void go({ key, page: "home" })}>
+        <span className="t">Overview</span>
       </button>
-      <button className="space" disabled title="Arrives after parity">
-        Map <span className="new">new</span>
-      </button>
-      <button className="space" disabled title="Arrives after parity">
-        Timeline <span className="new">new</span>
-      </button>
-      {where?.page === "instance" && side.length > 0 && (
-        <>
-          <h4>Instances</h4>
-          {side.map((s) => (
-            <button
-              key={s.name}
-              className={"space compact" + (s.name === where.instance ? " on" : "")}
-              onClick={() => void go({ key, page: "instance", instance: s.name })}
-            >
-              <Dot look={s.look} trouble={s.trouble} />
-              {s.name === where.instance ? <b>{s.name}</b> : s.name}
-              {s.trouble ? <span className="badge">!</span> : <small>{s.note}</small>}
-            </button>
-          ))}
-        </>
+      {where?.page === "logs" && (
+        <button className="si on">
+          <span className="t">All logs</span>
+        </button>
       )}
+      {where?.page === "instance" &&
+        GROUPS.map(([kind, title]) => {
+          const rows = side.filter((s) => (s.kind || "module") === kind || (kind === "module" && !s.kind));
+          if (rows.length === 0) return null;
+          return (
+            <div key={kind}>
+              <h4>{title}</h4>
+              {rows.map((s) => (
+                <button key={s.name} className={"si" + (s.name === where.instance ? " on" : "")} onClick={() => void go({ key, page: "instance", instance: s.name })} title={s.name}>
+                  <Dot look={s.look} trouble={s.trouble} />
+                  <span className={"t" + (s.look.word === "disabled" ? " dim" : "")}>{s.name}</span>
+                  <small className={s.trouble ? "bad" : ""}>{s.trouble ? s.look.word : s.note}</small>
+                </button>
+              ))}
+            </div>
+          );
+        })}
       {where?.page === "logs" && <ShowList show={show} />}
       <div className="foot">
-        <span className="acc" aria-hidden>
-          z
-        </span>
+        <Bat size={16} />
         doze {version || ""} · {stacks} {stacks === 1 ? "stack" : "stacks"}
       </div>
     </nav>
@@ -93,18 +86,18 @@ function ShowList({ show }: { show: string[] | null }) {
     <>
       <h4>Show</h4>
       {(home?.side ?? []).map((s) => (
-        <label key={s.name} className="space compact">
+        <label key={s.name} className="si">
           <input type="checkbox" checked={on(s.name)} onChange={() => toggle(s.name)} />
           <Dot look={s.look} trouble={s.trouble} />
-          {s.name}
+          <span className="t">{s.name}</span>
         </label>
       ))}
-      <label className="space compact">
+      <label className="si">
         <input type="checkbox" checked={on("doze")} onChange={() => toggle("doze")} />
         <span className="acc glyph" aria-hidden>
           z
         </span>
-        doze itself
+        <span className="t">doze itself</span>
       </label>
     </>
   );

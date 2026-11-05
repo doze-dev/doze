@@ -8,6 +8,22 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The app, redrawn from the ground up.** The Library is the first tab:
+  every stack with a switch (up as last time, everything, a chosen set,
+  down), its addresses, when it was last up, and the machine's setup on
+  one line. A stack's overview comes in three views, Tiles, List with the
+  details pane, and Map, remembered per stack; every row has a switch that
+  takes a service out of this run and back (`doze off`, `doze on`). Inside
+  a service: the connect card with the same URL in Node, Python, Go, a
+  shell, .env and psql; why it is awake; the charts; a task's last run with
+  the runs kept; a module's console in one frame. ⌘K reaches across every
+  stack: what needs you, what you opened lately, a few things to do, a verb
+  then a name, and the closest name when nothing matches. Settings holds
+  the six themes (the terminal's five and a light one) and the machine part
+  by part with the command that fixes each. The window opens at the
+  screen's size the first time. A folder with no `doze.hcl` shows what
+  doze found and the three ways to start.
+
 - **An app can have its own domain, over https.** `domains = ["dev.acme.com",
   "*.dev.acme.com"]` on an app; `doze trust` routes the domain here and
   trusts a machine-local certificate authority in one prompt, or the app

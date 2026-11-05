@@ -124,6 +124,40 @@ func Handler(s *Service) http.Handler {
 		}
 		return map[string]bool{"ok": true}, nil
 	})
+	call("library", func(json.RawMessage) (any, error) { return s.Library(), nil })
+	call("stack", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Action string
+			Names       []string
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		if err := s.Stack(a.Key, a.Action, a.Names); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+	})
+	call("open", func(b json.RawMessage) (any, error) {
+		var a struct{ Dir string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		s.Open(a.Dir)
+		return map[string]bool{"ok": true}, nil
+	})
+	call("setview", func(b json.RawMessage) (any, error) {
+		var a struct{ Key, View string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		s.SetView(a.Key, a.View)
+		return map[string]bool{"ok": true}, nil
+	})
+	call("dismisshints", func(json.RawMessage) (any, error) {
+		s.DismissHints()
+		return map[string]bool{"ok": true}, nil
+	})
 	call("palette", func(b json.RawMessage) (any, error) {
 		var a struct{ Key, Selected, Query string }
 		if err := json.Unmarshal(b, &a); err != nil {

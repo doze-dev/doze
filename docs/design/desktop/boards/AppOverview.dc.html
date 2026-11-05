@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · web · overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.ev{display:grid;grid-template-columns:64px 70px minmax(0,1fr);column-gap:10px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:21px;white-space:nowrap}
+.ev span:last-child{overflow:hidden;text-overflow:ellipsis}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div><span class="btn"><kbd>⌘K</kbd> Search or do</span></div>
+  <div class="body">
+    <nav class="side" aria-label="shop">
+      <div class="si"><span class="t">Overview</span></div>
+      <h4>Apps</h4>
+      <div class="si"><span class="dot g"></span><span class="t">api</span><small>84 MB</small></div>
+      <div class="si on"><span class="dot g"></span><span class="t">web</span><small>212 MB</small></div>
+      <div class="si"><span class="dot"></span><span class="t dim">worker</span><small>off</small></div>
+      <h4>Modules</h4>
+      <div class="si"><span class="dot y"></span><span class="t">cache</span><small>dozing</small></div>
+      <div class="si"><span class="dot"></span><span class="t">cloud</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">db</span><small>96 MB</small></div>
+      <div class="si"><span class="ring"></span><span class="t">events</span><small>waking</small></div>
+      <h4>Outside</h4>
+      <div class="si"><span class="dot"></span><span class="t">mailpit</span><small>asleep</small></div>
+      <div class="si"><span class="dot g"></span><span class="t">mongo</span><small>148 MB</small></div>
+      <div class="si"><span class="dot r"></span><span class="t">search</span><small class="bad">crashing</small></div>
+      <h4>Tasks</h4>
+      <div class="si"><span class="ok" style="width:8px;text-align:center">✓</span><span class="t">migrate</span><small>2m ago</small></div>
+      <div class="si"><span class="acc" style="width:8px;text-align:center">▸</span><span class="t">seed</span><small>ready</small></div>
+      <div class="foot"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="16" height="16" style="display:block;flex:none">doze 0.2.0</div>
+    </nav>
+    <main class="main">
+      <div class="head"><span class="dot g"></span><h1>web</h1><span class="path">pnpm dev · awake for 14m · pid 4120</span><span class="grow"></span><span class="swl">on<button class="sw on" role="switch" aria-checked="true" aria-label="web is part of this run"></button></span><span class="btn">Unpin <kbd>p</kbd></span><span class="btn">Restart <kbd>r</kbd></span><span class="btn pri">Open https://shop.acme.dev <kbd>o</kbd></span></div>
+      <div class="ptabs"><span class="ptab on">Overview</span><span class="ptab">Logs</span></div>
+      <div class="two">
+        <div class="col">
+          <section class="card">
+            <h3>Reach it</h3>
+            <div class="kv"><span class="k">In a browser</span><span class="v b">https://shop.acme.dev</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">By name</span><span class="v">http://web.shop.doze:3000</span><span class="copy">Copy</span></div>
+            <div class="kv"><span class="k">From a service</span><span class="v">WEB_URL=http://web.shop.doze:3000</span><span class="dim" style="font-size:12px">set on api</span></div>
+            <div class="kv"><span class="k">Tenant names</span><span class="v">*.shop.acme.dev · acme.shop.acme.dev</span><span class="copy">Copy</span></div>
+            <div class="dim" style="font-size:12px">The https address is served by doze's front door with a certificate from this machine's own authority; the browser trusts it since Set up. Sign-in providers accept it, which <span class="mono">.doze</span> can never be.</div>
+          </section>
+          <section class="card">
+            <h3>Why it's awake</h3>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>pinned</span><span class="dim">never sleeps, even with nothing connected</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>2 clients</span><span class="dim">browsers, through doze's proxy</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span class="pill"><span class="dot g"></span>needs db, cache, api</span><span class="dim">they woke with it, in that order</span></div>
+            </div>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Recent <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">· this run</span></h3>
+            <div class="ev"><span class="dim">13:50:38</span><span class="acc">woke</span><span>Up as last time</span></div>
+            <div class="ev"><span class="dim">13:50:40</span><span class="ok">ready</span><span>in 1.9 s · port 51877 answered</span></div>
+            <div class="ev"><span class="dim">13:51:02</span><span class="acc">pinned</span><span>by you</span></div>
+            <div class="ev"><span class="dim">14:03:40</span><span class="cool">client</span><span>a browser opened https://shop.acme.dev</span></div>
+          </section>
+        </div>
+        <div class="col">
+          <section class="card">
+            <h3>Memory · last 4m <span class="copy">last hour</span></h3>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:24px;font-weight:600;color:var(--bright)">212 MB</span><span class="dim">resident · peak 230 MB at 13:58</span></div>
+            <svg viewBox="0 0 400 96" width="100%" height="96" aria-hidden="true"><polyline fill="none" stroke="#82AAFF" stroke-width="2" points="0,70 30,62 60,58 90,50 120,44 150,40 180,38 210,30 240,34 270,36 300,34 330,33 360,33 400,32"/><polygon fill="#82AAFF" fill-opacity=".12" points="0,70 30,62 60,58 90,50 120,44 150,40 180,38 210,30 240,34 270,36 300,34 330,33 360,33 400,32 400,96 0,96"/></svg>
+          </section>
+          <section class="card">
+            <h3>CPU · last 4m</h3>
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:24px;font-weight:600;color:var(--bright)">&lt;0.01</span><span class="dim">cores · idle between requests</span></div>
+            <svg viewBox="0 0 400 96" width="100%" height="96" aria-hidden="true"><polyline fill="none" stroke="#BD93F9" stroke-width="2" points="0,80 20,74 40,80 60,66 80,82 100,80 120,48 140,78 160,80 180,76 200,82 220,61 240,80 260,78 280,80 300,70 320,82 340,80 360,79 380,82 400,80"/></svg>
+          </section>
+          <section class="card" style="flex:1">
+            <h3>Given to it</h3>
+            <div class="env"><span class="l"><span class="n">PORT</span><span class="eq">=</span><span class="val">51877</span></span><span class="copy">⧉</span></div>
+            <div class="env"><span class="l"><span class="n">DATABASE_URL</span><span class="eq">=</span><span class="val">postgres://shop@db.shop.doze:5432/shop</span></span><span class="copy">⧉</span></div>
+            <div class="env"><span class="l"><span class="n">VALKEY_URL</span><span class="eq">=</span><span class="val">redis://cache.shop.doze:6379</span></span><span class="copy">⧉</span></div>
+            <div class="env"><span class="l"><span class="n">API_URL</span><span class="eq">=</span><span class="val">http://api.shop.doze:8080</span></span><span class="copy">⧉</span></div>
+            <div class="dim" style="font-size:12px">and 4 more · <span class="copy">all 8, as .env</span></div>
+          </section>
+        </div>
+      </div>
+      <div class="keys" style="margin-top:0"><span><kbd>esc</kbd>back to overview</span><span><kbd>l</kbd>logs</span><span><kbd>y</kbd>copy address</span><span><kbd>o</kbd>open in browser</span><span class="note">from Overview: a row's name, or ⏎</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

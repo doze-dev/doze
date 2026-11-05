@@ -22,6 +22,7 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/notify"
+	"github.com/doze-dev/doze/internal/desk/prefs"
 	"github.com/doze-dev/doze/internal/desk/view"
 	"github.com/doze-dev/doze/internal/detect"
 	"github.com/doze-dev/doze/internal/display"
@@ -45,6 +46,8 @@ const (
 	// EventNotice is something to say to the person: data is Notice. A
 	// success fades after 4 s; a failure stays 12 s, as the TUI's did.
 	EventNotice = "notice"
+	// EventLibrary carries the first tab, while it is in focus.
+	EventLibrary = "library"
 )
 
 // Notice is one thing said to the person, kept among the last twenty.
@@ -223,6 +226,11 @@ func (s *Service) push() {
 			emit(EventNav, nav)
 		}
 	}
+	if f.Page == "library" || f.Page == "settings" {
+		// Settings reads the Library's machine checks too.
+		s.send(EventLibrary, s.Library())
+		return
+	}
 	if f.Key == "" {
 		return
 	}
@@ -314,6 +322,11 @@ func (s *Service) Home(key string) view.Home {
 	st, _ := s.stack(key)
 	h := view.HomeOf(st, s.now())
 	h.Setup = s.setupFor(st)
+	h.View = s.viewFor(key)
+	if !st.Running && st.Dir != "" {
+		stopped := view.StoppedOf(st, s.now())
+		h.Stopped = &stopped
+	}
 	return h
 }
 
@@ -397,6 +410,15 @@ func (s *Service) SetVersion(v string) {
 // instance page and logs for an instance or logs page, and nothing for a
 // page nobody is looking at; the pushes follow the focus at once.
 func (s *Service) SetFocus(f Focus) {
+	if f.Page == "instance" && f.Key != "" && f.Instance != "" {
+		// Remembered for ⌘K's Recent section.
+		home := s.hub.Home()
+		p := prefs.Load(home)
+		if len(p.Recent) == 0 || p.Recent[0] != (prefs.Recent{Key: f.Key, Name: f.Instance}) {
+			p.Opened(f.Key, f.Instance)
+			_ = prefs.Save(home, p)
+		}
+	}
 	s.mu.Lock()
 	old := s.releases
 	s.releases = nil
@@ -472,20 +494,28 @@ func (s *Service) Dialog(key, name, verb string) view.Dialog {
 	return view.DialogOf(st, name, verb, s.now())
 }
 
-// Palette is the ⌘K list for a query.
-func (s *Service) Palette(key, selected, query string) view.Palette {
-	st, _ := s.stack(key)
-	s.mu.Lock()
-	theme := s.theme
-	s.mu.Unlock()
-	return view.PaletteOf(st, selected, theme, query)
+// Palette is the ⌘K list for a query, across every stack; key is the
+// stack on screen, whose rows come first.
+func (s *Service) Palette(key, _, query string) view.Palette {
+	recent := prefs.Load(s.hub.Home()).Recent
+	return view.PaletteOf(s.hub.Stacks(), key, recent, query, s.now())
 }
 
-// SetTheme remembers the theme the page uses, for the palette's note.
+// SetTheme remembers the theme chosen in Settings, in prefs, so the next
+// launch opens in it.
 func (s *Service) SetTheme(theme string) {
 	s.mu.Lock()
 	s.theme = theme
 	s.mu.Unlock()
+	home := s.hub.Home()
+	p := prefs.Load(home)
+	if theme == "system" {
+		theme = ""
+	}
+	if p.Theme != theme {
+		p.Theme = theme
+		_ = prefs.Save(home, p)
+	}
 }
 
 // Say tells the person something: a toast now, and a line in recent
@@ -692,6 +722,7 @@ func (s *Service) SetSetup(fn func(dir, action, arg string) error) {
 // and the three ways to start.
 func (s *Service) Empty(dir string) view.Empty {
 	var found []string
+	var items []view.Found
 	if res, err := detect.Scan(dir); err == nil {
 		for _, c := range []struct {
 			n    int
@@ -701,8 +732,33 @@ func (s *Service) Empty(dir string) view.Empty {
 				found = append(found, fmt.Sprintf("%d %s%s", c.n, c.what, display.Plural(c.n)))
 			}
 		}
+		for _, a := range res.Apps {
+			where := a.Run
+			if a.Dir != "" {
+				where += " · in " + a.Dir
+			}
+			if a.Port > 0 {
+				where += fmt.Sprintf(" · port %d", a.Port)
+			}
+			items = append(items, view.Found{Name: a.Name, Where: where, Becomes: fmt.Sprintf("app %q", a.Name)})
+		}
+		for _, m := range res.Modules {
+			items = append(items, view.Found{Name: m.Name, Where: m.Why, Becomes: fmt.Sprintf("module %s %q", m.Type, m.Name)})
+		}
+		for _, sv := range res.Services {
+			where := sv.Why
+			if sv.Image != "" {
+				where = "image " + sv.Image + " · " + where
+			}
+			items = append(items, view.Found{Name: sv.Name, Where: where, Becomes: fmt.Sprintf("service %q", sv.Name)})
+		}
+		for _, t := range res.Tasks {
+			items = append(items, view.Found{Name: t.Name, Where: t.Run, Becomes: fmt.Sprintf("task %q", t.Name)})
+		}
 	}
-	return view.EmptyOf(dir, found)
+	e := view.EmptyOf(dir, found)
+	e.Items = items
+	return e
 }
 
 // Setup sets a folder up the way chosen and says so; the stack is shown

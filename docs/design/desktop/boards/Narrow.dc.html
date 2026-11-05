@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · a narrow window</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.win{width:900px;height:620px}
+.vitals{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vital{min-height:96px}
+.row{--c:3px minmax(110px,1fr) 62px minmax(120px,1.6fr) 56px 34px;height:36px}
+.head{padding:12px 16px 8px}
+.list,.toolbar,.vitals{margin-left:16px;margin-right:16px}
+.vitals{padding:0 0 12px}
+.keys{padding:0 16px}</style>
+</helmet>
+<div class="win">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span><span class="tab" role="tab" style="max-width:120px"><span class="dot"></span><span class="t">customer-success-platform</span></span></div><span class="btn"><kbd>⌘K</kbd></span></div>
+  <div class="body">
+    <nav class="rail" aria-label="shop">
+      <button class="ib on" aria-label="Overview"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
+      <button class="ib" aria-label="Show the instances"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
+    </nav>
+    <main class="main">
+      <div class="head"><h1>shop</h1><span class="path">up 14m</span><span class="grow"></span><span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="shop is up"></button></span></div>
+      <div class="vitals">
+        <div class="vital"><span class="k">Memory</span><span class="v">551 MB</span><div class="bar"><i style="width:38%;background:var(--cool)"></i><i style="width:27%;background:var(--accent)"></i><i style="width:17%;background:var(--good)"></i><i style="width:15%;background:var(--warn)"></i></div><span class="sub">web 212 · mongo 148 · db 96 · api 84</span></div>
+        <div class="vital"><span class="k">Services</span><span class="v">4<small>awake</small></span><div class="legend"><span class="ok">● 4</span><span class="warn">◐ 1</span><span class="cool">◌ 2</span><span class="dim">· 3 asleep</span><span class="bad">● 1</span></div><span class="sub">CPU 0.03 cores · 4 connections</span></div>
+      </div>
+      <div class="toolbar" style="padding-bottom:10px"><div class="filter">Filter<kbd>/</kbd></div><button class="tog"><span class="sw" role="switch" aria-checked="false" aria-label="Only what needs you"></span>Needs you</button></div>
+      <div class="list">
+        <div class="grp"><span class="car">▾</span>APPS<span class="cnt">3</span></div>
+        <div class="row g"><span class="edge"></span><div class="nm"><b>api</b><span>api.shop.doze:8080</span></div><span class="ok">awake</span><div class="why"><span>runs until stopped</span></div><span class="r">84 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="api is on"></button></div>
+        <div class="row g"><span class="edge"></span><div class="nm"><b>web</b><span>shop.acme.dev</span></div><span class="ok">awake</span><div class="why"><span>pinned</span></div><span class="r">212 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="web is on"></button></div>
+        <div class="row off"><span class="edge"></span><div class="nm"><b>worker</b><span>worker.shop.doze</span></div><span class="dim">off</span><div class="why"><span>not part of this run</span></div><span class="r"></span><button class="sw" role="switch" aria-checked="false" aria-label="worker is off"></button></div>
+        <div class="grp"><span class="car">▾</span>MODULES<span class="cnt">4</span></div>
+        <div class="row y"><span class="edge"></span><div class="nm"><b>cache</b><span>cache.shop.doze:6379</span></div><span class="warn">dozing</span><div class="why"><span class="warn">sleeps in 3:12</span></div><span class="r">11 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="cache is on"></button></div>
+        <div class="row g"><span class="edge"></span><div class="nm"><b>db</b><span>db.shop.doze:5432</span></div><span class="ok">awake</span><div class="why"><span>api needs it · 4 connections</span></div><span class="r">96 MB</span><button class="sw on" role="switch" aria-checked="true" aria-label="db is on"></button></div>
+        <div class="grp"><span class="car">▸</span>OUTSIDE<span class="cnt">3 · 1 crashing</span></div>
+      </div>
+      <div class="keys"><span><kbd>space</kbd>on / off</span><span><kbd>⏎</kbd>open</span><span class="note">under 1000 px: the sidebar is a rail, the address moves under the name, columns go</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":900,"height":620}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

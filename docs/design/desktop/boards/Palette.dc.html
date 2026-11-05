@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · ⌘K · search or do</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0d0b12}
+.back{opacity:.35;pointer-events:none}</style>
+</helmet>
+<div class="win">
+  <div class="tb back"><div class="lights"><span></span><span></span><span></span></div><div class="tabs" role="tablist" aria-label="Tabs"><span class="tab" role="tab"><img src="/_blob/caadec697e212df92f301a688280f526" alt="" width="14" height="14"><span class="t">Library</span></span><span class="tab on" role="tab"><span class="dot g"></span><span class="t">shop</span></span><span class="tab" role="tab"><span class="dot r"></span><span class="t">data</span><span class="badge">1</span></span></div></div>
+  <div class="body back">
+    <nav class="side" aria-label="shop"><div class="si on"><span class="t">Overview</span></div><h4>Apps</h4><div class="si"><span class="dot g"></span><span class="t">api</span></div><div class="si"><span class="dot g"></span><span class="t">web</span></div><h4>Modules</h4><div class="si"><span class="dot y"></span><span class="t">cache</span></div><div class="si"><span class="dot g"></span><span class="t">db</span></div></nav>
+    <main class="main"><div class="head"><h1>shop</h1><span class="path">~/code/shop · up 14m</span></div><div class="vitals"><div class="vital"></div><div class="vital"></div><div class="vital"></div><div class="vital"></div></div></main>
+  </div>
+  <div class="scrim" style="background:rgba(9,8,14,.35)"></div>
+  <div class="pal" role="dialog" aria-label="Search or do">
+    <div class="in"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><span class="dim">A service, a stack, or what to do…</span><span class="caret"></span></div>
+    <div class="ph">Needs you</div>
+    <div class="it on"><span class="dot r"></span><b>search</b><span class="m">in data · crashing, try 2 of 5</span><span class="k">⏎ open</span></div>
+    <div class="ph">Recent</div>
+    <div class="it"><span class="dot g"></span><b>db</b><span class="m">in shop · copy URL, psql, sleep</span><span class="k">⏎</span></div>
+    <div class="it"><span class="dot g"></span><b>web</b><span class="m">in shop · https://shop.acme.dev</span><span class="k">⏎</span></div>
+    <div class="it"><span class="acc">▸</span><b>Run migrate</b><span class="m">in shop · last run 2m ago</span><span class="k">⏎</span></div>
+    <div class="ph">Do</div>
+    <div class="it"><span class="dim">↓</span><b>Sleep everything in shop</b><span class="m">wakes on connect; nothing is lost</span><span class="k">sleep all</span></div>
+    <div class="it"><span class="dim">↑</span><b>Up acme</b><span class="m">stopped · as last time: api, web, db</span><span class="k">up acme</span></div>
+    <div class="it"><span class="dim">⌘O</span><b>Open folder…</b><span class="m">add a project to the Library</span><span class="k">open</span></div>
+    <div class="foot"><span><kbd>↑↓</kbd>move</span><span><kbd>⏎</kbd>open</span><span><kbd>⌘⏎</kbd>first action</span><span><kbd>tab</kbd>actions of a row</span><span class="grow"></span><span>type a name, or a verb then a name: sleep db · logs api · copy web</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

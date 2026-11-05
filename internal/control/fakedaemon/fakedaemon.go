@@ -252,6 +252,22 @@ func (f *Fake) Do(_ context.Context, verb control.Verb) error {
 			}
 		})
 	}
+	if err == nil && (verb.Name == control.VerbOff || verb.Name == control.VerbOn) {
+		// Off takes an instance out of the run: the daemon stops it and marks
+		// it disabled until on; the fake does the same to its snapshot.
+		f.Mutate(func(s *control.Snapshot) {
+			for i := range s.Instances {
+				if s.Instances[i].Name == verb.Target {
+					s.Instances[i].Disabled = verb.Name == control.VerbOff
+					if s.Instances[i].Disabled {
+						s.Instances[i].State, s.Instances[i].RAM, s.Instances[i].CPU, s.Instances[i].Conns = "disabled", 0, 0, 0
+					} else {
+						s.Instances[i].State = "reaped"
+					}
+				}
+			}
+		})
+	}
 	if err == nil && hook != nil {
 		hook(verb)
 	}
@@ -319,7 +335,10 @@ func (f *Fake) Done() []control.Verb {
 // first, so a snapshot already handed out is not altered under its reader.
 func (f *Fake) Mutate(fn func(*control.Snapshot)) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.Snap.Instances = append([]control.InstanceView(nil), f.Snap.Instances...)
 	fn(&f.Snap)
+	instances := append([]control.InstanceView(nil), f.Snap.Instances...)
+	f.mu.Unlock()
+	// A daemon tells its subscribers at once; so does the fake.
+	f.Push(control.Frame{Topic: control.TopicInstances, Snapshot: true, Instances: instances})
 }
