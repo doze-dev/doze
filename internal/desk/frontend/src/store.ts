@@ -335,6 +335,7 @@ export function useBoot() {
       // The window opens on the Library, unless it was opened at a project.
       const asked = stacks.find((s) => s.key === pending.key);
       if (pending.page === "empty" && pending.dir) await go({ key: "", page: "empty", dir: pending.dir });
+      else if (pending.page === "settings") await go({ key: "", page: "settings" });
       else if (asked) await go({ key: asked.key, page: "home" });
       else if (!get().where) await go({ key: "", page: "library" });
       const onVisibility = () => {

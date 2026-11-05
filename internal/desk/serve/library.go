@@ -40,9 +40,33 @@ func (s *Service) Library() view.Library {
 		}
 	}
 	lib := view.LibraryOf(stacks, hints, s.now())
-	lib.Doctor = s.doctor(stacks)
+	lib.Doctor = s.doctorCached(stacks)
 	lib.Machine = machine(lib.Doctor, stacks)
 	return lib
+}
+
+// doctorCached is the last machine report, refreshed in the background
+// when older than half a minute: the first paint never waits on launchd or
+// the keychain, and the line fills in on the next push.
+func (s *Service) doctorCached(stacks []hub.StackView) []view.Check {
+	s.mu.Lock()
+	checks := append([]view.Check{}, s.doctorChecks...)
+	stale := s.now().Sub(s.doctorAt) > 30*time.Second
+	start := stale && !s.doctorBusy
+	if start {
+		s.doctorBusy = true
+	}
+	s.mu.Unlock()
+	if start {
+		go func() {
+			d := s.doctor(stacks)
+			s.mu.Lock()
+			s.doctorChecks, s.doctorAt, s.doctorBusy = d, s.now(), false
+			s.mu.Unlock()
+			s.changed()
+		}()
+	}
+	return checks
 }
 
 // SetView remembers a stack's overview view (tiles, list, map), by key.

@@ -129,6 +129,12 @@ type Service struct {
 	trustAt    time.Time
 	trustKey   string
 	trustSteps []names.Step
+	// doctorAt and doctorChecks cache the machine report, which shells out
+	// to launchd and the keychain: the Library paints without it and gets
+	// it on the next push. doctorBusy says a check is under way.
+	doctorAt     time.Time
+	doctorChecks []view.Check
+	doctorBusy   bool
 	// labels are the module actions last seen, by stack, instance and id,
 	// so what an action answered is said with its label even after its
 	// console is no longer watched.
@@ -141,10 +147,12 @@ type Service struct {
 	notify func(notify.Note)
 	// pendingInstance is the instance a notification's Show asked for.
 	pendingInstance string
-	theme           string
-	sent            map[string]uint64 // event name → hash of what was last sent
-	dirty           bool
-	wake            chan struct{}
+	// pendingPage is a page the menu bar asked for with no stack: "settings".
+	pendingPage string
+	theme       string
+	sent        map[string]uint64 // event name → hash of what was last sent
+	dirty       bool
+	wake        chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -589,13 +597,26 @@ func (s *Service) Open(dir string) {
 	s.changed()     // push resolves it when it can
 }
 
+// OpenSettings asks the window for Settings: the menu bar's Settings… item.
+func (s *Service) OpenSettings() {
+	s.mu.Lock()
+	s.pendingPage = "settings"
+	s.mu.Unlock()
+	s.changed()
+}
+
 // Pending is where the page should start: the last Open, once it resolves
 // to a stack the hub knows; until then the page starts on the first tab
 // and the Nav arrives with a push.
 func (s *Service) Pending() Nav {
 	s.mu.Lock()
 	dir := s.pendingDir
+	page := s.pendingPage
+	s.pendingPage = ""
 	s.mu.Unlock()
+	if page != "" {
+		return Nav{Page: page}
+	}
 	if dir == "" {
 		return Nav{}
 	}

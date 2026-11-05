@@ -307,6 +307,7 @@ function Machine({ checks }: { checks: view.Check[] }) {
   return (
     <div className="machine">
       <b>Machine</b>
+      {checks.length === 0 && <span className="dim">checking…</span>}
       {checks.map((c) => (
         <span key={c.name} className="it" title={c.text}>
           <span className={"dot " + (c.ok ? "g" : "y")} aria-hidden />

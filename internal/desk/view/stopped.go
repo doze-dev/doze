@@ -67,7 +67,7 @@ func StoppedOf(st hub.StackView, now time.Time) Stopped {
 	} else {
 		out.LastLine = "Everything is ticked, as last time."
 	}
-	cfg, err := config.Load(filepath.Join(st.Dir, "doze.hcl"), nil)
+	cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
 	if err != nil {
 		out.Problem = display.Humanise(err)
 		return out
@@ -202,7 +202,7 @@ func addressWhenUp(d *config.InstanceDecl, stack string) string {
 // declaredIn counts what a stack's doze.hcl declares, tasks aside, for a
 // stack with no daemon to ask. Zero when the file does not load.
 func declaredIn(dir string) int {
-	cfg, err := config.Load(filepath.Join(dir, "doze.hcl"), nil)
+	cfg, err := config.LoadShape(filepath.Join(dir, "doze.hcl"), nil)
 	if err != nil {
 		return 0
 	}

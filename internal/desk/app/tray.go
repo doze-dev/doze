@@ -3,15 +3,14 @@
 package app
 
 import (
-	"context"
 	_ "embed"
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/tray"
 )
 
@@ -45,7 +44,7 @@ func (d *desk) startTray() {
 // overtake each other, so each model carries its sequence number and the
 // main thread applies only what is newer than the menu it shows.
 func (d *desk) refreshTray() {
-	m := tray.Build(d.hub.Stacks())
+	m := tray.Build(d.hub.Stacks(), time.Now())
 	sig := fmt.Sprintf("%+v", m)
 	d.mu.Lock()
 	d.built++
@@ -66,47 +65,46 @@ func (d *desk) refreshTray() {
 		if stale {
 			return
 		}
-		d.item.SetLabel(m.Label)
 		d.item.SetTooltip(m.Tooltip)
 		d.item.SetMenu(menu)
 	})
 }
 
+// menu is the MenuBar board: one line per stack, running first, with how
+// it is under the name; then Open doze, Settings…, Quit. A line opens its
+// stack in the window; a stopped stack's line opens its page, where the
+// switch is. Native menus take one line of text, so the second line of the
+// board follows the name after a dot.
 func (d *desk) menu(m tray.Model) *application.Menu {
 	menu := d.app.NewMenu()
-	if len(m.Sections) == 0 {
-		menu.Add("No stack is running").SetEnabled(false)
+	if len(m.Lines) == 0 {
+		menu.Add("No stacks yet · open a folder in doze").SetEnabled(false)
 	}
-	for _, sec := range m.Sections {
-		menu.AddSectionHeader(sec.Title)
-		for _, r := range sec.Rows {
-			sub := menu.AddSubmenu(r.Label)
-			key, name := sec.Key, r.Name
-			sub.Add("Wake").SetEnabled(!r.Awake).OnClick(func(*application.Context) {
-				d.run(key, control.Verb{Name: control.VerbWake, Target: name})
-			})
-			sub.Add("Sleep").SetEnabled(r.Awake).OnClick(func(*application.Context) {
-				d.run(key, control.Verb{Name: control.VerbSleep, Target: name})
-			})
+	stoppedStarted := false
+	for _, l := range m.Lines {
+		if !l.Running && !stoppedStarted {
+			stoppedStarted = true
+			if l != m.Lines[0] {
+				menu.AddSeparator()
+			}
 		}
-		dir, key := sec.Dir, sec.Key
-		menu.Add("Open " + sec.Name).OnClick(func(*application.Context) { d.open(dir) })
-		menu.Add("Down").OnClick(func(*application.Context) { d.stack(key, "down") })
-		menu.AddSeparator()
+		dir := l.Dir
+		title := l.Name
+		if l.Sub != "" {
+			title += "   ·   " + l.Sub
+		}
+		item := menu.Add(title).OnClick(func(*application.Context) { d.open(dir) })
+		if l.Trouble {
+			item.SetTooltip("needs you")
+		}
 	}
-	for _, s := range m.Stopped {
-		// A stopped stack, with the switch's two sides: open it, or bring it
-		// up as last time without the window.
-		sub := menu.AddSubmenu(s.Name + " · stopped")
-		dir, key := s.Dir, s.Key
-		sub.Add("Up as last time").OnClick(func(*application.Context) { d.stack(key, "up-last") })
-		sub.Add("Open").OnClick(func(*application.Context) { d.open(dir) })
-	}
-	if len(m.Stopped) > 0 {
-		menu.AddSeparator()
-	}
-	menu.Add("Open doze").OnClick(func(*application.Context) { d.open("") })
-	menu.Add("Quit doze").OnClick(func(*application.Context) { d.app.Quit() })
+	menu.AddSeparator()
+	menu.Add("Open doze").SetAccelerator("CmdOrCtrl+Shift+D").OnClick(func(*application.Context) { d.open("") })
+	menu.Add("Settings…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) {
+		d.svc.OpenSettings()
+		d.open("")
+	})
+	menu.Add("Quit doze   ·   stacks keep running").OnClick(func(*application.Context) { d.app.Quit() })
 	return menu
 }
 
@@ -116,17 +114,5 @@ func (d *desk) stack(key, action string) {
 		if err := d.svc.Stack(key, action, nil); err != nil {
 			fmt.Fprintf(os.Stderr, "doze: %s: %v\n", action, err)
 		}
-	}()
-}
-
-// run sends a verb off the main thread and refreshes once it is done, so a
-// click's result shows without waiting for the next frame.
-func (d *desk) run(key string, verb control.Verb) {
-	go func() {
-		if err := d.hub.Do(context.Background(), key, verb); err != nil {
-			fmt.Fprintf(os.Stderr, "doze: %s %s: %v\n", verb.Name, verb.Target, err)
-		}
-		d.hub.Refresh()
-		d.refreshTray()
 	}()
 }

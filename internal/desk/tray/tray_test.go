@@ -2,62 +2,59 @@ package tray
 
 import (
 	"testing"
+	"time"
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 )
 
+var now = time.Date(2026, 11, 5, 14, 5, 0, 0, time.UTC)
+
 func TestBuild(t *testing.T) {
 	stacks := []hub.StackView{
 		{Key: "k-shop", Name: "shop", Dir: "/code/shop", Running: true, Conn: hub.ConnLive, Instances: []control.InstanceView{
 			{Name: "api", Kind: "app", State: "active", RAM: 48 << 20},
+			{Name: "web", Kind: "app", State: "active", RAM: 212 << 20, HTTPS: "https://shop.acme.dev"},
 			{Name: "db", Kind: "module", State: "idle", RAM: 90 << 20},
 			{Name: "migrate", Kind: "task", State: "done"},
-			{Name: "worker", Kind: "app", State: "crashing"},
 			{Name: "cache", Kind: "module", State: "reaped"},
 		}},
-		{Key: "k-data", Name: "data", Dir: "/code/data", Running: true, Conn: hub.ConnDown},
-		{Key: "k-old", Name: "old", Dir: "/code/old"},
+		{Key: "k-data", Name: "data", Dir: "/code/data", Running: true, Conn: hub.ConnLive, Instances: []control.InstanceView{
+			{Name: "search", Kind: "service", State: "crashing", RestartCount: 2, RestartMax: 5},
+		}},
+		{Key: "k-old", Name: "old", Dir: "/code/old", LastUp: now.Add(-14 * 24 * time.Hour)},
+		{Key: "k-acme", Name: "acme", Dir: "/code/acme", LastUp: now.Add(-3 * 24 * time.Hour)},
 	}
-	m := Build(stacks)
-	if m.Label != "" {
-		t.Errorf("label = %q, want none: the bat stands alone, the count is the tooltip's", m.Label)
-	}
+	m := Build(stacks, now)
 	if !m.NeedsYou {
-		t.Error("a crashing app turns the red dot on")
+		t.Error("a crashing service turns the red dot on")
 	}
-	if len(m.Sections) != 2 || m.Sections[0].Title != "data · daemon not responding" || m.Sections[1].Title != "shop · 2 awake" {
-		t.Errorf("sections = %+v", m.Sections)
+	want := []Line{
+		{Key: "k-data", Name: "data", Dir: "/code/data", Running: true, Sub: "search is crashing · try 2 of 5", Trouble: true},
+		{Key: "k-shop", Name: "shop", Dir: "/code/shop", Running: true, Sub: "3 awake · 350 MB · https://shop.acme.dev"},
+		{Key: "k-acme", Name: "acme", Dir: "/code/acme", Sub: "up 3d ago"},
+		{Key: "k-old", Name: "old", Dir: "/code/old", Sub: "up 14d ago"},
 	}
-	shop := m.Sections[1]
-	want := []string{
-		"● api  awake  48 MB",
-		"· cache  asleep",
-		"◐ db  dozing  90 MB",
-		"✗ worker  crashing",
+	if len(m.Lines) != len(want) {
+		t.Fatalf("lines = %+v", m.Lines)
 	}
-	if len(shop.Rows) != len(want) {
-		t.Fatalf("rows = %+v", shop.Rows)
-	}
-	for i, r := range shop.Rows {
-		if r.Label != want[i] {
-			t.Errorf("row %d = %q, want %q", i, r.Label, want[i])
+	for i, l := range m.Lines {
+		if l != want[i] {
+			t.Errorf("line %d = %+v, want %+v", i, l, want[i])
 		}
 	}
-	if !shop.Rows[0].Awake || shop.Rows[1].Awake || !shop.Rows[3].Trouble {
-		t.Errorf("row flags = %+v", shop.Rows)
-	}
-	if len(m.Stopped) != 1 || m.Stopped[0].Name != "old" {
-		t.Errorf("stopped = %+v", m.Stopped)
-	}
-	if m.Tooltip != "doze · 2 awake" {
+	if m.Tooltip != "doze · 3 awake" {
 		t.Errorf("tooltip = %q", m.Tooltip)
 	}
 }
 
 func TestBuildWithNothingRunning(t *testing.T) {
-	m := Build(nil)
-	if m.Label != "" || m.NeedsYou || len(m.Sections) != 0 || m.Tooltip != "doze" {
+	m := Build(nil, now)
+	if m.NeedsYou || len(m.Lines) != 0 || m.Tooltip != "doze" {
 		t.Errorf("empty model = %+v", m)
+	}
+	m = Build([]hub.StackView{{Key: "k", Name: "shop", Running: true, Conn: hub.ConnDown}}, now)
+	if len(m.Lines) != 1 || m.Lines[0].Sub != "daemon not responding" {
+		t.Errorf("down daemon = %+v", m.Lines)
 	}
 }
