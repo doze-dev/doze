@@ -5,7 +5,6 @@ package app
 import (
 	_ "embed"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -106,13 +105,4 @@ func (d *desk) menu(m tray.Model) *application.Menu {
 	})
 	menu.Add("Quit doze   ·   stacks keep running").OnClick(func(*application.Context) { d.app.Quit() })
 	return menu
-}
-
-// stack acts on a whole stack from the menu, off the main thread.
-func (d *desk) stack(key, action string) {
-	go func() {
-		if err := d.svc.Stack(key, action, nil); err != nil {
-			fmt.Fprintf(os.Stderr, "doze: %s: %v\n", action, err)
-		}
-	}()
 }
