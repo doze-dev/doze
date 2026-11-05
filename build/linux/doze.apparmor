@@ -1,0 +1,13 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+# doze opens a WebKitGTK window. WebKit sandboxes its web process with
+# bubblewrap, which needs a user namespace, and Ubuntu 24.04 grants that to
+# an unconfined binary only through a profile that says so. Without this,
+# doze open dies with "bwrap: setting up uid map: Permission denied". The
+# deb and the rpm install it at /etc/apparmor.d/doze; a tarball install
+# copies it there by hand and runs apparmor_parser -r on it.
+profile doze /usr/local/bin/doze flags=(unconfined) {
+  userns,
+  include if exists <local/doze>
+}
