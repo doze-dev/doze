@@ -6,7 +6,9 @@ package autostart
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Label names the login item on every platform.
@@ -46,4 +48,27 @@ func Set(on bool, exe string) error {
 		return err
 	}
 	return os.Rename(tmp, p)
+}
+
+// Stable is the path to write into the login item: exe itself when it is
+// inside an app bundle, else the doze on the PATH when that is the same
+// file, so a Homebrew upgrade (a new Cellar folder) does not leave the
+// item pointing at a version that is gone.
+func Stable(exe string) string {
+	if strings.Contains(exe, ".app/Contents/MacOS/") {
+		return exe
+	}
+	onPath, err := exec.LookPath("doze")
+	if err != nil {
+		return exe
+	}
+	a, errA := filepath.EvalSymlinks(onPath)
+	b, errB := filepath.EvalSymlinks(exe)
+	if errA != nil || errB != nil || a != b {
+		return exe
+	}
+	if abs, err := filepath.Abs(onPath); err == nil {
+		return abs
+	}
+	return exe
 }

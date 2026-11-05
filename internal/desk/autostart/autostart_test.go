@@ -43,3 +43,10 @@ func TestSetWritesAndRemovesTheLoginItem(t *testing.T) {
 		t.Fatalf("removing twice: %v", err)
 	}
 }
+
+func TestStableKeepsBundlePath(t *testing.T) {
+	p := "/Applications/Doze.app/Contents/MacOS/doze"
+	if got := Stable(p); got != p {
+		t.Fatalf("Stable(%q) = %q", p, got)
+	}
+}

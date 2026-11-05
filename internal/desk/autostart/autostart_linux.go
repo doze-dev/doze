@@ -34,6 +34,7 @@ X-GNOME-Autostart-enabled=true
 // quote is the Exec key's quoting: double quotes around an argument with
 // a space, and the four characters it reserves escaped.
 func quote(s string) string {
+	s = strings.ReplaceAll(s, "%", "%%")
 	if !strings.ContainsAny(s, " \t\"`$\\") {
 		return s
 	}

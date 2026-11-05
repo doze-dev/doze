@@ -300,7 +300,7 @@ func (s *Service) SetOpenAtLogin(on bool) error {
 	if err != nil {
 		return err
 	}
-	if err := autostart.Set(on, exe); err != nil {
+	if err := autostart.Set(on, autostart.Stable(exe)); err != nil {
 		s.Say("could not change the login item: "+err.Error(), true)
 		return err
 	}

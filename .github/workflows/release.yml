@@ -109,7 +109,7 @@ jobs:
           v=${GITHUB_REF_NAME#v}
           sum=$(shasum -a 256 "dist/Doze-$v.dmg" | cut -d" " -f1)
           sed -e "s/__VERSION__/$v/" -e "s/__SHA256__/$sum/" build/darwin/doze.rb.tmpl > dist/doze.rb
-          sha=$(gh api repos/doze-dev/homebrew-tap/contents/Casks/doze.rb --jq .sha 2>/dev/null || true)
+          sha=$(gh api repos/doze-dev/homebrew-tap/contents/Casks/doze.rb --jq ".sha // empty" 2>/dev/null) || sha=""
           gh api -X PUT repos/doze-dev/homebrew-tap/contents/Casks/doze.rb \
             -f message="doze $v (cask)" -f content="$(base64 < dist/doze.rb | tr -d '\n')" \
             ${sha:+-f sha="$sha"}

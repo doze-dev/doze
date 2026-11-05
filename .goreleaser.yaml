@@ -102,4 +102,4 @@ nfpms:
         type: config|noreplace
     scripts:
       postinstall: build/linux/postinstall.sh
-      postremove: build/linux/postremove.sh
+      preremove: build/linux/preremove.sh
