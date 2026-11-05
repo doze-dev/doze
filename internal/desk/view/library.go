@@ -28,6 +28,11 @@ type Library struct {
 	Machine []Check `json:"machine"`
 	// Doctor is the same setup part by part, as Settings lists it.
 	Doctor []Check `json:"doctor"`
+	// Repairable says Repair can put the failing parts in place from
+	// here: one is missing, and this face can ask for an administrator's
+	// password. Repairing says it is doing so now.
+	Repairable bool `json:"repairable,omitempty"`
+	Repairing  bool `json:"repairing,omitempty"`
 }
 
 // LibStack is one row of the library.
@@ -100,7 +105,8 @@ type Check struct {
 	Text string `json:"text,omitempty"`
 	// Section groups the Doctor table: "names", "domains", "app".
 	Section string `json:"section,omitempty"`
-	// Fix is the command that puts a part in place, until Repair lands.
+	// Fix is the command that puts a part in place in a terminal; Repair
+	// does the same from the app.
 	Fix string `json:"fix,omitempty"`
 }
 

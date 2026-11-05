@@ -21,6 +21,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"github.com/doze-dev/doze/internal/adminprompt"
 	"github.com/doze-dev/doze/internal/desk/devserve"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/serve"
@@ -62,6 +63,9 @@ func Run(o Options) error {
 	d.svc = serve.New(d.hub, nil)
 	d.svc.SetVersion(o.Version)
 	d.svc.SetSetup(o.Setup)
+	if adminprompt.Supported() {
+		d.svc.SetRepair(adminprompt.Run)
+	}
 	note, noteSvc := newNotifier()
 	d.svc.SetNotifier(note.send)
 	services := []application.Service{newService(d.svc, func(ms int) {

@@ -158,6 +158,13 @@ func Handler(s *Service) http.Handler {
 		s.DismissHints()
 		return map[string]bool{"ok": true}, nil
 	})
+	call("repair", func(json.RawMessage) (any, error) {
+		if err := s.Repair(); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+	})
+	call("repairplan", func(json.RawMessage) (any, error) { return s.RepairPlan(), nil })
 	call("palette", func(b json.RawMessage) (any, error) {
 		var a struct{ Key, Selected, Query string }
 		if err := json.Unmarshal(b, &a); err != nil {

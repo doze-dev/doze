@@ -42,6 +42,10 @@ func (s *Service) Library() view.Library {
 	lib := view.LibraryOf(stacks, hints, s.now())
 	lib.Doctor = s.doctorCached(stacks)
 	lib.Machine = machine(lib.Doctor, stacks)
+	s.mu.Lock()
+	lib.Repairing = s.repairing
+	lib.Repairable = s.admin != nil && fixable(lib.Doctor)
+	s.mu.Unlock()
 	return lib
 }
 
@@ -137,13 +141,28 @@ func (s *Service) doctor(stacks []hub.StackView) []view.Check {
 		}
 	}
 	app := view.Check{Section: "app", Name: "doze on PATH", OK: true}
-	if p, err := exec.LookPath("doze"); err == nil {
+	if p, ok := dozeOnPath(); ok {
 		app.Text = p + " · " + s.version
 	} else {
 		app.OK, app.Text, app.Fix = false, "not on your PATH: a terminal and scripts cannot find doze", "ln -s "+os.Args[0]+" /usr/local/bin/doze"
 	}
 	out = append(out, app)
 	return out
+}
+
+// dozeOnPath finds the doze a terminal would run. The app started from
+// Finder has launchd's short PATH, so the places a terminal's PATH has
+// (where Repair links doze, and Homebrew's) are looked at too.
+func dozeOnPath() (string, bool) {
+	if p, err := exec.LookPath("doze"); err == nil {
+		return p, true
+	}
+	for _, p := range []string{pathLink, "/opt/homebrew/bin/doze"} {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p, true
+		}
+	}
+	return "", false
 }
 
 // trust is the domains' setup, kept a minute: the checks read files and

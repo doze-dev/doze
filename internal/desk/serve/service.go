@@ -135,6 +135,13 @@ type Service struct {
 	doctorAt     time.Time
 	doctorChecks []view.Check
 	doctorBusy   bool
+	// admin runs a script as root after the system's administrator
+	// prompt; nil says this face cannot ask (SetRepair). run runs a doze
+	// command as the person, in a folder; a field so tests can stand in.
+	// repairing says Repair is under way.
+	admin     func(what, script string) error
+	run       func(dir string, args []string) (string, error)
+	repairing bool
 	// labels are the module actions last seen, by stack, instance and id,
 	// so what an action answered is said with its label even after its
 	// console is no longer watched.
@@ -157,7 +164,7 @@ type Service struct {
 
 // New makes a service over a hub. Run starts its pushes.
 func New(h *hub.Hub, emit Emitter) *Service {
-	s := &Service{hub: h, now: time.Now, emit: emit, sent: map[string]uint64{}, wake: make(chan struct{}, 1), rules: notify.New()}
+	s := &Service{hub: h, now: time.Now, emit: emit, sent: map[string]uint64{}, wake: make(chan struct{}, 1), rules: notify.New(), run: runSelf}
 	h.OnChange(s.changed)
 	return s
 }

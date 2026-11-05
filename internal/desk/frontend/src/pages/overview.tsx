@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ask, copy, go, run, select, setView, stackAction, useStore } from "../store";
+import { ask, copy, go, repair, run, select, setView, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 import { StackMenu } from "./library";
@@ -163,7 +163,10 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             <b>{home.setup.text}</b>
             <span>{home.setup.detail}</span>
           </div>
-          <button className="btn" onClick={() => void copy(home.setup?.command ?? "", "the command")}>
+          <button className="btn pri" onClick={() => void repair()} title="The same as doze trust, behind the system's password prompt">
+            Set it up <span className="dim">(one password)</span>
+          </button>
+          <button className="btn quiet" onClick={() => void copy(home.setup?.command ?? "", "the command")} title="For a terminal instead">
             Copy <span className="mono">{home.setup.command}</span>
           </button>
         </div>

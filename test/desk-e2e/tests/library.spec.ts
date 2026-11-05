@@ -115,7 +115,10 @@ test("Settings: the themes, the machine part by part, About", async ({ page }, i
   await expect(table.locator(".cr", { hasText: "dev.shop.example" })).toContainText("route dev.shop.example");
   await expect(table.locator(".cr", { hasText: "doze on PATH" })).toBeVisible();
   await expect(page.locator(".model")).toContainText("The same report as doze doctor");
-  await page.screenshot({ path: `.desk-look/Doctor-${info.project.name}.png` });
+  // Under --serve there is no administrator prompt, so the banner points at
+  // the terminal; in the app the same banner carries Repair.
+  await expect(page.getByRole("status")).toContainText("From a terminal: doze doctor --fix");
+  await page.screenshot({ path: `.desk-look/Doctor-.png` });
 
   await side.locator(".si", { hasText: "About" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("About");

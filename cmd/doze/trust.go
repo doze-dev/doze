@@ -107,7 +107,7 @@ func trustCmd() *cobra.Command {
 				} else {
 					req.CA = nil // another stack still serves a domain from it
 				}
-				if err := names.Untrust(names.Options{Out: os.Stdout, Print: print}, req); err != nil {
+				if err := names.Untrust(namesOptions(print), req); err != nil {
 					return err
 				}
 				if last && !print {
@@ -120,7 +120,7 @@ func trustCmd() *cobra.Command {
 				}
 				return nil
 			default:
-				if err := names.Trust(names.Options{Out: os.Stdout, Print: print}, req); err != nil {
+				if err := names.Trust(namesOptions(print), req); err != nil {
 					return err
 				}
 				if print {

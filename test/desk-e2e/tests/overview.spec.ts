@@ -24,7 +24,7 @@ test("tiles: one strip of figures, a tile per service with a switch", async ({ p
   await expect(strip.locator(".stat").nth(3)).toContainText("6");
   await expect(strip.locator(".stat").nth(3)).toContainText("tasks ✓ 1 done · ▸ 1 ready");
   await expect(page.getByRole("status")).toContainText("dev.shop.example is not reachable here yet");
-  await expect(page.getByRole("status").getByRole("button")).toContainText("Copy doze trust");
+  await expect(page.getByRole("status").getByRole("button", { name: /Set it up/ })).toBeVisible();
   await expect(page.locator(".gl")).toHaveText([/Apps\s*your code/, /Modules\s*from the doze registry/, /Outside\s*brought in by you/, /Tasks\s*run once, then out of the way/]);
   const api = page.locator(".tile", { hasText: "api" }).first();
   await expect(api).toContainText("awake · nothing holds it");

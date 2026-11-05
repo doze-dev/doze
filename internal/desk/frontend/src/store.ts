@@ -407,3 +407,13 @@ export async function up() {
   const w = upFrom(get().where);
   if (w) await go(w);
 }
+
+/** repair runs the machine setup behind the administrator prompt; what happened is said by Go. */
+export async function repair() {
+  const t = await transport();
+  try {
+    await t.repair();
+  } catch (e) {
+    await say(String(e).replace(/^Error: /, ""), true);
+  }
+}

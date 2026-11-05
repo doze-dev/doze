@@ -180,6 +180,21 @@ export function Recent(): $CancellablePromise<serve$0.Notice[] | null> {
 }
 
 /**
+ * Repair puts the machine's missing setup in place, behind the system's
+ * administrator prompt; the Library is pushed while it runs and after.
+ */
+export function Repair(): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Repair");
+}
+
+/**
+ * RepairPlan is what Repair would run, to show before the password.
+ */
+export function RepairPlan(): $CancellablePromise<string> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.RepairPlan");
+}
+
+/**
  * Say adds something the page did to the notices.
  */
 export function Say(text: string, bad: boolean): $CancellablePromise<void> {

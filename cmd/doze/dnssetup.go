@@ -8,6 +8,7 @@ import (
 	names "github.com/doze-dev/doze-names"
 	"github.com/spf13/cobra"
 
+	"github.com/doze-dev/doze/internal/adminprompt"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -36,7 +37,7 @@ func dnsSetupCmd() *cobra.Command {
 			case check:
 				return namesCheck()
 			case uninstall:
-				return names.Uninstall(names.Options{Print: print})
+				return names.Uninstall(namesOptions(print))
 			default:
 				return namesFix(print)
 			}
@@ -71,5 +72,16 @@ func namesFix(print bool) error {
 	if names.Disabled() {
 		return fmt.Errorf("names are switched off (DOZE_ZONE=off), so there is nothing to set up")
 	}
-	return names.Install(names.Options{Out: os.Stdout, Print: print})
+	return names.Install(namesOptions(print))
+}
+
+// namesOptions are what every privileged names step runs with. Run from the
+// app, which has no terminal for sudo, it asks with the system's
+// administrator prompt instead (adminprompt.Env).
+func namesOptions(print bool) names.Options {
+	o := names.Options{Out: os.Stdout, Print: print}
+	if adminprompt.Requested() {
+		o.Run = adminprompt.Run
+	}
+	return o
 }

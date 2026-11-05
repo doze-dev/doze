@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { copy, go, setTheme, useStore, type Theme } from "../store";
+import { copy, go, repair, setTheme, useStore, type Theme } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 
@@ -114,8 +114,13 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
                   <b>
                     {todo} part{todo === 1 ? " is" : "s are"} not in place. Each row below says what puts it there.
                   </b>
-                  <span>Repair from here, with one password, arrives with the install flow; until then the command runs in a terminal.</span>
+                  <span>{library?.repairable || library?.repairing ? "Repair runs the same setup as doze doctor --fix, behind the system's password prompt." : "From a terminal: doze doctor --fix, one sudo; each row's fix is the command."}</span>
                 </div>
+                {(library?.repairable || library?.repairing) && (
+                  <button className="btn pri" disabled={!!library?.repairing} onClick={() => void repair()}>
+                    {library?.repairing ? "Repairing…" : "Repair"} {!library?.repairing && <span className="dim">(one password)</span>}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="banner" role="status">

@@ -139,6 +139,13 @@ func (a *API) Stack(key, action string, names []string) error { return a.s.Stack
 // DismissHints hides the Library's help strip for good.
 func (a *API) DismissHints() { a.s.DismissHints() }
 
+// Repair puts the machine's missing setup in place, behind the system's
+// administrator prompt; the Library is pushed while it runs and after.
+func (a *API) Repair() error { return a.s.Repair() }
+
+// RepairPlan is what Repair would run, to show before the password.
+func (a *API) RepairPlan() string { return a.s.RepairPlan() }
+
 // SetView remembers a stack's overview view: tiles, list or map.
 func (a *API) SetView(key, name string) { a.s.SetView(key, name) }
 

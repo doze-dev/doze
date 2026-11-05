@@ -118,7 +118,8 @@ export interface Check {
     "section"?: string;
 
     /**
-     * Fix is the command that puts a part in place, until Repair lands.
+     * Fix is the command that puts a part in place in a terminal; Repair
+     * does the same from the app.
      */
     "fix"?: string;
 }
@@ -626,6 +627,14 @@ export interface Library {
      * Doctor is the same setup part by part, as Settings lists it.
      */
     "doctor": Check[] | null;
+
+    /**
+     * Repairable says Repair can put the failing parts in place from
+     * here: one is missing, and this face can ask for an administrator's
+     * password. Repairing says it is doing so now.
+     */
+    "repairable"?: boolean;
+    "repairing"?: boolean;
 }
 
 /**

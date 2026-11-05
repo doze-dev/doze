@@ -48,6 +48,8 @@ export interface Transport {
   say(text: string, bad: boolean): Promise<void>;
   /** copy puts text on the clipboard: Go's in the app, the browser's under --serve. */
   copy(text: string): Promise<void>;
+  /** repair runs the machine setup behind the administrator prompt. */
+  repair(): Promise<void>;
   theme(theme: string): Promise<void>;
   /** empty is the page for a folder with no doze.hcl yet. */
   empty(dir: string): Promise<view.Empty>;
@@ -103,6 +105,7 @@ async function wails(): Promise<Transport> {
     recent: () => api.Recent().then((r) => r ?? []),
     say: (text, bad) => api.Say(text, bad),
     copy: (text) => api.Copy(text),
+    repair: () => api.Repair(),
     theme: (theme) => api.Theme(theme),
     empty: (dir) => api.Empty(dir),
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
@@ -166,6 +169,7 @@ function http(): Transport {
     recent: () => call<serve.Notice[] | null>("recent", {}).then((r) => r ?? []),
     say: (text, bad) => call("say", { text, bad }),
     copy: (text) => navigator.clipboard.writeText(text),
+    repair: () => call("repair", {}),
     theme: (theme) => call("theme", { theme }),
     empty: (dir) => call("empty", { dir }),
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),
