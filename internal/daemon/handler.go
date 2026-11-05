@@ -175,6 +175,14 @@ func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint
 	v.NameHeld = h.d.heldNames[v.Name]
 	v.Console = h.d.consoles[v.Name]
 	v.URL = ep.URL
+	if h.d.zone != nil && v.Domain != "" && strings.HasPrefix(ep.URL, "http://") {
+		// An app behind the front door is reached by its bare name on :80;
+		// the registry says whether a doze holds that port right now. Bind
+		// and Endpoint keep the ported address.
+		if u := h.d.zone.URLFor(v.Domain); u != "" {
+			v.URL = u
+		}
+	}
 	v.EnvVar = ep.EnvVar
 	v.Domains = ep.Domains
 	v.HTTPS = ep.HTTPS
