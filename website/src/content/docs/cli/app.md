@@ -38,6 +38,29 @@ shell, `.env` and `psql`; why it is awake; memory, CPU and connections over
 the last four minutes; its logs by run; and a module's own console when it has
 one. A task shows its last run and the runs kept.
 
+A service with a web console of its own (Temporal, mailpit) shows it in its
+Console tab, framed, with Open in browser a click away. **Timeline** in a
+stack's head, or `T`, draws the last half hour: when each service woke, slept
+and crashed, and what happened, newest first.
+
+## When something is wrong
+
+- **A crash** shows what the service said before it exited, the try it is on,
+  and Try now or Stop trying.
+- **A port already taken** names the process that has it, with its pid, and
+  offers to stop it (a polite TERM, only after checking it still holds the
+  port) or to change the port in `doze.hcl`.
+- **A `doze.hcl` saved broken** is shown with the line and the loader's words;
+  the stack keeps running as it was until the file loads again.
+- **A `doze.hcl` changed** after the stack came up offers Restart the stack:
+  a running stack keeps the file it started with.
+
+## Links
+
+`doze://shop` opens the shop stack, `doze://shop/db` its db service,
+`doze://library` and `doze://settings` those pages. Put one in a README or a
+runbook; from a terminal, `doze open doze://shop/db`.
+
 ## Keys
 
 | Key | Does |
@@ -56,6 +79,9 @@ Every key is a command too: what the app does, `doze sleep db` or
 
 ## Settings
 
-Six themes (the terminal's five and a light one), the machine's setup part by
-part with the command that fixes each, and the version. Prefs live in
+Six themes (the terminal's five and a light one), **Open at login, in the
+menu bar only**, the machine's setup part by part with the command that fixes
+each and **Repair**, which runs that setup behind the system's own password
+prompt (on Linux, polkit's), and the version. The Library's Machine line
+offers the same as **Set up** the first time something is missing. Prefs live in
 `~/.doze/desk/prefs.json`.
