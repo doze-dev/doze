@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -84,6 +85,11 @@ func isDoze(cmd string) bool {
 // named.
 func (s *Service) StopHolder(key, name string, pid int) error {
 	inst := s.Instance(key, name)
+	if inst.Crash != nil && inst.Crash.Held != nil {
+		// Look again, not at what was remembered.
+		forgetHeld(inst.Crash.Held.Port)
+		inst = s.Instance(key, name)
+	}
 	if inst.Crash == nil || inst.Crash.Held == nil || inst.Crash.Held.PID != pid {
 		return errors.New("that process no longer holds the port; nothing was stopped")
 	}
@@ -139,4 +145,49 @@ func (s *Service) ownedBy(h *view.PortHolder) {
 			}
 		}
 	}
+}
+
+// held keeps each port's holder for a few seconds: the instance page is
+// pushed on every frame, and lsof is a fork and tens of milliseconds.
+var held struct {
+	sync.Mutex
+	m map[int]heldAt
+}
+
+type heldAt struct {
+	h  *view.PortHolder
+	at time.Time
+}
+
+const heldFor = 3 * time.Second
+
+// heldBy is portHolder, remembered for heldFor. The caller gets its own
+// copy, since ownedBy fills it in.
+func heldBy(port int) *view.PortHolder {
+	held.Lock()
+	defer held.Unlock()
+	if c, ok := held.m[port]; ok && time.Since(c.at) < heldFor {
+		return clonePH(c.h)
+	}
+	h := portHolder(port)
+	if held.m == nil {
+		held.m = map[int]heldAt{}
+	}
+	held.m[port] = heldAt{h: h, at: time.Now()}
+	return clonePH(h)
+}
+
+func clonePH(h *view.PortHolder) *view.PortHolder {
+	if h == nil {
+		return nil
+	}
+	c := *h
+	return &c
+}
+
+// forgetHeld drops a port's remembered holder, after doze stopped it.
+func forgetHeld(port int) {
+	held.Lock()
+	delete(held.m, port)
+	held.Unlock()
 }

@@ -3,7 +3,10 @@ package serve
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/doze-dev/doze/internal/desk/view"
@@ -17,9 +20,19 @@ func Handler(s *Service) http.Handler {
 	mux := http.NewServeMux()
 	sse := &broadcaster{subs: map[chan event]struct{}{}}
 	s.SetEmitter(sse.emit)
-	mux.HandleFunc("GET /events", sse.serve)
+	mux.HandleFunc("GET /events", func(w http.ResponseWriter, r *http.Request) {
+		if !sameOrigin(r) {
+			http.Error(w, "events go to the page doze served", http.StatusForbidden)
+			return
+		}
+		sse.serve(w, r)
+	})
 	call := func(name string, fn func(json.RawMessage) (any, error)) {
 		mux.HandleFunc("POST /api/"+name, func(w http.ResponseWriter, r *http.Request) {
+			if !sameOrigin(r) || !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+				http.Error(w, "calls come from the page doze served, as JSON", http.StatusForbidden)
+				return
+			}
 			var body json.RawMessage
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err.Error() != "EOF" {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -296,4 +309,25 @@ func (b *broadcaster) serve(w http.ResponseWriter, r *http.Request) {
 			fl.Flush()
 		}
 	}
+}
+
+// sameOrigin keeps other pages in the browser away from the service: the
+// host asked for must be this machine (no DNS rebinding), and a request
+// that names an Origin must come from the page this server handed out.
+// A JSON content type, required on calls, makes a browser ask first,
+// which no other origin gets past.
+func sameOrigin(r *http.Request) bool {
+	host := r.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		return false
+	}
+	o := r.Header.Get("Origin")
+	if o == "" {
+		return true
+	}
+	u, err := url.Parse(o)
+	return err == nil && u.Host == r.Host
 }
