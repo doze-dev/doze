@@ -37,10 +37,6 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        void go({ key: "", page: "library" });
-      }
       if (e.key === "c" && part === "machine") void copyReport(checks);
     };
     window.addEventListener("keydown", onKey);

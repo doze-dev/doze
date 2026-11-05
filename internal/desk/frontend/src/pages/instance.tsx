@@ -30,9 +30,6 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
       switch (e.key) {
-        case "Escape":
-          void go({ key: stackKey, page: "home" });
-          break;
         case "Tab": {
           e.preventDefault();
           const i = tabs.findIndex((t) => t.id === current);

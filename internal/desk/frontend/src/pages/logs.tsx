@@ -192,6 +192,7 @@ export function LogsPage({
       {!embedded && (
         <Keys
           keys={[
+            ["esc", "overview"],
             ["space", "pause"],
             ["/", "filter"],
             ["1-4", "level"],

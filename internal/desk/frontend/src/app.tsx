@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ask, chooseFolder, choose, copy, go, run, say, set, stackAction, useBoot, useSlice } from "./store";
+import { ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, up, useBoot, useSlice } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
@@ -78,11 +78,22 @@ export function App() {
       } else if (e.key === "?" && !(e.target as HTMLElement).closest("input, textarea, select")) {
         e.preventDefault();
         set((s) => ({ help: !s.help, palette: false }));
+      } else if (mod && e.key === "[") {
+        e.preventDefault();
+        void back();
+      } else if (mod && e.key === "]") {
+        e.preventDefault();
+        void forward();
+      } else if ((e.key === "Escape" || (mod && e.key.toLowerCase() === "w")) && !(e.target as HTMLElement).closest("input, textarea, select") && !dialog && !palette && !help) {
+        // The same move on every page: up a level. ⌘W on a pending folder
+        // closes it the same way, without writing anything.
+        e.preventDefault();
+        void up();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [where, stacks]);
+  }, [where, stacks, dialog, palette, help]);
 
   const banner = where?.page === "home" ? home?.banner : where?.page === "instance" ? instance?.banner : undefined;
   const side = where?.page === "home" ? home?.side : where?.page === "instance" ? instance?.side : undefined;

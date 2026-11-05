@@ -118,3 +118,34 @@ test("narrow: the strip and the head give way, nothing overlaps", async ({ page 
   await expect(page.getByRole("complementary", { name: "api, in full" })).toBeVisible();
   await page.screenshot({ path: `.desk-look/Narrow-${info.project.name}.png` });
 });
+
+test("esc goes up a level on every page; ⌘[ and ⌘] walk the way you came", async ({ page }) => {
+  await openShop(page);
+  await page.keyboard.press("Shift+L");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("All logs");
+  await expect(page.locator(".keys")).toContainText("overview");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await page.keyboard.press("ControlOrMeta+[");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.keyboard.press("ControlOrMeta+[");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("All logs");
+  await page.keyboard.press("ControlOrMeta+]");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  // The sidebar's Overview row is the same way back, by mouse.
+  await page.keyboard.press("Shift+L");
+  await page.locator(".side .si", { hasText: "Overview" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  // A service page too, and Settings.
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("api");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.keyboard.press("ControlOrMeta+,");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("General");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+});

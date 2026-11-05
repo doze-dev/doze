@@ -207,6 +207,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           ["l", "logs"],
           ["y", "copy address"],
           ["/", "filter"],
+          ["esc", "library"],
         ]}
         note="from Library: click a stack"
       />

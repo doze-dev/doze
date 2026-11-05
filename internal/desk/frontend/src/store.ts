@@ -52,6 +52,9 @@ export interface State {
   /** toasts is what was said and has not faded yet. */
   toasts: Toast[];
   theme: Theme;
+  /** history is where the page has been, oldest first; future what back left behind. ⌘[ and ⌘] walk them. */
+  history: Where[];
+  future: Where[];
   /** tab is the instance page's tab; sel the selected row of each console table, by block id. Go follows both. */
   tab: string;
   sel: Record<string, number>;
@@ -75,6 +78,8 @@ export const store = new Store<State>({
   help: false,
   toasts: [],
   theme: "system",
+  history: [],
+  future: [],
   tab: "",
   sel: {},
 });
@@ -127,13 +132,14 @@ export async function setConsole(tab: string, sel: Record<string, number>) {
   if (s.where?.page === "instance") await focus(s.where, s.selected);
 }
 
-/** go moves the page; Go follows with its pushes. */
-export async function go(where: Where) {
+/** go moves the page; Go follows with its pushes. A plain move is remembered for ⌘[; back and forward are not. */
+export async function go(where: Where, how: "push" | "back" | "forward" = "push") {
   const n = ++nav;
   const t = await transport();
   const s = get();
   const sameStack = s.where?.key === where.key;
-  set({ where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null, dialog: null, palette: false, tab: "", sel: {} });
+  const trail = how === "push" && s.where && !samePlace(s.where, where) ? { history: [...s.history, s.where].slice(-50), future: [] } : {};
+  set({ ...trail, where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null, dialog: null, palette: false, tab: "", sel: {} });
   await focus(where, sameStack ? s.selected : "");
   // The first paint does not wait for a push.
   try {
@@ -353,4 +359,50 @@ export function useBoot() {
       for (const fn of off) fn();
     };
   }, []);
+}
+
+function samePlace(a: Where, b: Where): boolean {
+  return a.key === b.key && a.page === b.page && (a.instance ?? "") === (b.instance ?? "") && (a.dir ?? "") === (b.dir ?? "");
+}
+
+/** back returns to the last place, as ⌘[ does; forward undoes a back. */
+export async function back() {
+  const s = get();
+  const prev = s.history[s.history.length - 1];
+  if (!prev) return;
+  set({ history: s.history.slice(0, -1), future: s.where ? [s.where, ...s.future] : s.future });
+  await go(prev, "back");
+}
+
+export async function forward() {
+  const s = get();
+  const next = s.future[0];
+  if (!next) return;
+  set({ future: s.future.slice(1), history: s.where ? [...s.history, s.where] : s.history });
+  await go(next, "forward");
+}
+
+/**
+ * upFrom is the page above: a service or the logs sit under their stack's
+ * overview, a stack's overview and every other page under the Library.
+ * The Library has nothing above it.
+ */
+export function upFrom(w: Where | null): Where | null {
+  switch (w?.page) {
+    case "instance":
+    case "logs":
+    case "recent":
+      return { key: w.key, page: "home" };
+    case "home":
+    case "empty":
+    case "settings":
+      return { key: "", page: "library" };
+  }
+  return null;
+}
+
+/** up goes one level up, as esc does on every page. */
+export async function up() {
+  const w = upFrom(get().where);
+  if (w) await go(w);
 }

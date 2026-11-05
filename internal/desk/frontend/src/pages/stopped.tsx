@@ -89,7 +89,7 @@ export function StoppedPage({ home, stackKey }: { home: view.Home; stackKey: str
           <p className="model">
             The same message as <span className="mono">doze lint</span>. Fix the file in your editor; this page reads it again on save, and Up is back the moment it loads.
           </p>
-          <Keys keys={[["⌘0", "library"]]} note="from Library: a stopped stack whose doze.hcl fails to load" />
+          <Keys keys={[["esc", "library"]]} note="from Library: a stopped stack whose doze.hcl fails to load" />
         </>
       ) : (
         <div className="banner" role="status">
@@ -162,7 +162,8 @@ export function StoppedPage({ home, stackKey }: { home: view.Home; stackKey: str
           ["space", "tick"],
           ["⏎", "up as ticked"],
           ["a", "tick all"],
-            ["⌘E", "edit doze.hcl"],
+          ["⌘E", "edit doze.hcl"],
+          ["esc", "library"],
         ]}
         note="from Library: a stopped stack, or the switch's Choose"
       />

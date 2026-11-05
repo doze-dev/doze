@@ -17,7 +17,10 @@ export function Sidebar({ where, side, version, stacks }: { where: Where | null;
   const key = where?.key ?? "";
   return (
     <nav className="side" aria-label={where?.page === "logs" ? "Show" : "Services"}>
-      <button className={"si" + (where?.page === "home" ? " on" : "")} onClick={() => key && void go({ key, page: "home" })}>
+      <button className={"si" + (where?.page === "home" ? " on" : "")} onClick={() => key && void go({ key, page: "home" })} title="Back to the stack (esc)">
+        <span className="glyph dim" aria-hidden>
+          ‹
+        </span>
         <span className="t">Overview</span>
       </button>
       {where?.page === "logs" && (
