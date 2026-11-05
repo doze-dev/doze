@@ -100,14 +100,20 @@ func caPairs(cfg *config.Config) []endpoints.EnvPair {
 	if !ok {
 		return nil
 	}
-	bundle := ca.BundlePath()
-	if _, err := os.Stat(bundle); err != nil {
-		bundle = ca.RootPath()
-	}
-	return []endpoints.EnvPair{
+	pairs := []endpoints.EnvPair{
 		{Var: "DOZE_CA_FILE", Value: ca.RootPath(), Service: "the doze certificate authority"},
 		{Var: "NODE_EXTRA_CA_CERTS", Value: ca.RootPath(), Service: "Node adds it"},
-		{Var: "SSL_CERT_FILE", Value: bundle, Service: "OpenSSL, Go on Linux, curl"},
-		{Var: "REQUESTS_CA_BUNDLE", Value: bundle, Service: "Python requests"},
 	}
+	// The two that replace a client's store get the bundle of the machine's
+	// roots and this one, never the root alone, which would cut the shell off
+	// from every public https host. It is written here when no daemon has.
+	bundle, err := ca.EnsureBundle()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, ui.Muted("SSL_CERT_FILE and REQUESTS_CA_BUNDLE left unset: "+err.Error()))
+		return pairs
+	}
+	return append(pairs,
+		endpoints.EnvPair{Var: "SSL_CERT_FILE", Value: bundle, Service: "OpenSSL, Go on Linux, curl"},
+		endpoints.EnvPair{Var: "REQUESTS_CA_BUNDLE", Value: bundle, Service: "Python requests"},
+	)
 }

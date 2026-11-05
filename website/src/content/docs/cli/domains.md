@@ -26,9 +26,17 @@ domains yet, it says so in one line:
 
 `doze trust` does two things in one prompt: it routes each domain (and
 everything under it) to doze's resolver, and it trusts the doze certificate
-authority on this machine. From then on `https://dev.acme.com` reaches the
-app, and so does `https://tenant.dev.acme.com`. `doze url web` prints the
-https address; the app's Connect card shows it; ⌘K offers to open it.
+authority on this machine. The prompt names exactly what the script does,
+and `doze trust --print` shows the script to paste yourself. From then on
+`https://dev.acme.com` reaches the app, and so does
+`https://tenant.dev.acme.com`. `doze url web` prints the https address; the
+app's Connect card shows it; ⌘K offers to open it.
+
+A wildcard covers one level, as certificates do: `*.dev.acme.com` serves
+`tenant.dev.acme.com` and `dev.acme.com` itself, while
+`a.tenant.dev.acme.com` resolves but fails the handshake. Containers inside
+the stack do not see the machine's resolver routes: from inside one, use
+the app's `.doze` name with its port.
 
 ## What the authority is
 
@@ -42,13 +50,18 @@ this machine. doze only ever mints names declared here; the key never
 leaves the folder; keep the folder out of anything synced or shared.
 `doze trust --check` shows the authority and when it expires; `doze trust
 --rotate` makes a new one, trusts it and stops trusting the old one in one
-prompt.
+prompt, and works on an authority that has gone bad. A running stack serves
+the new one at once; processes already running read the old root at their
+start, so restart them.
 
 Processes inside the stack need to trust it too, for calls between services
 over https. doze sets `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`,
 `REQUESTS_CA_BUNDLE` and `DOZE_CA_FILE` on every process it runs, so Go,
-curl, Node and Python verify without being told. Java reads its own store:
-import the file from `DOZE_CA_FILE` with `keytool` if you need it.
+curl, Node and Python verify without being told. The two that replace a
+client's store point at a bundle of the machine's own roots plus doze's,
+so public hosts keep working; a variable an app sets for itself in its
+`env` block is left alone. Java reads its own store: import the file from
+`DOZE_CA_FILE` with `keytool` if you need it.
 
 ## Bringing your own certificate
 
@@ -84,7 +97,10 @@ only.
   with doze fully down.
 - **A VPN or management profile overrides DNS.** macOS consults profiles
   before `/etc/resolver`; `doze doctor` reports a domain that does not resolve
-  despite the route.
+  to the stack despite the route.
+- **You already have a file in `/etc/resolver` for the domain.** doze never
+  writes over or removes a file that is not its own; `doze trust` says so and
+  leaves the domain to it.
 - **Firefox** before version 120 ignores the system keychain; newer versions
   read it. Chrome and Safari always do.
 

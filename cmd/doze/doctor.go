@@ -332,11 +332,21 @@ func domainChecks(cfg *config.Config, zone *names.Registry) []domainCheck {
 	if len(domains) == 0 {
 		return out
 	}
+	if !names.TrustSupported() {
+		out = append(out, domainCheck{"domains", "domains and https are not set up on this platform yet; the app answers at its doze name", false})
+		return out
+	}
 	req := names.TrustRequest{Domains: domains, Home: cfg.Home, Prune: names.StaleRoutes(cfg.Home)}
 	if usesDozeCA(cfg) {
-		if ca, err := names.LoadOrCreateCA(names.CADir(cfg.Home)); err == nil {
-			req.CA = ca
+		// doctor only looks at the authority; the daemon makes it.
+		ca, err := names.ProbeCA(names.CADir(cfg.Home))
+		switch {
+		case err != nil:
+			out = append(out, domainCheck{"domains: certificate authority", err.Error() + " — run doze trust --rotate (one sudo)", false})
+		case ca == nil:
+			out = append(out, domainCheck{"domains: certificate authority", "not made yet; the daemon makes it when the stack is up", false})
 		}
+		req.CA = ca
 	}
 	for _, st := range names.TrustStatus(req) {
 		detail := st.Detail
@@ -344,6 +354,23 @@ func domainChecks(cfg *config.Config, zone *names.Registry) []domainCheck {
 			detail += " — run doze trust (one sudo)"
 		}
 		out = append(out, domainCheck{"domains: " + st.Name, detail, st.Done})
+		// A routed domain should reach the stack through the system
+		// resolver; a VPN or a configuration profile that outranks the
+		// route is the usual reason it does not.
+		if st.Done && strings.HasPrefix(st.Name, "route ") && daemonRunning(cfg) {
+			d := strings.TrimPrefix(st.Name, "route ")
+			if want := zone.Resolve(d); want != nil {
+				if got, err := resolveHere(d); err != nil || !got.Equal(want) {
+					detail := "does not resolve to the stack through the system resolver despite the route"
+					if err == nil {
+						detail += " (got " + got.String() + ")"
+					}
+					out = append(out, domainCheck{"domains: dns " + d, detail + ": a VPN or a configuration profile may override it", false})
+				} else {
+					out = append(out, domainCheck{"domains: dns " + d, "resolves to " + got.String() + " through the system resolver", true})
+				}
+			}
+		}
 	}
 	if h, ok := zone.IngressTLSHolder(); ok {
 		out = append(out, domainCheck{"domains: https", fmt.Sprintf("%s (pid %d) is serving https:// for the domains", h.Owner, h.PID), true})
@@ -355,4 +382,24 @@ func domainChecks(cfg *config.Config, zone *names.Registry) []domainCheck {
 		out = append(out, domainCheck{"domains: https", detail, false})
 	}
 	return out
+}
+
+// resolveHere asks the system resolver for a name, briefly: what a browser
+// on this machine would get.
+func resolveHere(name string) (net.IP, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range addrs {
+		if v4 := a.IP.To4(); v4 != nil {
+			return v4, nil
+		}
+	}
+	if len(addrs) > 0 {
+		return addrs[0].IP, nil
+	}
+	return nil, errors.New("no address")
 }

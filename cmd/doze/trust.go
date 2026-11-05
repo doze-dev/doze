@@ -18,7 +18,9 @@ import (
 // domain is served from the doze certificate authority, trusts that
 // authority on this machine. Routes nobody declares any more are removed
 // in the same prompt. Opt-in: a machine that declared no domain never
-// trusts the authority.
+// trusts the authority. Only the plain run and --print make an authority;
+// --check, --remove and the other surfaces only look at one, and --rotate
+// replaces one in whatever state it is.
 func trustCmd() *cobra.Command {
 	var check, print, remove, rotate bool
 	cmd := &cobra.Command{
@@ -32,9 +34,13 @@ func trustCmd() *cobra.Command {
 			"no stack declares any more loses its route in the same step.\n\n" +
 			"--check reports the state without sudo; --print shows the script instead of\n" +
 			"running it; --remove undoes this stack's routes (and the authority's trust\n" +
-			"when no stack is left declaring a domain); --rotate makes a new authority.",
+			"when no stack is left declaring a domain); --rotate makes a new authority,\n" +
+			"trusts it and stops trusting the old one, even when the old one is broken.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if rotate && remove {
+				return usageError(errors.New("--rotate and --remove do not go together"))
+			}
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
@@ -45,62 +51,90 @@ func trustCmd() *cobra.Command {
 				fmt.Println(ui.Muted("no app in this stack declares domains; add `domains = [\"dev.acme.com\"]` to one"))
 				return nil
 			}
+			if !names.TrustSupported() {
+				return names.ErrNoTrust
+			}
 			req := names.TrustRequest{Domains: domains, Home: home}
-			if usesDozeCA(cfg) || remove {
-				ca, err := names.LoadOrCreateCA(names.CADir(home))
+			caDir := names.CADir(home)
+			var caErr error
+			switch {
+			case rotate:
+				ca, err := names.RotateCA(caDir)
 				if err != nil {
 					return err
 				}
-				if rotate {
-					if err := ca.Rotate(); err != nil {
-						return err
-					}
-					fmt.Println(ui.OK("✓") + " new certificate authority " + ui.Muted(ca.Subject()))
+				fmt.Println(ui.OK("✓") + " new certificate authority " + ui.Muted(ca.Subject()))
+				if _, err := ca.Bundle(); err != nil {
+					fmt.Println(ui.Muted("  the trust bundle could not be rewritten: " + err.Error()))
 				}
 				req.CA = ca
+			case check || remove:
+				ca, err := names.ProbeCA(caDir)
+				if err != nil {
+					caErr = err
+				}
+				req.CA = ca
+			default:
+				if usesDozeCA(cfg) {
+					ca, err := names.LoadOrCreateCA(caDir)
+					if err != nil {
+						return err
+					}
+					req.CA = ca
+				}
 			}
-			if err := names.RecordDomains(home, dir, domains); err != nil {
-				return err
+			if !remove {
+				if err := names.RecordDomains(home, dir, domains); err != nil {
+					return err
+				}
 			}
 			req.Prune = names.StaleRoutes(home)
 			switch {
 			case check:
-				return trustCheck(req)
+				return trustCheck(req, caErr)
 			case remove:
-				if rotate {
-					return usageError(errors.New("--rotate and --remove do not go together"))
-				}
 				// This stack's routes go unless another stack still declares the
-				// domain; the authority's trust and files go with the last stack.
-				// With --print nothing is changed, only shown.
+				// domain; the authority's trust and files go with the last stack,
+				// every doze root the machine holds with them. With --print
+				// nothing is changed, only shown.
 				if !print {
 					_ = names.ForgetProject(home, dir)
 				}
 				req.Domains, req.Prune = domainsOnlyOurs(home, dir, domains), nil
 				last := !names.AnyDeclared(home) || (print && !declaredElsewhere(home, dir))
-				if !last {
+				if last {
+					req.UntrustAll = true
+				} else {
 					req.CA = nil // another stack still serves a domain from it
 				}
 				if err := names.Untrust(names.Options{Out: os.Stdout, Print: print}, req); err != nil {
 					return err
 				}
-				if last && !print && req.CA != nil {
-					if err := names.RemoveCA(home); err != nil {
-						return err
+				if last && !print {
+					if _, err := os.Stat(caDir); err == nil {
+						if err := names.RemoveCA(home); err != nil {
+							return err
+						}
+						fmt.Println(ui.OK("✓") + " the certificate authority's files are gone")
 					}
-					fmt.Println(ui.OK("✓") + " the certificate authority's files are gone")
 				}
 				return nil
 			default:
 				if err := names.Trust(names.Options{Out: os.Stdout, Print: print}, req); err != nil {
 					return err
 				}
-				if !print {
-					for _, d := range domains {
-						if !names.Wildcard(d) {
-							fmt.Println(ui.OK("✓") + " https://" + d + ui.Muted("  once the stack is up"))
-						}
+				if print {
+					return nil
+				}
+				for _, d := range domains {
+					if names.Wildcard(d) {
+						fmt.Println(ui.OK("✓") + " https://" + d + ui.Muted("  any subdomain, once the stack is up"))
+					} else {
+						fmt.Println(ui.OK("✓") + " https://" + d + ui.Muted("  once the stack is up"))
 					}
+				}
+				if rotate {
+					fmt.Println(ui.Muted("›") + " processes already running trust the old authority: restart the stack to have them read the new one")
 				}
 				return nil
 			}
@@ -114,8 +148,11 @@ func trustCmd() *cobra.Command {
 }
 
 // trustCheck prints each part of the setup and whether it is in place.
-func trustCheck(req names.TrustRequest) error {
+func trustCheck(req names.TrustRequest, caErr error) error {
 	steps := names.TrustStatus(req)
+	if caErr != nil {
+		steps = append(steps, names.Step{Name: "certificate authority", Done: false, Detail: caErr.Error()})
+	}
 	ok := true
 	for _, step := range steps {
 		mark := ui.OK("✓")
@@ -129,7 +166,11 @@ func trustCheck(req names.TrustRequest) error {
 		fmt.Println("\n" + ui.OK("ready") + " — the domains resolve here and https is trusted")
 		return nil
 	}
-	fmt.Println("\nrun " + ui.Title("doze trust") + " to set it up (one sudo)")
+	if caErr != nil {
+		fmt.Println("\nrun " + ui.Title("doze trust --rotate") + " to replace the authority (one sudo)")
+	} else {
+		fmt.Println("\nrun " + ui.Title("doze trust") + " to set it up (one sudo)")
+	}
 	return shown(errors.New("the domains are not set up"))
 }
 
@@ -144,12 +185,16 @@ func usesDozeCA(cfg *config.Config) bool {
 	return false
 }
 
-// projectDirOf is the folder a config lives in, absolute: the routes
-// record keys projects by it, and a relative "." would mean nothing later.
+// projectDirOf is the folder a config lives in, absolute and with symlinks
+// resolved: the routes record keys projects by it, and the same folder must
+// key the same way however it was reached.
 func projectDirOf(cfg *config.Config) string {
 	dir := filepath.Dir(cfg.Path())
 	if abs, err := filepath.Abs(dir); err == nil {
-		return abs
+		dir = abs
+	}
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
 	}
 	return dir
 }

@@ -1177,6 +1177,13 @@ func (r *Runtime) SetExtraEnv(env []string) {
 	r.mu.Unlock()
 }
 
+// ExtraEnv is what SetExtraEnv set, for the daemon's own reporting.
+func (r *Runtime) ExtraEnv() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.extraEnv...)
+}
+
 // withExtraEnv adds the extra variables to a plan's specs. A nil Env means
 // the child inherits this process's environment, so that is spelled out
 // first.
@@ -1194,7 +1201,12 @@ func (r *Runtime) withExtraEnv(plan engine.SpawnPlan) engine.SpawnPlan {
 }
 
 // envWithExtra is env (nil meaning this process's own) with the extra
-// variables added: tasks, steps and hooks get them like a spec does.
+// variables added: tasks, steps and hooks get them like a spec does. A
+// variable the process was given on purpose wins over doze's: an app whose
+// env block points REQUESTS_CA_BUNDLE at a corporate bundle keeps it. A
+// copy merely inherited from the daemon's own environment is not on
+// purpose, and doze's replaces it (the daemon's SSL_CERT_FILE is folded
+// into the bundle anyway).
 func (r *Runtime) envWithExtra(env []string) []string {
 	r.mu.Lock()
 	extra := r.extraEnv
@@ -1205,5 +1217,27 @@ func (r *Runtime) envWithExtra(env []string) []string {
 	if env == nil {
 		env = os.Environ()
 	}
-	return append(append([]string(nil), env...), extra...)
+	apply := map[string]bool{}
+	for _, kv := range extra {
+		k, _, _ := strings.Cut(kv, "=")
+		apply[k] = true
+	}
+	out := make([]string, 0, len(env)+len(extra))
+	for _, kv := range env {
+		k, v, _ := strings.Cut(kv, "=")
+		if apply[k] {
+			if v == os.Getenv(k) {
+				continue // inherited, not chosen: doze's value goes in below
+			}
+			apply[k] = false // chosen by the process: it stays, and wins
+		}
+		out = append(out, kv)
+	}
+	for _, kv := range extra {
+		k, _, _ := strings.Cut(kv, "=")
+		if apply[k] {
+			out = append(out, kv)
+		}
+	}
+	return out
 }

@@ -34,3 +34,30 @@ func TestExtraEnvReachesSpecsTasksAndStepsAndKeepsTheInheritedEnvironment(t *tes
 		t.Errorf("every spec of a plan gets the extras: %v / %d", plan.Specs[0].Env, len(plan.Specs[1].Env))
 	}
 }
+
+// doze's variables replace what a process merely inherited, and yield to
+// what it was given on purpose: an app pointing REQUESTS_CA_BUNDLE at a
+// corporate bundle keeps it.
+func TestAProcessesOwnVariableWinsOverDozesAndAnInheritedOneDoesNot(t *testing.T) {
+	t.Setenv("SSL_CERT_FILE", "/inherited/certs.pem")
+	r := &Runtime{}
+	r.SetExtraEnv([]string{"SSL_CERT_FILE=/x/bundle.pem", "REQUESTS_CA_BUNDLE=/x/bundle.pem"})
+	got := r.envWithExtra([]string{"A=1", "SSL_CERT_FILE=/inherited/certs.pem", "REQUESTS_CA_BUNDLE=/corp/bundle.pem"})
+	want := []string{"A=1", "REQUESTS_CA_BUNDLE=/corp/bundle.pem", "SSL_CERT_FILE=/x/bundle.pem"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("env = %v\nwant %v", got, want)
+	}
+	// A nil env is this process's own: the inherited copy is replaced, once.
+	n := 0
+	for _, kv := range r.envWithExtra(nil) {
+		if strings.HasPrefix(kv, "SSL_CERT_FILE=") {
+			n++
+			if kv != "SSL_CERT_FILE=/x/bundle.pem" {
+				t.Errorf("inherited SSL_CERT_FILE survived: %s", kv)
+			}
+		}
+	}
+	if n != 1 {
+		t.Errorf("SSL_CERT_FILE appears %d times, want once", n)
+	}
+}

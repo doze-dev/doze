@@ -361,4 +361,7 @@ func (d *Daemon) refreshIngressRoutes(eps []endpoints.Endpoint) {
 		return
 	}
 	d.publishRoutes(eps, d.plan, nil)
+	// A domain added live needs what one declared at the start got: its
+	// record, and the authority in the environment of what starts next.
+	d.ensureDomains(true)
 }

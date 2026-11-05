@@ -88,6 +88,11 @@ type Daemon struct {
 	// heldNames says, per instance, which of its names another program on the
 	// machine has: a standalone doze-aws holding aws.<stack>.doze, say.
 	heldNames map[string]string
+	// caEnvSet says the authority's paths are in the environment of every
+	// process spawned from now on; announced are the domains logged as
+	// fronted, so a live change logs only what is new (ensureDomains).
+	caEnvSet  bool
+	announced map[string]bool
 	// consoles is the URL of each instance's web console, where it has one: by
 	// name when doze fronts the console's port, else the address it listens on.
 	consoles   map[string]string

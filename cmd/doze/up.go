@@ -314,11 +314,19 @@ func trustHint(cfg *config.Config) {
 	if len(domains) == 0 {
 		return
 	}
+	routes := names.RouteDomains(domains)
+	if !names.TrustSupported() {
+		fmt.Println(ui.Muted("›") + " " + strings.Join(routes, ", ") + ": domains and https are not set up on this platform yet; the app answers at its doze name")
+		return
+	}
 	req := names.TrustRequest{Domains: domains, Home: cfg.Home}
 	if usesDozeCA(cfg) {
-		if ca, err := names.LoadOrCreateCA(names.CADir(cfg.Home)); err == nil {
-			req.CA = ca
+		// The daemon made the authority as it came up; up only looks at it.
+		ca, err := names.ProbeCA(names.CADir(cfg.Home))
+		if err != nil {
+			fmt.Println(ui.Muted("›") + " the certificate authority cannot be used: " + err.Error())
 		}
+		req.CA = ca
 	}
 	var missing []string
 	for _, st := range names.TrustStatus(req) {
@@ -327,7 +335,11 @@ func trustHint(cfg *config.Config) {
 		}
 	}
 	if len(missing) > 0 {
-		fmt.Println(ui.Muted("›") + " " + strings.Join(names.RouteDomains(domains), ", ") + " need a one-time setup here: " + ui.Title("doze trust") + ui.Muted(" (one sudo)"))
+		verb := "needs"
+		if len(routes) > 1 {
+			verb = "need"
+		}
+		fmt.Println(ui.Muted("›") + " " + strings.Join(routes, ", ") + " " + verb + " a one-time setup here: " + ui.Title("doze trust") + ui.Muted(" (one sudo)"))
 	}
 	if stale := names.StaleRoutes(cfg.Home); len(stale) > 0 {
 		fmt.Println(ui.Muted("›") + " no stack declares " + strings.Join(stale, ", ") + " any more: " + ui.Title("doze trust") + ui.Muted(" removes the route"))

@@ -4,11 +4,16 @@
 // names this stack wants fronted and where each goes; the listener, and the
 // table it routes from, belong to the shared registry — so whichever of doze,
 // doze-aws and doze-kafka started first serves all of them, from one file.
+//
+// The https door on :443 is the same listener's twin: bound whenever names
+// are on, serving every declared domain on the machine with the certificate
+// the person brought or one minted from the machine's authority as it is on
+// disk now. So the holder need not be the stack that declared a domain, nor
+// have started after the authority was made or rotated.
 package daemon
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	names "github.com/doze-dev/doze-names"
@@ -26,51 +31,74 @@ func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, pla
 		return func() {}, nil // no names, so nothing to front
 	}
 	d.publishRoutes(eps, plan, awsRoutes)
-	// The record of who asked for which domain route, so one no stack
-	// declares any more is pruned at the next doze trust; and the authority
-	// for https, made on first use.
+	d.ensureDomains(false)
+	return names.ServeFrontDoor(ctx, d.zone, names.CADir(d.cfg.Home), d.logf).Close, nil
+}
+
+// ensureDomains makes the stack's declared domains good: it records them
+// (so a route no stack declares any more is pruned at the next doze trust)
+// and, when one is served from the doze authority, makes the authority and
+// tells every process spawned from now on where it is. It runs at start
+// and after a live change, so a domain added to a running stack gets the
+// same treatment as one declared at the start; live says which.
+func (d *Daemon) ensureDomains(live bool) {
 	domains := d.cfg.AppDomains()
-	dir := filepath.Dir(d.cfg.Path())
-	if abs, err := filepath.Abs(dir); err == nil {
-		dir = abs
-	}
-	if err := names.RecordDomains(d.cfg.Home, dir, domains); err != nil {
+	if err := names.RecordDomains(d.cfg.Home, d.projectDir(), domains); err != nil {
 		d.logf("domains: could not record them: %v", err)
 	}
-	if len(domains) == 0 {
-		return names.ServeIngress(ctx, d.zone, d.logf).Close, nil
-	}
-	// The authority is made only when a domain is served from it; a stack
-	// whose domains all bring their own files trusts nothing of doze's.
-	var ca *names.CA
-	if d.usesDozeCA() {
-		c, err := names.LoadOrCreateCA(names.CADir(d.cfg.Home))
-		if err != nil {
-			d.logf("domains: no certificate authority (%v); https is off for the minted domains", err)
-		} else {
-			ca = c
-			// What the stack's own processes need to verify https://<domain>:
-			// a bundle of the machine's roots and this one, since the usual
-			// variables replace a client's store rather than add to it.
-			var extra []byte
-			if f := os.Getenv("SSL_CERT_FILE"); f != "" {
-				extra, _ = os.ReadFile(f)
-			}
-			if bundle, err := ca.Bundle(extra); err == nil {
-				d.rt.SetExtraEnv(caEnv(ca.RootPath(), bundle))
-			} else {
-				d.logf("domains: could not write the trust bundle: %v", err)
-			}
-		}
+	if d.announced == nil {
+		d.announced = map[string]bool{}
 	}
 	for _, dom := range domains {
+		if d.announced[dom] {
+			continue
+		}
+		d.announced[dom] = true
 		if names.Wildcard(dom) {
 			d.logf("front door: https://*.%s → the app", names.RouteDomain(dom))
 		} else {
 			d.logf("front door: https://%s → the app", dom)
 		}
 	}
-	return names.ServeFrontDoor(ctx, d.zone, ca, d.logf).Close, nil
+	// The authority is made only when a domain is served from it; a stack
+	// whose domains all bring their own files trusts nothing of doze's.
+	if d.caEnvSet || !d.usesDozeCA() {
+		return
+	}
+	ca, err := names.LoadOrCreateCA(names.CADir(d.cfg.Home))
+	if err != nil {
+		d.logf("domains: no certificate authority (%v); https is off for the minted domains", err)
+		return
+	}
+	// What the stack's own processes need to verify https://<domain>: a
+	// bundle of the machine's roots and this one, since the usual variables
+	// replace a client's store rather than add to it.
+	bundle, err := ca.Bundle()
+	if err != nil {
+		d.logf("domains: could not write the trust bundle: %v", err)
+		return
+	}
+	if d.rt != nil {
+		d.rt.SetExtraEnv(caEnv(ca.RootPath(), bundle))
+	}
+	d.caEnvSet = true
+	if live {
+		d.logf("domains: processes started from now on trust the authority; restart the ones already running to have them trust it too")
+	}
+}
+
+// projectDir is the folder the config lives in, absolute and with symlinks
+// resolved: the routes record keys projects by it, and the same folder
+// must key the same way however it was reached.
+func (d *Daemon) projectDir() string {
+	dir := filepath.Dir(d.cfg.Path())
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
+	return dir
 }
 
 // publishRoutes writes this stack's routes into the shared registry. A route

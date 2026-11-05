@@ -15,8 +15,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stack's processes get the authority through `SSL_CERT_FILE` and friends;
   `doze url`, the Connect card and ⌘K show the https address. A route no
   stack declares any more is removed at the next `doze trust`, and `doze
-  doctor` reports routes, the authority, who holds the ports and a domain
-  sign-in providers would refuse. See the "Your own domain" page.
+  doctor` reports routes, the authority, who holds the ports, whether the
+  domain resolves to the stack, and a domain sign-in providers would refuse.
+  A rotated authority is served by a running stack at once. See the "Your
+  own domain" page.
 
 ### Changed
 

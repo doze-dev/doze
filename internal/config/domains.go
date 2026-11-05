@@ -162,6 +162,9 @@ func (cfg *Config) validateAppDomains() error {
 			owner[d] = decl.Name
 		}
 		if len(decl.Domains) > 0 && !cfg.Defaults.Domains {
+			if names.Disabled() {
+				return fmt.Errorf("%q declares domains, but names are switched off here (%s); unset it to serve them", decl.Name, names.EnvZone)
+			}
 			return fmt.Errorf("%q declares domains, which need names on: add `domains = true` to the defaults block", decl.Name)
 		}
 	}
