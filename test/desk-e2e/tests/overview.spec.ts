@@ -85,12 +85,13 @@ test("map: nodes by group with the edges of what needs what", async ({ page }, i
 test("the switch on a row is sleep and wake: off sleeps it, on wakes it", async ({ page }) => {
   await openShop(page);
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
-  // cache has nothing depending on it, so the switch sleeps it without asking.
-  await page.getByRole("switch", { name: "cache is awake" }).click();
-  await expect(page.getByRole("switch", { name: "cache is asleep" })).toBeVisible();
-  await expect(page.locator(".tile", { hasText: "cache" }).first()).toContainText("asleep");
-  await page.getByRole("switch", { name: "cache is asleep" }).click();
-  await expect(page.getByRole("switch", { name: "cache is awake" })).toBeVisible();
+  // mailpit is asleep and nothing depends on it: on wakes it, off sleeps it
+  // without asking, and it ends as it began so the other checks see it so.
+  await page.getByRole("switch", { name: "mailpit is asleep" }).click();
+  await expect(page.getByRole("switch", { name: "mailpit is awake" })).toBeVisible();
+  await expect(page.locator(".tile", { hasText: "mailpit" }).first()).toContainText("awake");
+  await page.getByRole("switch", { name: "mailpit is awake" }).click();
+  await expect(page.getByRole("switch", { name: "mailpit is asleep" })).toBeVisible();
   // db is held by api: its switch asks first, as Sleep does.
   await page.getByRole("switch", { name: "db is awake" }).click();
   await expect(page.getByRole("dialog", { name: "Sleep db?" })).toBeVisible();
