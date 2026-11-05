@@ -9,6 +9,7 @@ import { StackMenu } from "./library";
 // figures, then the stack in the view remembered for it. Every word is
 // Go's; this keeps only the selection, the filter and which menu is open.
 export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: string }) {
+  const narrow = useNarrow();
   const selected = useStore((s) => s.selected);
   const [filter, setFilter] = useState("");
   const [menu, setMenu] = useState(false);
@@ -167,36 +168,42 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           </button>
         </div>
       )}
-      <Strip v={home.vitals} narrow={viewName === "list"} />
+      <Strip v={home.vitals} narrow={narrow} />
       <div className="toolbar" style={{ paddingBottom: 14 }}>
         <label className="filter">
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" aria-label="Filter the services" />
           <kbd>/</kbd>
         </label>
       </div>
+    </>
+  );
+
+  // The head, the banner, the strip and the filter span the window in
+  // every view, so the Tiles · List · Map switch never moves; only the
+  // rows share their room with the details pane. The map scrolls like the
+  // tiles, so the keys stay in view under it.
+  return (
+    <>
+      {page}
       {viewName === "tiles" && (
         <div className="scrollarea">
           <Tiles groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
         </div>
       )}
       {viewName === "list" && (
-        <div className="scrollarea" style={{ paddingBottom: 12 }}>
-          <List groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
-        </div>
-      )}
-      {viewName === "map" && <MapView m={home.map} rows={rows} selected={selected} stackKey={stackKey} />}
-    </>
-  );
-
-  return (
-    <>
-      {viewName === "list" ? (
         <div className="body" style={{ flex: 1, minHeight: 0 }}>
-          <div className="main">{page}</div>
+          <div className="main">
+            <div className="scrollarea" style={{ paddingBottom: 12 }}>
+              <List groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
+            </div>
+          </div>
           <Pane inst={inst} row={row} stackKey={stackKey} />
         </div>
-      ) : (
-        page
+      )}
+      {viewName === "map" && (
+        <div className="scrollarea">
+          <MapView m={home.map} rows={rows} selected={selected} stackKey={stackKey} />
+        </div>
       )}
       <Keys
         keys={[
@@ -663,4 +670,16 @@ function MapView({ m, rows, selected, stackKey }: { m: view.MapView; rows: view.
       </div>
     </div>
   );
+}
+
+/** useNarrow is whether the window is the Narrow board's size: the strip drops its cores figure. */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 960px)").matches);
+  useEffect(() => {
+    const q = window.matchMedia("(max-width: 960px)");
+    const on = () => setNarrow(q.matches);
+    q.addEventListener("change", on);
+    return () => q.removeEventListener("change", on);
+  }, []);
+  return narrow;
 }
