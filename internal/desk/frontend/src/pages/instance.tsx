@@ -111,7 +111,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
           <>
             <span className="swl">
               {on ? "awake" : off ? "off" : "asleep"}
-              <button className={"sw" + (on ? " on" : "") + (off ? " dis" : "")} role="switch" aria-checked={on} aria-label={on ? `${inst.name} is awake` : off ? `${inst.name} is off` : `${inst.name} is asleep`} onClick={() => void (off ? run(stackKey, "on", inst.name) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name))} />
+              <button className={"sw" + (on ? " on" : "") + (off ? " dis" : "")} role="switch" aria-checked={on} aria-label={on ? `${inst.name} is awake` : off ? `${inst.name} is off` : `${inst.name} is asleep`} onClick={() => void (off ? run(stackKey, "on", inst.name).then(() => run(stackKey, "wake", inst.name)) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name))} />
             </span>
             {inst.crash ? (
               <>
