@@ -327,29 +327,29 @@ type configSeen struct {
 // is pushed every second costs one stat.
 func (s *Service) configError(dir string) *view.ConfigError {
 	path := filepath.Join(dir, "doze.hcl")
-	fi, err := os.Stat(path)
-	if err != nil {
+	fi, ok := configStamp(dir)
+	if !ok {
 		return nil
 	}
 	s.mu.Lock()
 	seen, ok := s.configs[path]
 	s.mu.Unlock()
-	if ok && seen.mtime.Equal(fi.ModTime()) && seen.size == fi.Size() {
+	if ok && seen.mtime.Equal(fi.mtime) && seen.size == fi.size {
 		if seen.err != nil {
 			// The words keep their "changed 20 s ago" fresh.
 			fresh := *seen.err
-			fresh.Text = view.ConfigErrorText(fi.ModTime(), s.now())
+			fresh.Text = view.ConfigErrorText(fi.mtime, s.now())
 			return &fresh
 		}
 		return nil
 	}
 	_, loadErr := config.LoadShape(path, nil)
-	ce := view.ConfigErrorOf(path, loadErr, fi.ModTime(), s.now())
+	ce := view.ConfigErrorOf(path, loadErr, fi.mtime, s.now())
 	s.mu.Lock()
 	if s.configs == nil {
 		s.configs = map[string]configSeen{}
 	}
-	s.configs[path] = configSeen{mtime: fi.ModTime(), size: fi.Size(), err: ce}
+	s.configs[path] = configSeen{mtime: fi.mtime, size: fi.size, err: ce}
 	s.mu.Unlock()
 	return ce
 }
@@ -357,11 +357,40 @@ func (s *Service) configError(dir string) *view.ConfigError {
 // configChanged is the running stack's doze.hcl when it loads and is newer
 // than what the daemon read, or nil.
 func (s *Service) configChanged(st hub.StackView) *view.ConfigChanged {
-	fi, err := os.Stat(filepath.Join(st.Dir, "doze.hcl"))
-	if err != nil {
+	fi, ok := configStamp(st.Dir)
+	if !ok {
 		return nil
 	}
-	return view.ConfigChangedOf(fi.ModTime(), st.Loaded, s.now())
+	return view.ConfigChangedOf(fi.mtime, st.Loaded, s.now())
+}
+
+// stamp is a project's config files taken together: the newest change
+// and the sizes summed, so an edit to any of them is seen.
+type stamp struct {
+	mtime time.Time
+	size  int64
+}
+
+// configStamp stamps doze.hcl and what the loader merges with it: every
+// sibling *.doze.hcl and the *.auto.doze.vars files. False when there is
+// no doze.hcl.
+func configStamp(dir string) (stamp, bool) {
+	fi, err := os.Stat(filepath.Join(dir, "doze.hcl"))
+	if err != nil {
+		return stamp{}, false
+	}
+	st := stamp{mtime: fi.ModTime(), size: fi.Size()}
+	more, _ := filepath.Glob(filepath.Join(dir, "*.doze.hcl"))
+	vars, _ := filepath.Glob(filepath.Join(dir, "*.auto.doze.vars"))
+	for _, f := range append(more, vars...) {
+		if fi, err := os.Stat(f); err == nil {
+			if fi.ModTime().After(st.mtime) {
+				st.mtime = fi.ModTime()
+			}
+			st.size += fi.Size() + 1
+		}
+	}
+	return st, true
 }
 
 // Timeline is a stack's last half hour, from its journal.

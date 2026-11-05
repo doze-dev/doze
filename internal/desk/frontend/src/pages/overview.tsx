@@ -720,6 +720,7 @@ function useNarrow(): boolean {
 
 /** ConfigBanner is the ConfigError board: the stack keeps running on the file it last loaded, and the page shows what is wrong and where. */
 function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
+  const name = (c.file || "doze.hcl").split("/").pop() || "doze.hcl";
   const edit = () => transport().then((t) => t.open("file://" + (c.file || dir + "/doze.hcl")));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -740,15 +741,15 @@ function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
           <span>Nothing is applied until the file loads. Fix it in your editor; this page reads it again on save.</span>
         </div>
         <button className="btn" onClick={() => void edit()}>
-          Edit doze.hcl <kbd>⌘E</kbd>
+          Edit {name} <kbd>⌘E</kbd>
         </button>
       </div>
       <section className="card srccard">
         <h3>
-          doze.hcl{c.line ? <span className="dim"> · line {c.line}</span> : null}
+          {name}{c.line ? <span className="dim"> · line {c.line}</span> : null}
         </h3>
         {(c.excerpt ?? []).length > 0 && (
-          <div className="src" role="figure" aria-label={`doze.hcl around line ${c.line}`}>
+          <div className="src" role="figure" aria-label={`${name} around line ${c.line}`}>
             {(c.excerpt ?? []).map((l) => (
               <div key={l.n} style={{ display: "contents" }}>
                 <span className="n">{l.n}</span>

@@ -2,6 +2,7 @@ package view
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ type SrcLine struct {
 
 var (
 	reLine    = regexp.MustCompile(`line (\d+)`)
+	reOnFile  = regexp.MustCompile(`on (\S+) line (\d+)`)
 	reSummary = regexp.MustCompile(`(?m)^Error: (.+)$`)
 )
 
@@ -65,11 +67,19 @@ func ConfigErrorOf(path string, err error, changed, now time.Time) *ConfigError 
 		}
 		break
 	}
-	if m := reLine.FindStringSubmatch(msg); m != nil {
+	if m := reOnFile.FindStringSubmatch(msg); m != nil {
+		// The line may be in a sibling *.doze.hcl, merged with doze.hcl.
+		ce.Line, _ = strconv.Atoi(m[2])
+		if f := m[1]; filepath.IsAbs(f) {
+			ce.File = f
+		} else {
+			ce.File = filepath.Join(filepath.Dir(path), f)
+		}
+	} else if m := reLine.FindStringSubmatch(msg); m != nil {
 		ce.Line, _ = strconv.Atoi(m[1])
 	}
 	if ce.Line > 0 {
-		if b, err := os.ReadFile(path); err == nil {
+		if b, err := os.ReadFile(ce.File); err == nil {
 			src := strings.Split(string(b), "\n")
 			for n := max(1, ce.Line-3); n <= min(len(src), ce.Line+2); n++ {
 				ce.Excerpt = append(ce.Excerpt, SrcLine{N: n, Text: strings.ReplaceAll(src[n-1], "\t", "  "), Bad: n == ce.Line})
