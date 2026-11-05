@@ -89,12 +89,14 @@ only.
   works with the app's port in the URL. If you keep your own proxy, point it
   at the address `doze url web --json` reports.
 - **The domain exists on the internet.** While a stack declares it, this
-  machine resolves it to the stack. While any doze stack is running and the
-  declaring one is not, the resolver forwards the name to your usual DNS,
-  so the real host is back. When no doze stack runs at all, nothing answers
-  for the routed domain on macOS until one does: `doze trust --remove` or
-  `doze dns-setup --uninstall` drops the route if you need the real host
-  with doze fully down.
+  machine resolves it to the stack. The moment no stack declares it, the
+  name is forwarded to your usual DNS and the real host is back: by the
+  stack that is running, or on macOS by doze's network daemon, which
+  answers the zone whenever no stack does, from boot. A Mac set up before
+  the daemon did this has `doze doctor` saying so; `doze doctor --fix` (one
+  sudo) brings it up to date. On Linux nothing runs when no stack does, so
+  a routed domain is unreachable there with doze fully down: `doze trust
+  --remove` or `doze dns-setup --uninstall` drops the route.
 - **A VPN or management profile overrides DNS.** macOS consults profiles
   before `/etc/resolver`; `doze doctor` reports a domain that does not resolve
   to the stack despite the route.

@@ -253,8 +253,10 @@ about ports once each service has an address of its own.
 `<service>.<stack>.doze` names work: it routes the `.doze` zone to doze's
 resolver and, on macOS, installs a small network daemon that gives every
 service an address of its own, so several can share a port (three Postgres
-instances, each at `<name>.<stack>.doze:5432`) with no limit on how many. It
-needs sudo once. `--print-fix` prints the
+instances, each at `<name>.<stack>.doze:5432`) with no limit on how many,
+and that answers the zone whenever no stack is running. It
+needs sudo once, and once more when a new doze changes the daemon: doctor
+says so. `--print-fix` prints the
 script instead of running it. The setup is shared with doze-aws and
 doze-kafka: whichever of them you run first installs it for all three.
 

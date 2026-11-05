@@ -82,7 +82,7 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 	d.logf("domains: *.%s.%s → per-service IP (zone on %s)", stack, config.DomainSuffix, names.ResolverAddr())
 
 	if !names.Check().OK() {
-		d.logf("domains: names will not resolve through the system resolver until you run `doze doctor --fix` (one sudo)")
+		d.logf("domains: this machine's setup for names is missing or out of date — `doze doctor` says which part, `doze doctor --fix` does it (one sudo)")
 	}
 	return release, nil
 }
