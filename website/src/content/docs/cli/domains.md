@@ -91,12 +91,12 @@ only.
 - **The domain exists on the internet.** While a stack declares it, this
   machine resolves it to the stack. The moment no stack declares it, the
   name is forwarded to your usual DNS and the real host is back: by the
-  stack that is running, or on macOS by doze's network daemon, which
-  answers the zone whenever no stack does, from boot. A Mac set up before
-  the daemon did this has `doze doctor` saying so; `doze doctor --fix` (one
-  sudo) brings it up to date. On Linux nothing runs when no stack does, so
-  a routed domain is unreachable there with doze fully down: `doze trust
-  --remove` or `doze dns-setup --uninstall` drops the route.
+  stack that is running, or by doze's network daemon, which answers the
+  zone whenever no stack does, from boot, on macOS and on Linux with
+  systemd. A machine set up before the daemon did this has `doze doctor`
+  saying so; `doze doctor --fix` (one sudo) brings it up to date. On a
+  Linux machine without systemd-resolved or dnsmasq there is no route and
+  no daemon, and the domain is simply not served.
 - **A VPN or management profile overrides DNS.** macOS consults profiles
   before `/etc/resolver`; `doze doctor` reports a domain that does not resolve
   to the stack despite the route.

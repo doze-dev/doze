@@ -17,11 +17,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stack declares any more is removed at the next `doze trust`, and `doze
   doctor` reports routes, the authority, who holds the ports, whether the
   domain resolves to the stack, and a domain sign-in providers would refuse.
-  A rotated authority is served by a running stack at once. On macOS the
-  network daemon answers the zone whenever no stack does, so a routed
-  domain means the real host again the moment doze is down; a Mac set up
-  before this needs `doze doctor --fix` once more, and doctor says so. See
-  the "Your own domain" page.
+  A rotated authority is served by a running stack at once. The network
+  daemon answers the zone whenever no stack does, on macOS and on Linux
+  with systemd, so a routed domain means the real host again the moment
+  doze is down; a machine set up before this needs `doze doctor --fix`
+  once more, and doctor says so. See the "Your own domain" page.
 
 ### Changed
 
