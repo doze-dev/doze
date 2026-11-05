@@ -1,6 +1,6 @@
 import { go, set, useStore, type Where } from "../store";
 import type { view } from "../transport";
-import { Bat } from "./titlebar";
+import { Bat } from "./bat";
 
 // The sidebar inside a service, as the inside boards draw it: Overview,
 // then the stack's instances under their groups, each with its dot and a
@@ -47,7 +47,7 @@ export function Sidebar({ where, side, version, stacks }: { where: Where | null;
         })}
       {where?.page === "logs" && <ShowList show={show} />}
       <div className="foot">
-        <Bat size={16} />
+        <Bat size={18} />
         doze {version || ""} · {stacks} {stacks === 1 ? "stack" : "stacks"}
       </div>
     </nav>

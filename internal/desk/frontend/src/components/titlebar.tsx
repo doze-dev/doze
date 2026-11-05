@@ -1,4 +1,5 @@
 import { transport, type serve } from "../transport";
+import { Bat } from "./bat";
 
 // The title bar, as every board draws it: the Library tab first, then a
 // tab per open stack with its dot and a red count when something needs
@@ -35,7 +36,7 @@ export function Titlebar({
     >
       <div className="stabs" role="tablist" aria-label="Tabs">
         <button role="tab" aria-selected={library} className={"stab" + (library ? " on" : "")} onClick={onLibrary} title="Library  ⌘0">
-          <Bat />
+          <Bat size={18} />
           <span className="t">Library</span>
         </button>
         {open.map((s, i) => (
@@ -63,17 +64,5 @@ export function Titlebar({
         <kbd>⌘K</kbd> Search or do
       </button>
     </header>
-  );
-}
-
-/** Bat is doze's mark, inline so the tab needs no request. */
-export function Bat({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" style={{ display: "block", flex: "none" }}>
-      <path
-        d="M8 3.2c.9 0 1.6.5 2 1.3.6-.9 1.8-1.5 3-1.5-.3 1.2-.2 2.4.4 3.3-.7 1.2-1.6 1.9-2.7 2.2-.3 1.3-1.2 2.3-2.7 3-1.5-.7-2.4-1.7-2.7-3-1.1-.3-2-1-2.7-2.2.6-.9.7-2.1.4-3.3 1.2 0 2.4.6 3 1.5.4-.8 1.1-1.3 2-1.3z"
-        fill="currentColor"
-      />
-    </svg>
   );
 }
