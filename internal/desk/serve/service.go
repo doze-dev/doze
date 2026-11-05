@@ -478,8 +478,14 @@ func (s *Service) Do(key, verb, target string) error {
 		if target != "" {
 			what += " " + target
 		}
-		s.Say(what+" failed: "+display.Humanise(err), true)
-		return errors.New(display.Humanise(err))
+		said := display.Humanise(err)
+		if strings.Contains(err.Error(), "unknown op") {
+			// A daemon from before the verb existed: the app is newer than the
+			// stack it is talking to.
+			said = "the stack's daemon is from an older doze and does not know " + verb + "; bring the stack down and up to use it"
+		}
+		s.Say(what+" failed: "+said, true)
+		return errors.New(said)
 	}
 	return nil
 }
