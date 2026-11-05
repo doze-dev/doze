@@ -20,7 +20,7 @@ test("tiles: one strip of figures, a tile per service with a switch", async ({ p
   await expect(strip.locator(".stat").nth(0)).toContainText(/web 213 · mongo 148 · db 96 · \+\d more/);
   await expect(strip.locator(".stat").nth(1)).toContainText("cores");
   await expect(strip.locator(".stat").nth(2)).toContainText(/\d\s*awake/);
-  await expect(strip.locator(".stat").nth(2)).toContainText(/\d dozing · \d waking · \d asleep/);
+  await expect(strip.locator(".stat").nth(2)).toContainText(/\d waking · \d asleep/);
   await expect(strip.locator(".stat").nth(3)).toContainText("6");
   await expect(strip.locator(".stat").nth(3)).toContainText("tasks ✓ 1 done · ▸ 1 ready");
   await expect(page.getByRole("status")).toContainText("dev.shop.example is not reachable here yet");

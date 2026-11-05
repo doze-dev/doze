@@ -606,8 +606,16 @@ func (s *Service) Open(dir string) {
 // OpenSettings asks the window for Settings: the menu bar's Settings… item.
 func (s *Service) OpenSettings() {
 	s.mu.Lock()
-	s.pendingPage = "settings"
+	emit := s.emit
+	if emit == nil {
+		// No page yet: it starts on Settings when the window opens.
+		s.pendingPage = "settings"
+	}
 	s.mu.Unlock()
+	if emit != nil {
+		emit(EventNav, Nav{Page: "settings"})
+		return
+	}
 	s.changed()
 }
 

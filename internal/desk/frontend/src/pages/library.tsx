@@ -62,6 +62,9 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
         <button className="btn" onClick={() => void chooseFolder()} title="Open a project folder (⌘O)">
           Open folder… <kbd>⌘O</kbd>
         </button>
+        <button className="btn quiet" onClick={() => void go({ key: "", page: "settings" })} title="Themes, the machine, about (⌘,)">
+          Settings <kbd>⌘,</kbd>
+        </button>
       </div>
       {lib.steps && lib.steps.length > 0 && <Steps steps={lib.steps} />}
       {stacks.length === 0 ? (
