@@ -11,6 +11,7 @@ import (
 
 	names "github.com/doze-dev/doze-names"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/desk/autostart"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/prefs"
@@ -299,4 +300,45 @@ func (s *Service) SetOpenAtLogin(on bool) error {
 	}
 	s.changed()
 	return nil
+}
+
+// configSeen is the last look at a running stack's doze.hcl: the file's
+// stamp, and what loading it said.
+type configSeen struct {
+	mtime time.Time
+	size  int64
+	err   *view.ConfigError
+}
+
+// configError is the running stack's doze.hcl when it does not load, or
+// nil. The file is stat'ed on every look and loaded only when its stamp
+// changed, with the offline pass (no module is fetched), so a page that
+// is pushed every second costs one stat.
+func (s *Service) configError(dir string) *view.ConfigError {
+	path := filepath.Join(dir, "doze.hcl")
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil
+	}
+	s.mu.Lock()
+	seen, ok := s.configs[path]
+	s.mu.Unlock()
+	if ok && seen.mtime.Equal(fi.ModTime()) && seen.size == fi.Size() {
+		if seen.err != nil {
+			// The words keep their "changed 20 s ago" fresh.
+			fresh := *seen.err
+			fresh.Text = view.ConfigErrorText(fi.ModTime(), s.now())
+			return &fresh
+		}
+		return nil
+	}
+	_, loadErr := config.LoadShape(path, nil)
+	ce := view.ConfigErrorOf(path, loadErr, fi.ModTime(), s.now())
+	s.mu.Lock()
+	if s.configs == nil {
+		s.configs = map[string]configSeen{}
+	}
+	s.configs[path] = configSeen{mtime: fi.ModTime(), size: fi.Size(), err: ce}
+	s.mu.Unlock()
+	return ce
 }

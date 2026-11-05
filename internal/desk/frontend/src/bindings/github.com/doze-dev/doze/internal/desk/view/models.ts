@@ -149,6 +149,33 @@ export interface Col {
 }
 
 /**
+ * ConfigError is a running stack whose doze.hcl was saved and does not
+ * load, as the ConfigError board draws it: the stack keeps running as it
+ * was, and the page shows what is wrong and where.
+ */
+export interface ConfigError {
+    /**
+     * Text is the banner's line: "doze.hcl changed 20 s ago and does not load".
+     */
+    "text": string;
+
+    /**
+     * Summary and Detail are the loader's words: "Unsuitable value type",
+     * "a number is required".
+     */
+    "summary": string;
+    "detail"?: string;
+
+    /**
+     * File is the config's path, Line the line it points at (0 when it
+     * names none), Excerpt the lines around it.
+     */
+    "file": string;
+    "line"?: number;
+    "excerpt"?: SrcLine[] | null;
+}
+
+/**
  * Conns is the connections card: open across the stack, and the tasks.
  */
 export interface Conns {
@@ -404,6 +431,11 @@ export interface Home {
      * machine: what is missing, and the command that does it.
      */
     "setup"?: Setup | null;
+
+    /**
+     * Config is set while the running stack's doze.hcl does not load.
+     */
+    "config"?: ConfigError | null;
     "vitals": Vitals4;
     "groups": Group[] | null;
     "side": Side[] | null;
@@ -1155,6 +1187,15 @@ export interface Span {
     "text": string;
     "strong"?: boolean;
     "mono"?: boolean;
+}
+
+/**
+ * SrcLine is one line of the excerpt.
+ */
+export interface SrcLine {
+    "n": number;
+    "text": string;
+    "bad"?: boolean;
 }
 
 /**

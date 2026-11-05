@@ -156,6 +156,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           />
         )}
       </div>
+      {home.config && <ConfigBanner c={home.config} dir={home.dir} />}
       {home.setup && (
         <div className="banner cool" role="status">
           <span className="dot c" aria-hidden />
@@ -696,4 +697,55 @@ function useNarrow(): boolean {
     return () => q.removeEventListener("change", on);
   }, []);
   return narrow;
+}
+
+/** ConfigBanner is the ConfigError board: the stack keeps running on the file it last loaded, and the page shows what is wrong and where. */
+function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
+  const edit = () => transport().then((t) => t.open("file://" + (c.file || dir + "/doze.hcl")));
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        void edit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+  return (
+    <>
+      <div className="banner bad" role="alert">
+        <span className="dot r" aria-hidden />
+        <div className="t">
+          <b>{c.text}: the stack keeps running as it was.</b>
+          <span>Nothing is applied until the file loads. Fix it in your editor; this page reads it again on save.</span>
+        </div>
+        <button className="btn" onClick={() => void edit()}>
+          Edit doze.hcl <kbd>⌘E</kbd>
+        </button>
+      </div>
+      <section className="card srccard">
+        <h3>
+          doze.hcl{c.line ? <span className="dim"> · line {c.line}</span> : null}
+        </h3>
+        {(c.excerpt ?? []).length > 0 && (
+          <div className="src" role="figure" aria-label={`doze.hcl around line ${c.line}`}>
+            {(c.excerpt ?? []).map((l) => (
+              <div key={l.n} style={{ display: "contents" }}>
+                <span className="n">{l.n}</span>
+                <span className={l.bad ? "bad-l" : ""}>{l.text || " "}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div>
+          <b className="bright">{c.summary}</b>
+          {c.detail && <span className="dim"> · {c.detail}</span>}
+        </div>
+        <p className="dim" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+          The same message as <span className="mono">doze lint</span>.
+        </p>
+      </section>
+    </>
+  );
 }

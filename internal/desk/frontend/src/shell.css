@@ -457,6 +457,10 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .cact kbd { font: 600 var(--text-xs) var(--font-mono); color: var(--bright); background: var(--sel); border-radius: 4px; padding: 1px 6px; min-width: 22px; text-align: center; }
 .cact.d { color: var(--bad); }
 .card .big { font-size: var(--text-figure); font-weight: 600; color: var(--bright); }
+.srccard { margin: 0 var(--space-7) 14px; flex: none; }
+.src { display: grid; grid-template-columns: 40px minmax(0, 1fr); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 20px; font-variant-ligatures: none; white-space: pre; overflow: hidden; background: var(--well); border: 1px solid var(--line); border-radius: 8px; padding: 6px 0; }
+.src .n { color: var(--dim); text-align: right; padding-right: 12px; }
+.src .bad-l { background: color-mix(in srgb, var(--bad) 14%, transparent); border-radius: 3px; text-decoration: underline wavy var(--bad); text-underline-offset: 3px; }
 .ways { margin: 0 var(--space-7) 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; flex: none; }
 .way { display: flex; flex-direction: column; gap: 8px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); min-width: 0; }
 .way.drop { border-style: dashed; border-color: var(--line2); align-items: center; justify-content: center; text-align: center; }

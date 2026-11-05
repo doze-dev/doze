@@ -23,10 +23,12 @@ type Home struct {
 	Banner  Banner `json:"banner"`
 	// Setup is set while an app's own domains are not set up on this
 	// machine: what is missing, and the command that does it.
-	Setup  *Setup  `json:"setup,omitempty"`
-	Vitals Vitals4 `json:"vitals"`
-	Groups []Group `json:"groups"`
-	Side   []Side  `json:"side"`
+	Setup *Setup `json:"setup,omitempty"`
+	// Config is set while the running stack's doze.hcl does not load.
+	Config *ConfigError `json:"config,omitempty"`
+	Vitals Vitals4      `json:"vitals"`
+	Groups []Group      `json:"groups"`
+	Side   []Side       `json:"side"`
 	// Awake and Total count the instances up and declared, tasks aside.
 	Awake int `json:"awake"`
 	Total int `json:"total"`

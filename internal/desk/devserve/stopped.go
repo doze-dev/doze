@@ -65,3 +65,20 @@ func seedStopped(home string, now time.Time) error {
 		LastSet:  []string{"api", "web", "db"},
 	})
 }
+
+// brokenConfig is the badconfig fixture's doze.hcl: a port written as a
+// string, the ConfigError board's mistake.
+const brokenConfig = `stack = "shop"
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+}
+
+app "worker" {
+  run   = "go run ./cmd/worker"
+  port  = "eighty-eighty-one"
+}
+
+module postgres "db" { version = 17 }
+`

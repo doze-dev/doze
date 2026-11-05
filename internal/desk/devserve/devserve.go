@@ -45,10 +45,11 @@ type Options struct {
 
 // Fixtures are the scripted stacks a fixture run can serve.
 var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
-	"shop":    fixture.Shop,
-	"crash":   fixture.Crash,
-	"modules": fixture.Modules,
-	"long":    fixture.Long,
+	"shop":      fixture.Shop,
+	"crash":     fixture.Crash,
+	"modules":   fixture.Modules,
+	"long":      fixture.Long,
+	"badconfig": fixture.Shop,
 }
 
 // Run serves until ctx ends.
@@ -124,6 +125,17 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 		return nil, nil, err
 	}
 	f := build(time.Now())
+	if name == "badconfig" {
+		// The shop, running, with a doze.hcl saved broken under it.
+		dir := filepath.Join(home, "work", "shop")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(brokenConfig), 0o644); err != nil {
+			return nil, nil, err
+		}
+		f.Snap.Dir = dir
+	}
 	// The meters every second after the script, as a daemon sends them, so
 	// a metered page is never told its picture is old.
 	stop := make(chan struct{})
