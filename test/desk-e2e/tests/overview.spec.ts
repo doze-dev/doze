@@ -155,3 +155,17 @@ test("esc goes up a level on every page; ⌘[ and ⌘] walk the way you came", a
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
 });
+
+test("the timeline draws each service's last half hour, and esc goes back", async ({ page }, info) => {
+  await openShop(page);
+  await page.keyboard.press("Shift+T");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Timeline");
+  const tl = page.getByRole("region", { name: "Awake over the last half hour" });
+  await expect(tl.locator(".tl-lane")).toHaveCount(10);
+  await expect(tl.locator(".tl-lane", { hasText: "db" }).locator(".tl-span")).not.toHaveCount(0);
+  await expect(tl.locator(".tl-ticks span").last()).toHaveText("now");
+  await expect(page.locator(".tl-events")).toContainText("db (migrate needed it)");
+  await page.screenshot({ path: `.desk-look/Timeline-${info.project.name}.png` });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+});

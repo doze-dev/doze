@@ -1354,6 +1354,82 @@ export interface Tab {
 }
 
 /**
+ * Timeline is a stack's last half hour from its journal: a lane per
+ * service with the spans it was awake, the moments it crashed, and the
+ * events themselves, newest first. Positions are fractions of the span, so
+ * the page draws without knowing about time.
+ */
+export interface Timeline {
+    "key": string;
+    "stack": string;
+
+    /**
+     * From and To label the axis: "13:42" and "now".
+     */
+    "from": string;
+    "ticks": TimelineTick[] | null;
+    "lanes": TimelineLane[] | null;
+
+    /**
+     * Events are the journal's lines in the span, newest first.
+     */
+    "events": Recent[] | null;
+
+    /**
+     * Empty says nothing happened in the span.
+     */
+    "empty"?: boolean;
+}
+
+/**
+ * TimelineLane is one service.
+ */
+export interface TimelineLane {
+    "name": string;
+    "look": Look;
+    "spans": TimelineSpanBar[] | null;
+    "marks": TimelineMark[] | null;
+}
+
+/**
+ * TimelineMark is a moment: a crash, a failed start, a give-up.
+ */
+export interface TimelineMark {
+    "at": number;
+    "kind": string;
+    "title": string;
+}
+
+/**
+ * TimelineSpanBar is a stretch it was awake: from its wake (or the edge of
+ * the span) to its sleep, crash or now. Waking is the start's own part, up
+ * to ready.
+ */
+export interface TimelineSpanBar {
+    "from": number;
+    "to": number;
+
+    /**
+     * where the start finished, when it did inside the span
+     */
+    "ready"?: number;
+    "title": string;
+
+    /**
+     * still awake now
+     */
+    "open"?: boolean;
+}
+
+/**
+ * TimelineTick is one mark on the axis.
+ */
+export interface TimelineTick {
+    "at": number;
+    "label": string;
+}
+
+/**
  * Vitals are the overview's charts, from the instance's series, with the
  * latest reading as the figure.
  */

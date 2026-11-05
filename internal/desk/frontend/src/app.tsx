@@ -12,6 +12,7 @@ import { StoppedPage } from "./pages/stopped";
 import { InstancePage } from "./pages/instance";
 import { LogsPage } from "./pages/logs";
 import { RecentPage } from "./pages/recent";
+import { TimelinePage } from "./pages/timeline";
 import { EmptyPage } from "./pages/empty";
 import { SettingsPage } from "./pages/settings";
 import { transport, type view } from "./transport";
@@ -168,6 +169,7 @@ export function App() {
           {where?.page === "instance" && instance && <InstancePage inst={instance} stackKey={where.key} />}
           {where?.page === "logs" && <LogsPage stackKey={where.key} instance={where.instance ?? ""} />}
           {where?.page === "empty" && empty && <EmptyPage e={empty} />}
+          {where?.page === "timeline" && <TimelinePage stackKey={where.key} />}
           {where?.page === "recent" && <RecentPage stackKey={where.key} stack={stacks.find((s) => s.key === where.key)?.name ?? ""} />}
           {where?.page === "settings" && <SettingsPage library={library} version={version} />}
         </main>

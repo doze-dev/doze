@@ -66,6 +66,11 @@ export type {
     StopRow,
     Stopped,
     Tab,
+    Timeline,
+    TimelineLane,
+    TimelineMark,
+    TimelineSpanBar,
+    TimelineTick,
     Vitals,
     Vitals4
 } from "./models.js";

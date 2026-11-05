@@ -136,6 +136,9 @@ func (a *API) Library() view.Library { return a.s.Library() }
 // Stack acts on a whole stack: up-last, up-all, up (with names), down, forget.
 func (a *API) Stack(key, action string, names []string) error { return a.s.Stack(key, action, names) }
 
+// Timeline is a stack's last half hour: lanes of awake spans and crashes.
+func (a *API) Timeline(key string) view.Timeline { return a.s.Timeline(key) }
+
 // StopHolder stops the process holding a crashed service's port, then restarts it.
 func (a *API) StopHolder(key, name string, pid int) error { return a.s.StopHolder(key, name, pid) }
 

@@ -251,6 +251,13 @@ export function Theme(theme: string): $CancellablePromise<void> {
 }
 
 /**
+ * Timeline is a stack's last half hour: lanes of awake spans and crashes.
+ */
+export function Timeline(key: string): $CancellablePromise<view$0.Timeline> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Timeline", key);
+}
+
+/**
  * Version is the doze this app is, for the sidebar's foot.
  */
 export function Version(): $CancellablePromise<string> {

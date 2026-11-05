@@ -352,3 +352,9 @@ func (s *Service) configChanged(st hub.StackView) *view.ConfigChanged {
 	}
 	return view.ConfigChangedOf(fi.ModTime(), st.Loaded, s.now())
 }
+
+// Timeline is a stack's last half hour, from its journal.
+func (s *Service) Timeline(key string) view.Timeline {
+	st, _ := s.stack(key)
+	return view.TimelineOf(st, s.now())
+}

@@ -64,10 +64,11 @@ if (!stack) {
       await page.waitForTimeout(200);
       continue;
     }
-    if (v === "logs" || v === "palette" || v === "help" || v === "sleep") {
+    if (v === "logs" || v === "palette" || v === "help" || v === "sleep" || v === "timeline") {
       // Overlays and the logs page, from the overview by the same keys a
       // person would press.
       if (v === "logs") await page.keyboard.press("Shift+L");
+      if (v === "timeline") await page.keyboard.press("Shift+T");
       if (v === "palette") await page.keyboard.press("Meta+K");
       if (v === "help") await page.keyboard.press("?");
       if (v === "sleep") {
@@ -82,7 +83,7 @@ if (!stack) {
       console.log(`${out}/${stack}-${v}.png`);
       await page.keyboard.press("Escape");
       await page.waitForTimeout(200);
-      if (v === "logs") {
+      if (v === "logs" || v === "timeline") {
         await page.getByRole("tab", { name: new RegExp(`^${stack}`) }).click();
         await page.waitForSelector(".strip", { timeout: 10000 });
       }
