@@ -268,9 +268,10 @@ export async function say(text: string, bad = false) {
 
 /** copy puts text on the clipboard and says so, as the dash's y did. */
 export async function copy(text: string, what: string) {
+  const t = await transport();
   try {
-    await navigator.clipboard.writeText(text);
-    await say(`copied ${what} to the clipboard`);
+    await t.copy(text);
+    await say(`copied  to the clipboard`);
   } catch {
     await say(`could not copy ${what}`, true);
   }

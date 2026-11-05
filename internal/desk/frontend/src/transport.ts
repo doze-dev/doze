@@ -46,6 +46,8 @@ export interface Transport {
   recent(): Promise<serve.Notice[]>;
   /** say tells Go something the page did, so it is toasted and remembered. */
   say(text: string, bad: boolean): Promise<void>;
+  /** copy puts text on the clipboard: Go's in the app, the browser's under --serve. */
+  copy(text: string): Promise<void>;
   theme(theme: string): Promise<void>;
   /** empty is the page for a folder with no doze.hcl yet. */
   empty(dir: string): Promise<view.Empty>;
@@ -100,6 +102,7 @@ async function wails(): Promise<Transport> {
     admin: (key, name, action, resource, input) => api.Admin(key, name, action, resource, input),
     recent: () => api.Recent().then((r) => r ?? []),
     say: (text, bad) => api.Say(text, bad),
+    copy: (text) => api.Copy(text),
     theme: (theme) => api.Theme(theme),
     empty: (dir) => api.Empty(dir),
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
@@ -162,6 +165,7 @@ function http(): Transport {
     admin: (key, name, action, resource, input) => call("admin", { key, name, action, resource, input }),
     recent: () => call<serve.Notice[] | null>("recent", {}).then((r) => r ?? []),
     say: (text, bad) => call("say", { text, bad }),
+    copy: (text) => navigator.clipboard.writeText(text),
     theme: (theme) => call("theme", { theme }),
     empty: (dir) => call("empty", { dir }),
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),

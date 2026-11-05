@@ -57,6 +57,14 @@ export function Console(key: string, name: string, tab: string, sel: { [_ in str
 }
 
 /**
+ * Copy puts text on the clipboard. The page cannot: the browser's clipboard
+ * is refused to a wails:// origin.
+ */
+export function Copy(text: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Copy", text);
+}
+
+/**
  * Dialog is the confirmation for a verb on an instance.
  */
 export function Dialog(key: string, name: string, verb: string): $CancellablePromise<view$0.Dialog> {

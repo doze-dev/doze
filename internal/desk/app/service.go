@@ -3,6 +3,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -118,6 +119,15 @@ func (a *API) Open(url string) {
 		}
 	}
 	_ = application.Get().Browser.OpenURL(url)
+}
+
+// Copy puts text on the clipboard. The page cannot: the browser's clipboard
+// is refused to a wails:// origin.
+func (a *API) Copy(text string) error {
+	if !application.Get().Clipboard.SetText(text) {
+		return errors.New("the clipboard refused the text")
+	}
+	return nil
 }
 
 // Library is the first tab: every stack, the help strip, the machine line.
