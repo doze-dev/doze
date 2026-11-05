@@ -20,7 +20,7 @@ import (
 // the daemon, and never links a window.
 func openCmd() *cobra.Command {
 	var measure, window bool
-	var serveAddr, fixture string
+	var serveAddr, fixture, show string
 	var closeAfter, quitAfter time.Duration
 	c := &cobra.Command{
 		Use:   "open [dir]",
@@ -80,14 +80,15 @@ With no display (SSH, CI) it prints the status table instead.`,
 			// the same binary, detached, asked the same thing. A second copy hands
 			// over to a running one (single instance) and exits.
 			if !measure && fixture == "" && os.Getenv(envAppChild) == "" && isTerminal(os.Stdin) {
-				if err := detachApp(dir); err == nil {
+				if err := detachApp(dir, show); err == nil {
 					fmt.Println(ui.OK("✓") + " doze is open " + ui.Muted("· the bat stays in the menu bar; stacks keep running when it quits"))
 					return nil
 				}
 			}
-			return app.Run(app.Options{Open: dir, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
+			return app.Run(app.Options{Open: dir, Show: show, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
 		},
 	}
+	c.Flags().StringVar(&show, "show", "", "open the window at this service of the project")
 	c.Flags().BoolVar(&measure, "measure", false, "print timings to stderr for the desk bench")
 	c.Flags().StringVar(&serveAddr, "serve", "", "serve the app's page over HTTP at this address instead of opening a window")
 	c.Flags().StringVar(&fixture, "fixture", "", "a scripted stack (shop, crash, modules) instead of the real daemons")
@@ -126,7 +127,7 @@ const envAppChild = "DOZE_APP_CHILD"
 
 // detachApp starts `doze open dir` in its own session, with its output in
 // $DOZE_HOME/desk/app.log, and returns without waiting.
-func detachApp(dir string) error {
+func detachApp(dir, show string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
@@ -134,6 +135,9 @@ func detachApp(dir string) error {
 	args := []string{"open"}
 	if dir != "" {
 		args = append(args, dir)
+	}
+	if show != "" {
+		args = append(args, "--show", show)
 	}
 	logDir := filepath.Join(dozeHome(), "desk")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {

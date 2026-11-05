@@ -32,6 +32,9 @@ import (
 type Options struct {
 	// Open is the project directory to show first; empty means the tray only.
 	Open string
+	// Show is a service in that project to open the window at, as a
+	// notification's Show does; empty opens the stack.
+	Show string
 	// Measure prints timing lines to stderr for the desk bench.
 	Measure bool
 	// Fixture names a scripted stack to run over instead of the real daemons,
@@ -95,7 +98,11 @@ func Run(o Options) error {
 			// real app without being handed off to it.
 			UniqueID: "dev.doze.app" + os.Getenv("DOZE_DESK_INSTANCE"),
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
-				d.open(dirFrom(data))
+				dir := dirFrom(data)
+				d.open(dir)
+				if show := flagFrom(data.Args, "--show"); show != "" {
+					d.svc.OpenAt(dir, show)
+				}
 			},
 		},
 	})
@@ -111,6 +118,9 @@ func Run(o Options) error {
 		go d.svc.Run(d.app.Context())
 		if o.Open != "" || o.Window {
 			d.open(o.Open)
+			if o.Show != "" {
+				d.svc.OpenAt(o.Open, o.Show)
+			}
 			if o.CloseAfter > 0 {
 				time.AfterFunc(o.CloseAfter, func() {
 					application.InvokeSync(func() {
@@ -138,6 +148,20 @@ type desk struct {
 	window
 }
 
+// flagFrom is a flag's value in a second launch's arguments: "--show db" or
+// "--show=db".
+func flagFrom(args []string, name string) string {
+	for i, a := range args {
+		if a == name && i+1 < len(args) {
+			return args[i+1]
+		}
+		if v, ok := strings.CutPrefix(a, name+"="); ok {
+			return v
+		}
+	}
+	return ""
+}
+
 // dirFrom is the project folder a second launch asked for: the argument
 // after open, resolved against the folder it ran in, else the project
 // that folder is inside, found the way the CLI finds doze.hcl: upward.
@@ -146,7 +170,16 @@ func dirFrom(data application.SecondInstanceData) string {
 		if a != "open" {
 			continue
 		}
+		skip := false
 		for _, arg := range data.Args[i+1:] {
+			if skip {
+				skip = false
+				continue
+			}
+			if arg == "--show" {
+				skip = true // its value is a service, not a folder
+				continue
+			}
 			if strings.HasPrefix(arg, "-") {
 				continue
 			}

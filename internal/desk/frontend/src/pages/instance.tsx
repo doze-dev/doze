@@ -156,12 +156,12 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
       </div>
       <nav className="ptabs" role="tablist">
         {tabs.map((t) => (
-          <button key={t.id} role="tab" data-tab={t.id} aria-selected={t.id === current} className={"ptab" + (t.id === current ? " on" : "") + (asleep && t.id === "web console" ? " dis" : "")} onClick={() => setTab(t.id)}>
+          <button key={t.id} role="tab" data-tab={t.id} aria-selected={t.id === current} className={"ptab" + (t.id === current ? " on" : "")} onClick={() => setTab(t.id)}>
             {tabTitle(t, task, inst)}
           </button>
         ))}
       </nav>
-      {current === "overview" && (task ? <TaskOverview inst={inst} stackKey={stackKey} onRuns={() => setTab("logs")} /> : asleep ? <Asleep inst={inst} stackKey={stackKey} /> : <Overview inst={inst} stackKey={stackKey} />)}
+      {current === "overview" && (task ? <TaskOverview inst={inst} stackKey={stackKey} onRuns={() => setTab("logs")} /> : asleep ? <Asleep inst={inst} stackKey={stackKey} onConsole={() => setTab("web console")} /> : <Overview inst={inst} stackKey={stackKey} />)}
       {current === "logs" && <LogsPage stackKey={stackKey} instance={inst.name} embedded inst={inst} />}
       {current === "last run" && <TaskOverview inst={inst} stackKey={stackKey} onRuns={() => setTab("logs")} />}
       {current === "web console" && <WebConsole inst={inst} stackKey={stackKey} />}
@@ -200,7 +200,7 @@ function tabTitle(t: view.Tab, task: boolean, inst: view.Instance): string {
     case "logs":
       return task ? ((inst.runs ?? []).length > 0 ? `Runs · ${(inst.runs ?? []).length}` : "Runs · none yet") : "Logs";
     case "web console":
-      return inst.look.word === "asleep" ? "Console · wakes it" : "Console";
+      return "Console";
   }
   return t.title;
 }
@@ -363,7 +363,7 @@ function Snippets({ inst }: { inst: view.Instance }) {
   );
 }
 
-function Asleep({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
+function Asleep({ inst, stackKey, onConsole }: { inst: view.Instance; stackKey: string; onConsole?: () => void }) {
   const addr = inst.connect?.find((r) => r.k === "URL" || r.k === "Address")?.v;
   return (
     <>
@@ -374,7 +374,7 @@ function Asleep({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
         </p>
         <div className="acts">
           {inst.web ? (
-            <button className="btn pri" onClick={() => void run(stackKey, "wake", inst.name)}>
+            <button className="btn pri" onClick={() => { void run(stackKey, "wake", inst.name); onConsole?.(); }}>
               Wake and open the console
             </button>
           ) : (
@@ -560,35 +560,43 @@ function LastRun({ inst, stackKey, onRuns }: { inst: view.Instance; stackKey: st
   );
 }
 
-function WebConsole({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
+// WebConsole is a service's own web console, framed in the tab as the
+// ConsoleTab board draws it: a thin line saying what is shown, with the
+// way out to the browser, and the console itself, told the app's theme.
+// Loading it is a connection, so an asleep service wakes for it; the frame
+// says so until the console answers. It is dropped when the tab is left,
+// so a console nobody looks at holds nothing.
+function WebConsole({ inst }: { inst: view.Instance; stackKey: string }) {
+  const theme = useStore((s) => s.theme);
+  const [loaded, setLoaded] = useState(false);
   const asleep = inst.look.word === "asleep";
+  const url = inst.web ?? "";
+  const dark = theme === "light" ? false : theme !== "system" || window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const src = url ? url + (url.includes("?") ? "&" : "?") + "theme=" + (dark ? "dark" : "light") : "";
+  useEffect(() => setLoaded(false), [src]);
   return (
-    <div className="two">
-      <div className="col">
-        <section className="card">
-          <h3>{inst.name} has its own console</h3>
-          <div className="mono bright">{inst.web}</div>
-          {asleep && <div className="dim">It is asleep. Opening the console wakes it first.</div>}
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <button className="btn pri" onClick={() => transport().then((t) => t.open(inst.web ?? ""))}>
-              Open in browser <kbd>o</kbd>
-            </button>
-            {asleep && (
-              <button className="btn" onClick={() => void run(stackKey, "wake", inst.name)}>
-                Just wake it <kbd>w</kbd>
-              </button>
-            )}
-          </div>
-        </section>
-      </div>
-      <div className="col">
-        {(inst.connect ?? []).length > 0 && (
-          <section className="card">
-            <h3>Connect</h3>
-            <KVRows rows={inst.connect ?? []} />
-          </section>
+    <div className="frame" style={{ marginTop: 16, marginBottom: 0 }}>
+      <div className="ctop">
+        <span>{inst.name}</span>
+        <span className="crumb mono">· {url}</span>
+        {!loaded && <span className="dim">· {asleep ? "waking it for the console…" : "loading…"}</span>}
+        <span className="grow" />
+        {(inst.connect ?? []).find((r) => r.copy) && (
+          <button className="btn quiet" onClick={() => void copy((inst.connect ?? []).find((r) => r.copy)?.copy ?? "", "the address")} title={(inst.connect ?? []).find((r) => r.copy)?.v}>
+            Copy address <kbd>y</kbd>
+          </button>
         )}
+        <button className="btn" onClick={() => transport().then((t) => t.open(url))}>
+          Open in browser <kbd>o</kbd>
+        </button>
       </div>
+      {src ? (
+        <iframe title={`${inst.name}'s console`} src={src} onLoad={() => setLoaded(true)} style={{ flex: 1, minHeight: 0, width: "100%", border: 0, background: "var(--well)" }} />
+      ) : (
+        <div className="empty">
+          <p className="dim">{inst.name} says it has a console but gave no address.</p>
+        </div>
+      )}
     </div>
   );
 }

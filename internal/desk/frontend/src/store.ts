@@ -343,6 +343,7 @@ export function useBoot() {
       const asked = stacks.find((s) => s.key === pending.key);
       if (pending.page === "empty" && pending.dir) await go({ key: "", page: "empty", dir: pending.dir });
       else if (pending.page === "settings") await go({ key: "", page: "settings" });
+      else if (asked && pending.page === "instance" && pending.instance) await go({ key: asked.key, page: "instance", instance: pending.instance });
       else if (asked) await go({ key: asked.key, page: "home" });
       else if (!get().where) await go({ key: "", page: "library" });
       const onVisibility = () => {

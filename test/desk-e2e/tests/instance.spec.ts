@@ -142,3 +142,20 @@ test("a task not yet run: what Run will do, as the TaskNotRun board does", async
   await page.keyboard.press("Enter");
   await expect(page.locator(".toast").first()).toContainText("seed");
 });
+
+test("a service's own web console is framed in its tab, with the browser a click away", async ({ page }, info) => {
+  await open(page, "mailpit");
+  await page.getByRole("button", { name: "Wake and open the console" }).click();
+  const frame = page.locator(".frame");
+  await expect(frame.locator(".ctop")).toContainText("mailpit");
+  await expect(frame.locator(".ctop")).toContainText("http://mailpit.shop.doze:8025");
+  await expect(frame.getByRole("button", { name: /Open in browser/ })).toBeVisible();
+  await expect(frame.getByRole("button", { name: /Copy address/ })).toBeVisible();
+  const iframe = frame.locator("iframe");
+  await expect(iframe).toHaveAttribute("src", /mailpit\.shop\.doze:8025\/?\?theme=(dark|light)/);
+  await page.screenshot({ path: `.desk-look/ConsoleTab-web-${info.project.name}.png` });
+  // Back to sleep, as the fixture began, so other checks see what they expect.
+  const stacks = await (await page.request.post("/api/stacks", { data: {} })).json();
+  const key = stacks.find((s: { name: string }) => s.name === "shop").key;
+  await page.request.post("/api/do", { data: { key, verb: "sleep", target: "mailpit" } });
+});
