@@ -18,9 +18,11 @@ import (
 
 func dashCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "dash",
-		Short: "Launch the live TUI dashboard",
-		Args:  cobra.NoArgs,
+		Use:        "dash",
+		Short:      "The terminal dashboard (replaced by the app; kept for SSH)",
+		Hidden:     true,
+		Deprecated: "the app replaces it: `doze` opens the app where there is a screen, and is still the dash over SSH; doze dash goes away in the next release",
+		Args:       cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// The dashboard is a full-screen TUI; without a terminal on both ends
 			// Bubble Tea can only fail obscurely, so fail plainly up front.

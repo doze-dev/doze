@@ -119,17 +119,23 @@ func rootCmd() *cobra.Command {
 			"local AWS (S3, SQS, SNS, DynamoDB, Lambda, EventBridge, …) as one service.\n" +
 			"A thin proxy boots each service on its first connection and reaps it when\n" +
 			"idle.\n\n" +
-			"Running `doze` opens the dash: the live fleet, logs, charts, a command\n" +
-			"palette, engine pages for aws and kafka, and an APPS view for your own\n" +
-			"code. Everything the dash does is also a command below, so a script, a\n" +
-			"Makefile or a terminal with no room for a dash can do the same. Piped,\n" +
-			"`doze` prints the status table.",
+			"Running `doze` opens the app: every stack on this machine in one window,\n" +
+			"with a switch per service, logs, charts, the module consoles and a\n" +
+			"palette, and a bat in the menu bar that stays after the window closes.\n" +
+			"Everything the app does is also a command below, so a script, a Makefile\n" +
+			"or CI can do the same. Over SSH, with no screen, `doze` is the terminal\n" +
+			"dash; piped, it prints the status table.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
-		// Bare `doze`: the dash on a terminal, the status table anywhere else —
-		// so `doze | less`, a CI log and a Makefile all get something readable.
+		// Bare `doze`: the app where there is a screen; the dash on a terminal
+		// with none (SSH); the status table anywhere else, so `doze | less`, a
+		// CI log and a Makefile all get something readable.
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			in := faceInput{Env: environ(), Exe: executable(), StdinTTY: isTerminal(os.Stdin), StdoutTTY: isTerminal(os.Stdout), BareOpensApp: true}
+			if in.StdinTTY && in.StdoutTTY && face(in) == faceApp {
+				return openCmd().RunE(cmd, nil)
+			}
 			if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
 				return dashCmd().RunE(cmd, nil)
 			}

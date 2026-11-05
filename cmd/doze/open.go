@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/doze-dev/doze/internal/ui"
 
 	"github.com/doze-dev/doze/internal/desk/app"
 	"github.com/doze-dev/doze/internal/desk/devserve"
@@ -73,6 +76,15 @@ With no display (SSH, CI) it prints the status table instead.`,
 				fmt.Fprintln(cmd.ErrOrStderr(), "no display here; showing the status table instead")
 				return treeCmd().RunE(cmd, nil)
 			}
+			// From a terminal the app runs on its own, so the prompt comes back:
+			// the same binary, detached, asked the same thing. A second copy hands
+			// over to a running one (single instance) and exits.
+			if !measure && fixture == "" && os.Getenv(envAppChild) == "" && isTerminal(os.Stdin) {
+				if err := detachApp(dir); err == nil {
+					fmt.Println(ui.OK("✓") + " doze is open " + ui.Muted("· the bat stays in the menu bar; stacks keep running when it quits"))
+					return nil
+				}
+			}
 			return app.Run(app.Options{Open: dir, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
 		},
 	}
@@ -107,4 +119,37 @@ func executable() string {
 		return ""
 	}
 	return exe
+}
+
+// envAppChild marks the detached copy, so it does not detach again.
+const envAppChild = "DOZE_APP_CHILD"
+
+// detachApp starts `doze open dir` in its own session, with its output in
+// $DOZE_HOME/desk/app.log, and returns without waiting.
+func detachApp(dir string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := []string{"open"}
+	if dir != "" {
+		args = append(args, dir)
+	}
+	logDir := filepath.Join(dozeHome(), "desk")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return err
+	}
+	logf, err := os.OpenFile(filepath.Join(logDir, "app.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer logf.Close()
+	c := exec.Command(exe, args...)
+	c.Env = append(os.Environ(), envAppChild+"=1")
+	c.Stdout, c.Stderr = logf, logf
+	c.SysProcAttr = detachAttr()
+	if err := c.Start(); err != nil {
+		return err
+	}
+	return c.Process.Release()
 }
