@@ -4,8 +4,9 @@ description: One window for every stack on this machine, and a bat in the menu b
 ---
 
 Run `doze` in a project folder, or `doze open ~/code/shop`, and the app opens
-on that stack. It is one window for every stack on the machine and a bat in
-the menu bar that stays when the window closes. Quitting it leaves every
+on that stack; anywhere else it opens on the Library. It is one window for
+every stack on the machine and a bat in the menu bar that stays when the
+window closes. Quitting it leaves every
 stack running: the app is a face on the daemons, not their owner.
 
 From a terminal the prompt comes back at once; the app runs on its own and

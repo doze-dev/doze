@@ -629,16 +629,22 @@ func (s *Service) Open(dir string) {
 }
 
 // OpenSettings asks the window for Settings: the menu bar's Settings… item.
-func (s *Service) OpenSettings() {
+func (s *Service) OpenSettings() { s.OpenPage("settings") }
+
+// OpenLibrary asks the window for the Library: a doze://library link.
+func (s *Service) OpenLibrary() { s.OpenPage("library") }
+
+// OpenPage asks the window for a page that needs no stack.
+func (s *Service) OpenPage(page string) {
 	s.mu.Lock()
 	emit := s.emit
 	if emit == nil {
-		// No page yet: it starts on Settings when the window opens.
-		s.pendingPage = "settings"
+		// No page yet: it starts there when the window opens.
+		s.pendingPage = page
 	}
 	s.mu.Unlock()
 	if emit != nil {
-		emit(EventNav, Nav{Page: "settings"})
+		emit(EventNav, Nav{Page: page})
 		return
 	}
 	s.changed()

@@ -102,7 +102,7 @@ func Run(o Options) error {
 			UniqueID: "dev.doze.app" + os.Getenv("DOZE_DESK_INSTANCE"),
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				if l := linkFrom(data.Args); l != "" {
-					d.follow(l)
+					go d.follow(l)
 					return
 				}
 				dir := dirFrom(data)
@@ -246,19 +246,16 @@ func (d *desk) follow(raw string) {
 		d.open("")
 		return
 	case "library":
+		d.svc.OpenLibrary()
 		d.open("")
 		return
 	}
 	dir := l.Dir
 	if dir == "" {
-		for _, st := range d.hub.Stacks() {
-			if strings.EqualFold(st.Name, l.Stack) {
-				dir = st.Dir
-				break
-			}
-		}
+		dir = d.stackDir(l.Stack)
 	}
 	if dir == "" {
+		d.svc.OpenLibrary()
 		d.svc.Say("no stack called "+l.Stack+" here; the Library lists the ones doze knows", true)
 		d.open("")
 		return
@@ -275,6 +272,21 @@ func linkFrom(args []string) string {
 		if link.Is(a) {
 			return a
 		}
+	}
+	return ""
+}
+
+// stackDir is the folder of the stack called name. Just after launch the
+// hub may not have looked yet, so it asks again for up to three seconds.
+func (d *desk) stackDir(name string) string {
+	for i := 0; i < 15; i++ {
+		for _, st := range d.hub.Stacks() {
+			if strings.EqualFold(st.Name, name) {
+				return st.Dir
+			}
+		}
+		d.hub.Refresh()
+		time.Sleep(200 * time.Millisecond)
 	}
 	return ""
 }

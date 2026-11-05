@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -63,7 +65,8 @@ With no display (SSH, CI) it prints the status table instead.`,
 			// A project with a config gets its daemon started, as the dash did,
 			// so the first thing the app shows is live. Over a fixture there
 			// is no project.
-			if fixture != "" {
+			if fixture != "" || linkArg != "" {
+				// A fixture has no project, and a link names its own.
 				dir = ""
 			} else if cfg, err := loadConfig(); err == nil {
 				if dir == "" {
@@ -81,14 +84,20 @@ With no display (SSH, CI) it prints the status table instead.`,
 				fmt.Fprintln(cmd.ErrOrStderr(), "no display here; showing the status table instead")
 				return treeCmd().RunE(cmd, nil)
 			}
+			// Asked from a terminal with no project and no link, the person wants
+			// the window, not only the bat: it opens on the Library.
+			if dir == "" && linkArg == "" && fixture == "" && isTerminal(os.Stdin) {
+				window = true
+			}
 			// From a terminal the app runs on its own, so the prompt comes back:
 			// the same binary, detached, asked the same thing. A second copy hands
 			// over to a running one (single instance) and exits.
 			if !measure && fixture == "" && os.Getenv(envAppChild) == "" && isTerminal(os.Stdin) {
-				if err := detachApp(dir, show, linkArg); err == nil {
-					fmt.Println(ui.OK("✓") + " doze is open " + ui.Muted("· the bat stays in the menu bar; stacks keep running when it quits"))
-					return nil
+				if err := detachApp(dir, show, linkArg, window); err != nil {
+					return err
 				}
+				fmt.Println(ui.OK("✓") + " doze is open " + ui.Muted("· the bat stays in the menu bar; stacks keep running when it quits"))
+				return nil
 			}
 			return app.Run(app.Options{Open: dir, Show: show, Link: linkArg, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
 		},
@@ -97,7 +106,7 @@ With no display (SSH, CI) it prints the status table instead.`,
 	c.Flags().BoolVar(&measure, "measure", false, "print timings to stderr for the desk bench")
 	c.Flags().StringVar(&serveAddr, "serve", "", "serve the app's page over HTTP at this address instead of opening a window")
 	c.Flags().StringVar(&fixture, "fixture", "", "a scripted stack (shop, crash, modules) instead of the real daemons")
-	c.Flags().BoolVar(&window, "window", false, "with --fixture: open the window too")
+	c.Flags().BoolVar(&window, "window", false, "open the window, not only the menu bar")
 	c.Flags().DurationVar(&closeAfter, "close-after", 0, "close the window this long after it opens (the desk bench)")
 	c.Flags().DurationVar(&quitAfter, "quit-after", 0, "quit this long after starting (the desk bench)")
 	for _, f := range []string{"measure", "serve", "fixture", "window", "close-after", "quit-after"} {
@@ -132,7 +141,7 @@ const envAppChild = "DOZE_APP_CHILD"
 
 // detachApp starts `doze open dir` in its own session, with its output in
 // $DOZE_HOME/desk/app.log, and returns without waiting.
-func detachApp(dir, show, linkArg string) error {
+func detachApp(dir, show, linkArg string, window bool) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
@@ -147,6 +156,9 @@ func detachApp(dir, show, linkArg string) error {
 	if show != "" {
 		args = append(args, "--show", show)
 	}
+	if window {
+		args = append(args, "--window")
+	}
 	logDir := filepath.Join(dozeHome(), "desk")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return err
@@ -160,8 +172,35 @@ func detachApp(dir, show, linkArg string) error {
 	c.Env = append(os.Environ(), envAppChild+"=1")
 	c.Stdout, c.Stderr = logf, logf
 	c.SysProcAttr = detachAttr()
+	from, _ := logf.Seek(0, io.SeekEnd)
 	if err := c.Start(); err != nil {
 		return err
 	}
-	return c.Process.Release()
+	// A copy that fails at once (a bad flag, no display) says why in the
+	// log; wait a moment for that before saying the app is open. A hand-over
+	// to a running app also exits quickly, but cleanly.
+	done := make(chan error, 1)
+	go func() { done <- c.Wait() }()
+	select {
+	case err := <-done:
+		if err == nil {
+			return nil
+		}
+		return fmt.Errorf("the app stopped at once (%v)%s", err, logTail(logf.Name(), from))
+	case <-time.After(700 * time.Millisecond):
+		return nil
+	}
+}
+
+// logTail is what was written to the log after offset, its last lines.
+func logTail(path string, offset int64) string {
+	b, err := os.ReadFile(path)
+	if err != nil || int64(len(b)) <= offset {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(b[offset:])), "\n")
+	if len(lines) > 8 {
+		lines = lines[len(lines)-8:]
+	}
+	return ":\n  " + strings.Join(lines, "\n  ")
 }
