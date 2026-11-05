@@ -139,6 +139,13 @@ export async function go(where: Where, how: "push" | "back" | "forward" = "push"
   const s = get();
   const sameStack = s.where?.key === where.key;
   const trail = how === "push" && s.where && !samePlace(s.where, where) ? { history: [...s.history, s.where].slice(-50), future: [] } : {};
+  if (where.page !== "empty") {
+    try {
+      localStorage.setItem(lastKey, JSON.stringify({ key: where.key, page: where.page, instance: where.instance }));
+    } catch {
+      // no storage
+    }
+  }
   set({ ...trail, where, home: sameStack ? s.home : null, instance: null, error: null, show: sameStack ? s.show : null, dialog: null, palette: false, tab: "", sel: {} });
   await focus(where, sameStack ? s.selected : "");
   // The first paint does not wait for a push.
@@ -283,6 +290,35 @@ function toast(n: serve.Notice) {
 }
 
 const themeKey = "doze.theme";
+/** lastKey keeps the last page, for "reopen where I was"; reopenKey whether to. */
+const lastKey = "doze.last";
+const reopenKey = "doze.reopen";
+
+/** reopens says whether the window reopens on the page it had; on unless turned off. */
+export function reopens(): boolean {
+  try {
+    return localStorage.getItem(reopenKey) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function setReopens(on: boolean) {
+  try {
+    localStorage.setItem(reopenKey, on ? "on" : "off");
+  } catch {
+    // no storage: it lasts the window
+  }
+}
+
+function lastPlace(): Where | null {
+  try {
+    const raw = localStorage.getItem(lastKey);
+    return raw ? (JSON.parse(raw) as Where) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** setTheme applies a theme to the page, remembers it, and tells Go. */
 export async function setTheme(theme: Theme) {
@@ -345,7 +381,12 @@ export function useBoot() {
       else if (pending.page === "settings") await go({ key: "", page: "settings" });
       else if (asked && pending.page === "instance" && pending.instance) await go({ key: asked.key, page: "instance", instance: pending.instance });
       else if (asked) await go({ key: asked.key, page: "home" });
-      else if (!get().where) await go({ key: "", page: "library" });
+      else if (!get().where) {
+        // Where it was last time, when that stack is still here.
+        const last = reopens() ? lastPlace() : null;
+        if (last && (last.key === "" || stacks.some((s) => s.key === last.key))) await go(last);
+        else await go({ key: "", page: "library" });
+      }
       const onVisibility = () => {
         const s = get();
         if (document.hidden) void t.blur();

@@ -126,3 +126,15 @@ test("Settings: the themes, the machine part by part, About", async ({ page }, i
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
 });
+
+test("the window reopens on the page it had, unless told not to", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.keyboard.press("ControlOrMeta+,");
+  await page.getByRole("switch", { name: /Reopen the page I had/ }).click();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+});

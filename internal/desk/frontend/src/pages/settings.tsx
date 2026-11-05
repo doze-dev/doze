@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { copy, go, repair, setTheme, useStore, type Theme } from "../store";
+import { copy, go, repair, reopens, setReopens, setTheme, useStore, type Theme } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 
@@ -103,6 +103,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
                   <span className={"sw" + (library?.openAtLogin ? " on" : "")} aria-hidden />
                   Open at login, in the menu bar only
                 </button>
+                <ReopenSwitch />
               </div>
             </div>
           </>
@@ -208,4 +209,23 @@ function Doctor({ checks }: { checks: view.Check[] }) {
 async function copyReport(checks: view.Check[]) {
   const text = checks.map((c) => `${c.ok ? "✓" : "✗"} ${c.section ? c.section + " · " : ""}${c.name}${c.text ? " · " + c.text : ""}${!c.ok && c.fix ? "   fix: " + c.fix : ""}`).join("\n");
   await copy(text, "the report");
+}
+
+/** ReopenSwitch is "reopen the page I had": kept by the page itself, since only it knows where it was. */
+function ReopenSwitch() {
+  const [on, setOn] = useState(reopens());
+  return (
+    <button
+      className="radio"
+      role="switch"
+      aria-checked={on}
+      onClick={() => {
+        setReopens(!on);
+        setOn(!on);
+      }}
+    >
+      <span className={"sw" + (on ? " on" : "")} aria-hidden />
+      Reopen the page I had, when the window opens
+    </button>
+  );
 }
