@@ -50,6 +50,8 @@ export interface Transport {
   copy(text: string): Promise<void>;
   /** repair runs the machine setup behind the administrator prompt. */
   repair(): Promise<void>;
+  /** openAtLogin starts the app at login, in the menu bar only, or stops. */
+  openAtLogin(on: boolean): Promise<void>;
   theme(theme: string): Promise<void>;
   /** empty is the page for a folder with no doze.hcl yet. */
   empty(dir: string): Promise<view.Empty>;
@@ -106,6 +108,7 @@ async function wails(): Promise<Transport> {
     say: (text, bad) => api.Say(text, bad),
     copy: (text) => api.Copy(text),
     repair: () => api.Repair(),
+    openAtLogin: (on) => api.SetOpenAtLogin(on),
     theme: (theme) => api.Theme(theme),
     empty: (dir) => api.Empty(dir),
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
@@ -170,6 +173,7 @@ function http(): Transport {
     say: (text, bad) => call("say", { text, bad }),
     copy: (text) => navigator.clipboard.writeText(text),
     repair: () => call("repair", {}),
+    openAtLogin: (on) => call("openatlogin", { on }),
     theme: (theme) => call("theme", { theme }),
     empty: (dir) => call("empty", { dir }),
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),

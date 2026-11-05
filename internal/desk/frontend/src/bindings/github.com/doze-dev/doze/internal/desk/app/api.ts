@@ -202,6 +202,13 @@ export function Say(text: string, bad: boolean): $CancellablePromise<void> {
 }
 
 /**
+ * SetOpenAtLogin starts the app at login, in the menu bar only, or stops.
+ */
+export function SetOpenAtLogin(on: boolean): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.SetOpenAtLogin", on);
+}
+
+/**
  * SetView remembers a stack's overview view: tiles, list or map.
  */
 export function SetView(key: string, name: string): $CancellablePromise<void> {

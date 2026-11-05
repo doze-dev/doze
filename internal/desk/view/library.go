@@ -33,6 +33,8 @@ type Library struct {
 	// password. Repairing says it is doing so now.
 	Repairable bool `json:"repairable,omitempty"`
 	Repairing  bool `json:"repairing,omitempty"`
+	// OpenAtLogin says the app starts at login, in the menu bar only.
+	OpenAtLogin bool `json:"openAtLogin,omitempty"`
 }
 
 // LibStack is one row of the library.

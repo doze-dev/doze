@@ -94,6 +94,16 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
                   Always this one
                 </button>
               </div>
+              <div className="k">
+                Startup
+                <small>the bat is light; the window is not kept</small>
+              </div>
+              <div className="v">
+                <button className="radio" role="switch" aria-checked={!!library?.openAtLogin} onClick={() => transport().then((t) => t.openAtLogin(!library?.openAtLogin))}>
+                  <span className={"sw" + (library?.openAtLogin ? " on" : "")} aria-hidden />
+                  Open at login, in the menu bar only
+                </button>
+              </div>
             </div>
           </>
         )}

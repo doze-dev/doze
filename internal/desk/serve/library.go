@@ -11,6 +11,7 @@ import (
 
 	names "github.com/doze-dev/doze-names"
 
+	"github.com/doze-dev/doze/internal/desk/autostart"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/prefs"
 	"github.com/doze-dev/doze/internal/desk/view"
@@ -45,6 +46,7 @@ func (s *Service) Library() view.Library {
 	s.mu.Lock()
 	lib.Repairing = s.repairing
 	lib.Repairable = s.admin != nil && fixable(lib.Doctor)
+	lib.OpenAtLogin = autostart.Enabled()
 	s.mu.Unlock()
 	return lib
 }
@@ -276,5 +278,25 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 		s.hub.Refresh()
 		s.changed()
 	}()
+	return nil
+}
+
+// SetOpenAtLogin puts the login item in place or removes it: the app at
+// login, in the menu bar only.
+func (s *Service) SetOpenAtLogin(on bool) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if err := autostart.Set(on, exe); err != nil {
+		s.Say("could not change the login item: "+err.Error(), true)
+		return err
+	}
+	if on {
+		s.Say("doze will start at login, in the menu bar", false)
+	} else {
+		s.Say("doze will not start at login", false)
+	}
+	s.changed()
 	return nil
 }

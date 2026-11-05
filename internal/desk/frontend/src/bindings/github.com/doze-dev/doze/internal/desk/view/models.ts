@@ -635,6 +635,11 @@ export interface Library {
      */
     "repairable"?: boolean;
     "repairing"?: boolean;
+
+    /**
+     * OpenAtLogin says the app starts at login, in the menu bar only.
+     */
+    "openAtLogin"?: boolean;
 }
 
 /**
