@@ -166,3 +166,11 @@ func TestAStackWhoseSocketVanishesIsDropped(t *testing.T) {
 		t.Error("OnChange was never called")
 	}
 }
+
+func TestNameFromKey(t *testing.T) {
+	for k, want := range map[string]string{"ai-interview-bed9cc55": "ai-interview", "/h/.doze/projects/shop-918fa699": "shop", "shop-918fa699": "shop", "odd": "odd", "x-notahash": "x-notahash"} {
+		if got := nameFromKey(k); got != want {
+			t.Errorf("nameFromKey(%q) = %q, want %q", k, got, want)
+		}
+	}
+}

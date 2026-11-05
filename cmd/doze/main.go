@@ -133,6 +133,13 @@ func rootCmd() *cobra.Command {
 		// CI log and a Makefile all get something readable.
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			in := faceInput{Env: environ(), Exe: executable(), StdinTTY: isTerminal(os.Stdin), StdoutTTY: isTerminal(os.Stdout), BareOpensApp: true}
+			if face(in) == faceApp && inBundle(in.Exe) {
+				// Doze.app opened from the Finder, the Dock or Spotlight: no
+				// terminal, no project, and the person wants the window.
+				open := openCmd()
+				_ = open.Flags().Set("window", "true")
+				return open.RunE(open, nil)
+			}
 			if in.StdinTTY && in.StdoutTTY && face(in) == faceApp {
 				return openCmd().RunE(cmd, nil)
 			}

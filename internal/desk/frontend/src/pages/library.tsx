@@ -162,8 +162,14 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
       <div className="name">
         <b className={s.running ? "" : "dim"}>{s.name}</b>
         <span className="dir" title={s.dir}>
-          <span className="p"><bdi>{s.dir}</bdi></span>
-          <span className="n"> · {s.declared} declared</span>
+          {s.dir ? (
+            <>
+              <span className="p"><bdi>{s.dir}</bdi></span>
+              <span className="n"> · {s.declared} declared</span>
+            </>
+          ) : (
+            <span className="p">run by an older doze</span>
+          )}
         </span>
       </div>
       <div className="fig">

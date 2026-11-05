@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -245,7 +246,13 @@ func (h *Hub) Stacks() []StackView {
 	defer h.mu.Unlock()
 	var out []StackView
 	for _, s := range h.stacks {
-		out = append(out, s.view())
+		v := s.view()
+		if v.Name == "" && v.Dir == "" {
+			// A daemon from an older doze says neither: its state folder
+			// ("ai-interview-bed9cc55") still carries the name.
+			v.Name = nameFromKey(v.Key)
+		}
+		out = append(out, v)
 	}
 	for key, p := range h.stopped {
 		out = append(out, StackView{
@@ -336,3 +343,19 @@ func (h *Hub) Do(ctx context.Context, key string, verb control.Verb) error {
 
 // Home is doze's folder: where projects, and the app's own prefs, live.
 func (h *Hub) Home() string { return h.o.Home }
+
+// nameFromKey is a state folder's name without its hash: "shop-918fa699"
+// is shop.
+func nameFromKey(key string) string {
+	key = filepath.Base(key)
+	i := strings.LastIndexByte(key, '-')
+	if i <= 0 || len(key)-i-1 != 8 {
+		return key
+	}
+	for _, c := range key[i+1:] {
+		if !strings.ContainsRune("0123456789abcdef", c) {
+			return key
+		}
+	}
+	return key[:i]
+}
