@@ -476,4 +476,7 @@ type PortHolder struct {
 	// Doze says the holder is a doze program, which the page words
 	// differently: it is ours, and stopping it is not the way out.
 	Doze bool `json:"doze,omitempty"`
+	// Stack and Service say which stack's service holds it, when one does.
+	Stack   string `json:"stack,omitempty"`
+	Service string `json:"service,omitempty"`
 }

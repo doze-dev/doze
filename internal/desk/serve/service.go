@@ -415,6 +415,7 @@ func (s *Service) Instance(key, name string) view.Instance {
 		// An exit because its port was taken names what has it (PortClash).
 		if port := portInUse(append([]string{out.Crash.Error, out.Crash.Where}, lineTexts(out.Crash.LastRun)...)...); port > 0 {
 			out.Crash.Held = portHolder(port)
+			s.ownedBy(out.Crash.Held)
 		}
 	}
 	return out

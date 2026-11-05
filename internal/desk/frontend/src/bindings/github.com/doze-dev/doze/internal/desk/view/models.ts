@@ -1066,6 +1066,12 @@ export interface PortHolder {
      * differently: it is ours, and stopping it is not the way out.
      */
     "doze"?: boolean;
+
+    /**
+     * Stack and Service say which stack's service holds it, when one does.
+     */
+    "stack"?: string;
+    "service"?: string;
 }
 
 /**

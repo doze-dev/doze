@@ -631,8 +631,8 @@ function PortClash({ inst, stackKey }: { inst: view.Instance; stackKey: string }
           <div className="opt">
             <span className="step-num">1</span>
             <div className="t">
-              <b>It is another doze stack</b>
-              <span>Bring that stack down from the Library, or give one of them another port.</span>
+              <b>{h.stack ? `It is ${h.service} in ${h.stack}` : "It is another doze program"}</b>
+              <span>Two stacks want the same port. Bring that stack down from the Library, or give one of them another port.</span>
             </div>
             <button className="btn" onClick={() => void go({ key: "", page: "library" })}>
               Library <kbd>⌘0</kbd>

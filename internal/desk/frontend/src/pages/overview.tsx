@@ -171,7 +171,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             <b>{home.changed.text}.</b>
             <span>The stack runs the file as it was when it came up. Restarting it brings it down and up as last time, on the new file; data stays.</span>
           </div>
-          <button className="btn pri" onClick={() => void stackAction(stackKey, "down").then(() => stackAction(stackKey, "up-last"))}>
+          <button className="btn pri" onClick={() => void stackAction(stackKey, "restart")}>
             Restart the stack
           </button>
         </div>

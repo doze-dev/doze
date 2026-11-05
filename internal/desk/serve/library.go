@@ -239,7 +239,7 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 		s.changed()
 		s.Say("forgot "+st.Name+"; everything is still on disk", false)
 		return nil
-	case "up-last", "up-all", "up", "down":
+	case "up-last", "up-all", "up", "down", "restart":
 	default:
 		return fmt.Errorf("no such action %q", action)
 	}
@@ -261,13 +261,22 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 		args, what = append(append(args, "up"), chosen...), "bringing up "+strings.Join(chosen, ", ")+"…"
 	case "down":
 		args, what = append(args, "down"), "stopping "+st.Name+"…"
+	case "restart":
+		// Down, then up as last time, one after the other: two separate
+		// actions would race, and up would find the old daemon still there.
+		args, what = append(args, "down"), "restarting "+st.Name+" on the new doze.hcl…"
 	}
 	s.Say(what, false)
 	cmd := exec.Command(self, args...)
 	cmd.Dir = st.Dir
-	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	cmd.Env = append(childEnv(), "NO_COLOR=1")
 	go func() {
 		out, err := cmd.CombinedOutput()
+		if err == nil && action == "restart" {
+			up := exec.Command(self, "-y", "up", "--last")
+			up.Dir, up.Env = st.Dir, cmd.Env
+			out, err = up.CombinedOutput()
+		}
 		if err != nil {
 			last := strings.TrimSpace(string(out))
 			if i := strings.LastIndex(last, "\n"); i >= 0 {
@@ -375,5 +384,17 @@ func others(home string) []view.Other {
 		out = append(out, view.Other{Name: host, Owner: e.Owner, PID: e.PID, URL: reg.URLFor(host)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// childEnv is this process's environment for a doze command it runs,
+// without the marker that says "you are the detached app".
+func childEnv() []string {
+	var out []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "DOZE_APP_CHILD=") {
+			out = append(out, kv)
+		}
+	}
 	return out
 }

@@ -88,7 +88,7 @@ func (s *Service) StopHolder(key, name string, pid int) error {
 		return errors.New("that process no longer holds the port; nothing was stopped")
 	}
 	if inst.Crash.Held.Doze {
-		return errors.New("that is a doze program; bring its stack down instead")
+		return errors.New("that is doze's own; bring its stack down from the Library instead")
 	}
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
 		s.Say(fmt.Sprintf("could not stop pid %d: %v", pid, err), true)
@@ -114,4 +114,29 @@ func lineTexts(ls []view.Line) []string {
 		out = append(out, l.Line)
 	}
 	return out
+}
+
+// ownedBy marks a holder that is one of doze's own: a service of some
+// stack the hub knows (its pid, or its parent's, is that service's), so
+// the page says which and does not offer to stop it.
+func (s *Service) ownedBy(h *view.PortHolder) {
+	if h == nil {
+		return
+	}
+	pids := []int{h.PID}
+	if out, err := exec.Command("ps", "-o", "ppid=", "-p", strconv.Itoa(h.PID)).Output(); err == nil {
+		if pp, err := strconv.Atoi(strings.TrimSpace(string(out))); err == nil && pp > 1 {
+			pids = append(pids, pp)
+		}
+	}
+	for _, st := range s.hub.Stacks() {
+		for _, v := range st.Instances {
+			for _, p := range pids {
+				if v.PID > 0 && v.PID == p {
+					h.Doze, h.Stack, h.Service = true, st.Name, v.Name
+					return
+				}
+			}
+		}
+	}
 }
