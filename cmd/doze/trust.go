@@ -37,7 +37,7 @@ func trustCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			home, dir := cfg.Home, filepath.Dir(cfg.Path())
+			home, dir := cfg.Home, projectDirOf(cfg)
 			domains := cfg.AppDomains()
 			if len(domains) == 0 && !remove {
 				fmt.Println(ui.Muted("no app in this stack declares domains; add `domains = [\"dev.acme.com\"]` to one"))
@@ -132,4 +132,14 @@ func usesDozeCA(cfg *config.Config) bool {
 		}
 	}
 	return false
+}
+
+// projectDirOf is the folder a config lives in, absolute: the routes
+// record keys projects by it, and a relative "." would mean nothing later.
+func projectDirOf(cfg *config.Config) string {
+	dir := filepath.Dir(cfg.Path())
+	if abs, err := filepath.Abs(dir); err == nil {
+		return abs
+	}
+	return dir
 }

@@ -29,7 +29,11 @@ func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, pla
 	// declares any more is pruned at the next doze trust; and the authority
 	// for https, made on first use.
 	domains := d.cfg.AppDomains()
-	if err := names.RecordDomains(d.cfg.Home, filepath.Dir(d.cfg.Path()), domains); err != nil {
+	dir := filepath.Dir(d.cfg.Path())
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	if err := names.RecordDomains(d.cfg.Home, dir, domains); err != nil {
 		d.logf("domains: could not record them: %v", err)
 	}
 	if len(domains) == 0 {
