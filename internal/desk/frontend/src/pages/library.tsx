@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { chooseFolder, dismissHints, go, say, stackAction, useStore } from "../store";
+import { chooseFolder, dismissHints, go, repair, say, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 
@@ -89,7 +89,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           Drop a project folder anywhere in this window to add it. A stack appears here the first time it runs, and stays until you forget it.
         </p>
       )}
-      <Machine checks={lib.machine ?? []} />
+      <Machine checks={lib.machine ?? []} repairable={!!lib.repairable} repairing={!!lib.repairing} />
       <Keys
         keys={[
           ["↑↓", "move"],
@@ -306,7 +306,7 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
   );
 }
 
-function Machine({ checks }: { checks: view.Check[] }) {
+function Machine({ checks, repairable, repairing }: { checks: view.Check[]; repairable: boolean; repairing: boolean }) {
   return (
     <div className="machine">
       <b>Machine</b>
@@ -319,6 +319,11 @@ function Machine({ checks }: { checks: view.Check[] }) {
         </span>
       ))}
       <span className="grow" />
+      {(repairable || repairing) && (
+        <button className="btn pri" style={{ height: 26 }} disabled={repairing} onClick={() => void repair()} title="The same setup as doze doctor --fix, behind the system's password prompt">
+          {repairing ? "Setting up…" : "Set up (one password)"}
+        </button>
+      )}
       <button className="btn" style={{ height: 26 }} onClick={() => void go({ key: "", page: "settings" })} title="What doze set up here, part by part">
         Doctor
       </button>
