@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -33,6 +34,9 @@ type Library struct {
 	// password. Repairing says it is doing so now.
 	Repairable bool `json:"repairable,omitempty"`
 	Repairing  bool `json:"repairing,omitempty"`
+	// Others are services other doze programs (a standalone doze-aws or
+	// doze-kafka) run on this machine, from the names registry.
+	Others []Other `json:"others,omitempty"`
 	// OpenAtLogin says the app starts at login, in the menu bar only.
 	OpenAtLogin bool `json:"openAtLogin,omitempty"`
 }
@@ -215,7 +219,13 @@ func connectExample(st hub.StackView) string {
 }
 
 func libStackOf(st hub.StackView, now time.Time) LibStack {
-	row := LibStack{Key: st.Key, Name: st.Name, Dir: display.Tilde(st.Dir), Running: st.Running, Live: st.Conn == hub.ConnLive, Addresses: []Addr{}}
+	name := st.Name
+	if name == "" && st.Dir != "" {
+		// A doze.hcl with no stack = "…" is named for its folder, as the
+		// daemon names its state folder.
+		name = filepath.Base(st.Dir)
+	}
+	row := LibStack{Key: st.Key, Name: name, Dir: display.Tilde(st.Dir), Running: st.Running, Live: st.Conn == hub.ConnLive, Addresses: []Addr{}}
 	var awake, dozing, waking, asleep, off, trouble int
 	var mem int64
 	var conns int
@@ -272,7 +282,10 @@ func libStackOf(st hub.StackView, now time.Time) LibStack {
 		}
 	default:
 		row.Fig = figOf(awake, dozing, waking, asleep, off, trouble)
-		row.Sub = fmt.Sprintf("%s · %s", display.MB(mem), connWord(conns))
+		row.Sub = connWord(conns)
+		if mem > 0 {
+			row.Sub = display.MB(mem) + " · " + row.Sub
+		}
 		row.When = "up " + display.Ago(now.Sub(st.Since))
 		switch {
 		case trouble > 0:
@@ -384,4 +397,13 @@ func choicesOf(st hub.StackView) []Pick {
 		out = append(out, c)
 	}
 	return out
+}
+
+// Other is a service another doze program runs: its name, the program,
+// and the address to open its console at.
+type Other struct {
+	Name  string `json:"name"`
+	Owner string `json:"owner"`
+	PID   int    `json:"pid"`
+	URL   string `json:"url,omitempty"`
 }

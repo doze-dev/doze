@@ -89,6 +89,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           Drop a project folder anywhere in this window to add it. A stack appears here the first time it runs, and stays until you forget it.
         </p>
       )}
+      {(lib.others ?? []).length > 0 && <Others others={lib.others ?? []} />}
       <Machine checks={lib.machine ?? []} repairable={!!lib.repairable} repairing={!!lib.repairing} />
       <Keys
         keys={[
@@ -332,3 +333,29 @@ function Machine({ checks, repairable, repairing }: { checks: view.Check[]; repa
 }
 
 export const useLibrary = () => useStore((s) => s.library);
+
+// Others is what other doze programs run here: a standalone doze-aws or
+// doze-kafka is not a stack, but its consoles are a click away all the same.
+function Others({ others }: { others: view.Other[] }) {
+  return (
+    <section className="others" aria-label="Also on this machine">
+      <h4>
+        Also on this machine <span className="dim">· run by other doze programs, not by a stack</span>
+      </h4>
+      {others.map((o) => (
+        <div key={o.name} className="other">
+          <span className="mono bright">{o.name}</span>
+          <span className="dim">
+            {o.owner} · pid {o.pid}
+          </span>
+          <span className="grow" />
+          {o.url && (
+            <button className="btn quiet" onClick={() => transport().then((t) => t.open(o.url ?? ""))} title={o.url}>
+              Open
+            </button>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}

@@ -691,6 +691,12 @@ export interface Library {
     "repairing"?: boolean;
 
     /**
+     * Others are services other doze programs (a standalone doze-aws or
+     * doze-kafka) run on this machine, from the names registry.
+     */
+    "others"?: Other[] | null;
+
+    /**
      * OpenAtLogin says the app starts at login, in the menu bar only.
      */
     "openAtLogin"?: boolean;
@@ -946,6 +952,17 @@ export interface Node {
      * Missing says why a block cannot draw: "no data source x".
      */
     "missing"?: string;
+}
+
+/**
+ * Other is a service another doze program runs: its name, the program,
+ * and the address to open its console at.
+ */
+export interface Other {
+    "name": string;
+    "owner": string;
+    "pid": number;
+    "url"?: string;
 }
 
 /**

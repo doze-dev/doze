@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -48,6 +49,7 @@ func (s *Service) Library() view.Library {
 	lib.Repairing = s.repairing
 	lib.Repairable = s.admin != nil && fixable(lib.Doctor)
 	lib.OpenAtLogin = autostart.Enabled()
+	lib.Others = others(home)
 	s.mu.Unlock()
 	return lib
 }
@@ -357,4 +359,21 @@ func (s *Service) configChanged(st hub.StackView) *view.ConfigChanged {
 func (s *Service) Timeline(key string) view.Timeline {
 	st, _ := s.stack(key)
 	return view.TimelineOf(st, s.now())
+}
+
+// others is what other doze programs serve on this machine, from the names
+// registry: names in the zone owned by a program that is not doze, and
+// routed (a console, an endpoint), each with the URL the registry says
+// reaches it. A stack's own names are its stack's business, not listed.
+func others(home string) []view.Other {
+	reg := names.Open(home, "doze")
+	var out []view.Other
+	for host, e := range reg.Snapshot() {
+		if e.Owner == "" || e.Owner == "doze" || !names.InZone(host) || e.Target == "" {
+			continue
+		}
+		out = append(out, view.Other{Name: host, Owner: e.Owner, PID: e.PID, URL: reg.URLFor(host)})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }

@@ -43,6 +43,7 @@ export type {
     Meter,
     Need,
     Node,
+    Other,
     Palette,
     PaletteNothing,
     PaletteRow,

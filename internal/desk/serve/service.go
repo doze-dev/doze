@@ -304,6 +304,9 @@ func (s *Service) Stacks() []StackSummary {
 	var out []StackSummary
 	for _, st := range s.hub.Stacks() {
 		sum := StackSummary{Key: st.Key, Name: st.Name, Dir: display.Tilde(st.Dir), Running: st.Running, Live: st.Conn == hub.ConnLive}
+		if sum.Name == "" && st.Dir != "" {
+			sum.Name = filepath.Base(st.Dir) // the tab says what the Library says
+		}
 		for _, v := range st.Instances {
 			if v.Kind == "task" {
 				continue
