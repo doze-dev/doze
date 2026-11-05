@@ -32,6 +32,7 @@ type stack struct {
 	conn      Conn
 	retryAt   time.Time
 	lastFrame time.Time
+	loaded    time.Time // when the daemon read doze.hcl
 	name, dir string
 	idle      time.Duration
 	instances []control.InstanceView
@@ -136,7 +137,7 @@ func (s *stack) snapshot(ctx context.Context) {
 		return
 	}
 	s.mu.Lock()
-	s.name, s.dir, s.idle = snap.Stack, snap.Dir, snap.IdleTimeout
+	s.name, s.dir, s.idle, s.loaded = snap.Stack, snap.Dir, snap.IdleTimeout, snap.Loaded
 	s.instances = sorted(snap.Instances)
 	// The daemon answered: it is live from here, whether or not its stream
 	// has said anything yet.
@@ -268,7 +269,7 @@ func (s *stack) view() StackView {
 	defer s.mu.Unlock()
 	v := StackView{
 		Key: s.key, Name: s.name, Dir: s.dir, IdleTimeout: s.idle, Running: true,
-		Conn: s.conn, RetryAt: s.retryAt, LastFrame: s.lastFrame, Metered: s.want[control.TopicStats] > 0,
+		Conn: s.conn, RetryAt: s.retryAt, LastFrame: s.lastFrame, Metered: s.want[control.TopicStats] > 0, Loaded: s.loaded,
 		Instances: append([]control.InstanceView(nil), s.instances...),
 		Events:    append([]journal.Event(nil), s.events...),
 		Series:    map[string]Series{},

@@ -26,9 +26,11 @@ type Home struct {
 	Setup *Setup `json:"setup,omitempty"`
 	// Config is set while the running stack's doze.hcl does not load.
 	Config *ConfigError `json:"config,omitempty"`
-	Vitals Vitals4      `json:"vitals"`
-	Groups []Group      `json:"groups"`
-	Side   []Side       `json:"side"`
+	// Changed is set while doze.hcl is newer than what the stack runs.
+	Changed *ConfigChanged `json:"changed,omitempty"`
+	Vitals  Vitals4        `json:"vitals"`
+	Groups  []Group        `json:"groups"`
+	Side    []Side         `json:"side"`
 	// Awake and Total count the instances up and declared, tasks aside.
 	Awake int `json:"awake"`
 	Total int `json:"total"`

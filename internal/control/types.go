@@ -209,17 +209,19 @@ type Response struct {
 	Error string `json:"error,omitempty"`
 	// Code is the error's kind (fault.Kind: "not_found", "timeout", …) when
 	// it has one more precise than "failed".
-	Code        string         `json:"code,omitempty"`
-	Listen      string         `json:"listen,omitempty"`
-	IdleTimeout time.Duration  `json:"idle_timeout,omitempty"` // reap window, for the countdown
-	Stack       string         `json:"stack,omitempty"`        // the stack's name
-	Dir         string         `json:"dir,omitempty"`          // the folder doze.hcl is in
-	Instances   []InstanceView `json:"instances,omitempty"`
-	Lines       []string       `json:"lines,omitempty"`
-	Log         []LogFrame     `json:"log,omitempty"`       // the same lines with their time, stream and run
-	Resources   []ResourceView `json:"resources,omitempty"` // builtin sub-resources (resources op)
-	Actions     []ActionView   `json:"actions,omitempty"`   // available data actions (resources op)
-	Result      string         `json:"result,omitempty"`    // an admin action's result line (admin op)
+	Code        string        `json:"code,omitempty"`
+	Listen      string        `json:"listen,omitempty"`
+	IdleTimeout time.Duration `json:"idle_timeout,omitempty"` // reap window, for the countdown
+	Stack       string        `json:"stack,omitempty"`        // the stack's name
+	Dir         string        `json:"dir,omitempty"`          // the folder doze.hcl is in
+	// Loaded is when the daemon read doze.hcl; it does not read it again.
+	Loaded    time.Time      `json:"loaded,omitzero"`
+	Instances []InstanceView `json:"instances,omitempty"`
+	Lines     []string       `json:"lines,omitempty"`
+	Log       []LogFrame     `json:"log,omitempty"`       // the same lines with their time, stream and run
+	Resources []ResourceView `json:"resources,omitempty"` // builtin sub-resources (resources op)
+	Actions   []ActionView   `json:"actions,omitempty"`   // available data actions (resources op)
+	Result    string         `json:"result,omitempty"`    // an admin action's result line (admin op)
 }
 
 // Handler implements the daemon-side operations.

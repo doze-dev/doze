@@ -28,8 +28,9 @@ type Daemon interface {
 type Snapshot struct {
 	Listen      string
 	IdleTimeout time.Duration
-	Stack       string // the stack's name
-	Dir         string // the folder doze.hcl is in
+	Stack       string    // the stack's name
+	Dir         string    // the folder doze.hcl is in
+	Loaded      time.Time // when the daemon read doze.hcl; zero from an older daemon
 	Instances   []InstanceView
 }
 
@@ -76,7 +77,7 @@ func (d socketDaemon) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Listen: resp.Listen, IdleTimeout: resp.IdleTimeout, Stack: resp.Stack, Dir: resp.Dir, Instances: resp.Instances}, nil
+	return Snapshot{Listen: resp.Listen, IdleTimeout: resp.IdleTimeout, Stack: resp.Stack, Dir: resp.Dir, Loaded: resp.Loaded, Instances: resp.Instances}, nil
 }
 
 func (d socketDaemon) Subscribe(ctx context.Context, sub Subscription, on func(Frame) error) error {

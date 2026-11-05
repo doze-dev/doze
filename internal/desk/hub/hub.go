@@ -67,6 +67,8 @@ type StackView struct {
 	// Metered says a page is watching this stack's meters, so a frame is due
 	// every second and silence means something.
 	Metered bool
+	// Loaded is when the daemon read doze.hcl; zero from an older daemon.
+	Loaded time.Time
 	// Instances is the stack as last seen, in name order.
 	Instances []control.InstanceView
 	// Events is the journal kept, oldest first.

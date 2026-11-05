@@ -52,6 +52,8 @@ export interface Transport {
   repair(): Promise<void>;
   /** openAtLogin starts the app at login, in the menu bar only, or stops. */
   openAtLogin(on: boolean): Promise<void>;
+  /** stopHolder stops what holds a crashed service's port, then restarts it. */
+  stopHolder(key: string, name: string, pid: number): Promise<void>;
   theme(theme: string): Promise<void>;
   /** empty is the page for a folder with no doze.hcl yet. */
   empty(dir: string): Promise<view.Empty>;
@@ -109,6 +111,7 @@ async function wails(): Promise<Transport> {
     copy: (text) => api.Copy(text),
     repair: () => api.Repair(),
     openAtLogin: (on) => api.SetOpenAtLogin(on),
+    stopHolder: (key, name, pid) => api.StopHolder(key, name, pid),
     theme: (theme) => api.Theme(theme),
     empty: (dir) => api.Empty(dir),
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
@@ -174,6 +177,7 @@ function http(): Transport {
     copy: (text) => navigator.clipboard.writeText(text),
     repair: () => call("repair", {}),
     openAtLogin: (on) => call("openatlogin", { on }),
+    stopHolder: (key, name, pid) => call("stopholder", { key, name, pid }),
     theme: (theme) => call("theme", { theme }),
     empty: (dir) => call("empty", { dir }),
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),

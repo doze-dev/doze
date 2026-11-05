@@ -457,6 +457,12 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .cact kbd { font: 600 var(--text-xs) var(--font-mono); color: var(--bright); background: var(--sel); border-radius: 4px; padding: 1px 6px; min-width: 22px; text-align: center; }
 .cact.d { color: var(--bad); }
 .card .big { font-size: var(--text-figure); font-weight: 600; color: var(--bright); }
+.clash { margin: 14px var(--space-7) 0; flex: none; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--well); }
+.opt .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.opt .t b { color: var(--bright); font-weight: 600; }
+.opt .t span { color: var(--dim); font-size: var(--text-sm); line-height: 17px; }
 .srccard { margin: 0 var(--space-7) 14px; flex: none; }
 .src { display: grid; grid-template-columns: 40px minmax(0, 1fr); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 20px; font-variant-ligatures: none; white-space: pre; overflow: hidden; background: var(--well); border: 1px solid var(--line); border-radius: 8px; padding: 6px 0; }
 .src .n { color: var(--dim); text-align: right; padding-right: 12px; }

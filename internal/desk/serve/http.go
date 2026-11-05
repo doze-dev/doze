@@ -164,6 +164,16 @@ func Handler(s *Service) http.Handler {
 		}
 		return map[string]bool{"ok": true}, nil
 	})
+	call("stopholder", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Name string
+			PID       int
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, s.StopHolder(a.Key, a.Name, a.PID)
+	})
 	call("openatlogin", func(b json.RawMessage) (any, error) {
 		var a struct{ On bool }
 		if err := json.Unmarshal(b, &a); err != nil {

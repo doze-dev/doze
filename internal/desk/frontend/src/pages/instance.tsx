@@ -219,6 +219,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
           {inst.crash.tries && <span className="pill bad">{inst.crash.tries}</span>}
         </div>
       )}
+      {inst.crash?.held && <PortClash inst={inst} stackKey={stackKey} />}
       <div className="two">
         <div className="col">
           {inst.crash && (inst.crash.lastRun ?? []).length > 0 && (
@@ -598,5 +599,60 @@ function WebConsole({ inst }: { inst: view.Instance; stackKey: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+// PortClash is the PortClash board: the port an app wants is held by
+// something else, named, and the ways out, none of them destructive
+// without a click that says exactly what it does.
+function PortClash({ inst, stackKey }: { inst: view.Instance; stackKey: string }) {
+  const h = inst.crash?.held;
+  const dir = useStore((s) => s.stacks.find((x) => x.key === stackKey)?.dir);
+  if (!h) return null;
+  const who = `${h.command || "a process"}, pid ${h.pid}`;
+  return (
+    <section className="card clash" aria-label={`Port ${h.port} is taken`}>
+      <h3>
+        Port {h.port} is taken <span className="dim">· {inst.name} cannot listen while {who} has it</span>
+      </h3>
+      <div className="opts">
+        {!h.doze ? (
+          <div className="opt">
+            <span className="step-num">1</span>
+            <div className="t">
+              <b>Stop pid {h.pid} and start {inst.name}</b>
+              <span>doze sends it a polite TERM. It is not one of doze's; doze looks again that it still holds the port first.</span>
+            </div>
+            <button className="btn" onClick={() => transport().then((t) => t.stopHolder(stackKey, inst.name, h.pid))}>
+              Stop {h.command || "it"}
+            </button>
+          </div>
+        ) : (
+          <div className="opt">
+            <span className="step-num">1</span>
+            <div className="t">
+              <b>It is another doze stack</b>
+              <span>Bring that stack down from the Library, or give one of them another port.</span>
+            </div>
+            <button className="btn" onClick={() => void go({ key: "", page: "library" })}>
+              Library <kbd>⌘0</kbd>
+            </button>
+          </div>
+        )}
+        <div className="opt">
+          <span className="step-num">2</span>
+          <div className="t">
+            <b>Use another port</b>
+            <span>Change port = {h.port} in doze.hcl; {inst.name}'s name keeps working on whatever you pick.</span>
+          </div>
+          <button className="btn" onClick={() => transport().then((t) => t.open("file://" + (dir ?? "") + "/doze.hcl"))}>
+            Edit doze.hcl
+          </button>
+        </div>
+      </div>
+      <p className="dim" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+        doze never stops a process it did not start without asking, which is why this is a question and not a thing that happened.
+      </p>
+    </section>
   );
 }

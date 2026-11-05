@@ -136,6 +136,9 @@ func (a *API) Library() view.Library { return a.s.Library() }
 // Stack acts on a whole stack: up-last, up-all, up (with names), down, forget.
 func (a *API) Stack(key, action string, names []string) error { return a.s.Stack(key, action, names) }
 
+// StopHolder stops the process holding a crashed service's port, then restarts it.
+func (a *API) StopHolder(key, name string, pid int) error { return a.s.StopHolder(key, name, pid) }
+
 // SetOpenAtLogin starts the app at login, in the menu bar only, or stops.
 func (a *API) SetOpenAtLogin(on bool) error { return a.s.SetOpenAtLogin(on) }
 

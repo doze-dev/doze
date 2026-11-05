@@ -50,6 +50,7 @@ var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
 	"modules":   fixture.Modules,
 	"long":      fixture.Long,
 	"badconfig": fixture.Shop,
+	"portclash": fixture.Crash,
 }
 
 // Run serves until ctx ends.
@@ -125,6 +126,17 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 		return nil, nil, err
 	}
 	f := build(time.Now())
+	if name == "portclash" {
+		// The crash fixture's api, failing because port 7799 is taken; the
+		// spec holds that port, so there is a real listener to name.
+		f.Mutate(func(s *control.Snapshot) {
+			for i := range s.Instances {
+				if s.Instances[i].Name == "api" {
+					s.Instances[i].LastError = "listen tcp 127.0.0.1:7799: bind: address already in use"
+				}
+			}
+		})
+	}
 	if name == "badconfig" {
 		// The shop, running, with a doze.hcl saved broken under it.
 		dir := filepath.Join(home, "work", "shop")

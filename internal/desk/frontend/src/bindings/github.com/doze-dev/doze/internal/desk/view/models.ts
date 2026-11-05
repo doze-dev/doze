@@ -149,6 +149,18 @@ export interface Col {
 }
 
 /**
+ * ConfigChanged is a running stack whose doze.hcl was saved after its
+ * daemon read it, and loads: the daemon runs the old file until the stack
+ * is brought down and up again.
+ */
+export interface ConfigChanged {
+    /**
+     * "doze.hcl changed 2m ago"
+     */
+    "text": string;
+}
+
+/**
  * ConfigError is a running stack whose doze.hcl was saved and does not
  * load, as the ConfigError board draws it: the stack keeps running as it
  * was, and the page shows what is wrong and where.
@@ -257,6 +269,11 @@ export interface Crash {
      */
     "nextIn"?: string;
     "gaveUp": boolean;
+
+    /**
+     * Held is set when it exited because its port was taken: what has it.
+     */
+    "held"?: PortHolder | null;
 
     /**
      * LastRun is the tail of its output: what it said before it exited.
@@ -436,6 +453,11 @@ export interface Home {
      * Config is set while the running stack's doze.hcl does not load.
      */
     "config"?: ConfigError | null;
+
+    /**
+     * Changed is set while doze.hcl is newer than what the stack runs.
+     */
+    "changed"?: ConfigChanged | null;
     "vitals": Vitals4;
     "groups": Group[] | null;
     "side": Side[] | null;
@@ -1011,6 +1033,22 @@ export interface Pick {
 export interface Pill {
     "text": string;
     "explain": string;
+}
+
+/**
+ * PortHolder is the process listening on the port an app wanted, as the
+ * PortClash board names it.
+ */
+export interface PortHolder {
+    "port": number;
+    "pid": number;
+    "command": string;
+
+    /**
+     * Doze says the holder is a doze program, which the page words
+     * differently: it is ours, and stopping it is not the way out.
+     */
+    "doze"?: boolean;
 }
 
 /**

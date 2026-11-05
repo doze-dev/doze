@@ -342,3 +342,13 @@ func (s *Service) configError(dir string) *view.ConfigError {
 	s.mu.Unlock()
 	return ce
 }
+
+// configChanged is the running stack's doze.hcl when it loads and is newer
+// than what the daemon read, or nil.
+func (s *Service) configChanged(st hub.StackView) *view.ConfigChanged {
+	fi, err := os.Stat(filepath.Join(st.Dir, "doze.hcl"))
+	if err != nil {
+		return nil
+	}
+	return view.ConfigChangedOf(fi.ModTime(), st.Loaded, s.now())
+}

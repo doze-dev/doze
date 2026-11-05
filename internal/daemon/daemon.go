@@ -51,6 +51,9 @@ func LogFilePath(cfg *config.Config) string {
 
 // Daemon bundles the running components.
 type Daemon struct {
+	// loaded is when this daemon read its doze.hcl: it never reads it again,
+	// so a file saved after it is a change the stack does not run yet.
+	loaded time.Time
 	// meters is the last few minutes of every running instance's meters.
 	meters meterRing
 	cfg    *config.Config
@@ -121,7 +124,7 @@ func New(cfg *config.Config, logf func(string, ...any), hooks *config.Hooks) (*D
 		return nil, err
 	}
 	rt.SetLogger(logf)
-	return &Daemon{cfg: cfg, rt: rt, logf: logf, hooks: hooks, ready: make(chan struct{})}, nil
+	return &Daemon{cfg: cfg, rt: rt, logf: logf, hooks: hooks, ready: make(chan struct{}), loaded: time.Now()}, nil
 }
 
 // Ready is closed once Run has started everything and is about to serve.

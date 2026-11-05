@@ -33,6 +33,7 @@ func (h *handler) Status() control.Response {
 		resp.Dir = filepath.Dir(p)
 	}
 	resp.Instances = h.snapshot()
+	resp.Loaded = h.d.loaded
 	var pids []int
 	for _, v := range resp.Instances {
 		if v.PID != 0 {

@@ -26,6 +26,7 @@ const fixtures = [
   { name: "modules", port: port + 2, match: /console\.spec\.ts/, args: "", fixture: "" },
   { name: "empty", port: port + 3, match: /empty\.spec\.ts/, args: " " + emptyDir, fixture: "shop" },
   { name: "badconfig", port: port + 4, match: /config\.spec\.ts/, args: "", fixture: "" },
+  { name: "portclash", port: port + 5, match: /portclash\.spec\.ts/, args: "", fixture: "" },
 ];
 
 export default defineConfig({

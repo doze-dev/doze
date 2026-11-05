@@ -342,6 +342,9 @@ func (s *Service) Home(key string) view.Home {
 	h.View = s.viewFor(key)
 	if st.Running && st.Dir != "" {
 		h.Config = s.configError(st.Dir)
+		if h.Config == nil {
+			h.Changed = s.configChanged(st)
+		}
 	}
 	if !st.Running && st.Dir != "" {
 		stopped := view.StoppedOf(st, s.now())
@@ -404,6 +407,12 @@ func (s *Service) Instance(key, name string) view.Instance {
 			logs.Lines = logs.Lines[n-8:]
 		}
 		out.Crash.LastRun = logs.Lines
+	}
+	if out.Crash != nil {
+		// An exit because its port was taken names what has it (PortClash).
+		if port := portInUse(append([]string{out.Crash.Error, out.Crash.Where}, lineTexts(out.Crash.LastRun)...)...); port > 0 {
+			out.Crash.Held = portHolder(port)
+		}
 	}
 	return out
 }

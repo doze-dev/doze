@@ -157,6 +157,18 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         )}
       </div>
       {home.config && <ConfigBanner c={home.config} dir={home.dir} />}
+      {home.changed && (
+        <div className="banner cool" role="status">
+          <span className="dot c" aria-hidden />
+          <div className="t">
+            <b>{home.changed.text}.</b>
+            <span>The stack runs the file as it was when it came up. Restarting it brings it down and up as last time, on the new file; data stays.</span>
+          </div>
+          <button className="btn pri" onClick={() => void stackAction(stackKey, "down").then(() => stackAction(stackKey, "up-last"))}>
+            Restart the stack
+          </button>
+        </div>
+      )}
       {home.setup && (
         <div className="banner cool" role="status">
           <span className="dot c" aria-hidden />

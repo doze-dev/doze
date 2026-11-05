@@ -89,3 +89,18 @@ func ConfigErrorText(changed, now time.Time) string {
 	}
 	return "doze.hcl changed " + display.Ago(now.Sub(changed)) + " ago and does not load"
 }
+
+// ConfigChanged is a running stack whose doze.hcl was saved after its
+// daemon read it, and loads: the daemon runs the old file until the stack
+// is brought down and up again.
+type ConfigChanged struct {
+	Text string `json:"text"` // "doze.hcl changed 2m ago"
+}
+
+// ConfigChangedOf says so when the file at mtime is newer than loaded.
+func ConfigChangedOf(mtime, loaded, now time.Time) *ConfigChanged {
+	if loaded.IsZero() || !mtime.After(loaded) {
+		return nil
+	}
+	return &ConfigChanged{Text: "doze.hcl changed " + display.Ago(now.Sub(mtime)) + " ago, after the stack read it"}
+}

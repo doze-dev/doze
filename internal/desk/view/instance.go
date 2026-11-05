@@ -159,6 +159,8 @@ type Crash struct {
 	Fraction float64 `json:"fraction"`
 	NextIn   string  `json:"nextIn,omitempty"` // "4 s"
 	GaveUp   bool    `json:"gaveUp"`
+	// Held is set when it exited because its port was taken: what has it.
+	Held *PortHolder `json:"held,omitempty"`
 	// LastRun is the tail of its output: what it said before it exited.
 	LastRun []Line `json:"lastRun,omitempty"`
 }
@@ -463,4 +465,15 @@ func ordinal(n int) string {
 		return words[n]
 	}
 	return fmt.Sprintf("%dth", n)
+}
+
+// PortHolder is the process listening on the port an app wanted, as the
+// PortClash board names it.
+type PortHolder struct {
+	Port    int    `json:"port"`
+	PID     int    `json:"pid"`
+	Command string `json:"command"`
+	// Doze says the holder is a doze program, which the page words
+	// differently: it is ours, and stopping it is not the way out.
+	Doze bool `json:"doze,omitempty"`
 }

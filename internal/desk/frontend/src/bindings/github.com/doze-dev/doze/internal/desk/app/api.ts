@@ -237,6 +237,13 @@ export function Stacks(): $CancellablePromise<serve$0.StackSummary[] | null> {
 }
 
 /**
+ * StopHolder stops the process holding a crashed service's port, then restarts it.
+ */
+export function StopHolder(key: string, name: string, pid: number): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.StopHolder", key, name, pid);
+}
+
+/**
  * Theme tells Go which theme the page uses.
  */
 export function Theme(theme: string): $CancellablePromise<void> {
