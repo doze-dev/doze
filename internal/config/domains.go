@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	names "github.com/doze-dev/doze-names"
+	"golang.org/x/net/publicsuffix"
 )
 
 // DomainSuffix is the private TLD every doze stack lives under (a service is
@@ -109,6 +110,11 @@ func checkDomains(head blockHead, what string, domains []string, cert, key, base
 			return nil, "", "", fmt.Errorf("%s: domains: %v", what, err)
 		}
 		d = strings.TrimSuffix(strings.ToLower(d), ".")
+		// A bare suffix (com, co.uk, github.io) is everyone's: routing it here
+		// would take the whole of it for this machine.
+		if _, err := publicsuffix.EffectiveTLDPlusOne(names.RouteDomain(d)); err != nil {
+			return nil, "", "", fmt.Errorf("%s: domains: %q is a public suffix, not a domain of yours; declare a name under it", what, d)
+		}
 		if seen[d] {
 			return nil, "", "", fmt.Errorf("%s: domains: %q is listed twice", what, d)
 		}

@@ -121,6 +121,11 @@ type Service struct {
 	notices    []Notice
 	// tasks is each task's last run as last seen, to say when one finished.
 	tasks map[string]string
+	// trustAt and trustSteps cache the domains' setup check, which runs the
+	// keychain tool: once a minute is plenty for a banner.
+	trustAt    time.Time
+	trustKey   string
+	trustSteps []names.Step
 	// labels are the module actions last seen, by stack, instance and id,
 	// so what an action answered is said with its label even after its
 	// console is no longer watched.
@@ -319,12 +324,22 @@ func (s *Service) setupFor(st hub.StackView) *view.Setup {
 	if len(domains) == 0 {
 		return nil
 	}
-	req := names.TrustRequest{Domains: domains, Home: s.hub.Home()}
-	if ca, ok := names.OpenCA(names.CADir(s.hub.Home())); ok {
-		req.CA = ca
+	key := st.Key + "|" + strings.Join(domains, ",")
+	s.mu.Lock()
+	steps, fresh := s.trustSteps, s.trustKey == key && s.now().Sub(s.trustAt) < time.Minute
+	s.mu.Unlock()
+	if !fresh {
+		req := names.TrustRequest{Domains: domains, Home: s.hub.Home()}
+		if ca, ok := names.OpenCA(names.CADir(s.hub.Home())); ok {
+			req.CA = ca
+		}
+		steps = names.TrustStatus(req)
+		s.mu.Lock()
+		s.trustSteps, s.trustKey, s.trustAt = steps, key, s.now()
+		s.mu.Unlock()
 	}
 	var missing []string
-	for _, step := range names.TrustStatus(req) {
+	for _, step := range steps {
 		if !step.Done {
 			missing = append(missing, step.Name)
 		}

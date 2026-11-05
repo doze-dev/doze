@@ -1188,11 +1188,22 @@ func (r *Runtime) withExtraEnv(plan engine.SpawnPlan) engine.SpawnPlan {
 		return plan
 	}
 	for i := range plan.Specs {
-		env := plan.Specs[i].Env
-		if env == nil {
-			env = os.Environ()
-		}
-		plan.Specs[i].Env = append(append([]string(nil), env...), extra...)
+		plan.Specs[i].Env = r.envWithExtra(plan.Specs[i].Env)
 	}
 	return plan
+}
+
+// envWithExtra is env (nil meaning this process's own) with the extra
+// variables added: tasks, steps and hooks get them like a spec does.
+func (r *Runtime) envWithExtra(env []string) []string {
+	r.mu.Lock()
+	extra := r.extraEnv
+	r.mu.Unlock()
+	if len(extra) == 0 {
+		return env
+	}
+	if env == nil {
+		env = os.Environ()
+	}
+	return append(append([]string(nil), env...), extra...)
 }

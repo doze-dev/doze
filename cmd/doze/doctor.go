@@ -312,7 +312,11 @@ func domainChecks(cfg *config.Config, zone *names.Registry) []domainCheck {
 	for _, decl := range cfg.Decls() {
 		for _, d := range decl.Domains {
 			base := names.RouteDomain(d)
-			if _, icann := publicsuffix.PublicSuffix(base); !icann {
+			// The last label must be a top-level domain the public suffix list
+			// knows: .example, .test or .local are not, and a sign-in provider
+			// refuses them; a private suffix such as github.io is fine.
+			last := base[strings.LastIndex(base, ".")+1:]
+			if _, icann := publicsuffix.PublicSuffix(last); !icann {
 				out = append(out, domainCheck{"domain " + d, "not under a public top-level domain: sign-in providers such as Google refuse it as a redirect", false})
 			}
 			if decl.Cert != "" {
@@ -344,7 +348,11 @@ func domainChecks(cfg *config.Config, zone *names.Registry) []domainCheck {
 	if h, ok := zone.IngressTLSHolder(); ok {
 		out = append(out, domainCheck{"domains: https", fmt.Sprintf("%s (pid %d) is serving https:// for the domains", h.Owner, h.PID), true})
 	} else if daemonRunning(cfg) {
-		out = append(out, domainCheck{"domains: https", "nothing of doze holds :443 — another program (caddy, nginx?) may have it; the domains work with their port", false})
+		detail := "nothing holds :443 yet; the daemon takes it when it is free"
+		if who, ok := portholder.Who(443); ok {
+			detail = fmt.Sprintf("%s (pid %d) holds :443, so the domains answer with their port until it stops", who.Command, who.PID)
+		}
+		out = append(out, domainCheck{"domains: https", detail, false})
 	}
 	return out
 }

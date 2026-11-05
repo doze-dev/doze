@@ -70,7 +70,7 @@ func (r *Runtime) runSteps(ctx context.Context, name, kind string, lines []strin
 			continue
 		}
 		cmd := exec.CommandContext(ctx, "sh", "-c", line)
-		cmd.Dir, cmd.Env = set.Dir, set.Env
+		cmd.Dir, cmd.Env = set.Dir, r.envWithExtra(set.Env)
 		if run != nil {
 			w := run.Writer(logstore.StepPrefix + kind)
 			cmd.Stdout, cmd.Stderr = w, w

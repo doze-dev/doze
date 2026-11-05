@@ -48,3 +48,21 @@ app "web" {
 		}
 	}
 }
+
+func TestABarePublicSuffixIsNotADomainOfYours(t *testing.T) {
+	dir := t.TempDir()
+	for _, bad := range []string{"*.co.uk", "com", "*.github.io"} {
+		body := "stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"" + bad + "\"]\n}\n"
+		path := filepath.Join(dir, "doze.hcl")
+		_ = os.WriteFile(path, []byte(body), 0o644)
+		if _, err := Load(path, nil); err == nil || !(strings.Contains(err.Error(), "public suffix") || strings.Contains(err.Error(), "no top-level domain")) {
+			t.Errorf("%q: want a public-suffix error, got %v", bad, err)
+		}
+	}
+	body := "stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"app.github.io\", \"*.dev.acme.co.uk\"]\n}\n"
+	path := filepath.Join(dir, "doze.hcl")
+	_ = os.WriteFile(path, []byte(body), 0o644)
+	if _, err := Load(path, nil); err != nil {
+		t.Errorf("a name under a suffix is fine: %v", err)
+	}
+}

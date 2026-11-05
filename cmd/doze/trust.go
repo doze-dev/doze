@@ -25,8 +25,10 @@ func trustCmd() *cobra.Command {
 		Use:   "trust",
 		Short: "Set this machine up for the stack's own domains: routes and https (one sudo)",
 		Long: "trust makes an app's `domains` reachable here, over https: it routes each\n" +
-			"domain to doze's resolver and trusts the doze certificate authority, which\n" +
-			"signs only names declared on this machine. It needs sudo once. A domain that\n" +
+			"domain to doze's resolver and trusts the doze certificate authority for TLS\n" +
+			"on this machine. doze mints only names declared here, but like any root the\n" +
+			"authority could sign any name: its key stays in ~/.doze/ca, readable by you\n" +
+			"alone. It needs sudo once. A domain that\n" +
 			"no stack declares any more loses its route in the same step.\n\n" +
 			"--check reports the state without sudo; --print shows the script instead of\n" +
 			"running it; --remove undoes this stack's routes (and the authority's trust\n" +
@@ -65,22 +67,30 @@ func trustCmd() *cobra.Command {
 			case check:
 				return trustCheck(req)
 			case remove:
+				if rotate {
+					return usageError(errors.New("--rotate and --remove do not go together"))
+				}
 				// This stack's routes go unless another stack still declares the
-				// domain; the authority's trust goes with the last stack.
-				_ = names.ForgetProject(home, dir)
-				req.Domains = nil
-				for _, d := range domains {
-					for _, stale := range names.StaleRoutes(home) {
-						if stale == names.RouteDomain(d) {
-							req.Domains = append(req.Domains, d)
-						}
+				// domain; the authority's trust and files go with the last stack.
+				// With --print nothing is changed, only shown.
+				if !print {
+					_ = names.ForgetProject(home, dir)
+				}
+				req.Domains, req.Prune = domainsOnlyOurs(home, dir, domains), nil
+				last := !names.AnyDeclared(home) || (print && !declaredElsewhere(home, dir))
+				if !last {
+					req.CA = nil // another stack still serves a domain from it
+				}
+				if err := names.Untrust(names.Options{Out: os.Stdout, Print: print}, req); err != nil {
+					return err
+				}
+				if last && !print && req.CA != nil {
+					if err := names.RemoveCA(home); err != nil {
+						return err
 					}
+					fmt.Println(ui.OK("✓") + " the certificate authority's files are gone")
 				}
-				if len(names.RecordedRoutes(home)) > len(names.StaleRoutes(home)) {
-					req.CA = nil // someone else still needs it
-				}
-				req.Prune = nil
-				return names.Untrust(names.Options{Out: os.Stdout, Print: print}, req)
+				return nil
 			default:
 				if err := names.Trust(names.Options{Out: os.Stdout, Print: print}, req); err != nil {
 					return err
@@ -142,4 +152,35 @@ func projectDirOf(cfg *config.Config) string {
 		return abs
 	}
 	return dir
+}
+
+// domainsOnlyOurs are this project's domains no other project with a
+// doze.hcl still declares: the ones whose routes --remove may take away.
+func domainsOnlyOurs(home, dir string, domains []string) []string {
+	var out []string
+	for _, d := range domains {
+		if !routeDeclaredByOther(home, dir, names.RouteDomain(d)) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// declaredElsewhere says another project still declares a domain.
+func declaredElsewhere(home, dir string) bool {
+	for _, d := range names.RecordedRoutes(home) {
+		if routeDeclaredByOther(home, dir, d) {
+			return true
+		}
+	}
+	return false
+}
+
+func routeDeclaredByOther(home, dir, route string) bool {
+	for _, other := range names.Claimants(home, route) {
+		if other != dir {
+			return true
+		}
+	}
+	return false
 }

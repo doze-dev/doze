@@ -101,6 +101,11 @@ func (d *Daemon) noteHeld(held *names.ErrHeld) {
 		if d.cfg.DomainFor(decl.Name) == held.Host || (held.Host == awsHost && decl.Type == config.AWSUnifiedType) {
 			d.heldNames[decl.Name] = who
 		}
+		for _, dom := range decl.Domains {
+			if dom == held.Host {
+				d.heldNames[decl.Name] = who // another stack declares this domain
+			}
+		}
 	}
 }
 

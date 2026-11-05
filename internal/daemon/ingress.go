@@ -8,6 +8,7 @@ package daemon
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 
 	names "github.com/doze-dev/doze-names"
@@ -39,14 +40,28 @@ func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, pla
 	if len(domains) == 0 {
 		return names.ServeIngress(ctx, d.zone, d.logf).Close, nil
 	}
-	ca, err := names.LoadOrCreateCA(names.CADir(d.cfg.Home))
-	if err != nil {
-		d.logf("domains: no certificate authority (%v); https is off", err)
-		return names.ServeIngress(ctx, d.zone, d.logf).Close, nil
-	}
+	// The authority is made only when a domain is served from it; a stack
+	// whose domains all bring their own files trusts nothing of doze's.
+	var ca *names.CA
 	if d.usesDozeCA() {
-		// What the stack's own processes need to verify https://<domain>.
-		d.rt.SetExtraEnv(caEnv(ca.RootPath()))
+		c, err := names.LoadOrCreateCA(names.CADir(d.cfg.Home))
+		if err != nil {
+			d.logf("domains: no certificate authority (%v); https is off for the minted domains", err)
+		} else {
+			ca = c
+			// What the stack's own processes need to verify https://<domain>:
+			// a bundle of the machine's roots and this one, since the usual
+			// variables replace a client's store rather than add to it.
+			var extra []byte
+			if f := os.Getenv("SSL_CERT_FILE"); f != "" {
+				extra, _ = os.ReadFile(f)
+			}
+			if bundle, err := ca.Bundle(extra); err == nil {
+				d.rt.SetExtraEnv(caEnv(ca.RootPath(), bundle))
+			} else {
+				d.logf("domains: could not write the trust bundle: %v", err)
+			}
+		}
 	}
 	for _, dom := range domains {
 		if names.Wildcard(dom) {
@@ -113,13 +128,14 @@ func (d *Daemon) ingressRoutes(eps []endpoints.Endpoint, plan *bindPlan) map[str
 }
 
 // caEnv is the environment that points the usual clients at the doze
-// authority: Node and Python never read the system store, Go and curl on
-// macOS do but on Linux read SSL_CERT_FILE.
-func caEnv(root string) []string {
+// authority. NODE_EXTRA_CA_CERTS adds to Node's store, so it gets the root;
+// SSL_CERT_FILE and REQUESTS_CA_BUNDLE replace OpenSSL's and Python's, so
+// they get the bundle that still holds the public roots.
+func caEnv(root, bundle string) []string {
 	return []string{
 		"DOZE_CA_FILE=" + root,
-		"SSL_CERT_FILE=" + root,
 		"NODE_EXTRA_CA_CERTS=" + root,
-		"REQUESTS_CA_BUNDLE=" + root,
+		"SSL_CERT_FILE=" + bundle,
+		"REQUESTS_CA_BUNDLE=" + bundle,
 	}
 }

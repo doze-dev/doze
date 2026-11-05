@@ -160,7 +160,7 @@ func (r *Runtime) runTask(ctx context.Context, name string, decl *config.Instanc
 	}
 	defer lr.Close()
 	cmd := exec.Command("sh", "-c", ts.Run)
-	cmd.Dir, cmd.Env = ts.Dir, ts.Env
+	cmd.Dir, cmd.Env = ts.Dir, r.envWithExtra(ts.Env)
 	p, err := supervisor.StartTree(cmd, supervisor.Sink{
 		Stdout: lr.Writer(logstore.Stdout),
 		Stderr: lr.Writer(logstore.Stderr),

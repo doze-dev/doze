@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	names "github.com/doze-dev/doze-names"
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze/internal/config"
@@ -53,6 +54,7 @@ func envCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			pairs = append(pairs, caPairs(cfg)...)
 			switch {
 			case jsonMode:
 				if pairs == nil {
@@ -86,4 +88,26 @@ func envCmd() *cobra.Command {
 // shellQuote single-quotes a value for POSIX shells.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// caPairs are the variables that point clients at the doze authority, for
+// a stack that serves a domain from it, once the daemon has made it.
+func caPairs(cfg *config.Config) []endpoints.EnvPair {
+	if !usesDozeCA(cfg) {
+		return nil
+	}
+	ca, ok := names.OpenCA(names.CADir(cfg.Home))
+	if !ok {
+		return nil
+	}
+	bundle := ca.BundlePath()
+	if _, err := os.Stat(bundle); err != nil {
+		bundle = ca.RootPath()
+	}
+	return []endpoints.EnvPair{
+		{Var: "DOZE_CA_FILE", Value: ca.RootPath(), Service: "the doze certificate authority"},
+		{Var: "NODE_EXTRA_CA_CERTS", Value: ca.RootPath(), Service: "Node adds it"},
+		{Var: "SSL_CERT_FILE", Value: bundle, Service: "OpenSSL, Go on Linux, curl"},
+		{Var: "REQUESTS_CA_BUNDLE", Value: bundle, Service: "Python requests"},
+	}
 }

@@ -33,11 +33,16 @@ https address; the app's Connect card shows it; ⌘K offers to open it.
 ## What the authority is
 
 A certificate authority of this machine's own, made the first time a domain
-needs it, under `~/.doze/ca`. Its key never leaves that folder. The front
+needs it, under `~/.doze/ca`, with its key readable by you alone. The front
 door mints a short-lived certificate per domain from it on the first https
-request, and renews it before it expires. The authority can sign only names
-declared on this machine; `doze trust --check` shows it and when it expires,
-`doze trust --rotate` makes a new one and trusts it in one prompt.
+request, and renews it before it expires. Be clear about what trusting it
+means: the authority is trusted for TLS on this machine, and like any root
+it could sign any name, so whoever gets hold of `root.key` could sign for
+this machine. doze only ever mints names declared here; the key never
+leaves the folder; keep the folder out of anything synced or shared.
+`doze trust --check` shows the authority and when it expires; `doze trust
+--rotate` makes a new one, trusts it and stops trusting the old one in one
+prompt.
 
 Processes inside the stack need to trust it too, for calls between services
 over https. doze sets `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`,
@@ -71,8 +76,12 @@ only.
   works with the app's port in the URL. If you keep your own proxy, point it
   at the address `doze url web --json` reports.
 - **The domain exists on the internet.** While a stack declares it, this
-  machine resolves it to the stack. When no stack is running, the resolver
-  forwards the name to your usual DNS, so the real host is back.
+  machine resolves it to the stack. While any doze stack is running and the
+  declaring one is not, the resolver forwards the name to your usual DNS,
+  so the real host is back. When no doze stack runs at all, nothing answers
+  for the routed domain on macOS until one does: `doze trust --remove` or
+  `doze dns-setup --uninstall` drops the route if you need the real host
+  with doze fully down.
 - **A VPN or management profile overrides DNS.** macOS consults profiles
   before `/etc/resolver`; `doze doctor` reports a domain that does not resolve
   despite the route.
