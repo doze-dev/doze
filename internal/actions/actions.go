@@ -107,6 +107,8 @@ var registry = []Action{
 		Arg: ArgNone, Kind: KindLocal, CLI: true},
 	{Name: "doctor", Summary: "diagnose the doze environment and configuration",
 		Arg: ArgNone, Kind: KindLocal, CLI: true},
+	{Name: "trust", Summary: "set this machine up for the stack's own domains: routes and https",
+		Arg: ArgNone, Kind: KindLocal, CLI: true},
 }
 
 // All returns the registry in display order.

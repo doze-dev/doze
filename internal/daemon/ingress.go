@@ -8,6 +8,7 @@ package daemon
 
 import (
 	"context"
+	"path/filepath"
 
 	names "github.com/doze-dev/doze-names"
 
@@ -24,8 +25,33 @@ func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, pla
 		return func() {}, nil // no names, so nothing to front
 	}
 	d.publishRoutes(eps, plan, awsRoutes)
-	front := names.ServeIngress(ctx, d.zone, d.logf)
-	return front.Close, nil
+	// The record of who asked for which domain route, so one no stack
+	// declares any more is pruned at the next doze trust; and the authority
+	// for https, made on first use.
+	domains := d.cfg.AppDomains()
+	if err := names.RecordDomains(d.cfg.Home, filepath.Dir(d.cfg.Path()), domains); err != nil {
+		d.logf("domains: could not record them: %v", err)
+	}
+	if len(domains) == 0 {
+		return names.ServeIngress(ctx, d.zone, d.logf).Close, nil
+	}
+	ca, err := names.LoadOrCreateCA(names.CADir(d.cfg.Home))
+	if err != nil {
+		d.logf("domains: no certificate authority (%v); https is off", err)
+		return names.ServeIngress(ctx, d.zone, d.logf).Close, nil
+	}
+	if d.usesDozeCA() {
+		// What the stack's own processes need to verify https://<domain>.
+		d.rt.SetExtraEnv(caEnv(ca.RootPath()))
+	}
+	for _, dom := range domains {
+		if names.Wildcard(dom) {
+			d.logf("front door: https://*.%s → the app", names.RouteDomain(dom))
+		} else {
+			d.logf("front door: https://%s → the app", dom)
+		}
+	}
+	return names.ServeFrontDoor(ctx, d.zone, ca, d.logf).Close, nil
 }
 
 // publishRoutes writes this stack's routes into the shared registry. A route
@@ -74,6 +100,22 @@ func (d *Daemon) ingressRoutes(eps []endpoints.Endpoint, plan *bindPlan) map[str
 			target = b
 		}
 		routes[ep.Domain] = target
+		// The app's own domains go to the same place, over https.
+		for _, dom := range decl.Domains {
+			routes[dom] = target
+		}
 	}
 	return routes
+}
+
+// caEnv is the environment that points the usual clients at the doze
+// authority: Node and Python never read the system store, Go and curl on
+// macOS do but on Linux read SSL_CERT_FILE.
+func caEnv(root string) []string {
+	return []string{
+		"DOZE_CA_FILE=" + root,
+		"SSL_CERT_FILE=" + root,
+		"NODE_EXTRA_CA_CERTS=" + root,
+		"REQUESTS_CA_BUNDLE=" + root,
+	}
 }

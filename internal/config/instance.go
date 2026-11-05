@@ -173,6 +173,10 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 	if c.Port == 0 && c.Listen == "" && head.kind == KindModule && head.etype != "temporal" {
 		c.Port = detect.ConventionalPort(head.etype)
 	}
+	domains, cert, key, err := checkDomains(head, what, c.Domains, c.Cert, c.Key, blockBaseDir(cfg, block), l.shape)
+	if err != nil {
+		return nil, posErr(parser, block.DefRange, err.Error(), "")
+	}
 	inst := &InstanceDecl{
 		Kind:    head.kind,
 		Type:    head.etype,
@@ -180,6 +184,9 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 		Version: engine.VersionSpec(c.Version),
 		Listen:  c.Listen,
 		Port:    c.Port,
+		Domains: domains,
+		Cert:    cert,
+		Key:     key,
 		Index:   len(cfg.Instances),
 		Sleep:   sleep,
 	}

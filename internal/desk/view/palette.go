@@ -33,8 +33,8 @@ type PaletteRow struct {
 // Doing is what choosing a row does.
 type Doing struct {
 	// Kind: "verb" runs Verb on Target (a dialog first when Ask); "page"
-	// goes to Page (an instance's logs); "copy" copies Text; "recent" opens
-	// recent messages; "theme" sets Text.
+	// goes to Page (an instance's logs); "copy" copies Text; "open" opens
+	// Text in the browser; "recent" opens recent messages; "theme" sets Text.
 	Kind   string `json:"kind"`
 	Verb   string `json:"verb,omitempty"`
 	Target string `json:"target,omitempty"`
@@ -103,6 +103,9 @@ func PaletteOf(st hub.StackView, selected, theme, query string) Palette {
 		add(PaletteRow{Label: "show the logs of " + n, CLI: "doze logs " + n, Do: Doing{Kind: "page", Page: "logs", Target: n}})
 		if line := firstOf(v.URL, v.Endpoint); line != "" && v.Kind != "task" {
 			add(PaletteRow{Label: "copy the connect line of " + n, CLI: "doze url " + n, Do: Doing{Kind: "copy", Text: line, Target: n}})
+		}
+		if v.HTTPS != "" {
+			add(PaletteRow{Label: "open " + v.HTTPS, CLI: "open " + v.HTTPS, Do: Doing{Kind: "open", Text: v.HTTPS, Target: n}})
 		}
 	}
 	rows := display.Rows(snap)

@@ -99,6 +99,7 @@
           "up": "14m",
           "because": "nothing holds it",
           "becauseTone": "dim",
+          "addr": "http://web.shop.doze:3000",
           "awake": true,
           "trouble": false,
           "depth": 0

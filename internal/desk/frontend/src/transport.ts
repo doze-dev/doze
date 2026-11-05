@@ -56,6 +56,8 @@ export interface Transport {
   log(line: string): void;
   /** zoom toggles the window between its size and the screen, as a double-click on a title bar does. */
   zoom(): void;
+  /** open opens a URL in the person's browser. */
+  open(url: string): void;
   /** on subscribes to a push by name; the returned function unsubscribes. */
   on<T>(event: string, fn: (data: T) => void): () => void;
 }
@@ -94,6 +96,7 @@ async function wails(): Promise<Transport> {
     painted: (ms) => void api.Painted(ms),
     log: (line) => void api.Log(line),
     zoom: () => void Window.ToggleMaximise(),
+    open: (url) => void api.Open(url),
     on: (event, fn) => Events.On(event, (e: { data: unknown }) => fn(e.data as never)),
   };
 }
@@ -150,6 +153,7 @@ function http(): Transport {
     painted: () => {},
     log: (line) => console.log(line),
     zoom: () => {},
+    open: (url) => void window.open(url, "_blank", "noopener"),
     on: (event, fn) => {
       const set = listeners.get(event) ?? new Set();
       set.add(fn as (data: unknown) => void);

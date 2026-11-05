@@ -69,6 +69,18 @@ export function HomePage({ home, stackKey }: { home: view.Home; stackKey: string
           Up
         </button>
       </div>
+      {home.setup && (
+        <div className="setup" role="status">
+          <span className="warn">●</span>
+          <span>
+            <b className="bright">{home.setup.text}</b> <span className="dim">· {home.setup.detail}</span>
+          </span>
+          <span className="grow" />
+          <button className="btn" onClick={() => void copy(home.setup?.command ?? "", "the command")}>
+            Copy <span className="mono">{home.setup.command}</span>
+          </button>
+        </div>
+      )}
       <div className={home.banner.ok ? "" : "faded"} style={{ display: "contents" }}>
         <Vitals v={home.vitals} />
         <Table

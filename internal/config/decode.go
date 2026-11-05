@@ -17,9 +17,15 @@ import (
 // common is the partial-decode target for the fields config reads from every
 // engine block; the rest of the body goes to the driver.
 type common struct {
-	Version string   `hcl:"version,optional"`
-	Listen  string   `hcl:"listen,optional"`
-	Port    int      `hcl:"port,optional"`
+	Version string `hcl:"version,optional"`
+	Listen  string `hcl:"listen,optional"`
+	Port    int    `hcl:"port,optional"`
+	// Domains are an app's own names outside the doze zone, served over
+	// https by the front door (names.ValidDomain); Cert and Key are the
+	// person's own certificate for them, else one is minted from the doze CA.
+	Domains []string `hcl:"domains,optional"`
+	Cert    string   `hcl:"cert,optional"`
+	Key     string   `hcl:"key,optional"`
 	Remain  hcl.Body `hcl:",remain"`
 }
 

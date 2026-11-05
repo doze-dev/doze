@@ -320,6 +320,9 @@ func (d *Daemon) republishDomains() {
 			continue
 		}
 		live[host] = l
+		for _, t := range d.claimAppDomains(l, host) {
+			live[t.Name.Host] = t
+		}
 	}
 	// Drop what is no longer declared. Tracking the leases from THIS pass, not
 	// the previous set, is what makes a live-added name released at shutdown

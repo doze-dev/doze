@@ -7,6 +7,8 @@
 package endpoints
 
 import (
+	names "github.com/doze-dev/doze-names"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +33,10 @@ type Endpoint struct {
 	Domain string `yaml:"domain,omitempty"`
 	EnvVar string `yaml:"env_var,omitempty"`
 	URL    string `yaml:"url,omitempty"`
+	// Domains are the app's own names (dev.acme.com, *.dev.acme.com) and
+	// HTTPS the first of them as a URL, served by the front door.
+	Domains []string `yaml:"domains,omitempty"`
+	HTTPS   string   `yaml:"https,omitempty"`
 }
 
 // For computes the endpoints for every declared instance.
@@ -55,6 +61,16 @@ func For(cfg *config.Config) ([]Endpoint, error) {
 		// internal detail — the daemon proxies to it — so they carry no
 		// per-instance domain (only the shared host is published, by the AWS route
 		// table), and their client-facing URL is the shared endpoint.
+		if len(decl.Domains) > 0 && cfg.Defaults.Domains {
+			ep.Domains = append([]string(nil), decl.Domains...)
+			ep.HTTPS = "https://" + names.RouteDomain(decl.Domains[0])
+			for _, d := range decl.Domains {
+				if !names.Wildcard(d) {
+					ep.HTTPS = "https://" + d
+					break
+				}
+			}
+		}
 		if shared, ok := cfg.AWSEndpoint(decl.Type); ok {
 			ep.URL = shared
 		} else if cfg.Defaults.Domains && !strings.HasPrefix(addr, "unix:") {

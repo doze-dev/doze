@@ -191,6 +191,7 @@ func rootCmd() *cobra.Command {
 		grouped(groupTools, initCmd()),
 		grouped(groupTools, jsonCapable(doctorCmd())),
 		grouped(groupTools, dnsSetupCmd()),
+		grouped(groupTools, trustCmd()),
 		// The dash, explicitly (also the default command)
 		grouped(groupDash, dashCmd()),
 		// The app: the only command that starts the GUI

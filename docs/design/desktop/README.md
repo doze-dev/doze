@@ -60,6 +60,7 @@ its control socket. The app is a client of those daemons, as the TUI is, so
 | D13 | **doze-aws's and doze-kafka's consoles get a whole tab**, unchanged; or the browser, by setting | They're standalone products with their own top bar and rail, and they need the space. A full tab shows them as they are; links into them are their existing URLs; the only module work is taking the theme from the address. See The consoles |
 | D14 | **Light by rule, checked in CI**: one web view, live data only for what's on screen, the window released when closed, the JavaScript bundle under a budget | WebKit can't be avoided; abusing it can. See Staying light |
 | D16 | **React, Vite and TypeScript render the app; Go owns every fact** (revised 2026-11-04; D14 first said no framework) | A framework's cost is noise inside WebKit's 220 MB floor, and it answers "make it more complex later" directly. Go computes typed views and pushes them; the frontend never derives a stack fact. See Staying light |
+| D17 | **An app may have its own domain under a public TLD, served over https by the front door** (added 2026-11-05) | Sign-in providers send a browser back only to a public name over https; `.doze` can never carry that. One attribute on the app; one admin prompt routes the domain here and trusts a machine-local CA, or the person brings their own certificate; a route no stack declares any more is removed in the next prompt. See `website/src/content/docs/cli/domains.md` |
 
 ## One binary
 

@@ -113,6 +113,13 @@ export function Logs(key: string, q: view$0.LogsQuery): $CancellablePromise<view
 }
 
 /**
+ * Open opens a URL in the person's browser: an app's own domain.
+ */
+export function Open(url: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Open", url);
+}
+
+/**
  * Painted reports the page's first paint, for the desk bench.
  */
 export function Painted(ms: number): $CancellablePromise<void> {

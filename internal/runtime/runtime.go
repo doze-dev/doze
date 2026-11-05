@@ -51,7 +51,10 @@ type Runtime struct {
 	reg   *registry.Registry
 	group singleflight.Group
 
-	mu           sync.Mutex
+	mu sync.Mutex
+	// extraEnv is added to every process doze spawns: where the doze
+	// certificate authority is, when the stack serves https from it.
+	extraEnv     []string
 	procs        map[string]engine.Process
 	deps         map[string][]string           // instance -> dependency names it holds running
 	watchers     map[string]context.CancelFunc // instance -> stops its file watcher
@@ -394,7 +397,7 @@ func (r *Runtime) bootLocked(ctx context.Context, name string, cond engine.Condi
 			}
 			return fail(err)
 		}
-		if proc, err = r.executePlan(ctx, name, plan, run, stepped && stepper.TermFirst()); err != nil {
+		if proc, err = r.executePlan(ctx, name, r.withExtraEnv(plan), run, stepped && stepper.TermFirst()); err != nil {
 			return fail(err)
 		}
 	case engine.LegacySpawner:
@@ -1164,4 +1167,32 @@ func configName(cfg *config.Config) string {
 		return filepath.Base(p)
 	}
 	return "config"
+}
+
+// SetExtraEnv adds variables to every process spawned from now on (the
+// daemon sets the certificate authority's path when https is on).
+func (r *Runtime) SetExtraEnv(env []string) {
+	r.mu.Lock()
+	r.extraEnv = append([]string(nil), env...)
+	r.mu.Unlock()
+}
+
+// withExtraEnv adds the extra variables to a plan's specs. A nil Env means
+// the child inherits this process's environment, so that is spelled out
+// first.
+func (r *Runtime) withExtraEnv(plan engine.SpawnPlan) engine.SpawnPlan {
+	r.mu.Lock()
+	extra := r.extraEnv
+	r.mu.Unlock()
+	if len(extra) == 0 {
+		return plan
+	}
+	for i := range plan.Specs {
+		env := plan.Specs[i].Env
+		if env == nil {
+			env = os.Environ()
+		}
+		plan.Specs[i].Env = append(append([]string(nil), env...), extra...)
+	}
+	return plan
 }

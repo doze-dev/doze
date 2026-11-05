@@ -105,3 +105,6 @@ func (a *API) Empty(dir string) view.Empty { return a.s.Empty(dir) }
 
 // Setup sets a folder up: init, add <arg>, or a starter file.
 func (a *API) Setup(dir, action, arg string) error { return a.s.Setup(dir, action, arg) }
+
+// Open opens a URL in the person's browser: an app's own domain.
+func (a *API) Open(url string) { _ = application.Get().Browser.OpenURL(url) }

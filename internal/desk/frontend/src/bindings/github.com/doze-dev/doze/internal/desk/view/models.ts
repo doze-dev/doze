@@ -255,8 +255,8 @@ export interface Dialog {
 export interface Doing {
     /**
      * Kind: "verb" runs Verb on Target (a dialog first when Ask); "page"
-     * goes to Page (an instance's logs); "copy" copies Text; "recent" opens
-     * recent messages; "theme" sets Text.
+     * goes to Page (an instance's logs); "copy" copies Text; "open" opens
+     * Text in the browser; "recent" opens recent messages; "theme" sets Text.
      */
     "kind": string;
     "verb"?: string;
@@ -332,6 +332,12 @@ export interface Home {
     "dir": string;
     "running": boolean;
     "banner": Banner;
+
+    /**
+     * Setup is set while an app's own domains are not set up on this
+     * machine: what is missing, and the command that does it.
+     */
+    "setup"?: Setup | null;
     "vitals": Vitals4;
     "groups": Group[] | null;
     "side": Side[] | null;
@@ -745,6 +751,26 @@ export interface Run {
     "took"?: string;
     "ok": boolean;
     "done": boolean;
+}
+
+/**
+ * Setup is the banner for domains that are not set up here yet.
+ */
+export interface Setup {
+    /**
+     * "dev.acme.com is not reachable here yet"
+     */
+    "text": string;
+
+    /**
+     * what is missing, in doctor's words
+     */
+    "detail": string;
+
+    /**
+     * "doze trust"
+     */
+    "command": string;
 }
 
 /**

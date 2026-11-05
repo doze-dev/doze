@@ -6,6 +6,18 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **An app can have its own domain, over https.** `domains = ["dev.acme.com",
+  "*.dev.acme.com"]` on an app; `doze trust` routes the domain here and
+  trusts a machine-local certificate authority in one prompt, or the app
+  brings its own `cert` and `key`. The front door serves https on 443; the
+  stack's processes get the authority through `SSL_CERT_FILE` and friends;
+  `doze url`, the Connect card and ⌘K show the https address. A route no
+  stack declares any more is removed at the next `doze trust`, and `doze
+  doctor` reports routes, the authority, who holds the ports and a domain
+  sign-in providers would refuse. See the "Your own domain" page.
+
 ### Changed
 
 - **Modules download engine binaries through doze** (doze-sdk v0.10.0): the

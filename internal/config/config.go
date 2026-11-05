@@ -98,13 +98,19 @@ type TLSSettings struct {
 
 // InstanceDecl is one declared instance: a database server of some engine.
 type InstanceDecl struct {
-	Kind    string              // KindModule or KindApp
-	Type    string              // engine type ("postgres"); AppEngine for an app
-	Name    string              // block label
-	Version engine.VersionSpec  // "16" (major) or "16.14" (exact)
-	Listen  string              // optional full endpoint override ("host:port")
-	Port    int                 // the client-facing port (required unless Listen is set)
-	Spec    engine.EngineConfig // engine-specific config (decoded by the driver)
+	Kind    string             // KindModule or KindApp
+	Type    string             // engine type ("postgres"); AppEngine for an app
+	Name    string             // block label
+	Version engine.VersionSpec // "16" (major) or "16.14" (exact)
+	Listen  string             // optional full endpoint override ("host:port")
+	Port    int                // the client-facing port (required unless Listen is set)
+	// Domains are the app's own names outside the doze zone (dev.acme.com,
+	// *.dev.acme.com), served over https by the front door; Cert and Key are
+	// the person's certificate files for them, absolute, or empty for one
+	// minted from the doze CA.
+	Domains   []string
+	Cert, Key string
+	Spec      engine.EngineConfig // engine-specific config (decoded by the driver)
 	// Deps are the other declared instances this one must boot first (e.g. an sns
 	// instance referencing sqs.jobs), each with a readiness condition. Derived
 	// from the config reference graph (every reference is a Healthy dependency)

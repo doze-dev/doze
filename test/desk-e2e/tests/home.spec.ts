@@ -109,3 +109,24 @@ test("keys: arrows move the selection, w wakes, Enter opens", async ({ page }) =
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
 });
+
+test("an app's own domain shows on the Connect card, the setup line and ⌘K", async ({ page }, info) => {
+  await page.goto("/");
+  // The fixture declares dev.shop.example, which this machine has not set up.
+  const setup = page.locator(".setup");
+  await expect(setup).toContainText("dev.shop.example is not reachable here yet");
+  await expect(setup).toContainText("doze trust");
+  await page.locator(".tr.row", { hasText: "web" }).first().dblclick();
+  // An app's page is its logs; the About box carries the domain beside the url.
+  const about = page.getByLabel("About this run");
+  await expect(about).toContainText("https");
+  await expect(about).toContainText("https://dev.shop.example");
+  await expect(about).toContainText("any");
+  await expect(about).toContainText("*.dev.shop.example");
+  await page.screenshot({ path: `.desk-look/Domain-${info.project.name}.png` });
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByLabel("Do what?").fill("open https");
+  await expect(page.locator(".sr.on")).toContainText("open https://dev.shop.example");
+  await expect(page.locator(".sr.on .cmd")).toHaveText("open https://dev.shop.example");
+  await page.keyboard.press("Escape");
+});

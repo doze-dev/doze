@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	names "github.com/doze-dev/doze-names"
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze/internal/config"
@@ -114,6 +115,7 @@ func runUp(cfg *config.Config, targets []string, follow bool) error {
 		}
 	}
 
+	trustHint(cfg)
 	if !follow {
 		fmt.Println(ui.Muted("›") + " up — supervised in the background. " +
 			ui.Muted("doze for the dash · doze down to stop"))
@@ -303,4 +305,31 @@ func processNames(cfg *config.Config, targets []string) []string {
 		}
 	}
 	return out
+}
+
+// trustHint is one line after up when an app's domains are not set up on
+// this machine yet: the stack runs either way, on its doze names.
+func trustHint(cfg *config.Config) {
+	domains := cfg.AppDomains()
+	if len(domains) == 0 {
+		return
+	}
+	req := names.TrustRequest{Domains: domains, Home: cfg.Home}
+	if usesDozeCA(cfg) {
+		if ca, err := names.LoadOrCreateCA(names.CADir(cfg.Home)); err == nil {
+			req.CA = ca
+		}
+	}
+	var missing []string
+	for _, st := range names.TrustStatus(req) {
+		if !st.Done {
+			missing = append(missing, st.Name)
+		}
+	}
+	if len(missing) > 0 {
+		fmt.Println(ui.Muted("›") + " " + strings.Join(names.RouteDomains(domains), ", ") + " need a one-time setup here: " + ui.Title("doze trust") + ui.Muted(" (one sudo)"))
+	}
+	if stale := names.StaleRoutes(cfg.Home); len(stale) > 0 {
+		fmt.Println(ui.Muted("›") + " no stack declares " + strings.Join(stale, ", ") + " any more: " + ui.Title("doze trust") + ui.Muted(" removes the route"))
+	}
 }

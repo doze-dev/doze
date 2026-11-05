@@ -37,6 +37,7 @@ export type {
     Recent,
     Row,
     Run,
+    Setup,
     Share,
     Side,
     Span,

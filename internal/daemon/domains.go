@@ -48,6 +48,7 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 			continue
 		}
 		leases = append(leases, l)
+		leases = append(leases, d.claimAppDomains(l, host)...)
 	}
 	d.zoneLeases = leases
 	release = func() {
@@ -101,4 +102,48 @@ func (d *Daemon) noteHeld(held *names.ErrHeld) {
 			d.heldNames[decl.Name] = who
 		}
 	}
+}
+
+// claimAppDomains twins an app's own domains (dev.acme.com, *.dev.acme.com)
+// onto the lease of its doze name, so they resolve to the same address and
+// go away with it; a certificate the person brought is recorded on them. A
+// domain another live stack holds is logged and skipped, as a held name is.
+func (d *Daemon) claimAppDomains(l *names.Lease, host string) []*names.Lease {
+	var out []*names.Lease
+	for _, decl := range d.cfg.Decls() {
+		if !decl.Enabled || len(decl.Domains) == 0 || d.cfg.DomainFor(decl.Name) != host {
+			continue
+		}
+		for _, dom := range decl.Domains {
+			t, err := l.Twin(names.DomainName(dom))
+			if err != nil {
+				if held, ok := names.Held(err); ok {
+					d.logf("domains: %s is held by pid %d (%s)", held.Host, held.PID, held.Owner)
+					d.noteHeld(held)
+				} else {
+					d.logf("domains: could not register %s: %v", dom, err)
+				}
+				continue
+			}
+			if decl.Cert != "" {
+				if err := t.Certificate(decl.Cert, decl.Key); err != nil {
+					d.logf("domains: %s: %v", dom, err)
+				}
+			}
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// usesDozeCA says some app declares a domain without bringing its own
+// certificate: the front door mints one, and the stack's processes are
+// told where the authority is so they can verify it.
+func (d *Daemon) usesDozeCA() bool {
+	for _, decl := range d.cfg.Decls() {
+		if decl.Enabled && len(decl.Domains) > 0 && decl.Cert == "" {
+			return true
+		}
+	}
+	return false
 }

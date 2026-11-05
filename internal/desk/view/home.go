@@ -16,14 +16,17 @@ import (
 type Home struct {
 	// Key is the stack's hub key, so the page can tell a push for this
 	// stack from one computed for the last.
-	Key     string  `json:"key"`
-	Stack   string  `json:"stack"`
-	Dir     string  `json:"dir"`
-	Running bool    `json:"running"`
-	Banner  Banner  `json:"banner"`
-	Vitals  Vitals4 `json:"vitals"`
-	Groups  []Group `json:"groups"`
-	Side    []Side  `json:"side"`
+	Key     string `json:"key"`
+	Stack   string `json:"stack"`
+	Dir     string `json:"dir"`
+	Running bool   `json:"running"`
+	Banner  Banner `json:"banner"`
+	// Setup is set while an app's own domains are not set up on this
+	// machine: what is missing, and the command that does it.
+	Setup  *Setup  `json:"setup,omitempty"`
+	Vitals Vitals4 `json:"vitals"`
+	Groups []Group `json:"groups"`
+	Side   []Side  `json:"side"`
 	// Awake and Total count the instances up and declared, tasks aside.
 	Awake int `json:"awake"`
 	Total int `json:"total"`
@@ -286,4 +289,20 @@ func part(v, sum float64) float64 {
 		return 0
 	}
 	return float64(int(v/sum*1000+0.5)) / 1000
+}
+
+// Setup is the banner for domains that are not set up here yet.
+type Setup struct {
+	Text    string `json:"text"`    // "dev.acme.com is not reachable here yet"
+	Detail  string `json:"detail"`  // what is missing, in doctor's words
+	Command string `json:"command"` // "doze trust"
+}
+
+// Domains lists every domain the stack's apps declare, for the trust check.
+func Domains(st hub.StackView) []string {
+	var out []string
+	for _, v := range st.Instances {
+		out = append(out, v.Domains...)
+	}
+	return out
 }

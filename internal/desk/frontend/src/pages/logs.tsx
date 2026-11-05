@@ -224,6 +224,8 @@ const LEVELS = ["debug and up", "info and up", "warnings and up", "errors only"]
 // levels.
 function About({ inst, logs }: { inst: view.Instance; logs: view.Logs | null }) {
   const url = inst.connect?.find((r) => r.k === "URL" || r.k === "Address")?.v;
+  const domain = inst.connect?.find((r) => r.k === "Domain")?.v;
+  const subdomains = inst.connect?.find((r) => r.k === "Subdomains")?.v;
   return (
     <aside className="rcol" aria-label="About this run">
       {(inst.needs ?? []).length > 0 && (
@@ -242,6 +244,18 @@ function About({ inst, logs }: { inst: view.Instance; logs: view.Logs | null }) 
         <h3>
           this run <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· last {inst.vitals?.ram.span ?? "run"}</span>
         </h3>
+        {domain && (
+          <div className="nd">
+            <span className="k">https</span>
+            <span className="mono bright">{domain}</span>
+          </div>
+        )}
+        {subdomains && (
+          <div className="nd">
+            <span className="k">any</span>
+            <span className="mono dim">{subdomains.replace("https://", "").split(" ")[0]}</span>
+          </div>
+        )}
         {url && (
           <div className="nd">
             <span className="k">url</span>

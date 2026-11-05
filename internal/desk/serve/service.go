@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/notify"
@@ -301,10 +303,41 @@ func (s *Service) stack(key string) (hub.StackView, bool) {
 	return hub.StackView{}, false
 }
 
-// Home is a stack's home page.
+// Home is a stack's home page, with the domains' setup banner when they
+// are not set up on this machine.
 func (s *Service) Home(key string) view.Home {
 	st, _ := s.stack(key)
-	return view.HomeOf(st, s.now())
+	h := view.HomeOf(st, s.now())
+	h.Setup = s.setupFor(st)
+	return h
+}
+
+// setupFor says what an app's own domains still need here: a route, or the
+// authority's trust. Nil when nothing is declared or all is in place.
+func (s *Service) setupFor(st hub.StackView) *view.Setup {
+	domains := view.Domains(st)
+	if len(domains) == 0 {
+		return nil
+	}
+	req := names.TrustRequest{Domains: domains, Home: s.hub.Home()}
+	if ca, ok := names.OpenCA(names.CADir(s.hub.Home())); ok {
+		req.CA = ca
+	}
+	var missing []string
+	for _, step := range names.TrustStatus(req) {
+		if !step.Done {
+			missing = append(missing, step.Name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	routes := names.RouteDomains(domains)
+	text := routes[0] + " is not reachable here yet"
+	if len(routes) > 1 {
+		text = strings.Join(routes, ", ") + " are not reachable here yet"
+	}
+	return &view.Setup{Text: text, Detail: "missing: " + strings.Join(missing, ", ") + " · one admin prompt", Command: "doze trust"}
 }
 
 // Instance is an instance's page.

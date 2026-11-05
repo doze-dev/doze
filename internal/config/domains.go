@@ -4,8 +4,11 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+
+	names "github.com/doze-dev/doze-names"
 )
 
 // DomainSuffix is the private TLD every doze stack lives under (a service is
@@ -82,4 +85,91 @@ func (cfg *Config) validateDomains() error {
 		owner[d] = decl.Name
 	}
 	return nil
+}
+
+// checkDomains validates an app's own domains and certificate files
+// (decode.go common): the names as names.ValidDomain has them, both files
+// or neither, resolved against the block's folder and present.
+// shape says only the config's shape is being read (lint, the docs): the
+// files are not looked for then.
+func checkDomains(head blockHead, what string, domains []string, cert, key, baseDir string, shape bool) ([]string, string, string, error) {
+	if len(domains) == 0 && cert == "" && key == "" {
+		return nil, "", "", nil
+	}
+	if head.kind != KindApp {
+		return nil, "", "", fmt.Errorf("%s: `domains` is for app blocks; a %s is reached by its doze name", what, head.kind)
+	}
+	if len(domains) == 0 {
+		return nil, "", "", fmt.Errorf("%s: `cert` and `key` go with `domains`", what)
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, d := range domains {
+		if err := names.ValidDomain(d); err != nil {
+			return nil, "", "", fmt.Errorf("%s: domains: %v", what, err)
+		}
+		d = strings.TrimSuffix(strings.ToLower(d), ".")
+		if seen[d] {
+			return nil, "", "", fmt.Errorf("%s: domains: %q is listed twice", what, d)
+		}
+		seen[d] = true
+		out = append(out, d)
+	}
+	if (cert == "") != (key == "") {
+		return nil, "", "", fmt.Errorf("%s: set both `cert` and `key`, or neither (doze then mints a certificate)", what)
+	}
+	if cert != "" {
+		cert, key = absPath(baseDir, cert), absPath(baseDir, key)
+	}
+	if cert != "" && !shape {
+		for _, f := range []string{cert, key} {
+			if st, err := os.Stat(f); err != nil || st.IsDir() {
+				return nil, "", "", fmt.Errorf("%s: %s is not a file", what, f)
+			}
+		}
+		for _, d := range out {
+			if _, err := names.CheckCertificate(cert, key, d); err != nil {
+				return nil, "", "", fmt.Errorf("%s: %v", what, err)
+			}
+		}
+	}
+	return out, cert, key, nil
+}
+
+func absPath(base, p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(base, p)
+}
+
+// validateAppDomains checks that no two apps declare one domain, and that
+// domains are declared only where names are on, since they live in the
+// same registry and are fronted by the same door.
+func (cfg *Config) validateAppDomains() error {
+	owner := map[string]string{}
+	for _, decl := range cfg.Instances {
+		for _, d := range decl.Domains {
+			if other, dup := owner[d]; dup {
+				return fmt.Errorf("domain conflict: %q and %q both declare %s", other, decl.Name, d)
+			}
+			owner[d] = decl.Name
+		}
+		if len(decl.Domains) > 0 && !cfg.Defaults.Domains {
+			return fmt.Errorf("%q declares domains, which need names on: add `domains = true` to the defaults block", decl.Name)
+		}
+	}
+	return nil
+}
+
+// AppDomains lists every domain the stack declares, for the trust record
+// and the front door.
+func (cfg *Config) AppDomains() []string {
+	var out []string
+	for _, decl := range cfg.Decls() {
+		if decl.Enabled {
+			out = append(out, decl.Domains...)
+		}
+	}
+	return out
 }

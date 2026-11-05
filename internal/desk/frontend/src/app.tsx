@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ask, choose, copy, go, run, set, setTheme, useBoot, useSlice, type Theme } from "./store";
+import { ask, choose, copy, go, run, say, set, setTheme, useBoot, useSlice, type Theme } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
@@ -89,6 +89,12 @@ export function App() {
         break;
       case "copy":
         void copy(d.text ?? "", `the connect line of ${d.target}`);
+        break;
+      case "open":
+        transport().then((t) => {
+          t.open(d.text ?? "");
+          void say(`opened ${d.text}`);
+        });
         break;
       case "recent":
         void go({ key: where.key, page: "recent" });

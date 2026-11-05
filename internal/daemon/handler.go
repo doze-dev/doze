@@ -176,6 +176,8 @@ func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint
 	v.Console = h.d.consoles[v.Name]
 	v.URL = ep.URL
 	v.EnvVar = ep.EnvVar
+	v.Domains = ep.Domains
+	v.HTTPS = ep.HTTPS
 	// The aws engine is reached at the stack's AWS host; its backend port in
 	// ep.Address is internal-only, so show the host instead.
 	if shared, ok := cfg.AWSEndpoint(v.Engine); ok {

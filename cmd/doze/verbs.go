@@ -525,7 +525,10 @@ func urlCmd() *cobra.Command {
 				if ep.Name != args[0] {
 					continue
 				}
-				line := ep.URL
+				line := ep.HTTPS // the app's own domain over https, when it has one
+				if line == "" {
+					line = ep.URL
+				}
 				if line == "" {
 					line = ep.Address
 				}

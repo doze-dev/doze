@@ -1,6 +1,8 @@
 package view
 
 import (
+	names "github.com/doze-dev/doze-names"
+
 	"fmt"
 	"strings"
 	"time"
@@ -297,6 +299,15 @@ func pathLine(v control.InstanceView, in Instance, now time.Time) string {
 // connectRows are the connect card's rows, as the Instance board lists them.
 func connectRows(v control.InstanceView) []KV {
 	var rows []KV
+	if v.HTTPS != "" {
+		// The app's own domain, served over https by the front door.
+		rows = append(rows, KV{K: "Domain", V: v.HTTPS, Copy: v.HTTPS, Mono: true})
+		for _, d := range v.Domains {
+			if names.Wildcard(d) {
+				rows = append(rows, KV{K: "Subdomains", V: "https://" + d + " · any name under it", Mono: true, Dim: true})
+			}
+		}
+	}
 	if v.URL != "" {
 		rows = append(rows, KV{K: "URL", V: v.URL, Copy: v.URL, Mono: true})
 	}

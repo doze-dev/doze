@@ -153,6 +153,10 @@ type InstanceView struct {
 	// address for processes.
 	Bind   string `json:"bind,omitempty"`
 	Domain string `json:"domain,omitempty"` // local DNS name, e.g. "orders-pg.<stack>.doze"
+	// Domains are an app's own names outside the zone, and HTTPS the first
+	// of them as the URL the front door serves over TLS.
+	Domains []string `json:"domains,omitempty"`
+	HTTPS   string   `json:"https,omitempty"`
 	// NameOnly marks an app that is reachable at its name but not also at
 	// 127.0.0.1:<port>, because something else on the machine has that port.
 	NameOnly bool `json:"name_only,omitempty"`

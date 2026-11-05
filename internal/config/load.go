@@ -96,6 +96,9 @@ func (l *loader) loadFiles(path string, files []string, primary string, cliVars 
 			return nil, err
 		}
 	}
+	if err := cfg.validateAppDomains(); err != nil {
+		return nil, err
+	}
 	if err := cfg.validateDomains(); err != nil {
 		return nil, err
 	}

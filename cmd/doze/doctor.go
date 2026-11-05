@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/net/publicsuffix"
 
 	names "github.com/doze-dev/doze-names"
 	"github.com/doze-dev/doze/internal/binaries"
@@ -146,6 +147,9 @@ func doctorCmd() *cobra.Command {
 					}
 					if h, ok := zone.IngressHolder(); ok {
 						add("names: front door", fmt.Sprintf("%s (pid %d) is serving port-less http:// names", h.Owner, h.PID), true)
+					}
+					for _, c := range domainChecks(cfg, zone) {
+						add(c.name, c.detail, c.ok)
 					}
 					// Per-service addressing (share canonical ports by name) — a
 					// nice-to-have; flag it but never fail the check on its absence.
@@ -291,4 +295,56 @@ func readPID(path string) int {
 	}
 	n, _ := strconv.Atoi(strings.TrimSpace(strings.SplitN(string(raw), "\n", 2)[0]))
 	return n
+}
+
+type domainCheck struct {
+	name, detail string
+	ok           bool
+}
+
+// domainChecks are doctor's lines for an app's own domains: whether each is
+// a name sign-in providers accept, routed here, served over https by a
+// trusted authority or the person's own certificate, and whether a route
+// nobody declares any more is waiting to be removed.
+func domainChecks(cfg *config.Config, zone *names.Registry) []domainCheck {
+	var out []domainCheck
+	domains := cfg.AppDomains()
+	for _, decl := range cfg.Decls() {
+		for _, d := range decl.Domains {
+			base := names.RouteDomain(d)
+			if _, icann := publicsuffix.PublicSuffix(base); !icann {
+				out = append(out, domainCheck{"domain " + d, "not under a public top-level domain: sign-in providers such as Google refuse it as a redirect", false})
+			}
+			if decl.Cert != "" {
+				exp, err := names.CheckCertificate(decl.Cert, decl.Key, d)
+				if err != nil {
+					out = append(out, domainCheck{"domain " + d, "your certificate: " + err.Error(), false})
+				} else {
+					out = append(out, domainCheck{"domain " + d, "your certificate " + decl.Cert + " · expires " + exp.Format("2006-01-02"), true})
+				}
+			}
+		}
+	}
+	if len(domains) == 0 {
+		return out
+	}
+	req := names.TrustRequest{Domains: domains, Home: cfg.Home, Prune: names.StaleRoutes(cfg.Home)}
+	if usesDozeCA(cfg) {
+		if ca, err := names.LoadOrCreateCA(names.CADir(cfg.Home)); err == nil {
+			req.CA = ca
+		}
+	}
+	for _, st := range names.TrustStatus(req) {
+		detail := st.Detail
+		if !st.Done {
+			detail += " — run doze trust (one sudo)"
+		}
+		out = append(out, domainCheck{"domains: " + st.Name, detail, st.Done})
+	}
+	if h, ok := zone.IngressTLSHolder(); ok {
+		out = append(out, domainCheck{"domains: https", fmt.Sprintf("%s (pid %d) is serving https:// for the domains", h.Owner, h.PID), true})
+	} else if daemonRunning(cfg) {
+		out = append(out, domainCheck{"domains: https", "nothing of doze holds :443 — another program (caddy, nginx?) may have it; the domains work with their port", false})
+	}
+	return out
 }
