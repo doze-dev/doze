@@ -44,7 +44,10 @@ func Tabs(v control.InstanceView, spec *control.ConsoleSpec) []Tab {
 	}
 	switch {
 	case v.Kind == "task":
-		return []Tab{{TabLastRun, "last run"}}
+		// Its last run first, as the Task board draws it; the logs tab beside
+		// it filters and searches every run, as an app's does (the owner asked
+		// for it on 2026-11-05).
+		return []Tab{{TabLastRun, "last run"}, {TabLogs, "logs"}}
 	case HasWeb(v):
 		// ViewMap.dc.html: a module that ships a good UI (temporal) and a service
 		// that was told where its own is both open on it.

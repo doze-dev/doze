@@ -16,6 +16,10 @@
     {
       "id": "last run",
       "title": "last run"
+    },
+    {
+      "id": "logs",
+      "title": "logs"
     }
   ],
   "recent": [

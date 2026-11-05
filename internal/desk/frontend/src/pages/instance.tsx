@@ -138,6 +138,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
           task
             ? [
                 ["r", "run now"],
+                ["tab", "next tab"],
                 ["l", "logs"],
                 ["esc", "back"],
               ]

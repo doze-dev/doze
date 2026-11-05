@@ -91,7 +91,12 @@ test("a task's page is its last run", async ({ page }, info) => {
   await expect(page.locator(".head .path")).toContainText("task · done · ran 2m ago in 1.2s");
   await expect(page.locator(".box", { hasText: "history" })).toContainText("0015_orders_index.sql changed");
   await expect(page.locator(".dock .cap")).toContainText("its output");
+  await expect(page.locator(".tabs .tab")).toHaveText(["last run", "logs"]);
   await page.screenshot({ path: `.desk-look/Task-${info.project.name}.png` });
+  // The logs tab beside it has an app's filters, over every run.
+  await page.locator(".tab", { hasText: "logs" }).click();
+  await expect(page.locator(".rcol")).toContainText("levels");
+  await expect(page.locator(".dock .cap")).toContainText("every run");
 });
 
 test("keys: arrows move the selection, w wakes, Enter opens", async ({ page }) => {
