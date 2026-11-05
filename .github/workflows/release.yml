@@ -54,6 +54,7 @@ jobs:
       # A step's `if` cannot see its own env, so these live on the job.
       HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_P12 != '' }}
       HAS_NOTARY_KEY: ${{ secrets.NOTARY_KEY != '' }}
+      HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -90,9 +91,25 @@ jobs:
           fi
       - name: Bundle, sign, notarise
         run: sh build/darwin/bundle.sh doze dist ${GITHUB_REF_NAME#v}
-      - name: Attach Doze.app.zip
+      - name: The disk image
+        run: sh build/darwin/dmg.sh dist ${GITHUB_REF_NAME#v}
+      - name: Attach Doze.app.zip and the disk image
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           [ -f dist/Doze.app.zip ] || ditto -c -k --keepParent dist/Doze.app dist/Doze.app.zip
-          gh release upload "$GITHUB_REF_NAME" dist/Doze.app.zip --clobber
+          gh release upload "$GITHUB_REF_NAME" dist/Doze.app.zip "dist/Doze-${GITHUB_REF_NAME#v}.dmg" --clobber
+      # The cask in doze-dev/homebrew-tap, beside the formula: only for a
+      # signed and notarised image, since an unsigned one would not open.
+      - name: Update the Homebrew cask
+        if: env.HAS_DEVELOPER_ID == 'true' && env.HAS_NOTARY_KEY == 'true' && env.HAS_TAP_TOKEN == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          sum=$(shasum -a 256 "dist/Doze-$v.dmg" | cut -d" " -f1)
+          sed -e "s/__VERSION__/$v/" -e "s/__SHA256__/$sum/" build/darwin/doze.rb.tmpl > dist/doze.rb
+          sha=$(gh api repos/doze-dev/homebrew-tap/contents/Casks/doze.rb --jq .sha 2>/dev/null || true)
+          gh api -X PUT repos/doze-dev/homebrew-tap/contents/Casks/doze.rb \
+            -f message="doze $v (cask)" -f content="$(base64 < dist/doze.rb | tr -d '\n')" \
+            ${sha:+-f sha="$sha"}

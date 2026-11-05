@@ -63,3 +63,43 @@ brews:
 
 release:
   draft: false
+  # The tarballs and checksums only: the Linux packages wait for their
+  # by-eye pass (nfpms above).
+  ids: [doze]
+
+# The Linux app's packages: built on every release, attached to none (see
+# release.ids) until the app has had its by-eye pass on real desktops. The
+# tarball above is what ships for Linux meanwhile.
+nfpms:
+  - id: doze-packages
+    builds: [doze]
+    package_name: doze
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+    vendor: doze-dev
+    homepage: https://doze.nerdmenot.in
+    maintainer: doze <hello@doze.nerdmenot.in>
+    description: Real databases and services on your machine, asleep until you need them.
+    license: Apache-2.0
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    dependencies:
+      - libwebkit2gtk-4.1-0
+    recommends:
+      - libayatana-appindicator3-1
+    overrides:
+      rpm:
+        dependencies:
+          - webkit2gtk4.1
+        recommends:
+          - libayatana-appindicator-gtk3
+    contents:
+      - src: build/linux/doze.desktop
+        dst: /usr/share/applications/doze.desktop
+      - src: build/linux/doze.png
+        dst: /usr/share/icons/hicolor/256x256/apps/doze.png
+      - src: build/linux/doze.apparmor
+        dst: /etc/apparmor.d/doze
+        type: config|noreplace
+    scripts:
+      postinstall: build/linux/postinstall.sh
+      postremove: build/linux/postremove.sh

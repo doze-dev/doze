@@ -6,8 +6,9 @@ include <tunables/global>
 # an unconfined binary only through a profile that says so. Without this,
 # doze open dies with "bwrap: setting up uid map: Permission denied". The
 # deb and the rpm install it at /etc/apparmor.d/doze; a tarball install
-# copies it there by hand and runs apparmor_parser -r on it.
-profile doze /usr/local/bin/doze flags=(unconfined) {
+# copies it there by hand and runs apparmor_parser -r on it. The path covers
+# /usr/bin (the packages) and /usr/local/bin (a tarball).
+profile doze /usr/{,local/}bin/doze flags=(unconfined) {
   userns,
   include if exists <local/doze>
 }

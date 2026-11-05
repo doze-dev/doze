@@ -109,3 +109,7 @@ dist: ## Build release archives with goreleaser (requires goreleaser)
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: dmg
+dmg: app ## Build Doze.app and wrap it in a disk image (dist/Doze-<version>.dmg)
+	sh build/darwin/dmg.sh dist $(VERSION)
