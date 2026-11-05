@@ -5,6 +5,7 @@ package app
 import (
 	_ "embed"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -35,6 +36,13 @@ func (d *desk) startTray() {
 	d.item = d.app.SystemTray.New()
 	d.item.SetTemplateIcon(batIcon)
 	d.item.SetTooltip("doze")
+	if runtime.GOOS == "linux" {
+		// A StatusNotifier item says it is not a menu, so a desktop opens the
+		// menu on the secondary button and sends the primary one here: the
+		// primary click opens the window, as it does for most tray apps there.
+		// macOS shows the menu on the click itself and never calls this.
+		d.item.OnClick(func() { d.open("") })
+	}
 	d.refreshTray()
 }
 
