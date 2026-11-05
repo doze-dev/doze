@@ -168,14 +168,18 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           </button>
         </div>
       )}
-      <Strip v={home.vitals} narrow={narrow} />
-      <div className="toolbar" style={{ paddingBottom: 14 }}>
-        <label className="filter">
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" aria-label="Filter the services" />
-          <kbd>/</kbd>
-        </label>
-      </div>
+      <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} />
     </>
+  );
+  // The filter row; in the list view it sits inside the left column, so
+  // the details pane can start at the strip's line.
+  const filterRow = (
+    <div className="toolbar" style={{ paddingBottom: 14 }}>
+      <label className="filter">
+        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" aria-label="Filter the services" />
+        <kbd>/</kbd>
+      </label>
+    </div>
   );
 
   // The head, the banner, the strip and the filter span the window in
@@ -185,6 +189,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
   return (
     <>
       {page}
+      {viewName !== "list" && filterRow}
       {viewName === "tiles" && (
         <div className="scrollarea">
           <Tiles groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
@@ -192,7 +197,8 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
       )}
       {viewName === "list" && (
         <div className="body" style={{ flex: 1, minHeight: 0 }}>
-          <div className="main">
+          <div className="main" style={{ paddingTop: 28 }}>
+            {filterRow}
             <div className="scrollarea" style={{ paddingBottom: 12 }}>
               <List groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
             </div>
@@ -231,7 +237,7 @@ function toggle(stackKey: string, r: view.Row) {
   void run(stackKey, r.on ? "off" : "on", r.name);
 }
 
-function Strip({ v, narrow }: { v: view.Vitals4; narrow?: boolean }) {
+function Strip({ v, narrow, tight }: { v: view.Vitals4; narrow?: boolean; tight?: boolean }) {
   const s = v.state;
   const counts: Array<[number, string, string]> = [
     [s.dozing, "dozing", "warn"],
@@ -241,7 +247,7 @@ function Strip({ v, narrow }: { v: view.Vitals4; narrow?: boolean }) {
     [s.crashing, "crashing", "bad"],
   ];
   return (
-    <div className={"strip" + (narrow ? " narrow" : "")}>
+    <div className={"strip" + (narrow ? " narrow" : "") + (tight ? " tight" : "")}>
       <div className="stat wide">
         <span className="v">
           {v.mem.total}

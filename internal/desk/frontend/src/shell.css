@@ -128,6 +128,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 
 /* the strip of figures over an overview */
 .strip.narrow { gap: 20px; }
+.strip.tight { margin-bottom: 0; }
 .strip.narrow .stat.wide { flex: 1 1 140px; }
 .strip.narrow .stat .bar { width: 100%; }
 .strip.narrow .stat .v { font-size: 20px; }
@@ -183,7 +184,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .qr.off b, .qr.off .a { color: var(--dim); }
 .qr.bad .why { color: var(--bad); }
 .qr .runbtn { justify-self: end; }
-.insp { width: var(--pane); flex: none; border-left: 1px solid var(--line); border-top: 1px solid var(--line); background: var(--side); display: flex; flex-direction: column; min-height: 0; overflow: hidden auto; }
+.insp { width: var(--pane); flex: none; border-left: 1px solid var(--line); background: var(--side); display: flex; flex-direction: column; min-height: 0; overflow: hidden auto; }
 .insp .ih { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); flex: none; }
 .insp .ih h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .insp .ih .sub { color: var(--dim); font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
