@@ -13,6 +13,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/desk/app"
 	"github.com/doze-dev/doze/internal/desk/devserve"
+	"github.com/doze-dev/doze/internal/desk/link"
 )
 
 // openCmd is `doze open [dir]`: the app, at this project. It is the only
@@ -46,7 +47,11 @@ With no display (SSH, CI) it prints the status table instead.`,
 				}
 				return devserve.Run(cmd.Context(), devserve.Options{Addr: serveAddr, Fixture: fixture, Out: os.Stderr, Version: version, Open: open, Setup: setup})
 			}
-			dir := ""
+			dir, linkArg := "", ""
+			if len(args) == 1 && link.Is(args[0]) {
+				// A doze:// link: the app finds the stack itself.
+				linkArg, args = args[0], nil
+			}
 			if len(args) == 1 {
 				abs, err := filepath.Abs(args[0])
 				if err != nil {
@@ -80,12 +85,12 @@ With no display (SSH, CI) it prints the status table instead.`,
 			// the same binary, detached, asked the same thing. A second copy hands
 			// over to a running one (single instance) and exits.
 			if !measure && fixture == "" && os.Getenv(envAppChild) == "" && isTerminal(os.Stdin) {
-				if err := detachApp(dir, show); err == nil {
+				if err := detachApp(dir, show, linkArg); err == nil {
 					fmt.Println(ui.OK("✓") + " doze is open " + ui.Muted("· the bat stays in the menu bar; stacks keep running when it quits"))
 					return nil
 				}
 			}
-			return app.Run(app.Options{Open: dir, Show: show, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
+			return app.Run(app.Options{Open: dir, Show: show, Link: linkArg, Measure: measure, Fixture: fixture, Window: window, CloseAfter: closeAfter, QuitAfter: quitAfter, Version: version, Setup: setupFolder})
 		},
 	}
 	c.Flags().StringVar(&show, "show", "", "open the window at this service of the project")
@@ -127,12 +132,15 @@ const envAppChild = "DOZE_APP_CHILD"
 
 // detachApp starts `doze open dir` in its own session, with its output in
 // $DOZE_HOME/desk/app.log, and returns without waiting.
-func detachApp(dir, show string) error {
+func detachApp(dir, show, linkArg string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
 	args := []string{"open"}
+	if linkArg != "" {
+		args = append(args, linkArg)
+	}
 	if dir != "" {
 		args = append(args, dir)
 	}

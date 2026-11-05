@@ -24,6 +24,7 @@ import (
 	"github.com/doze-dev/doze/internal/adminprompt"
 	"github.com/doze-dev/doze/internal/desk/devserve"
 	"github.com/doze-dev/doze/internal/desk/hub"
+	"github.com/doze-dev/doze/internal/desk/link"
 	"github.com/doze-dev/doze/internal/desk/serve"
 	"github.com/doze-dev/doze/internal/desk/web"
 )
@@ -32,6 +33,8 @@ import (
 type Options struct {
 	// Open is the project directory to show first; empty means the tray only.
 	Open string
+	// Link is a doze:// link to open at, from `doze open doze://shop/db`.
+	Link string
 	// Show is a service in that project to open the window at, as a
 	// notification's Show does; empty opens the stack.
 	Show string
@@ -98,6 +101,10 @@ func Run(o Options) error {
 			// real app without being handed off to it.
 			UniqueID: "dev.doze.app" + os.Getenv("DOZE_DESK_INSTANCE"),
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				if l := linkFrom(data.Args); l != "" {
+					d.follow(l)
+					return
+				}
 				dir := dirFrom(data)
 				d.open(dir)
 				if show := flagFrom(data.Args, "--show"); show != "" {
@@ -105,6 +112,11 @@ func Run(o Options) error {
 				}
 			},
 		},
+	})
+	// A doze:// link clicked anywhere on the system (macOS hands it here).
+	d.app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
+		u := e.Context().URL()
+		time.AfterFunc(300*time.Millisecond, func() { d.follow(u) })
 	})
 	d.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		d.measure("tray ready %s after start", time.Since(began).Round(time.Millisecond))
@@ -116,6 +128,10 @@ func Run(o Options) error {
 		})
 		go d.hub.Run(d.app.Context())
 		go d.svc.Run(d.app.Context())
+		if o.Link != "" {
+			// The hub has to know the stacks before a name can be found.
+			time.AfterFunc(300*time.Millisecond, func() { d.follow(o.Link) })
+		}
 		if o.Open != "" || o.Window {
 			d.open(o.Open)
 			if o.Show != "" {
@@ -212,4 +228,53 @@ func (d *desk) measure(format string, args ...any) {
 	if d.o.Measure {
 		fmt.Fprintf(os.Stderr, "desk: "+format+"\n", args...)
 	}
+}
+
+// follow opens the window where a doze:// link points. A stack named by its
+// name is found among the stacks the hub knows; a link that points nowhere
+// is said, and the window opens on the Library.
+func (d *desk) follow(raw string) {
+	l, err := link.Parse(raw)
+	if err != nil {
+		d.svc.Say(raw+": "+err.Error(), true)
+		d.open("")
+		return
+	}
+	switch l.Page {
+	case "settings":
+		d.svc.OpenSettings()
+		d.open("")
+		return
+	case "library":
+		d.open("")
+		return
+	}
+	dir := l.Dir
+	if dir == "" {
+		for _, st := range d.hub.Stacks() {
+			if strings.EqualFold(st.Name, l.Stack) {
+				dir = st.Dir
+				break
+			}
+		}
+	}
+	if dir == "" {
+		d.svc.Say("no stack called "+l.Stack+" here; the Library lists the ones doze knows", true)
+		d.open("")
+		return
+	}
+	d.open(dir)
+	if l.Show != "" {
+		d.svc.OpenAt(dir, l.Show)
+	}
+}
+
+// linkFrom is a doze:// link among a launch's arguments, or "".
+func linkFrom(args []string) string {
+	for _, a := range args {
+		if link.Is(a) {
+			return a
+		}
+	}
+	return ""
 }

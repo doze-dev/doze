@@ -28,6 +28,10 @@ directly.
 
 ### `doze` / `doze open [dir]`
 
+Links open the app too: `doze://shop` is the shop stack, `doze://shop/db`
+its db service, `doze://library` and `doze://settings` those pages; put one
+in a README or a runbook, or `doze open doze://shop/db` from a terminal.
+
 Bare `doze`, or `doze open`, opens [the app](/cli/app/) at this project where
 there is a screen, and gives the prompt back. Over SSH, with no screen, bare
 `doze` is the terminal dash (`doze dash`, deprecated and going away in the next

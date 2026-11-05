@@ -26,6 +26,8 @@ type Options struct {
 	CloseAfter, QuitAfter time.Duration
 	// Version is the doze this is, shown in the sidebar.
 	Version string
+	// Link is a doze:// link to open at; unused without the app.
+	Link string
 	// Show is a service to open the window at; unused without the app.
 	Show string
 	// Setup sets a folder with no doze.hcl up; unused without the app.
