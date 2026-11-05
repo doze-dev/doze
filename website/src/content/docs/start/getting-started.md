@@ -127,7 +127,7 @@ few seconds) — you never have to think about starting or stopping it. See
 You can watch all of this live:
 
 ```sh
-doze dash      # an interactive dashboard; select a row to wake/sleep it
+doze           # the app: every stack, a switch per service, logs and consoles
 ```
 
 ## 5. Add a cache

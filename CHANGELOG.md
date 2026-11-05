@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`doze` opens the app.** Where there is a screen, bare `doze` and `doze open`
+  start the app and give the prompt back; over SSH `doze` is still the terminal
+  dash, and piped it prints the status table. `doze dash` is deprecated and goes
+  away in the next release. See "The app" page.
 - **The app, redrawn from the ground up.** The Library is the first tab:
   every stack with a switch (up as last time, everything, a chosen set,
   down), its addresses, when it was last up, and the machine's setup on

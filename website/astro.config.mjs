@@ -76,10 +76,10 @@ export default defineConfig({
           ],
         },
         {
-          label: "The CLI & dashboard",
+          label: "The app & the CLI",
           items: [
             { slug: "cli/tour" },
-            { slug: "cli/dashboard" },
+            { slug: "cli/app" },
           ],
         },
         {

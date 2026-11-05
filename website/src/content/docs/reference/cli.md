@@ -8,34 +8,31 @@ which auto-merges sibling `*.doze.hcl` files; a directory merges its `*.hcl`).
 `--var name=value` (repeatable) overrides a config variable. The rest of the
 global flags are for scripts and agents; see [scripting doze](#scripting-doze).
 
-doze has two surfaces that do the same things. The [dash](/cli/dashboard/) is
-the one to live in: every verb is a key or a `:` palette row there. The CLI
-below has a command for each of them, so a script, a Makefile, CI, or a
-terminal with no room for a dash can do everything the dash can. doze starts
+doze has two surfaces that do the same things. [The app](/cli/app/) is the
+one to live in: every verb is a switch, a key or a ⌘K row there. The CLI below
+has a command for each of them, so a script, a Makefile, CI, or a machine with
+no screen can do everything the app can. doze starts
 its background daemon automatically on first use, so you rarely manage it
 directly.
 
 | | |
 |---|---|
-| **The dash** | `doze` (or `doze dash`) |
+| **The app** | `doze` · `open` |
 | **The stack** | `up` · `down` · `sync` · `status` · `env` · `run` |
 | **One service** | `wake` · `sleep` · `restart` · `reset` · `pin` · `logs` · `url` |
-| **Before the dash** | `init` · `lint` · `doctor` · `dns-setup` |
+| **Before the app** | `init` · `lint` · `doctor` · `dns-setup` |
 | **Lockfile maintenance** | `modules upgrade` |
 | | `version` |
 
-## The dash
+## The app
 
-### `doze` / `doze dash`
+### `doze` / `doze open [dir]`
 
-Running bare `doze` on a terminal opens the dash (piped or redirected, it prints
-the [status table](#doze-status-aliases-tree-ls-ps) instead): the live fleet with per-service state,
-charts, and logs; engine pages for the aws and kafka instances (service board,
-live API wire, topics and consumer lag); an APPS view (`A`) for your own
-processes; and a `:` command palette carrying every verb — `:wake`, `:sleep`,
-`:restart`, `:reset`, `:logs`, `:filter`, `:apps`, `:theme`. `o` opens a
-service's web surface (the AWS console, the Kafka console, your app) in the
-browser.
+Bare `doze`, or `doze open`, opens [the app](/cli/app/) at this project where
+there is a screen, and gives the prompt back. Over SSH, with no screen, bare
+`doze` is the terminal dash (`doze dash`, deprecated and going away in the next
+release); piped or redirected it prints the
+[status table](#doze-status-aliases-tree-ls-ps).
 
 ## The stack
 

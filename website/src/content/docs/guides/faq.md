@@ -120,6 +120,6 @@ That's it — doze installs nothing else system-wide.
 
 ## Where can I see what doze is doing?
 
-`doze status` (snapshot), `doze dash` (live, interactive), and `doze logs`
+`doze status` (snapshot), `doze` (the app, live), and `doze logs`
 (daemon) / `doze logs <instance>` (a backend). Run `doze up -f` to bring things up
 in the foreground and watch boot and convergence in real time.

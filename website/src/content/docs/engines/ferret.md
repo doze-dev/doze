@@ -63,7 +63,8 @@ never write these. Older releases stay resolvable for pinned lockfiles.
 
 | Release | Engine versions | Platforms | |
 |---|---|---|---|
-| `0.2.2` | 2 | 3 | **stable** |
+| `0.2.3` | 2 | 3 | **stable** |
+| `0.2.2` | 2 | 3 |  |
 | `0.2.1` | 2 | 3 |  |
 
 Raw signed data: [index.yaml ↗](https://doze.nerdmenot.in/registry/doze/ferret/index.yaml) · [meta.yaml ↗](https://doze.nerdmenot.in/registry/doze/ferret/meta.yaml)

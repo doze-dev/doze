@@ -39,7 +39,7 @@ declare an exact build; either way it's fetched, verified, and pinned in
 | `1.5` | `1.5.1` | 2 |
 | `1.6` | `1.6.2` | 3 |
 | `1.7` | `1.7.3` | 4 |
-| `1.8` | `1.8.0` | 1 |
+| `1.8` | `1.8.2` | 3 |
 
 <details>
 <summary>Every exact build, per series</summary>
@@ -60,7 +60,7 @@ declare an exact build; either way it's fetched, verified, and pinned in
 
 **1.7** — `1.7.3` · `1.7.2` · `1.7.1` · `1.7.0`
 
-**1.8** — `1.8.0`
+**1.8** — `1.8.2` · `1.8.1` · `1.8.0`
 
 </details>
 

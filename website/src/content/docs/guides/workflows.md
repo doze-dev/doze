@@ -108,7 +108,7 @@ doze sync --dry-run   # preview the changes; boots nothing
 doze status           # grouped table: state, endpoint, conns, MEM, CPU, deps
 doze status --graph   # the dependency tree
 doze ls               # alias for status
-doze dash             # interactive TUI: select a row, then b boot / d reap / R restart / f follow
+doze                  # the app: a switch per service, ⏎ opens it, ⌘K for anything else
 doze logs             # aggregate logs of every running service
 doze logs app -f      # follow one service's logs
 doze doctor           # diagnose config, platform, toolchains, daemon state
