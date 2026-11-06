@@ -212,6 +212,12 @@ func Wiring(moduleType string) (env, attr string) {
 }
 
 // ConventionalPort is the port a module type usually runs on.
+//
+// The module itself is the authority (its Describe's Port, asked by the
+// config loader through Hooks.DefaultPort, and published in the registry
+// catalog that `doze add` reads). This table is only the fallback for when no
+// module can be asked: `doze init` and detection before anything is fetched,
+// offline, and the config's offline shape pass.
 func ConventionalPort(moduleType string) int {
 	for _, k := range kinds {
 		if k.module == moduleType {

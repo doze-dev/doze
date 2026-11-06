@@ -54,9 +54,9 @@ type Config struct {
 	dirSet   bool
 	root     string
 
-	// Service is the service preset: the command sleeps when idle without being
-	// asked to, and is woken by a connection or a dependant. An app stays up
-	// unless it sets `sleep`.
+	// Service is the service preset: woken by a connection or a dependant.
+	// Like a fronted app, it sleeps when idle if doze holds its port; with no
+	// port it has nothing to wake it, and stays up (see IdleAfter).
 	Service bool
 
 	// Task is the task preset (see runspec.Command). It has no port, no
@@ -97,6 +97,14 @@ type restartBlock struct {
 	Policy     string `hcl:"policy,optional"`
 	Backoff    string `hcl:"backoff,optional"`
 	MaxRetries int    `hcl:"max_retries,optional"`
+}
+
+// AppSchema is the schema an app block's own body is decoded with (the
+// arguments config reads off every block, such as `port`, are not in it). The
+// editor schema's drift test holds its table to this.
+func AppSchema() *hcl.BodySchema {
+	s, _ := gohcl.ImpliedBodySchema(hclConfig{})
+	return s
 }
 
 // Defaults for unset fields.
@@ -233,8 +241,13 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 func (c *Config) BindPort(port int) error {
 	c.declaredPort = port
 	if c.Sleep.Set && !c.Sleep.Never && !c.Proxied() {
-		// Only a connection through doze's listener can wake an app again.
-		return fmt.Errorf("sleep = %q needs doze to hold the app's port, so that a connection can wake it: declare a `port`, and do not set `direct`", c.Sleep.After)
+		// Only a connection through doze's listener can wake an app or a
+		// service again.
+		what := "app"
+		if c.Service {
+			what = "service"
+		}
+		return fmt.Errorf("sleep = %q needs doze to hold the %s's port, so that a connection can wake it: declare a `port`, and do not set `direct`", c.Sleep.After, what)
 	}
 	if c.Proxied() {
 		// doze holds the declared port and tells the app where to listen. An
@@ -413,10 +426,12 @@ func (c *Config) ConsoleTarget() (hostport, path string, ok bool) {
 }
 
 // IdleAfter is how long the app may sit with nothing holding it before doze
-// puts it to sleep. An app doze fronts sleeps when idle by default, after the
-// stack's idle_timeout or its own `sleep`: a request wakes it. A service
-// does too. An app with no fronted port has nothing that could wake it, so it
-// runs until it is stopped; so does anything that says sleep = "never".
+// puts it to sleep. An app or a service doze fronts sleeps when idle by
+// default, after the stack's default `sleep` or its own: a request wakes it.
+// One with no fronted port (a worker, or `direct`) has nothing that could wake
+// it, so it runs until it is stopped; so does anything that says
+// sleep = "never". (A duration on one with no fronted port is refused by
+// BindPort.)
 func (c *Config) IdleAfter() (time.Duration, bool) {
 	if c.Sleep.Never {
 		return 0, false
@@ -424,7 +439,7 @@ func (c *Config) IdleAfter() (time.Duration, bool) {
 	if c.Sleep.Set {
 		return c.Sleep.After, true
 	}
-	if c.Service || c.Proxied() {
+	if c.Proxied() {
 		return 0, true // after the stack's default time
 	}
 	return 0, false

@@ -1,0 +1,594 @@
+{
+  "$comment": "Generated from internal/config/vocabulary.go by `go generate ./internal/config`. Do not edit.",
+  "block": {
+    "attributes": {
+      "data_dir": {
+        "description": "This project's state: data, sockets, logs.",
+        "optional": true,
+        "type": "string"
+      },
+      "doze": {
+        "description": "The oldest doze this stack needs, e.g. \">= 0.2\".",
+        "optional": true,
+        "type": "string"
+      },
+      "home": {
+        "description": "The shared toolchain store and cache ($DOZE_HOME or ~/.doze).",
+        "optional": true,
+        "type": "string"
+      },
+      "stack": {
+        "description": "The stack's name, in <name>.<stack>.doze; the folder's name if unset.",
+        "optional": true,
+        "type": "string"
+      }
+    },
+    "block_types": {
+      "app": {
+        "block": {
+          "attributes": {
+            "after": {
+              "description": "Start only after these: [module.db, task.migrate] wait until ready; started(app.x) until it runs.",
+              "optional": true,
+              "type": [
+                "list",
+                "dynamic"
+              ]
+            },
+            "cert": {
+              "description": "A PEM certificate for domains; one is made if unset.",
+              "optional": true,
+              "type": "string"
+            },
+            "console": {
+              "description": "A web console it serves on a second port, e.g. http://127.0.0.1:8025.",
+              "optional": true,
+              "type": "string"
+            },
+            "count": {
+              "description": "Stamp this many copies of the block; count.index is 0, 1, …",
+              "optional": true,
+              "type": "number"
+            },
+            "dir": {
+              "description": "The working directory, relative to the file that declares the block.",
+              "optional": true,
+              "type": "string"
+            },
+            "direct": {
+              "description": "The app binds port itself: no $PORT, and nothing wakes it.",
+              "optional": true,
+              "type": "bool"
+            },
+            "domains": {
+              "description": "Your own hostnames for the app, served over https.",
+              "optional": true,
+              "type": [
+                "list",
+                "string"
+              ]
+            },
+            "enabled": {
+              "description": "false keeps the block declared but never started.",
+              "optional": true,
+              "type": "bool"
+            },
+            "env": {
+              "description": "Environment variables; values may reference other blocks (module.db.url).",
+              "optional": true,
+              "type": [
+                "map",
+                "string"
+              ]
+            },
+            "env_file": {
+              "description": "A KEY=VALUE file, below env in precedence.",
+              "optional": true,
+              "type": "string"
+            },
+            "for_each": {
+              "description": "Stamp one copy per key of a map or element of a set; each.key and each.value name it.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "key": {
+              "description": "The certificate's PEM private key.",
+              "optional": true,
+              "type": "string"
+            },
+            "on_ready": {
+              "description": "Shell lines run on every wake, once it is ready.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "port": {
+              "description": "The port everyone else uses. doze holds it and starts the command with $PORT, a private port, to listen on.",
+              "optional": true,
+              "type": "number"
+            },
+            "ready": {
+              "description": "When it is ready: tcp(), http(\"/path\"), log(\"text\") or exec(\"cmd\").",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "ready_timeout": {
+              "description": "How long it has to become ready (default \"60s\").",
+              "optional": true,
+              "type": "string"
+            },
+            "run": {
+              "description": "The command line, run with sh -c.",
+              "required": true,
+              "type": "string"
+            },
+            "setup": {
+              "description": "Shell lines run once per data folder, before run.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "sleep": {
+              "description": "Sleep after this long with nothing holding it (\"5m\"), or \"never\". A duration needs a port.",
+              "optional": true,
+              "type": "string"
+            },
+            "stop": {
+              "description": "Shell lines run before it is signalled to stop.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "watch": {
+              "description": "Restart when a file matching one of these globs changes.",
+              "optional": true,
+              "type": [
+                "list",
+                "string"
+              ]
+            }
+          },
+          "block_types": {
+            "restart": {
+              "block": {
+                "attributes": {
+                  "backoff": {
+                    "description": "The first wait between restarts, doubled each time up to 30s, e.g. \"1s\".",
+                    "optional": true,
+                    "type": "string"
+                  },
+                  "max_retries": {
+                    "description": "How many restarts before the command is marked failed (default 5).",
+                    "optional": true,
+                    "type": "number"
+                  },
+                  "policy": {
+                    "description": "\"no\", \"on_failure\" (default) or \"always\".",
+                    "optional": true,
+                    "type": "string"
+                  }
+                },
+                "description": "How doze restarts the command after an unexpected exit."
+              },
+              "nesting_mode": "single"
+            }
+          },
+          "description": "Your own code, run on the host."
+        },
+        "labels": [
+          "name"
+        ],
+        "nesting_mode": "list"
+      },
+      "defaults": {
+        "block": {
+          "attributes": {
+            "env": {
+              "description": "Variables every app, service and task gets; a block's own env wins key by key.",
+              "optional": true,
+              "type": [
+                "map",
+                "string"
+              ]
+            },
+            "log_runs": {
+              "description": "How many runs of each service's log are kept (default 5).",
+              "optional": true,
+              "type": "number"
+            },
+            "log_size": {
+              "description": "The most log kept per service, across its runs (default \"10MB\").",
+              "optional": true,
+              "type": "string"
+            },
+            "names": {
+              "description": "Give every service a <name>.<stack>.doze name.",
+              "optional": true,
+              "type": "bool"
+            },
+            "ready_timeout": {
+              "description": "How long every app and service gets to become ready (default \"60s\"), unless its block says.",
+              "optional": true,
+              "type": "string"
+            },
+            "sleep": {
+              "description": "Sleep after this long at zero connections (default \"2m\"), or \"never\".",
+              "optional": true,
+              "type": "string"
+            }
+          },
+          "block_types": {
+            "restart": {
+              "block": {
+                "attributes": {
+                  "backoff": {
+                    "description": "The first wait between restarts, doubled each time up to 30s, e.g. \"1s\".",
+                    "optional": true,
+                    "type": "string"
+                  },
+                  "max_retries": {
+                    "description": "How many restarts before the command is marked failed (default 5).",
+                    "optional": true,
+                    "type": "number"
+                  },
+                  "policy": {
+                    "description": "\"no\", \"on_failure\" (default) or \"always\".",
+                    "optional": true,
+                    "type": "string"
+                  }
+                },
+                "description": "How doze restarts the command after an unexpected exit."
+              },
+              "nesting_mode": "single"
+            }
+          },
+          "description": "Settings for every block in the stack."
+        },
+        "nesting_mode": "single"
+      },
+      "locals": {
+        "block": {
+          "attributes": {},
+          "description": "Named values, read as local.<name>; any argument is one.",
+          "open": true
+        },
+        "nesting_mode": "list"
+      },
+      "module": {
+        "block": {
+          "attributes": {
+            "after": {
+              "description": "Start only after these: [module.db, task.migrate] wait until ready; started(app.x) until it runs.",
+              "optional": true,
+              "type": [
+                "list",
+                "dynamic"
+              ]
+            },
+            "count": {
+              "description": "Stamp this many copies of the block; count.index is 0, 1, …",
+              "optional": true,
+              "type": "number"
+            },
+            "enabled": {
+              "description": "false keeps the block declared but never started.",
+              "optional": true,
+              "type": "bool"
+            },
+            "for_each": {
+              "description": "Stamp one copy per key of a map or element of a set; each.key and each.value name it.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "listen": {
+              "description": "A full address instead: \"unix:/path.sock\", or \"0.0.0.0:5544\".",
+              "optional": true,
+              "type": "string"
+            },
+            "port": {
+              "description": "The port clients use; the engine's own (5432, 6379, …) if unset.",
+              "optional": true,
+              "type": "number"
+            },
+            "sleep": {
+              "description": "Sleep after this long with nothing holding it, or \"never\".",
+              "optional": true,
+              "type": "string"
+            },
+            "version": {
+              "description": "The engine version: a major (16) or exact (\"16.14\", quoted). Required except for aws.",
+              "optional": true,
+              "type": "dynamic"
+            }
+          },
+          "description": "An engine from the doze registry (postgres, valkey, …). Its own arguments are the module's: see its registry page.",
+          "open": true
+        },
+        "labels": [
+          "type",
+          "name"
+        ],
+        "nesting_mode": "list"
+      },
+      "output": {
+        "block": {
+          "attributes": {
+            "description": {
+              "description": "What it is.",
+              "optional": true,
+              "type": "string"
+            },
+            "sensitive": {
+              "description": "The value is a secret.",
+              "optional": true,
+              "type": "bool"
+            },
+            "value": {
+              "description": "The value, e.g. module.db.url.",
+              "optional": true,
+              "type": "dynamic"
+            }
+          },
+          "description": "A value worked out from the stack, recorded with its state."
+        },
+        "labels": [
+          "name"
+        ],
+        "nesting_mode": "list"
+      },
+      "service": {
+        "block": {
+          "attributes": {
+            "after": {
+              "description": "Start only after these: [module.db, task.migrate] wait until ready; started(app.x) until it runs.",
+              "optional": true,
+              "type": [
+                "list",
+                "dynamic"
+              ]
+            },
+            "console": {
+              "description": "A web console it serves on a second port, e.g. http://127.0.0.1:8025.",
+              "optional": true,
+              "type": "string"
+            },
+            "count": {
+              "description": "Stamp this many copies of the block; count.index is 0, 1, …",
+              "optional": true,
+              "type": "number"
+            },
+            "dir": {
+              "description": "The working directory, relative to the file that declares the block.",
+              "optional": true,
+              "type": "string"
+            },
+            "download": {
+              "description": "An archive to fetch and run from: a URL, or a map of mac, mac_intel, linux, linux_arm to URLs.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "enabled": {
+              "description": "false keeps the block declared but never started.",
+              "optional": true,
+              "type": "bool"
+            },
+            "env": {
+              "description": "Environment variables; values may reference other blocks (module.db.url).",
+              "optional": true,
+              "type": [
+                "map",
+                "string"
+              ]
+            },
+            "env_file": {
+              "description": "A KEY=VALUE file, below env in precedence.",
+              "optional": true,
+              "type": "string"
+            },
+            "for_each": {
+              "description": "Stamp one copy per key of a map or element of a set; each.key and each.value name it.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "on_ready": {
+              "description": "Shell lines run on every wake, once it is ready.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "port": {
+              "description": "The port everyone else uses. doze holds it and starts the command with $PORT, a private port, to listen on.",
+              "optional": true,
+              "type": "number"
+            },
+            "ready": {
+              "description": "When it is ready: tcp(), http(\"/path\"), log(\"text\") or exec(\"cmd\").",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "ready_timeout": {
+              "description": "How long it has to become ready (default \"60s\").",
+              "optional": true,
+              "type": "string"
+            },
+            "run": {
+              "description": "The command line, run with sh -c.",
+              "required": true,
+              "type": "string"
+            },
+            "setup": {
+              "description": "Shell lines run once per data folder, before run.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "sleep": {
+              "description": "Sleep after this long with nothing holding it (\"5m\"), or \"never\". A duration needs a port.",
+              "optional": true,
+              "type": "string"
+            },
+            "stop": {
+              "description": "Shell lines run before it is signalled to stop.",
+              "optional": true,
+              "type": "dynamic"
+            }
+          },
+          "block_types": {
+            "restart": {
+              "block": {
+                "attributes": {
+                  "backoff": {
+                    "description": "The first wait between restarts, doubled each time up to 30s, e.g. \"1s\".",
+                    "optional": true,
+                    "type": "string"
+                  },
+                  "max_retries": {
+                    "description": "How many restarts before the command is marked failed (default 5).",
+                    "optional": true,
+                    "type": "number"
+                  },
+                  "policy": {
+                    "description": "\"no\", \"on_failure\" (default) or \"always\".",
+                    "optional": true,
+                    "type": "string"
+                  }
+                },
+                "description": "How doze restarts the command after an unexpected exit."
+              },
+              "nesting_mode": "single"
+            }
+          },
+          "description": "A long-running command from outside the registry."
+        },
+        "labels": [
+          "name"
+        ],
+        "nesting_mode": "list"
+      },
+      "task": {
+        "block": {
+          "attributes": {
+            "after": {
+              "description": "Start only after these: [module.db, task.migrate] wait until ready; started(app.x) until it runs.",
+              "optional": true,
+              "type": [
+                "list",
+                "dynamic"
+              ]
+            },
+            "count": {
+              "description": "Stamp this many copies of the block; count.index is 0, 1, …",
+              "optional": true,
+              "type": "number"
+            },
+            "dir": {
+              "description": "The working directory, relative to the file that declares the block.",
+              "optional": true,
+              "type": "string"
+            },
+            "enabled": {
+              "description": "false keeps the block declared but never started.",
+              "optional": true,
+              "type": "bool"
+            },
+            "env": {
+              "description": "Environment variables; values may reference other blocks.",
+              "optional": true,
+              "type": [
+                "map",
+                "string"
+              ]
+            },
+            "env_file": {
+              "description": "A KEY=VALUE file, below env in precedence.",
+              "optional": true,
+              "type": "string"
+            },
+            "for_each": {
+              "description": "Stamp one copy per key of a map or element of a set; each.key and each.value name it.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "inputs": {
+              "description": "Globs whose content, when changed, makes the task run again.",
+              "optional": true,
+              "type": [
+                "list",
+                "string"
+              ]
+            },
+            "manual": {
+              "description": "Run only by doze task <name>, never as something's after.",
+              "optional": true,
+              "type": "bool"
+            },
+            "run": {
+              "description": "The command line, run with sh -c.",
+              "required": true,
+              "type": "string"
+            }
+          },
+          "description": "A command that runs to completion, such as a migration."
+        },
+        "labels": [
+          "name"
+        ],
+        "nesting_mode": "list"
+      },
+      "tls": {
+        "block": {
+          "attributes": {
+            "cert": {
+              "description": "A PEM certificate; with no cert and key, one is made.",
+              "optional": true,
+              "type": "string"
+            },
+            "key": {
+              "description": "The certificate's PEM private key.",
+              "optional": true,
+              "type": "string"
+            },
+            "required": {
+              "description": "Refuse clients that do not use TLS.",
+              "optional": true,
+              "type": "bool"
+            }
+          },
+          "description": "Client TLS for Postgres, terminated by doze."
+        },
+        "nesting_mode": "single"
+      },
+      "variable": {
+        "block": {
+          "attributes": {
+            "default": {
+              "description": "The value when nothing sets it; without one the variable is required.",
+              "optional": true,
+              "type": "dynamic"
+            },
+            "description": {
+              "description": "What it is for.",
+              "optional": true,
+              "type": "string"
+            },
+            "sensitive": {
+              "description": "The value is a secret.",
+              "optional": true,
+              "type": "bool"
+            },
+            "type": {
+              "description": "A type constraint: string, number, bool, list(string), map(string), …",
+              "optional": true,
+              "type": "dynamic"
+            }
+          },
+          "description": "An input, read as var.<name>; set by --var, DOZE_VAR_<name> or *.auto.doze.vars."
+        },
+        "labels": [
+          "name"
+        ],
+        "nesting_mode": "list"
+      }
+    }
+  },
+  "files": [
+    "doze.hcl",
+    "*.doze.hcl"
+  ],
+  "format_version": "1"
+}

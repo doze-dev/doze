@@ -20,7 +20,7 @@ directly.
 | **The app** | `doze` · `open` |
 | **The stack** | `up` · `down` · `sync` · `status` · `env` · `run` |
 | **One service** | `wake` · `sleep` · `restart` · `reset` · `pin` · `logs` · `url` |
-| **Before the app** | `init` · `lint` · `doctor` · `dns-setup` |
+| **Before the app** | `init` · `lint` · `fmt` · `doctor` · `dns-setup` |
 | **Lockfile maintenance** | `modules upgrade` |
 | | `version` |
 
@@ -252,6 +252,20 @@ see [exit codes](#exit-codes)).
 It also warns, without failing, about what loads but is likely a mistake: a
 variable nothing reads, and a task nothing lists in `after` (which only `doze
 task` would ever run; `manual = true` says that is meant).
+
+### `doze fmt [--check]`
+
+Rewrite `doze.hcl` and every sibling `*.doze.hcl` in HCL's canonical layout
+(indentation, aligned `=`, spacing), in place, and print the files it changed.
+Layout only, never meaning; a file that does not parse is an error and nothing
+is written.
+
+`--check` writes nothing: it lists the files that would change and exits 1 if
+there are any, so CI or a pre-commit hook can fail on an unformatted config.
+
+```bash
+doze fmt --check   # in CI
+```
 
 ### `doze doctor [--fix]`
 

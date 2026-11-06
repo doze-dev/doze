@@ -19,6 +19,11 @@ import (
 	"github.com/doze-dev/doze/internal/runspec"
 )
 
+// instanceMetaSchema is the meta-arguments of a module or app block, read
+// before its body is decoded. (`depends_on` is an old form, refused with its
+// new spelling.)
+var instanceMetaSchema = &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"}, {Name: "enabled"}, {Name: "after"}}}
+
 // expandInstanceBlock turns one module or app block into one or more pending
 // instances. A plain block yields one; a `count`/`for_each` block is stamped into
 // several, each with a flat derived name (label_key / label_index) and a child
@@ -30,8 +35,7 @@ func (l *loader) expandInstanceBlock(cfg *Config, block *hcl.Block, declRanges m
 	if err != nil {
 		return nil, err
 	}
-	metaSchema := &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"}, {Name: "enabled"}, {Name: "after"}}}
-	meta, restBody, diags := block.Body.PartialContent(metaSchema)
+	meta, restBody, diags := block.Body.PartialContent(instanceMetaSchema)
 	if diags.HasErrors() {
 		return nil, diagError(parser, diags)
 	}
@@ -189,8 +193,19 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 	// to reference. It is still never invented: a kind with no well-known port
 	// (and an app, or a service) must say its own, and two that want the same one
 	// are reported by validatePorts.
+	//
+	// The module knows its own port: once its driver has resolved, its
+	// Describe's Port is asked first. doze's table (detect.ConventionalPort) is
+	// only the fallback, for when no module can be asked: the offline shape
+	// pass, `doze init` before anything is fetched, a module whose Describe
+	// gives no port.
 	if c.Port == 0 && c.Listen == "" && head.kind == KindModule && head.etype != "temporal" {
-		c.Port = detect.ConventionalPort(head.etype)
+		if drv != nil {
+			c.Port = l.hooks.defaultPort(head.etype)
+		}
+		if c.Port == 0 {
+			c.Port = detect.ConventionalPort(head.etype)
+		}
 	}
 	domains, cert, key, err := checkDomains(head, what, c.Domains, c.Cert, c.Key, blockBaseDir(cfg, block), l.shape)
 	if err != nil {

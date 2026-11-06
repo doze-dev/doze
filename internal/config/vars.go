@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
 
@@ -44,6 +45,12 @@ type varInputs struct {
 type hclVariable struct {
 	Type        hcl.Expression `hcl:"type,optional"`
 	Default     hcl.Expression `hcl:"default,optional"`
+	Description string         `hcl:"description,optional"`
+	Sensitive   bool           `hcl:"sensitive,optional"`
+}
+
+type hclOutput struct {
+	Value       hcl.Expression `hcl:"value"`
 	Description string         `hcl:"description,optional"`
 	Sensitive   bool           `hcl:"sensitive,optional"`
 }
@@ -260,11 +267,7 @@ func (cfg *Config) evaluateOutputs(parser *hclparse.Parser, blocks []*hcl.Block,
 			return posErr(parser, block.DefRange, fmt.Sprintf("output %q is already declared", name), "first declared at "+first.String())
 		}
 		seen[name] = block.DefRange
-		var o struct {
-			Value       hcl.Expression `hcl:"value"`
-			Description string         `hcl:"description,optional"`
-			Sensitive   bool           `hcl:"sensitive,optional"`
-		}
+		var o hclOutput
 		if diags := gohcl.DecodeBody(block.Body, ctx, &o); diags.HasErrors() {
 			return diagError(parser, diags)
 		}
@@ -311,15 +314,17 @@ func loadAutoVars(dir string) (map[string]cty.Value, error) {
 }
 
 // renderValue turns a resolved cty value into the string doze stores/prints.
+// A string is itself, unquoted; anything else is written as it would be in
+// doze.hcl: 5432, true, ["a", "b"], { port = 5432 }.
 func renderValue(v cty.Value) string {
-	if v.IsNull() {
+	v, _ = v.UnmarkDeep()
+	if v.IsNull() || !v.IsWhollyKnown() {
 		return ""
 	}
 	if v.Type() == cty.String {
 		return v.AsString()
 	}
-	// Numbers, bools, and collections render via cty's canonical form.
-	return v.GoString()
+	return string(hclwrite.Format(hclwrite.TokensForValue(v).Bytes()))
 }
 
 func exprIsNull(e hcl.Expression) bool {
