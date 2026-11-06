@@ -97,6 +97,10 @@ func checkOldForms(parser *hclparse.Parser, files []*hcl.File) error {
 		if attr, ok := body.Attributes["name"]; ok {
 			return posErr(parser, attr.NameRange, "`name` is now `stack`", "write: stack = "+exprText(parser, attr.Expr.Range()))
 		}
+		if attr, ok := body.Attributes["listen"]; ok {
+			return posErr(parser, attr.NameRange, "a stack-wide `listen` is gone: doze never gave instances ports from it",
+				"delete it; a module listens on its own port (set `port` on it to change it), and `listen` on one block still takes a unix:/path")
+		}
 		for _, blk := range body.Blocks {
 			if reservedBlocks[blk.Type] || isKind(blk.Type) {
 				continue

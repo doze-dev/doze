@@ -247,8 +247,6 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 	for name, attr := range content.Attributes {
 		var dst *string
 		switch name {
-		case "listen":
-			dst = &cfg.Listen
 		case "home":
 			dst = &cfg.Home
 		case "data_dir":

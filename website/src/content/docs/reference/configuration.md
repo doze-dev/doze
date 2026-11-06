@@ -37,7 +37,6 @@ generated from the module itself, so it can't be stale.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `stack` | string | the config folder's name | Names the stack. It scopes local domains (`<name>.<stack>.doze`) and must be unique among the stacks running on the machine. |
-| `listen` | string | `127.0.0.1:6432` | Base client address. Each instance gets the next port; override per instance with `listen`, or use a `unix:/path`. |
 | `home` | string | `$DOZE_HOME` or `~/.doze` | Shared toolchain store + cache (deduplicated across projects). |
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |
 | `defaults { idle_timeout }` | duration | `2m` | Reap an instance after this long at **zero connections**. |
@@ -66,7 +65,11 @@ Every `module <type> "<name>" { … }` block accepts:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). A version with a dot is quoted: as a number, `10.10` would read as `10.1`, so doze refuses it. **Required** for every module except `aws`, which takes none. |
-| `listen` | string | next port from root `listen` | Per-instance client address (`"127.0.0.1:5544"` or `"unix:/path.sock"`). |
+| `port` | number | the engine's own (5432, 6379, …) | The port clients connect to, on the module's own address. |
+| `listen` | string | none | A full client address instead of the name and port: `"unix:/path.sock"`, or `"0.0.0.0:5544"` to reach it from other machines. |
+| `enabled` | bool | `true` | `false` keeps it declared but never started (paused). |
+| `count` / `for_each` | number / map or set | none | Stamp several instances from one block; see [Stamping](#stamping-with-for_each--count). |
+| `after` | list of references | none | Start only after these; see [Explicit ordering](#explicit-ordering-after). |
 | `sleep` | duration or `"never"` | the stack's `idle_timeout` | How long the module sits with nothing holding it before it sleeps. `"never"` keeps it on. Its data stays; the next connection wakes it. A module doze doesn't sit in front of, such as `temporal`, can't take a duration: nothing would wake it. |
 
 `version` is the only version you declare. The *module* (the plugin that
@@ -159,6 +162,11 @@ env var › a sibling **`*.auto.doze.vars`** file (`name = value` assignments) �
 
 **`locals { … }`** — named intermediate values (`local.<name>`); may reference
 variables, functions, and earlier locals.
+
+**`output "<name>" { value = … }`**: a named value worked out from the stack
+(`value = module.db.url`), with an optional `description` and `sensitive =
+true`. Outputs are recorded with the stack's state each time it is applied, for
+scripts that read it; no command prints them yet.
 
 ### Stamping with `for_each` / `count`
 
@@ -689,8 +697,8 @@ does. It listens on `$PORT` (a private port; doze holds `port` itself), and
 `$DATA` is a folder of its own that survives restarts.
 
 A `service` with a `download` (a URL, or a map of `mac` / `mac_intel` /
-`linux` / `linux_arm` to a URL) is checked but **cannot be run yet**: `doze up`
-refuses a stack that declares one.
+`linux` / `linux_arm` to a URL) is fetched once, checked against the digest
+pinned in `doze.lock`, and run from where it was unpacked.
 
 ### The moments of a command
 

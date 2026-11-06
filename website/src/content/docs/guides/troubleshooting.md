@@ -23,18 +23,21 @@ go build -o ~/bin/doze ./cmd/doze     # then ensure ~/bin is on PATH
 
 ## The daemon won't start / "address already in use"
 
-Another process (or a stale doze daemon) holds the listen port.
+Another process (or a stale doze daemon) holds a port a service wants.
 
 ```sh
 doze status                      # is a daemon already running?
 doze down                        # stop a stale daemon
-lsof -iTCP:6432 -sTCP:LISTEN     # who's on the port? (adjust to your `listen`)
+lsof -iTCP:5432 -sTCP:LISTEN     # who's on the port? (the one in the error)
 ```
 
-If you genuinely need a different port, change the base address in `doze.hcl`:
+If you genuinely need a different port, set it on that block in `doze.hcl`:
 
 ```hcl
-listen = "127.0.0.1:7000"
+module postgres "db" {
+  version = 17
+  port    = 5433
+}
 ```
 
 When the daemon can't come up it now prints the real reason from the log — read

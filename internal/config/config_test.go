@@ -52,7 +52,6 @@ func (fakeDriver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, _ string, _ 
 
 func TestParseRootAndInstances(t *testing.T) {
 	src := `
-listen = "127.0.0.1:7000"
 defaults { idle_timeout = "90s" }
 
 module fake "a" {
@@ -66,9 +65,6 @@ module fake "b" {
 	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.Listen != "127.0.0.1:7000" {
-		t.Errorf("listen = %q", cfg.Listen)
 	}
 	if cfg.Defaults.IdleTimeout != 90*time.Second {
 		t.Errorf("idle_timeout = %s", cfg.Defaults.IdleTimeout)
@@ -118,9 +114,6 @@ func TestDefaultsApplied(t *testing.T) {
 	cfg, err := Parse([]byte(`module fake "x" { version = 1 }`), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if cfg.Listen != DefaultListen {
-		t.Errorf("default listen = %q", cfg.Listen)
 	}
 	if cfg.Defaults.IdleTimeout != DefaultIdleTimeout {
 		t.Errorf("default idle_timeout = %s", cfg.Defaults.IdleTimeout)
@@ -742,5 +735,13 @@ func TestDottedVersionMustBeQuoted(t *testing.T) {
 	}
 	if _, err := Parse([]byte(`module fake "x" { version = "10.10" }`), "doze.hcl", nil); err != nil && strings.Contains(err.Error(), "drops trailing zeros") {
 		t.Errorf("quoted is fine, got %v", err)
+	}
+}
+
+// A stack-wide listen is an old form: it never gave instances ports.
+func TestRootListenIsGone(t *testing.T) {
+	_, err := Parse([]byte("listen = \"127.0.0.1:7000\"\nmodule fake \"x\" { version = 1 }"), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "stack-wide `listen` is gone") {
+		t.Errorf("got %v", err)
 	}
 }
