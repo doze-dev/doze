@@ -223,14 +223,3 @@ func engineOf(d *config.InstanceDecl) string {
 	}
 	return "process"
 }
-
-func groupOf(kind string) int {
-	for i, g := range display.Groups {
-		for _, k := range g.Kinds {
-			if k == kind {
-				return i
-			}
-		}
-	}
-	return 1
-}
