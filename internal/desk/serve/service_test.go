@@ -134,7 +134,7 @@ func TestDoRefusesWithTheDashSentence(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	err := s.Do(key, control.VerbSleep, "db")
-	if err == nil || err.Error() != "the daemon is not responding: nothing was sent" {
+	if err == nil || err.Error() != "the daemon is not answering: nothing was sent" {
 		t.Errorf("err = %v", err)
 	}
 }

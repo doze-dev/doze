@@ -71,6 +71,25 @@ func (s *Service) Library() view.Library {
 	lib.OpenAtLogin = autostart.Enabled()
 	lib.Others = others(home)
 	s.mu.Unlock()
+	// A doze.hcl that does not load is said on its row (configError takes
+	// the lock itself, so this is after it).
+	for _, st := range stacks {
+		if st.Dir == "" {
+			continue
+		}
+		ce := s.configError(st.Dir)
+		if ce == nil {
+			continue
+		}
+		for j := range lib.Stacks {
+			if lib.Stacks[j].Key == st.Key {
+				lib.Stacks[j].Broken = "doze.hcl does not load"
+				if ce.Line > 0 {
+					lib.Stacks[j].Broken += fmt.Sprintf(" · line %d", ce.Line)
+				}
+			}
+		}
+	}
 	return lib
 }
 

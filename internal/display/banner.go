@@ -25,7 +25,7 @@ func Banner(connecting, down bool, retryIn, sinceFrame time.Duration) (ok bool, 
 	case connecting:
 		return false, "connecting to the daemon…"
 	case down:
-		out := "daemon not responding"
+		out := "daemon not answering"
 		if left := retryIn.Round(time.Second); left > 0 {
 			out += fmt.Sprintf(" · retrying in %ds", int(left.Seconds()))
 		} else {

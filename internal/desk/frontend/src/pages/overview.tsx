@@ -192,7 +192,8 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             role="switch"
             aria-checked={home.busy ? home.busy !== "stopping" : home.running}
             aria-busy={!!home.busy}
-            disabled={!!home.busy}
+            disabled={!!home.busy || !!stopped?.problem}
+            title={stopped?.problem ? "doze.hcl does not load, so the stack cannot start" : undefined}
             aria-label={home.busy ? `${home.stack} is ${home.busy}` : home.running ? `${home.stack} is up` : `${home.stack} is stopped`}
             onClick={() => void (home.running ? askStop(stackKey) : stackAction(stackKey, "up-last"))}
           />
@@ -249,7 +250,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
       {stopped ? (
         <DownStrip s={stopped} tight={viewName === "list"} busy={home.busy} onUp={() => void stackAction(stackKey, "up-last")} onChoose={() => void chooseStart(stackKey)} dir={home.dir} />
       ) : (
-        <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} />
+        <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} stale={!home.banner.ok} />
       )}
     </>
   );
@@ -554,7 +555,7 @@ function toggle(stackKey: string, r: view.Row) {
   else void run(stackKey, "wake", r.name);
 }
 
-function Strip({ v, narrow, tight }: { v: view.Vitals4; narrow?: boolean; tight?: boolean }) {
+function Strip({ v, narrow, tight, stale }: { v: view.Vitals4; narrow?: boolean; tight?: boolean; stale?: boolean }) {
   const s = v.state;
   const counts: Array<[number, string, string]> = [
     [s.dozing, "dozing", "warn"],
@@ -564,7 +565,7 @@ function Strip({ v, narrow, tight }: { v: view.Vitals4; narrow?: boolean; tight?
     [s.crashing, "crashing", "bad"],
   ];
   return (
-    <div className={"strip" + (narrow ? " narrow" : "") + (tight ? " tight" : "")}>
+    <div className={"strip" + (narrow ? " narrow" : "") + (tight ? " tight" : "") + (stale ? " faded" : "")} title={stale ? "the last figures heard; the daemon is not answering" : undefined}>
       <div className="stat wide">
         <span className="v">
           {v.mem.total}
@@ -664,11 +665,12 @@ function Switch({ r, stackKey }: { r: view.Row; stackKey: string }) {
   }
   return (
     <button
-      className={"sw" + (r.on ? " on" : "") + (r.off ? " dis" : "")}
+      className={"sw" + (r.on ? " on" : "") + (r.off || r.frozen ? " dis" : "")}
       role="switch"
       aria-checked={r.on}
+      disabled={!!r.frozen}
       aria-label={`${r.name} is ${r.look.word}`}
-      title={r.off ? "Turned off: switch it on to bring it back and wake it" : r.on ? "Switch off to put it to sleep" : "Switch on to wake it"}
+      title={r.frozen ? "The stack's daemon is not answering; nothing can change until it does" : r.off ? "Turned off: switch it on to bring it back and wake it" : r.on ? "Switch off to put it to sleep" : "Switch on to wake it"}
       onClick={(e) => {
         e.stopPropagation();
         toggle(stackKey, r);
@@ -1065,7 +1067,7 @@ function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
         <span className="dot r" aria-hidden />
         <div className="t">
           <b>{c.text}: the stack keeps running as it was.</b>
-          <span>Nothing is applied until the file loads. Fix it in your editor; this page reads it again on save.</span>
+          <span>Fix it in your editor; this page checks the file again each time it is saved. Once it loads, Restart the stack applies it: a running stack keeps the file it started with.</span>
         </div>
         <button className="btn" onClick={() => void edit()}>
           Edit {name} <kbd>⌘E</kbd>

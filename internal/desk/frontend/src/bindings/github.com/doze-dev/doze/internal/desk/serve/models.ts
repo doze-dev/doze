@@ -62,4 +62,10 @@ export interface StackSummary {
      * Troubled counts the instances in trouble: the tab's red badge.
      */
     "troubled"?: number;
+
+    /**
+     * Broken says its doze.hcl does not load: the tab's dot says so on
+     * every page, not only the stack's overview.
+     */
+    "broken"?: boolean;
 }

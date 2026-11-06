@@ -23,6 +23,9 @@ type Instance struct {
 	Engine  string `json:"engine"`
 	Version string `json:"version,omitempty"`
 	Look    Look   `json:"look"`
+	// Broken is set while the stack's doze.hcl does not load: every page
+	// of the stack says so, not only its overview.
+	Broken string `json:"broken,omitempty"`
 	// On, Off, Paused and Pinned are the head switch, as a row's (Row).
 	On     bool `json:"on"`
 	Off    bool `json:"off,omitempty"`

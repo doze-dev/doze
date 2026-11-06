@@ -141,6 +141,9 @@ type Row struct {
 	Off    bool `json:"off,omitempty"`
 	Paused bool `json:"paused,omitempty"`
 	Pinned bool `json:"pinned"`
+	// Frozen is set while the stack's daemon is not answering: what the
+	// row shows is the last word heard, and its switch cannot act.
+	Frozen bool `json:"frozen,omitempty"`
 	// Err is the first line of what it last said before exiting, while it
 	// is crashing.
 	Err string `json:"err,omitempty"`
@@ -210,6 +213,7 @@ type Side struct {
 func HomeOf(st hub.StackView, now time.Time) Home {
 	snap := snapshot(st)
 	h := Home{Key: st.Key, Stack: st.Name, Dir: display.Tilde(st.Dir), Running: st.Running, Banner: BannerOf(st, now)}
+	frozen := st.Running && st.Conn == hub.ConnDown
 	rows := display.Rows(snap)
 	_, depth := display.TreeOrder(rows)
 	for gi, g := range display.Groups {
@@ -235,6 +239,7 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 				}
 			}
 			row.On, row.Off, row.Paused, row.Pinned = display.SwitchOn(v), v.Disabled && !v.Paused, v.Paused, v.KeepAwake
+			row.Frozen = frozen
 			if row.Trouble && v.LastError != "" {
 				row.Err = display.FirstLine(v.LastError)
 			}

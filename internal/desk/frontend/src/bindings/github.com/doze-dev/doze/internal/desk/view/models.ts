@@ -532,6 +532,12 @@ export interface Instance {
     "look": Look;
 
     /**
+     * Broken is set while the stack's doze.hcl does not load: every page
+     * of the stack says so, not only its overview.
+     */
+    "broken"?: string;
+
+    /**
      * On, Off, Paused and Pinned are the head switch, as a row's (Row).
      */
     "on": boolean;
@@ -629,6 +635,12 @@ export interface LibStack {
      * Busy is the stack action in flight, as on its page.
      */
     "busy"?: string;
+
+    /**
+     * Broken is its doze.hcl failing to load, in a line: "doze.hcl does not
+     * load · line 9". A stopped stack cannot start while it is set.
+     */
+    "broken"?: string;
     "key": string;
     "name": string;
     "dir": string;
@@ -1176,6 +1188,12 @@ export interface Row {
     "off"?: boolean;
     "paused"?: boolean;
     "pinned": boolean;
+
+    /**
+     * Frozen is set while the stack's daemon is not answering: what the
+     * row shows is the last word heard, and its switch cannot act.
+     */
+    "frozen"?: boolean;
 
     /**
      * Err is the first line of what it last said before exiting, while it

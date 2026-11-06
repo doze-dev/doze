@@ -167,6 +167,18 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
           </>
         )}
       </div>
+      {inst.broken && (
+        <div className="banner warn" role="status" style={{ marginTop: 4 }}>
+          <span className="dot y" aria-hidden />
+          <div className="t">
+            <b>{inst.broken}: {inst.stack} keeps running the file it started with.</b>
+            <span>Nothing in it is applied until the file loads.</span>
+          </div>
+          <button className="btn" onClick={() => void go({ key: stackKey, page: "home" })}>
+            See why
+          </button>
+        </div>
+      )}
       <nav className="ptabs" role="tablist">
         {tabs.map((t) => (
           <button key={t.id} role="tab" data-tab={t.id} aria-selected={t.id === current} className={"ptab" + (t.id === current ? " on" : "")} onClick={() => setTab(t.id)}>

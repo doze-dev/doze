@@ -40,7 +40,8 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           break;
         case " ":
           e.preventDefault();
-          if (row) void (row.running ? askStop(row.key) : stackAction(row.key, "up-last"));
+          if (row && !row.running && row.broken) void go({ key: row.key, page: "home" });
+          else if (row) void (row.running ? askStop(row.key) : stackAction(row.key, "up-last"));
           break;
         case "Enter":
           if (row) void go({ key: row.key, page: "home" });
@@ -188,7 +189,12 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
         <span className="dim">{s.sub}</span>
       </div>
       <div className="pills">
-        {s.need && (
+        {s.broken && (
+          <span className="need">
+            ● <span className="t">{s.broken}</span>
+          </span>
+        )}
+        {s.need && !s.broken && (
           <span className="need">
             ● <span className="t">{s.need}</span>
           </span>
@@ -209,8 +215,8 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
           role="switch"
           aria-checked={s.busy ? s.busy !== "stopping" : s.running}
           aria-busy={!!s.busy}
-          disabled={!!s.busy}
-          title={s.busy ? `${s.busy}…` : undefined}
+          disabled={!!s.busy || (!s.running && !!s.broken)}
+          title={s.busy ? `${s.busy}…` : !s.running && s.broken ? "doze.hcl does not load, so it cannot start; open it to see why" : undefined}
           aria-label={s.busy ? `${s.name} is ${s.busy}` : s.running ? `${s.name} is up` : `${s.name} is stopped`}
           onDoubleClick={(e) => e.stopPropagation()}
           onClick={(e) => {

@@ -15,7 +15,7 @@ import (
 var ErrNotRunning = errors.New("the stack is not running")
 
 // ErrNotResponding is a verb sent while the daemon is not answering.
-var ErrNotResponding = errors.New("the daemon is not responding: nothing was sent")
+var ErrNotResponding = errors.New("the daemon is not answering: nothing was sent")
 
 // eventsKept is how many journal events a stack keeps, as the dash did.
 const eventsKept = 300

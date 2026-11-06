@@ -122,7 +122,7 @@ func TestCrashGolden(t *testing.T) {
 
 func TestBannerWords(t *testing.T) {
 	st := hub.StackView{Running: true, Conn: hub.ConnDown, RetryAt: epoch.Add(3 * time.Second)}
-	if b := BannerOf(st, epoch); b.OK || b.Text != "daemon not responding · retrying in 3s" {
+	if b := BannerOf(st, epoch); b.OK || b.Text != "daemon not answering · retrying in 3s" {
 		t.Errorf("down banner = %+v", b)
 	}
 	st = hub.StackView{Running: true, Conn: hub.ConnLive, Metered: true, LastFrame: epoch.Add(-7 * time.Second)}

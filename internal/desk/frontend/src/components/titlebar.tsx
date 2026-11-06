@@ -47,9 +47,9 @@ export function Titlebar({
             aria-selected={!library && s.key === current}
             className={"stab" + (!library && s.key === current ? " on" : "")}
             onClick={() => onPick(s.key)}
-            title={`${s.dir}  ⌘${i + 1}`}
+            title={`${s.dir}${s.broken ? " · doze.hcl does not load" : s.running && !s.live ? " · daemon not answering" : ""}  ⌘${i + 1}`}
           >
-            <span className={"dot " + (s.trouble ? "r" : s.running ? (s.live ? "g" : "y") : "")} aria-hidden />
+            <span className={"dot " + (s.trouble ? "r" : s.broken ? "y" : s.running ? (s.live ? "g" : "y") : "")} aria-hidden />
             <span className="t">{s.name || "stack"}</span>
             {s.trouble && <span className="badge">{s.troubled || "!"}</span>}
           </button>

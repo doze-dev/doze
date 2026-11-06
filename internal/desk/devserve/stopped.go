@@ -82,3 +82,15 @@ app "worker" {
 
 module postgres "db" { version = 17 }
 `
+
+// changedConfig is the changed fixture's doze.hcl: valid, and newer than
+// what the running stack read.
+const changedConfig = `stack = "shop"
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+}
+
+module postgres "db" { version = 17 }
+`

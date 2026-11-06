@@ -51,6 +51,8 @@ var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
 	"long":      fixture.Long,
 	"badconfig": fixture.Shop,
 	"portclash": fixture.Crash,
+	"changed":   fixture.Shop,
+	"stale":     fixture.Shop,
 }
 
 // Run serves until ctx ends.
@@ -155,6 +157,18 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 		}
 		f.Snap.Dir = dir
 	}
+	if name == "changed" {
+		// The shop, running a doze.hcl it read ten minutes ago; the file was
+		// saved since: the "doze.hcl changed" banner.
+		dir := filepath.Join(home, "work", "shop")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(changedConfig), 0o644); err != nil {
+			return nil, nil, err
+		}
+		f.Snap.Dir, f.Snap.Loaded = dir, time.Now().Add(-10*time.Minute)
+	}
 	// The meters every second after the script, as a daemon sends them, so
 	// a metered page is never told its picture is old.
 	stop := make(chan struct{})
@@ -172,7 +186,13 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 			}
 		}()
 	}
-	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return f }})
+	var d control.Daemon = f
+	if name == "stale" {
+		// A daemon that answered once and then stopped: the page keeps the
+		// last word heard and says the daemon is not answering.
+		d = &quiet{Fake: f}
+	}
+	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return d }})
 	return h, func() {
 		close(stop)
 		_ = os.RemoveAll(home)

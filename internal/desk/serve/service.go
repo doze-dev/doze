@@ -80,6 +80,9 @@ type StackSummary struct {
 	Trouble bool   `json:"trouble"`
 	// Troubled counts the instances in trouble: the tab's red badge.
 	Troubled int `json:"troubled,omitempty"`
+	// Broken says its doze.hcl does not load: the tab's dot says so on
+	// every page, not only the stack's overview.
+	Broken bool `json:"broken,omitempty"`
 }
 
 // Focus is what the page is showing: the stack, the page and, on an
@@ -335,6 +338,9 @@ func (s *Service) Stacks() []StackSummary {
 		if sum.Name == "" && st.Dir != "" {
 			sum.Name = filepath.Base(st.Dir) // the tab says what the Library says
 		}
+		if st.Dir != "" {
+			sum.Broken = s.configError(st.Dir) != nil
+		}
 		for _, v := range st.Instances {
 			if v.Kind == "task" {
 				continue
@@ -428,6 +434,14 @@ func (s *Service) setupFor(st hub.StackView) *view.Setup {
 func (s *Service) Instance(key, name string) view.Instance {
 	st, _ := s.stack(key)
 	out := view.InstanceOf(st, name, s.now())
+	if st.Dir != "" {
+		if ce := s.configError(st.Dir); ce != nil {
+			out.Broken = "doze.hcl does not load"
+			if ce.Line > 0 {
+				out.Broken += fmt.Sprintf(" (line %d)", ce.Line)
+			}
+		}
+	}
 	if out.Crash != nil {
 		// Its last run: the tail of what it said before it exited, from that
 		// run only.
@@ -576,7 +590,25 @@ func (s *Service) Dialog(key, name, verb string) view.Dialog {
 // stack on screen, whose rows come first.
 func (s *Service) Palette(key, _, query string) view.Palette {
 	recent := prefs.Load(s.hub.Home()).Recent
-	return view.PaletteOf(s.hub.Stacks(), key, recent, query, s.now())
+	stacks := s.hub.Stacks()
+	p := view.PaletteOf(stacks, key, recent, query, s.now())
+	// A stack whose doze.hcl does not load cannot start: its Up row says
+	// so and opens its page, where the error is.
+	broken := map[string]bool{}
+	for _, st := range stacks {
+		if !st.Running && st.Dir != "" && s.configError(st.Dir) != nil {
+			broken[st.Key] = true
+		}
+	}
+	for i := range p.Sections {
+		for j, r := range p.Sections[i].Rows {
+			if r.Do.Kind == "stack" && strings.HasPrefix(r.Do.Verb, "up") && broken[r.Do.StackKey] {
+				p.Sections[i].Rows[j].Note = "doze.hcl does not load; open it to see why"
+				p.Sections[i].Rows[j].Do = view.Doing{Kind: "page", StackKey: r.Do.StackKey, Page: "home"}
+			}
+		}
+	}
+	return p
 }
 
 // SetTheme remembers the colour theme chosen in Settings, in prefs, so the

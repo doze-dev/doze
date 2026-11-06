@@ -79,7 +79,7 @@ func Build(stacks []hub.StackView, now time.Time) Model {
 		case st.Conn == hub.ConnConnecting:
 			l.Sub = "connecting…"
 		case st.Conn == hub.ConnDown:
-			l.Sub = "daemon not responding"
+			l.Sub = "daemon not answering"
 		default:
 			l.Sub = fmt.Sprintf("%d awake", n)
 			if t.Dozing > 0 {

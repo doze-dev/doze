@@ -44,7 +44,10 @@ type Library struct {
 // LibStack is one row of the library.
 type LibStack struct {
 	// Busy is the stack action in flight, as on its page.
-	Busy    string `json:"busy,omitempty"`
+	Busy string `json:"busy,omitempty"`
+	// Broken is its doze.hcl failing to load, in a line: "doze.hcl does not
+	// load · line 9". A stopped stack cannot start while it is set.
+	Broken  string `json:"broken,omitempty"`
 	Key     string `json:"key"`
 	Name    string `json:"name"`
 	Dir     string `json:"dir"`
@@ -237,6 +240,10 @@ func libStackOf(st hub.StackView, now time.Time) LibStack {
 				need += " · " + b
 			}
 		}
+	}
+	if st.Running && st.Conn == hub.ConnDown && need == "" {
+		// The figures are the last ones heard; the row says so.
+		need = "daemon not answering · retrying"
 	}
 	row.Need = need
 	switch {

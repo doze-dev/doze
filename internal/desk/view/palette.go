@@ -182,7 +182,9 @@ func byName(stacks []hub.StackView, query string, now time.Time) []PaletteSectio
 	}
 	for _, st := range stacks {
 		if !st.Running {
-			add(upRow(st))
+			// A name under Open opens: a stopped stack's page, where Up is.
+			// Starting it is "up acme", said as a verb.
+			add(PaletteRow{Glyph: "dot", Tone: "dim", Label: st.Name, Note: display.Tilde(st.Dir) + " · stopped", Key: "⏎ open", Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
 			continue
 		}
 		snap := snapshot(st)

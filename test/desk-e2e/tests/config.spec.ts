@@ -31,3 +31,17 @@ test("a doze.hcl that stops loading is shown with its line, and a fix clears it"
   // And break it again for the other browser.
   fs.writeFileSync(file, fixed.replace("port  = 8081", 'port  = "eighty-eighty-one"'));
 });
+
+test("a broken doze.hcl is said on the tab, the Library row and every page of the stack", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".lrow", { hasText: "shop" }).first()).toContainText("doze.hcl does not load");
+  await expect(page.getByRole("tab", { name: /^shop/ })).toHaveAttribute("title", /doze\.hcl does not load/);
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await page.getByRole("button", { name: /^api,/ }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("api");
+  const note = page.locator(".banner", { hasText: "doze.hcl does not load" });
+  await expect(note).toContainText("keeps running the file it started with");
+  await note.getByRole("button", { name: "See why" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+});

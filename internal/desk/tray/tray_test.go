@@ -54,7 +54,7 @@ func TestBuildWithNothingRunning(t *testing.T) {
 		t.Errorf("empty model = %+v", m)
 	}
 	m = Build([]hub.StackView{{Key: "k", Name: "shop", Running: true, Conn: hub.ConnDown}}, now)
-	if len(m.Lines) != 1 || m.Lines[0].Sub != "daemon not responding" {
+	if len(m.Lines) != 1 || m.Lines[0].Sub != "daemon not answering" {
 		t.Errorf("down daemon = %+v", m.Lines)
 	}
 }

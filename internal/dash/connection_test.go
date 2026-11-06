@@ -39,12 +39,12 @@ func TestConnectingIsNotEmpty(t *testing.T) {
 func TestADeadDaemonIsSaidAndAVerbIsRefused(t *testing.T) {
 	m := board()
 	m.w, m.h = 140, 40
-	if out := frame(m, 140, 40); strings.Contains(out, "not responding") {
+	if out := frame(m, 140, 40); strings.Contains(out, "not answering") {
 		t.Fatalf("a live daemon is called dead:\n%s", out)
 	}
 	m.Update(connMsg{up: false, err: fakedaemon.ErrGone, retry: 4 * time.Second})
 	out := frame(m, 140, 40)
-	if !strings.Contains(out, "daemon not responding") || !strings.Contains(out, "retrying in 4s") {
+	if !strings.Contains(out, "daemon not answering") || !strings.Contains(out, "retrying in 4s") {
 		t.Errorf("the banner:\n%s", out)
 	}
 	for _, page := range []int{pageHome, pageFocus, pageLogs} {
@@ -52,7 +52,7 @@ func TestADeadDaemonIsSaidAndAVerbIsRefused(t *testing.T) {
 		if m.page == pageFocus {
 			m.sel = "api"
 		}
-		if got := frame(m, 140, 40); !strings.Contains(got, "daemon not responding") {
+		if got := frame(m, 140, 40); !strings.Contains(got, "daemon not answering") {
 			t.Errorf("page %d does not say the daemon is gone:\n%s", page, got)
 		}
 	}
@@ -73,7 +73,7 @@ func TestADeadDaemonIsSaidAndAVerbIsRefused(t *testing.T) {
 	if cmd == nil {
 		t.Error("coming back should ask for a snapshot")
 	}
-	if out := frame(m, 140, 40); strings.Contains(out, "not responding") {
+	if out := frame(m, 140, 40); strings.Contains(out, "not answering") {
 		t.Errorf("the banner stayed after the daemon returned:\n%s", out)
 	}
 	if len(m.cache["api"]) != 1 {
