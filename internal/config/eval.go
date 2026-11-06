@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -216,7 +217,13 @@ func (l *loader) decodeBody(cfg *Config, p *pendingInstance, ctx, decodeCtx *hcl
 	case engine.ConfigDecoder: // in-tree engine
 		spec, err := dec.DecodeConfig(p.remain, decodeCtx, p.baseDir, p.decl.Version)
 		if err != nil {
-			return fmt.Errorf("%s: %w", p.decl.Title(), err)
+			// A positioned mistake renders like every other config error; one
+			// the engine can't place is pinned to the block that holds it.
+			var dd hcl.Diagnostics
+			if errors.As(err, &dd) && dd.HasErrors() {
+				return diagError(l.parser, dd)
+			}
+			return posErr(l.parser, p.defRange, p.decl.Title()+": "+err.Error(), "")
 		}
 		// Config reads `port` off the block before the driver sees the rest; an
 		// engine whose probes need it takes it here.
@@ -236,7 +243,14 @@ func (l *loader) decodeBody(cfg *Config, p *pendingInstance, ctx, decodeCtx *hcl
 		// expanded instance name; the each/count vars in decodeCtx differentiate stamps.
 		spec, err := dec.DecodeRemote(src, p.defRange.Filename, p.decl.Type, p.blockLabel, mergedVars(ctx, decodeCtx), p.baseDir, p.decl.Version)
 		if err != nil {
-			// The plugin re-parses the source under a synthesized name
+			// A module built with a newer SDK sends its diagnostics with their
+			// positions (the SDK's client hands them back as hcl.Diagnostics
+			// under the error); render them like doze's own.
+			var dd hcl.Diagnostics
+			if errors.As(err, &dd) && dd.HasErrors() {
+				return l.remoteDiagError(p, dd)
+			}
+			// An older module sends only a string. The plugin re-parses the source under a synthesized name
 			// ("<label>.doze.hcl"); its positions are relative to the real file,
 			// so put the real filename back before the user sees it.
 			msg := strings.ReplaceAll(err.Error(), p.blockLabel+".doze.hcl", p.defRange.Filename)
