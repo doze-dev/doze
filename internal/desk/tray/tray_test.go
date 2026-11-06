@@ -1,6 +1,7 @@
 package tray
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -56,5 +57,30 @@ func TestBuildWithNothingRunning(t *testing.T) {
 	m = Build([]hub.StackView{{Key: "k", Name: "shop", Running: true, Conn: hub.ConnDown}}, now)
 	if len(m.Lines) != 1 || m.Lines[0].Sub != "daemon not answering" {
 		t.Errorf("down daemon = %+v", m.Lines)
+	}
+}
+
+func TestSplit(t *testing.T) {
+	var lines []Line
+	for i := 0; i < 10; i++ {
+		lines = append(lines, Line{Name: fmt.Sprintf("up%d", i), Running: true, Trouble: i == 9})
+	}
+	for i := 0; i < 7; i++ {
+		lines = append(lines, Line{Name: fmt.Sprintf("down%d", i)})
+	}
+	shown, more := Split(lines)
+	if len(shown) != 8+1+5 || len(more) != 1+2 {
+		t.Fatalf("shown %d, more %d", len(shown), len(more))
+	}
+	if more[0].Name != "up8" || more[1].Name != "down5" {
+		t.Errorf("more = %v", more)
+	}
+	for _, l := range more {
+		if l.Trouble {
+			t.Errorf("a stack in trouble went under More: %v", l)
+		}
+	}
+	if s, m := Split(lines[:3]); len(s) != 3 || len(m) != 0 {
+		t.Errorf("a short list is all shown: %d, %d", len(s), len(m))
 	}
 }

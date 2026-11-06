@@ -110,40 +110,16 @@ func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	} else {
 		menu.AddSectionHeader("Stacks")
 	}
-	for _, l := range m.Lines {
-		mark := "○  "
-		if l.Running {
-			mark = "●  "
+	shown, more := tray.Split(m.Lines)
+	for _, l := range shown {
+		d.stackItem(menu, l)
+	}
+	if len(more) > 0 {
+		// The rest, a submenu away: it scrolls on its own if it must.
+		rest := menu.AddSubmenu(fmt.Sprintf("More stacks · %d", len(more)))
+		for _, l := range more {
+			d.stackItem(rest, l)
 		}
-		if l.Trouble {
-			mark = "⚠︎  "
-		}
-		title := mark + l.Name
-		if l.Sub != "" {
-			title += "   ·   " + l.Sub
-		}
-		sub := menu.AddSubmenu(title)
-		line := l
-		sub.Add("Open in doze").OnClick(func(*application.Context) { d.open(line.Dir) })
-		if l.Running {
-			if url := d.svc.WebURL(l.Key); url != "" {
-				sub.Add("Open " + url).OnClick(func(*application.Context) { _ = d.app.Browser.OpenURL(url) })
-			}
-			sub.AddSeparator()
-			sub.Add("Sleep everything").OnClick(func(*application.Context) {
-				d.report(d.svc.Do(line.Key, "sleep", ""), "sleep everything in "+line.Name)
-			})
-			sub.Add("Restart").OnClick(func(*application.Context) {
-				d.report(d.svc.Stack(line.Key, "restart", nil), "restart "+line.Name)
-			})
-			sub.Add("Down").OnClick(func(*application.Context) {
-				d.report(d.svc.Stack(line.Key, "down", nil), "bring "+line.Name+" down")
-			})
-			continue
-		}
-		sub.AddSeparator()
-		sub.Add("Up as last time").OnClick(func(*application.Context) { d.up(line, "up-last") })
-		sub.Add("Up everything").OnClick(func(*application.Context) { d.up(line, "up-all") })
 	}
 	menu.AddSeparator()
 	menu.Add("Open doze").SetAccelerator("CmdOrCtrl+Shift+D").OnClick(func(*application.Context) { d.open("") })
@@ -153,6 +129,43 @@ func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	})
 	menu.Add("Quit doze   ·   stacks keep running").OnClick(func(*application.Context) { d.app.Quit() })
 	return menu
+}
+
+// stackItem is one stack's line and its submenu of what fits its state.
+func (d *desk) stackItem(menu *application.Menu, l tray.Line) {
+	mark := "○  "
+	if l.Running {
+		mark = "●  "
+	}
+	if l.Trouble {
+		mark = "⚠︎  "
+	}
+	title := mark + l.Name
+	if l.Sub != "" {
+		title += "   ·   " + l.Sub
+	}
+	sub := menu.AddSubmenu(title)
+	line := l
+	sub.Add("Open in doze").OnClick(func(*application.Context) { d.open(line.Dir) })
+	if l.Running {
+		if url := d.svc.WebURL(l.Key); url != "" {
+			sub.Add("Open " + url).OnClick(func(*application.Context) { _ = d.app.Browser.OpenURL(url) })
+		}
+		sub.AddSeparator()
+		sub.Add("Sleep everything").OnClick(func(*application.Context) {
+			d.report(d.svc.Do(line.Key, "sleep", ""), "sleep everything in "+line.Name)
+		})
+		sub.Add("Restart").OnClick(func(*application.Context) {
+			d.report(d.svc.Stack(line.Key, "restart", nil), "restart "+line.Name)
+		})
+		sub.Add("Down").OnClick(func(*application.Context) {
+			d.report(d.svc.Stack(line.Key, "down", nil), "bring "+line.Name+" down")
+		})
+		return
+	}
+	sub.AddSeparator()
+	sub.Add("Up as last time").OnClick(func(*application.Context) { d.up(line, "up-last") })
+	sub.Add("Up everything").OnClick(func(*application.Context) { d.up(line, "up-all") })
 }
 
 // up starts a stopped stack from the menu bar. Up looks first (D19): with

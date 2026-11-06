@@ -117,3 +117,33 @@ func lastUp(stacks []hub.StackView, key string) time.Time {
 	}
 	return time.Time{}
 }
+
+// How many stacks the menu lists before the rest go under More stacks:
+// the menu bar is for a glance, and a long native menu only scrolls with
+// arrows at its edges.
+const (
+	shownRunning = 8
+	shownStopped = 5
+)
+
+// Split is the lines the menu lists itself, and the rest, for a More
+// stacks submenu. Running stacks come first, then the stopped ones most
+// recently up (Build's order); a stack in trouble is always listed.
+func Split(lines []Line) (shown, more []Line) {
+	running, stopped := 0, 0
+	for _, l := range lines {
+		switch {
+		case l.Trouble:
+			shown = append(shown, l)
+		case l.Running && running < shownRunning:
+			running++
+			shown = append(shown, l)
+		case !l.Running && stopped < shownStopped:
+			stopped++
+			shown = append(shown, l)
+		default:
+			more = append(more, l)
+		}
+	}
+	return shown, more
+}
