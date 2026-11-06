@@ -121,21 +121,21 @@ Tilt-style live sync.
 Ticked as each lands, with its commit.
 
 Bugs and docs
-- [ ] L1 a dotted `version` written as a number is refused; docs quote versions
-- [ ] L13 docs drift fixed
-- [ ] L9 root `listen` removed (old form pointing at `port`)
-- [ ] C6 the `doze migrate` pointer replaced with what works
-- [ ] C3 a pin is checked before it is written
+- [x] L1  — 30de227a dotted `version` written as a number is refused; docs quote versions
+- [x] L13  — cb8c51ddocs drift fixed
+- [x] L9  — cb8c51droot `listen` removed (old form pointing at `port`)
+- [x] C6 the — doze-modules 7b45fcf (points at doze migrate, which now exists) `doze migrate` pointer replaced with what works
+- [x] C3  — folded into C1: the pin carries the release's doze need and is checked (3d9aca1); a pin cannot be held back until the daemon runs, since `up` writes it and the daemon fails latera pin is checked before it is written
 
 Compatibility
-- [ ] C1 releases record the doze they need; selection skips what this doze cannot run
-- [ ] C2 one plain sentence when nothing fits, with the way out
-- [ ] C4 doze.lock records the doze that wrote it
-- [ ] L2 `doze = ">= x"` in doze.hcl, read first
-- [ ] C5 offline with no pin uses a compatible cached module
-- [ ] C7 protocol negotiation (VersionedPlugins)
-- [ ] C8 the app says when a newer doze is out (auto-install waits for signing)
-- [ ] C6b `doze migrate` for a postgres major (dump and restore)
+- [x] C1  — doze 3d9aca1, doze-sdk 75b5f9f, doze-registry 8694281; the field is outside the signature so older doze still verifyreleases record the doze they need; selection skips what this doze cannot run
+- [x] C2  — 3d9aca1one plain sentence when nothing fits, with the way out
+- [x] C4  — 3d9aca1doze.lock records the doze that wrote it
+- [x] L2  — 5b36a67`doze = ">= x"` in doze.hcl, read first
+- [x] C5  — 30145dfoffline with no pin uses a compatible cached module
+- [x] C7  — doze-sdk b0345d5protocol negotiation (VersionedPlugins)
+- [x] C8  — 81d7531; installing waits for signed releasesthe app says when a newer doze is out (auto-install waits for signing)
+- [x] C6b  — 1255047, run end to end (16 → 17, data intact)`doze migrate` for a postgres major (dump and restore)
 
 Vocabulary
 - [ ] L7 one word for ordering: `after = [..., started(x), lazy(y)]`
@@ -154,3 +154,8 @@ Later items
 - [ ] L14 ports from the module's Describe
 - [ ] L15 `module.<x>.env`
 - [ ] L16 outputs render, portless service sleep, `doze fmt`, editor schema
+
+Not done by me, for the owner (publishing): tag and push doze-sdk (v0.11.0:
+MinHost, the release field, SelectFor, VersionedPlugins), bump doze-modules and
+the aws/kafka modules to it so new releases carry `doze:`, deploy the
+registry, and publish the postgres module with the new message.
