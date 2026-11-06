@@ -47,7 +47,7 @@
           "label": "0.3%"
         }
       ],
-      "key": "db 0.7% · web 0.3% · 3 awake, the rest idle"
+      "key": "db 0.7% · web 0.3% · the rest quiet"
     },
     "state": {
       "awake": 3,
@@ -314,7 +314,7 @@
             "tone": "dim"
           },
           "engine": "task",
-          "because": "not run yet",
+          "because": "runs when you say",
           "becauseTone": "dim",
           "awake": false,
           "trouble": false,

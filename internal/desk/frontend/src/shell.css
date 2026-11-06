@@ -201,7 +201,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .map .edge.on { stroke: var(--accent); }
 .map .edge.dim { stroke: var(--line2); }
 .map .edge.off { stroke: var(--line2); stroke-dasharray: 6 5; }
-.map .col { position: absolute; font-size: var(--text-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+.map .col { position: absolute; display: flex; flex-direction: row; align-items: baseline; gap: 8px; font-size: var(--text-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .map .col span { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .8; }
 .node { position: absolute; width: 224px; display: flex; flex-direction: column; gap: 5px; padding: 12px 14px 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
 .node:hover { border-color: var(--line2); }
@@ -213,7 +213,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .node .st b { font-weight: 600; }
 .node.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .node.bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 7%, var(--panel)); }
-.node.off { background: transparent; border-style: dashed; }
+.node.off { background: var(--well); border-style: dashed; }
 .node.off .top b { color: var(--dim); }
 .node.task { border-radius: 8px; }
 .legend { position: absolute; right: 16px; bottom: 14px; display: flex; align-items: center; gap: 18px; font-size: var(--text-sm); color: var(--dim); white-space: nowrap; }

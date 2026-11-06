@@ -353,6 +353,10 @@ func vitalsOf(st hub.StackView) Vitals4 {
 	}
 	v4.Mem.Key = strings.Join(key, " · ")
 	v4.CPU = Meter{Total: display.Cores(cpuSum)}
+	if cpuSum <= 0 && len(cpu) > 0 {
+		// Running, and too little to measure: not a broken zero.
+		v4.CPU.Total = "<0.01 cores"
+	}
 	key = nil
 	for i, s := range cpuShares {
 		v4.CPU.Shares = append(v4.CPU.Shares, Share{Name: s.Name, Part: part(s.V, cpuSum), Label: pct1(s.V)})
@@ -360,8 +364,11 @@ func vitalsOf(st hub.StackView) Vitals4 {
 			key = append(key, s.Name+" "+pct1(s.V))
 		}
 	}
-	if v4.State.Awake > 0 {
-		key = append(key, fmt.Sprintf("%d awake, the rest idle", v4.State.Awake))
+	switch {
+	case len(key) > 0:
+		key = append(key, "the rest quiet")
+	case len(cpu) > 0:
+		key = append(key, "nothing busy right now")
 	}
 	v4.CPU.Key = strings.Join(key, " · ")
 	if st.IdleTimeout > 0 {

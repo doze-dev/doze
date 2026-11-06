@@ -162,8 +162,11 @@ func Because(v control.InstanceView, snap control.Snapshot, now time.Time) strin
 				return "running now · " + Ago(now.Sub(v.StartedAt))
 			}
 			return "running now"
+		case v.Task == nil && len(v.Needs) > 0:
+			// The word already says "not run"; the because says what it needs.
+			return "needs " + strings.Join(v.Needs, ", ") + " · runs when you say"
 		case v.Task == nil:
-			return "not run yet"
+			return "runs when you say"
 		case v.Task.Result == "failed":
 			return fmt.Sprintf("exit %d · ran %s ago", v.Task.ExitCode, Ago(now.Sub(v.Task.RanAt)))
 		}

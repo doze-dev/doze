@@ -989,11 +989,14 @@ function MapView({ m, rows, shown, selected, stackKey }: { m: view.MapView; rows
   const byName = new Map(rows.map((r) => [r.name, r]));
   const path = (e: view.MapEdge) => {
     if (e.same) return `M${e.x1} ${e.y1} C${e.x1} ${(e.y1 + e.y2) / 2}, ${e.x2} ${(e.y1 + e.y2) / 2}, ${e.x2} ${e.y2}`;
-    const dx = Math.max(60, Math.abs(e.x2 - e.x1) / 2);
+    // The curve leaves and arrives along its own direction: a need that
+    // points back left bends left, instead of looping out of its node.
+    const dir = e.x2 >= e.x1 ? 1 : -1;
+    const dx = dir * Math.max(60, Math.abs(e.x2 - e.x1) / 2);
     return `M${e.x1} ${e.y1} C${e.x1 + dx} ${e.y1}, ${e.x2 - dx} ${e.y2}, ${e.x2} ${e.y2}`;
   };
   return (
-    <div className="map" role="group" aria-label="The stack as a map: what needs what, and what is keeping what awake" style={{ minHeight: m.h + 60, minWidth: m.w + 60 }}>
+    <div className="map" role="group" aria-label="The stack as a map: what needs what, and what is keeping what awake" style={{ minHeight: m.h + 60 }}>
       <svg className="edges" width={m.w} height={m.h} aria-hidden="true">
         {(m.edges ?? []).map((e) => (
           <path key={e.from + ">" + e.to} d={path(e)} fill="none" strokeWidth="2" className={"edge " + e.tone} />
