@@ -89,6 +89,8 @@ func DialogOf(st hub.StackView, name, verb string, now time.Time) Dialog {
 		return Dialog{Kind: verb}
 	}
 	switch verb {
+	case control.VerbOff:
+		return offDialog(v)
 	case control.VerbSleep:
 		return sleepDialog(v, snap)
 	case control.VerbRestart:
@@ -260,4 +262,28 @@ func forgetDialog(st hub.StackView) Dialog {
 		Default: 1,
 		Foot:    []string{"From a script: remove it from ~/.doze/projects"},
 	}
+}
+
+// offDialog asks before a service in use is turned off: unlike sleep, a
+// connection will not bring it back, so what uses it fails until it is
+// switched on again.
+func offDialog(v control.InstanceView) Dialog {
+	d := Dialog{Kind: "off", Title: "Turn " + v.Name + " off?"}
+	if display.InUse(v) == "" {
+		return d
+	}
+	d.Needed = true
+	d.Sentence = spans(display.HeldSentence(v))
+	d.Rows = []KV{
+		{K: "What happens", V: "It stops, and nothing wakes it: what uses it fails to connect until you switch it on."},
+		{K: "Data", V: "Kept. Nothing is deleted."},
+	}
+	d.Buttons = []Button{
+		{Label: "Turn " + v.Name + " off", Verb: control.VerbOff, Targets: []string{v.Name}},
+		{Label: "Sleep it instead", Verb: control.VerbSleep, Targets: []string{v.Name}, Primary: true},
+		{Label: "Cancel", Cancel: true},
+	}
+	d.Default = 1
+	d.Foot = []string{"From a script: doze off " + v.Name}
+	return d
 }

@@ -360,6 +360,10 @@ func verbRow(st hub.StackView, snap control.Snapshot, v control.InstanceView, ve
 		}
 		row.Do = Doing{Kind: "verb", StackKey: st.Key, Verb: control.VerbOff, Target: n}
 		row.Key, row.CLI = "⏎ off", "doze off "+n
+		if display.InUse(v) != "" {
+			// Something uses it, and nothing will wake it: ask, as sleep does.
+			row.Do.Ask, row.Key = true, "⏎ asks first"
+		}
 	case "on":
 		if v.Kind == "task" || !v.Disabled {
 			return row, false

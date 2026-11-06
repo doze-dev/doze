@@ -163,7 +163,7 @@ function EmptyLibrary() {
 function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s: view.LibStack; selected: boolean; menuOpen: boolean; onSelect: () => void; onMenu: () => void; onCloseMenu: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   return (
-    <div ref={ref} role="row" className={"lrow" + (selected ? " sel" : "")} onClick={onSelect} onDoubleClick={() => void go({ key: s.key, page: "home" })} style={{ position: "relative" }}>
+    <div ref={ref} role="row" aria-selected={selected} aria-label={`${s.name}, ${s.busy ? s.busy : s.running ? "up" : "stopped"}${s.broken ? ", " + s.broken : s.need ? ", " + s.need : ""}`} className={"lrow" + (selected ? " sel" : "")} onClick={onSelect} onDoubleClick={() => void go({ key: s.key, page: "home" })} style={{ position: "relative" }}>
       <span className={"dot " + s.dot} aria-hidden />
       <div className="name">
         <b className={s.running ? "" : "dim"}>{s.name}</b>

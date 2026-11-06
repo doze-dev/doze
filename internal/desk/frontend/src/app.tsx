@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice } from "./store";
+import { ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice, useStore } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
@@ -22,6 +22,31 @@ import { transport, type view } from "./transport";
 // which page is mounted, and which overlay.
 export function App() {
   useBoot();
+  // The window's title says where the page is, which a screen reader reads
+  // on every move; the menu bar's Window menu lists it too.
+  const titled = useStore((s) => {
+    const w = s.where;
+    if (!w) return "doze";
+    const stack = s.stacks.find((x) => x.key === w.key)?.name ?? "";
+    switch (w.page) {
+      case "library":
+        return "Library · doze";
+      case "settings":
+        return "Settings · doze";
+      case "instance":
+        return `${w.instance} · ${stack} · doze`;
+      case "logs":
+        return `${w.instance ? w.instance + " logs" : "All logs"} · ${stack} · doze`;
+      case "timeline":
+        return `Timeline · ${stack} · doze`;
+      case "empty":
+        return "A folder · doze";
+    }
+    return stack ? `${stack} · doze` : "doze";
+  });
+  useEffect(() => {
+    document.title = titled;
+  }, [titled]);
   useEffect(() => {
     // A click on a button does not take keyboard focus, as on macOS (and in
     // the app's WebKit): focus stays where the keyboard put it, so the
