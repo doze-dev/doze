@@ -61,7 +61,9 @@ test("a stopped stack is the same page, down: every switch off, and a sheet to c
   const strip = page.locator(".strip");
   await expect(strip).toContainText("Stopped");
   await expect(strip).toContainText("Up starts api, web and db, as last time, and what they need.");
-  await expect(strip.getByRole("button", { name: /Up as last time/ })).toBeVisible();
+  // No buttons in the strip: the switches start things (the stack's, or a service's own).
+  await expect(strip.getByRole("button")).toHaveCount(0);
+  await expect(strip).toContainText("A service's own switch starts just it and what it needs.");
 
   // Nothing runs, so no switch is on.
   const tile = (n: string) => page.locator(".tile", { has: page.locator("b", { hasText: new RegExp(`^${n}$`) }) }).first();
@@ -269,4 +271,26 @@ test("Settings › Machine lists what stacks left behind, each with its way out"
   // What is listed depends on this machine; never cleaned up from a test.
   await expect(left.locator(".lh .dim")).toContainText(/nothing: every process|stacks left behind/);
   await page.screenshot({ path: `.desk-look/LeftBehind-${info.project.name}.png`, fullPage: true });
+});
+
+test("rows come compact, cosy or roomy, chosen once for every list", async ({ page }, info) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  const pick = page.getByRole("radiogroup", { name: "Row density" });
+  const row = page.locator(".ql .qr").first();
+  await expect(pick.getByRole("radio", { name: "Roomy" })).toHaveAttribute("aria-checked", "true");
+  const roomy = (await row.boundingBox())!.height;
+  for (const [name, h] of [["Compact", 32], ["Cosy", 40]] as const) {
+    await pick.getByRole("radio", { name }).click();
+    await expect.poll(async () => Math.round((await row.boundingBox())!.height)).toBe(h);
+    await page.screenshot({ path: `.desk-look/Density${name}-${info.project.name}.png` });
+  }
+  expect(roomy).toBeGreaterThan(40);
+  // The Library follows the same choice, and it is kept.
+  await page.getByRole("tab", { name: "Library" }).click();
+  await expect(page.getByRole("radiogroup", { name: "Row density" }).getByRole("radio", { name: "Cosy" })).toHaveAttribute("aria-checked", "true");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-density", "cosy");
+  await page.getByRole("radiogroup", { name: "Row density" }).getByRole("radio", { name: "Roomy" }).click();
 });

@@ -3,6 +3,7 @@ import { askStack, askStop, chooseFolder, chooseStart, dismissHints, go, repair,
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
+import { DensityPick } from "../components/density";
 
 // The Library, as the Library boards lay it out: the help strip while it
 // is useful, every stack with a switch, the machine line. Every word and
@@ -64,6 +65,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
         <h1>Library</h1>
         <span className="path">{lib.counts}</span>
         <span className="grow" />
+        {stacks.length > 0 && <DensityPick />}
         <button className="btn" onClick={() => void chooseFolder()} title="Open a project folder (⌘O)">
           Open folder… <kbd>⌘O</kbd>
         </button>

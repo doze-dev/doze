@@ -19,6 +19,9 @@ export interface Where {
   section?: string;
 }
 
+/** Density is how much room a list's rows get, as Gmail offers it. */
+export type Density = "compact" | "cosy" | "roomy";
+
 /** Theme is a colour theme; Mode is dark, light, or system (follow macOS). The two are chosen apart. */
 export type Theme = "violet" | "teal" | "burgundy" | "amber" | "slate";
 export type Mode = "system" | "dark" | "light";
@@ -59,6 +62,8 @@ export interface State {
   toasts: Toast[];
   theme: Theme;
   mode: Mode;
+  /** density is the lists' row height: compact, cosy, or roomy (the default). */
+  density: Density;
   /** dark is the mode as resolved: what the page is drawn in now. */
   dark: boolean;
   /** history is where the page has been, oldest first; future what back left behind. ⌘[ and ⌘] walk them. */
@@ -100,6 +105,7 @@ export const store = new Store<State>({
   toasts: [],
   theme: "violet",
   mode: "system",
+  density: storedDensity(),
   dark: true,
   history: [],
   future: [],
@@ -552,6 +558,7 @@ function paint() {
   const dark = mode === "system" ? systemDark.matches : mode === "dark";
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.mode = dark ? "dark" : "light";
+  document.documentElement.dataset.density = get().density;
   if (get().dark !== dark) set({ dark });
 }
 // Following the system means following it while the window is open too.
@@ -583,6 +590,25 @@ export async function setMode(mode: Mode) {
   remember(modeKey, mode);
   const t = await transport();
   await t.mode(mode);
+}
+
+const densityKey = "doze.density";
+
+function storedDensity(): Density {
+  try {
+    const d = localStorage.getItem("doze.density");
+    if (d === "compact" || d === "cosy" || d === "roomy") return d;
+  } catch {
+    // no storage
+  }
+  return "roomy";
+}
+
+/** setDensity sets how much room the lists' rows get, and keeps it. */
+export function setDensity(density: Density) {
+  set({ density });
+  paint();
+  remember(densityKey, density);
 }
 
 const themes: Theme[] = ["violet", "teal", "burgundy", "amber", "slate"];

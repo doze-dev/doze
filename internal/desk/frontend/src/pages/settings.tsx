@@ -3,6 +3,7 @@ import { copy, go, repair, reopens, set, setMode, setReopens, setTheme, useStore
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
+import { DensityPick } from "../components/density";
 
 // Settings, as the Settings and Doctor boards lay them out: a short list
 // at the left (General, Machine, About) and one section at a time. Only
@@ -88,6 +89,13 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="k">
+                List rows
+                <small>how much room each row gets, in the Library and a stack&apos;s List</small>
+              </div>
+              <div className="v">
+                <DensityPick words />
               </div>
               <div className="k">
                 Colour theme

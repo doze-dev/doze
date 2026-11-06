@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DensityPick } from "../components/density";
 import { ask, askStop, chooseStart, copy, go, repair, run, select, setView, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
@@ -188,6 +189,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           {stopped ? ` · stopped · ${stopped.when}` : ""}
         </span>
         <span className="grow" />
+        {viewName === "list" && <DensityPick />}
         <div className="seg" role="group" aria-label="View">
           {(["tiles", "list", "map"] as const).map((v) => (
             <button key={v} className={viewName === v ? "on" : ""} aria-pressed={viewName === v} onClick={() => void setView(stackKey, v)}>
@@ -266,7 +268,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         </div>
       )}
       {stopped ? (
-        <DownStrip s={stopped} tight={viewName === "list"} busy={home.busy} onUp={() => void stackAction(stackKey, "up-last")} onChoose={() => void chooseStart(stackKey)} dir={home.dir} />
+        <DownStrip s={stopped} tight={viewName === "list"} dir={home.dir} />
       ) : (
         <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} stale={!home.banner.ok} />
       )}
@@ -344,8 +346,8 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
   );
 }
 
-/** DownStrip stands where the figures do while the stack is stopped: that it is down, what Up as last time starts, and the two ways up. */
-function DownStrip({ s, tight, onUp, onChoose, dir, busy }: { s: view.Stopped; tight?: boolean; onUp: () => void; onChoose: () => void; dir: string; busy?: string }) {
+/** DownStrip stands where the figures do while the stack is stopped: that it is down, and what the switches start. */
+function DownStrip({ s, tight, dir }: { s: view.Stopped; tight?: boolean; dir: string }) {
   if (s.problem) {
     return (
       <div className={"strip" + (tight ? " tight" : "")} role="alert">
@@ -369,14 +371,8 @@ function DownStrip({ s, tight, onUp, onChoose, dir, busy }: { s: view.Stopped; t
         <span className="v">
           Stopped<small>{s.when}</small>
         </span>
-        <span className="s">{s.lastLine} Modules wake on their own when something connects.</span>
+        <span className="s">{s.lastLine} A service&apos;s own switch starts just it and what it needs. Modules wake on their own when something connects.</span>
       </div>
-      <button className="btn pri" onClick={onUp} disabled={!!busy}>
-        Up as last time <kbd>u</kbd>
-      </button>
-      <button className="btn" onClick={onChoose} disabled={!!busy}>
-        Choose what starts… <kbd>c</kbd>
-      </button>
     </div>
   );
 }
@@ -531,7 +527,7 @@ function DownPane({ row }: { row: view.Row }) {
         <div className="kv">
           <span className="k">on Up</span>
           <span className="v">
-            {row.off ? "paused in doze.hcl" : row.kind === "task" ? "runs when you say, once the stack is up" : row.last ? "starts, as last time" : row.kind === "module" ? "wakes when something connects" : "stays down; tick it in Choose what starts"}
+            {row.off ? "paused in doze.hcl" : row.kind === "task" ? "runs when you say, once the stack is up" : row.last ? "starts, as last time" : row.kind === "module" ? "wakes when something connects" : "stays down; its switch starts it, with what it needs"}
           </span>
           <span />
         </div>

@@ -295,6 +295,14 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .lib { margin: 0 var(--space-7); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); flex: none; }
 .lib > :first-child { border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg); }
 .lib > :last-child { border-bottom-left-radius: var(--radius-lg); border-bottom-right-radius: var(--radius-lg); }
+/* Row density (Settings › General, a List's head): roomy is the default. */
+:root[data-density="cosy"] { --row: 40px; }
+:root[data-density="compact"] { --row: 32px; }
+:root[data-density="cosy"] .lrow:not(.h) { padding-top: 8px; padding-bottom: 8px; }
+:root[data-density="compact"] .lrow:not(.h) { padding-top: 4px; padding-bottom: 4px; }
+:root[data-density="compact"] .lrow .fig, :root[data-density="compact"] .lrow .name { gap: 0; }
+:root[data-density="compact"] .qr { border-radius: 6px; }
+.seg.icons button { padding: 0 8px; }
 .lrow { display: grid; grid-template-columns: 10px minmax(150px, 1fr) minmax(230px, 1.1fr) minmax(120px, 1.1fr) 96px 86px; align-items: center; column-gap: 14px; padding: 12px 16px 12px 14px; border-top: 1px solid var(--line); width: 100%; }
 .lrow:first-child { border-top: 0; }
 .lrow.h { padding: 7px 16px 7px 14px; background: var(--well); color: var(--dim); font-size: var(--text-xs); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
