@@ -45,26 +45,26 @@
     <main class="main">
       <div class="head" style="padding:22px 28px 18px"><h1>acme</h1><span class="path">~/work/acme · stopped · last up 3 days ago</span><span class="grow"></span><div class="seg" role="group" aria-label="View"><button class="on">Tiles</button><button>List</button><button>Map</button></div><span class="btn quiet">Timeline <kbd>T</kbd></span><span class="btn quiet">All logs <kbd>L</kbd></span><span class="swl"><b>Up</b><button class="sw big" role="switch" aria-checked="false" aria-label="acme is down"></button><button class="ib" aria-label="More ways to start acme">▾</button></span></div>
       <div class="strip">
-        <div class="stat wide"><span class="v">4<small>of 6 start on Up</small></span><span class="s">Last time you started api, web and db. That is ticked for you. The switches say what starts; the rest wakes when something needs it.</span></div>
-        <span class="btn pri">Up as ticked <kbd>⏎</kbd></span><span class="btn">Up everything</span>
+        <div class="stat wide"><span class="v">Down<small>last up 3 days ago</small></span><span class="s">Up starts api, web and db, as last time, and what they need. Modules wake on their own when something connects.</span></div>
+        <span class="btn pri">Up as last time <kbd>⏎</kbd></span><span class="btn">Choose what starts… <kbd>c</kbd></span>
       </div>
       <div class="gl">Apps <span>your code</span></div>
       <div class="tiles">
-        <div class="tile sel"><div class="top"><span class="dot"></span><b>api</b><button class="sw on" role="switch" aria-checked="true" aria-label="api starts on Up"></button></div><div class="st"><b>down</b> · needs db and cache · starts on Up, before web</div><div class="ft"><span class="a">api.acme.doze:8080</span><span class="copy">⧉</span></div></div>
-        <div class="tile"><div class="top"><span class="dot"></span><b>web</b><button class="sw on" role="switch" aria-checked="true" aria-label="web starts on Up"></button></div><div class="st"><b>down</b> · needs api · starts on Up</div><div class="ft"><span class="a">dev.acme.com</span><span class="copy">⧉</span></div></div>
-        <div class="tile off"><div class="top"><span class="dot"></span><b>worker</b><button class="sw" role="switch" aria-checked="false" aria-label="worker does not start on Up"></button></div><div class="st"><b>down</b> · needs cloud · not started last time</div><div class="ft"><span class="a">worker.acme.doze</span><span class="copy">⧉</span></div></div>
+        <div class="tile off sel"><div class="top"><span class="dot"></span><b>api</b><button class="sw" role="switch" aria-checked="false" aria-label="api is down"></button></div><div class="st"><b>down</b> · needs db and cache</div><div class="ft"><span class="a">api.acme.doze:8080</span><span class="copy">⧉</span></div></div>
+        <div class="tile off"><div class="top"><span class="dot"></span><b>web</b><button class="sw" role="switch" aria-checked="false" aria-label="web is down"></button></div><div class="st"><b>down</b> · needs api</div><div class="ft"><span class="a">dev.acme.com</span><span class="copy">⧉</span></div></div>
+        <div class="tile off"><div class="top"><span class="dot"></span><b>worker</b><button class="sw" role="switch" aria-checked="false" aria-label="worker is down"></button></div><div class="st"><b>down</b> · needs cloud</div><div class="ft"><span class="a">worker.acme.doze</span><span class="copy">⧉</span></div></div>
       </div>
       <div class="gl">Modules <span>from the registry</span></div>
       <div class="tiles">
-        <div class="tile"><div class="top"><span class="dot"></span><b>cache</b><button class="sw on" role="switch" aria-checked="true" aria-label="cache starts on Up"></button></div><div class="st"><b>down</b> · starts on Up, before api</div><div class="ft"><span class="a">cache.acme.doze:6379</span><span class="copy">⧉</span></div></div>
-        <div class="tile off"><div class="top"><span class="dot"></span><b>cloud</b><button class="sw" role="switch" aria-checked="false" aria-label="cloud does not start on Up"></button></div><div class="st"><b>down</b> · wakes when worker asks for it</div><div class="ft"><span class="a">cloud.acme.doze</span><span class="copy">⧉</span></div></div>
-        <div class="tile"><div class="top"><span class="dot"></span><b>db</b><button class="sw on" role="switch" aria-checked="true" aria-label="db starts on Up"></button></div><div class="st"><b>down</b> · starts on Up, before api and web</div><div class="ft"><span class="a">db.acme.doze:5432</span><span class="copy">⧉</span></div></div>
+        <div class="tile off"><div class="top"><span class="dot"></span><b>cache</b><button class="sw" role="switch" aria-checked="false" aria-label="cache is down"></button></div><div class="st"><b>down</b> · api uses it</div><div class="ft"><span class="a">cache.acme.doze:6379</span><span class="copy">⧉</span></div></div>
+        <div class="tile off"><div class="top"><span class="dot"></span><b>cloud</b><button class="sw" role="switch" aria-checked="false" aria-label="cloud is down"></button></div><div class="st"><b>down</b> · worker uses it</div><div class="ft"><span class="a">cloud.acme.doze</span><span class="copy">⧉</span></div></div>
+        <div class="tile off"><div class="top"><span class="dot"></span><b>db</b><button class="sw" role="switch" aria-checked="false" aria-label="db is down"></button></div><div class="st"><b>down</b> · api and migrate use it</div><div class="ft"><span class="a">db.acme.doze:5432</span><span class="copy">⧉</span></div></div>
       </div>
       <div class="gl">Tasks <span>run once, then out of the way</span></div>
       <div class="tiles">
-        <div class="tile"><div class="top"><span class="dot"></span><b>migrate</b></div><div class="st"><b>down</b> · needs db · runs when you say, once the stack is up</div></div>
+        <div class="tile"><div class="top"><span class="dot"></span><b>migrate</b></div><div class="st"><b>down</b> · needs db · runs once the stack is up</div></div>
       </div>
-      <div class="keys" style="margin-top:auto;padding:0 28px"><span><kbd>↑↓</kbd>move</span><span><kbd>space</kbd>tick for Up</span><span><kbd>⏎</kbd>up as ticked</span><span><kbd>a</kbd>tick all</span><span><kbd>/</kbd>filter</span><span><kbd>esc</kbd>library</span><span class="note">a switch on a stopped stack says whether Up starts it</span></div>
+      <div class="keys" style="margin-top:auto;padding:0 28px"><span><kbd>↑↓</kbd>move</span><span><kbd>space</kbd>start with this one</span><span><kbd>⏎</kbd>up as last time</span><span><kbd>c</kbd>choose what starts</span><span><kbd>/</kbd>filter</span><span><kbd>esc</kbd>library</span><span class="note">nothing runs while the stack is down</span></div>
     </main>
   </div>
 </div>
