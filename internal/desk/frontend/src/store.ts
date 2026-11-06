@@ -79,6 +79,8 @@ export interface State {
   /** attention is Needs you (D19), as Go last pushed it; bell says whether its panel is open. */
   attention: view.Attention | null;
   bell: boolean;
+  /** updateAsk counts "Check for Updates…" from a menu: About asks GitHub afresh each time it moves. */
+  updateAsk: number;
   /** alerts are red items that appeared while the window was open: a toast each, with its fix, until acted on or closed. */
   alerts: view.Item[];
   /** away is what happened while the window was closed, until Got it or the bell. */
@@ -116,6 +118,7 @@ export const store = new Store<State>({
   closed: readClosed(),
   attention: null,
   bell: false,
+  updateAsk: 0,
   alerts: [],
   away: null,
   preflight: null,
@@ -659,7 +662,7 @@ export function useBoot() {
           if (w?.page === "instance" && instance.key === w.key && instance.name === w.instance) set({ instance });
         }),
         t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
-        t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir, instance: n.instance })),
+        t.on<Nav>("nav", (n) => (n.page === "updates" ? checkForUpdates() : void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir, instance: n.instance }))),
         t.on<serve.Notice>("notice", toast),
         t.on<view.Attention>("attention", gotAttention),
         // A native menu item: the same move as its key on the page.
@@ -710,6 +713,7 @@ export function useBoot() {
       // The window opens on the Library, unless it was opened at a project.
       const asked = stacks.find((s) => s.key === pending.key);
       if (pending.page === "empty" && pending.dir) await go({ key: "", page: "empty", dir: pending.dir });
+      else if (pending.page === "updates") checkForUpdates();
       else if (pending.page === "settings" || pending.page === "library") await go({ key: "", page: pending.page });
       else if (asked && pending.page === "instance" && pending.instance) await go({ key: asked.key, page: "instance", instance: pending.instance });
       else if (asked) await go({ key: asked.key, page: "home" });
@@ -822,6 +826,9 @@ export function appCommand(id: string) {
     case "repair":
       void repair();
       break;
+    case "updates":
+      checkForUpdates();
+      break;
     case "cleanup":
       void go({ key: "", page: "settings", section: "machine" });
       break;
@@ -844,4 +851,10 @@ export function appCommand(id: string) {
       void transport().then((t) => t.openAtLogin(arg === "on"));
       break;
   }
+}
+
+/** checkForUpdates is the menus' "Check for Updates…": Settings › About, asking GitHub now rather than from the six-hour cache. */
+export function checkForUpdates() {
+  set((s) => ({ updateAsk: s.updateAsk + 1 }));
+  void go({ key: "", page: "settings", section: "about" });
 }

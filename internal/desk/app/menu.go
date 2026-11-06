@@ -27,6 +27,10 @@ func (d *desk) appMenu() *application.Menu {
 	if runtime.GOOS == "darwin" {
 		app := m.AddSubmenu("doze")
 		app.AddRole(application.About)
+		app.Add("Check for Updates…").OnClick(func(*application.Context) {
+			d.svc.CheckForUpdates()
+			d.open("")
+		})
 		app.AddSeparator()
 		app.Add("Settings…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) {
 			d.svc.OpenSettings()

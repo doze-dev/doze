@@ -171,6 +171,7 @@ func appCommands() []PaletteRow {
 		app("Set up this Mac", "⚙", "repair", "", "repair doctor fix"),
 		app("Clean up what was left behind", "✧", "cleanup", "", "zombies leftovers"),
 		app("Keyboard shortcuts", "?", "help", "?", "keys help"),
+		app("Check for updates", "↻", "updates", "", "upgrade new version release about"),
 		app("Copy doze's version", "⧉", "version", "", "about"),
 	}
 	for _, m := range []string{"system", "light", "dark"} {

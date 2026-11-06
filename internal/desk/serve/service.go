@@ -876,6 +876,10 @@ func (s *Service) Open(dir string) {
 // OpenSettings asks the window for Settings: the menu bar's Settings… item.
 func (s *Service) OpenSettings() { s.OpenPage("settings") }
 
+// CheckForUpdates asks the window for Settings › About, checking GitHub
+// afresh: the menus' "Check for Updates…".
+func (s *Service) CheckForUpdates() { s.OpenPage("updates") }
+
 // OpenLibrary asks the window for the Library: a doze://library link.
 func (s *Service) OpenLibrary() { s.OpenPage("library") }
 

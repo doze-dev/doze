@@ -100,7 +100,7 @@ func (d *desk) refreshTray() {
 
 // menu is the menu bar, rethought (2026-11-06): what needs you, at the top
 // and only when something is red; one line per stack, each a submenu of
-// what fits its state; then Open doze, Settings… and Quit. The window is
+// what fits its state; then Open doze, Settings…, Check for Updates… and Quit. The window is
 // for everything else.
 func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	menu := d.app.NewMenu()
@@ -125,6 +125,10 @@ func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	menu.Add("Open doze").SetAccelerator("CmdOrCtrl+Shift+D").OnClick(func(*application.Context) { d.open("") })
 	menu.Add("Settings…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) {
 		d.svc.OpenSettings()
+		d.open("")
+	})
+	menu.Add("Check for Updates…").OnClick(func(*application.Context) {
+		d.svc.CheckForUpdates()
 		d.open("")
 	})
 	menu.Add("Quit doze   ·   stacks keep running").OnClick(func(*application.Context) { d.app.Quit() })

@@ -353,6 +353,7 @@ function ReopenSwitch() {
 function UpdateLine() {
   const [u, setU] = useState<view.Update | null>(null);
   const [busy, setBusy] = useState(false);
+  const ask = useStore((s) => s.updateAsk);
   const check = (force: boolean) => {
     setBusy(true);
     void transport()
@@ -360,7 +361,8 @@ function UpdateLine() {
       .then((got) => setU(got))
       .finally(() => setBusy(false));
   };
-  useEffect(() => check(false), []);
+  // On opening, the cached answer; from a menu's Check for Updates…, a fresh one.
+  useEffect(() => check(ask > 0), [ask]);
   if (!u) return <span className="dim">checking for a newer doze…</span>;
   return (
     <div className="update">
