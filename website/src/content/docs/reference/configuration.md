@@ -65,7 +65,7 @@ Every `module <type> "<name>" { … }` block accepts:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). **Required** for every module except `aws`, which takes none. |
+| `version` | string/number | — | The **engine** version: a major (`16` → newest 16.x, pinned) or exact (`"16.14"`). A version with a dot is quoted: as a number, `10.10` would read as `10.1`, so doze refuses it. **Required** for every module except `aws`, which takes none. |
 | `listen` | string | next port from root `listen` | Per-instance client address (`"127.0.0.1:5544"` or `"unix:/path.sock"`). |
 | `sleep` | duration or `"never"` | the stack's `idle_timeout` | How long the module sits with nothing holding it before it sleeps. `"never"` keeps it on. Its data stays; the next connection wakes it. A module doze doesn't sit in front of, such as `temporal`, can't take a duration: nothing would wake it. |
 
@@ -390,7 +390,7 @@ the other platforms from source.
 
 ```hcl
 module mariadb "db" {
-  version = 11.4
+  version = "11.4"
 
   user "app" { password = "app" }
   grant {
@@ -420,7 +420,7 @@ services, SQLite store, Web UI). Workers long-poll it, which holds it awake.
 
 ```hcl
 module temporal "dev" {
-  version = 1.1
+  version = "1.1"
   port    = 7233
   ui_port = 8233
 

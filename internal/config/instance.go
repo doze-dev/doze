@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/doze-dev/doze-sdk/engine"
@@ -127,6 +129,22 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 			sleep, sleepRange = s, attr.Range
 		}
 		restBody = rest
+	}
+
+	// A dotted version written as a number loses digits: 10.10 is the
+	// number 10.1. Whole numbers are fine (17); anything with a dot must be
+	// quoted.
+	if content, _, _ := restBody.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "version"}}}); content != nil {
+		if attr, ok := content.Attributes["version"]; ok {
+			if lit, ok := attr.Expr.(*hclsyntax.LiteralValueExpr); ok && lit.Val.Type() == cty.Number {
+				if bf := lit.Val.AsBigFloat(); !bf.IsInt() {
+					src := strings.TrimSpace(string(attr.Expr.Range().SliceBytes(parser.Files()[attr.Range.Filename].Bytes)))
+					return nil, posErr(parser, attr.Range,
+						fmt.Sprintf("%s: version %s is a number, and a number drops trailing zeros (10.10 reads as 10.1)", what, src),
+						fmt.Sprintf("write version = %q, quoted", src))
+				}
+			}
+		}
 	}
 
 	var c common

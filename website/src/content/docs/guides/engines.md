@@ -135,7 +135,7 @@ without upstream shipping a binary for them.
 
 ```hcl
 module mariadb "db" {
-  version = 11.4
+  version = "11.4"
 }
 ```
 
@@ -149,7 +149,7 @@ exposes both the gRPC frontend and the Web UI.
 
 ```hcl
 module temporal "dev" {
-  version = 1.1
+  version = "1.1"
   port    = 7233
   ui_port = 8233
 

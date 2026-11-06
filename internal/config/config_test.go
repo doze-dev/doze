@@ -730,3 +730,17 @@ func TestZoneOffOverridesDomains(t *testing.T) {
 		t.Fatalf("DOZE_ZONE=off should turn names off: %+v, %v", cfg.Defaults, err)
 	}
 }
+
+// A dotted version written as a number is refused: 10.10 would read as 10.1.
+func TestDottedVersionMustBeQuoted(t *testing.T) {
+	_, err := Parse([]byte(`module fake "x" { version = 10.10 }`), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), `version = "10.10"`) {
+		t.Errorf("expected the quote hint, got %v", err)
+	}
+	if _, err := Parse([]byte(`module fake "x" { version = 17 }`), "doze.hcl", nil); err != nil && strings.Contains(err.Error(), "drops trailing zeros") {
+		t.Errorf("a whole number is fine, got %v", err)
+	}
+	if _, err := Parse([]byte(`module fake "x" { version = "10.10" }`), "doze.hcl", nil); err != nil && strings.Contains(err.Error(), "drops trailing zeros") {
+		t.Errorf("quoted is fine, got %v", err)
+	}
+}
