@@ -398,6 +398,9 @@ type Setup struct {
 	Text    string `json:"text"`    // "dev.acme.com is not reachable here yet"
 	Detail  string `json:"detail"`  // what is missing, in doctor's words
 	Command string `json:"command"` // "doze trust"
+	// Prompt is set where the app can ask for the password itself; without
+	// it the banner offers only the command.
+	Prompt bool `json:"prompt,omitempty"`
 }
 
 // Domains lists every domain the stack's apps declare, for the trust check.

@@ -82,12 +82,13 @@ test("nothing called that: the closest name, with the verb carried over", async 
   await box(page).fill("restart kafkaa");
   await expect(pal).toContainText("Nothing called kafkaa in shop or acme.");
   await expect(pal).toContainText("Closest: events (kafka, in shop).");
-  await expect(pal.locator(".k")).toHaveText("⏎ restart events");
+  await expect(pal.locator(".k")).toHaveText("⏎ use events");
   await expect(pal.locator(".foot")).toContainText("a verb alone lists what it can apply to; a name alone opens it with its actions");
   await page.screenshot({ path: `.desk-look/PaletteNothing-${info.project.name}.png` });
-  // ⏎ does it: events is waking, so a restart asks nothing and the palette closes.
+  // ⏎ puts the corrected command in the box to be read; it runs nothing.
   await page.keyboard.press("Enter");
-  await expect(pal).toBeHidden();
+  await expect(box(page)).toHaveValue("restart events");
+  await expect(pal).toBeVisible();
 });
 
 test("? opens the Keys sheet, as the Help board draws it", async ({ page }, info) => {

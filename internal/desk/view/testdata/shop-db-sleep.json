@@ -49,6 +49,13 @@
       ]
     },
     {
+      "label": "Turn db off",
+      "verb": "off",
+      "targets": [
+        "db"
+      ]
+    },
+    {
       "label": "Cancel",
       "cancel": true
     }

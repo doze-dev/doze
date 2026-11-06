@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore } from "../store";
+import { copy, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { LogList } from "../components/vlist";
@@ -17,12 +17,15 @@ export function LogsPage({
   instance,
   embedded,
   bare,
+  run: fixedRun,
 }: {
   stackKey: string;
   instance: string;
   embedded?: boolean;
   /** bare is the lines only, inside another dock (a task's output). */
   bare?: boolean;
+  /** run pins the lines to one run (a task's chosen run); unset follows the run filter. */
+  run?: number;
   inst?: view.Instance;
 }) {
   const logsVersion = useStore((s) => s.logsVersion);
@@ -36,13 +39,21 @@ export function LogsPage({
   const want = useRef(0);
   const searchBox = useRef<HTMLInputElement>(null);
 
+  // copyShown copies the lines on screen as they read: time, who (on the
+  // merged page), level, line.
+  const copyShown = async () => {
+    const lines = logs?.lines ?? [];
+    const text = lines.map((l) => [l.time, l.instance, l.level, l.line].filter(Boolean).join("  ")).join("\n");
+    await copy(text, lines.length === 1 ? "1 line" : `${lines.length} lines`);
+  };
+
   const query = useCallback(
     (from: number, n: number): view.LogsQuery => {
       const runs = logs?.runs ?? [];
-      const run = runIdx > 0 ? (runs[runs.length - runIdx] ?? 0) : 0;
+      const run = fixedRun ?? (runIdx > 0 ? (runs[runs.length - runIdx] ?? 0) : 0);
       return { instance, show: instance ? undefined : (show ?? undefined), level, search, run, from, n };
     },
-    [instance, show, level, search, runIdx, logs?.runs],
+    [instance, show, level, search, runIdx, logs?.runs, fixedRun],
   );
 
   // The newest window on every change; the pin keeps the end in view.
@@ -86,6 +97,9 @@ export function LogsPage({
         case "3":
         case "4":
           setLevel(Number(e.key) - 1);
+          break;
+        case "c":
+          void copyShown();
           break;
         case "t":
           setClock((c) => !c);
@@ -180,6 +194,11 @@ export function LogsPage({
             {total} lines kept
           </span>
         )}
+        {logs && (logs.lines ?? []).length > 0 && (
+          <button className="btn" onClick={() => void copyShown()} title="The lines shown, with their times">
+            Copy <kbd>c</kbd>
+          </button>
+        )}
       </div>
       <div className="dock" style={{ marginTop: 0 }}>
         {list}
@@ -202,6 +221,7 @@ export function LogsPage({
             ["1-4", "level"],
             ["t", "relative / clock"],
             ["[ ]", "run"],
+            ["c", "copy shown"],
           ]}
           note="from Overview: All logs, or L"
         />

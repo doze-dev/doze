@@ -12,9 +12,9 @@ import { Keys } from "../components/keys";
 // The swatches draw each colour theme in the mode on screen: its ground and
 // its accent, good and cool, as tokens.css has them.
 const THEMES: { name: Theme; dark: { bg: string; swatches: string[] }; light: { bg: string; swatches: string[] } }[] = [
-  { name: "violet", dark: { bg: "#15131d", swatches: ["#BD93F9", "#7EE787", "#82AAFF"] }, light: { bg: "#fbfaff", swatches: ["#7a4fe0", "#1d8a4a", "#2f62d9"] } },
-  { name: "teal", dark: { bg: "#0e1816", swatches: ["#4FD6C4", "#86E08A", "#8FBDFF"] }, light: { bg: "#f6fbfa", swatches: ["#0f7f73", "#1d8a4a", "#2f62d9"] } },
-  { name: "burgundy", dark: { bg: "#1a0f13", swatches: ["#F08FA6", "#8FE0A0", "#8DB4F5"] }, light: { bg: "#fdf8f9", swatches: ["#b5345a", "#1d8a4a", "#2f62d9"] } },
+  { name: "violet", dark: { bg: "#15131d", swatches: ["#BD93F9", "#7EE787", "#82AAFF"] }, light: { bg: "#fbfaff", swatches: ["#7a4fe0", "#17773f", "#2f62d9"] } },
+  { name: "teal", dark: { bg: "#0e1816", swatches: ["#4FD6C4", "#86E08A", "#8FBDFF"] }, light: { bg: "#f6fbfa", swatches: ["#0f7f73", "#17773f", "#2f62d9"] } },
+  { name: "burgundy", dark: { bg: "#1a0f13", swatches: ["#F08FA6", "#8FE0A0", "#8DB4F5"] }, light: { bg: "#fdf8f9", swatches: ["#b5345a", "#17773f", "#2f62d9"] } },
   { name: "amber", dark: { bg: "#16140b", swatches: ["#F2E04A", "#9BE07A", "#7FC4F5"] }, light: { bg: "#fcfbf3", swatches: ["#836700", "#3f7d1f", "#2563a8"] } },
   { name: "slate", dark: { bg: "#12161b", swatches: ["#9DB7D5", "#8FD694", "#5FD0E0"] }, light: { bg: "#f8fafc", swatches: ["#3d6a99", "#237a3b", "#0e7490"] } },
 ];

@@ -3,7 +3,7 @@
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, monospace;
   --font-ui: "Inter Variable", Inter, -apple-system, system-ui, sans-serif;
   --keys: 34px;
-  --line: 20px;
+  --lh: 20px;
   --pane: 372px;
   --radius: 7px;
   --radius-lg: 10px;
@@ -59,7 +59,7 @@
     --dim: #6f6888;
     --bright: #17141f;
     --accent: #7a4fe0;
-    --good: #1d8a4a;
+    --good: #17773f;
     --warn: #9a6400;
     --cool: #2f62d9;
     --bad: #cc3550;
@@ -104,7 +104,7 @@
   --dim: #6f6888;
   --bright: #17141f;
   --accent: #7a4fe0;
-  --good: #1d8a4a;
+  --good: #17773f;
   --warn: #9a6400;
   --cool: #2f62d9;
   --bad: #cc3550;
@@ -148,7 +148,7 @@
   --dim: #5a7470;
   --bright: #0f1f1d;
   --accent: #0f7f73;
-  --good: #1d8a4a;
+  --good: #17773f;
   --warn: #9a6400;
   --cool: #2f62d9;
   --bad: #c8364b;
@@ -192,7 +192,7 @@
   --dim: #7a5d65;
   --bright: #22121a;
   --accent: #b5345a;
-  --good: #1d8a4a;
+  --good: #17773f;
   --warn: #9a6400;
   --cool: #2f62d9;
   --bad: #c43c2c;

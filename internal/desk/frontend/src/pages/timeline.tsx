@@ -63,7 +63,7 @@ export function TimelinePage({ stackKey }: { stackKey: string }) {
                   <i key={t.at} className="tl-grid" style={{ left: `${t.at * 100}%` }} />
                 ))}
                 {(l.spans ?? []).map((s, i) => (
-                  <span key={i} className={"tl-span" + (s.open ? " open" : "")} style={{ left: `${s.from * 100}%`, width: `${Math.max(0.4, (s.to - s.from) * 100)}%` }} title={s.title}>
+                  <span key={i} className={"tl-span" + (s.open ? " open" : "")} style={{ left: `${s.from * 100}%`, width: `${Math.max(0.4, (s.to - s.from) * 100)}%` }} title={s.title} tabIndex={0} role="img" aria-label={`${l.name}: ${s.title}`}>
                     {s.ready ? <i className="tl-wake" style={{ width: `${Math.min(100, ((s.ready - s.from) / Math.max(0.0001, s.to - s.from)) * 100)}%` }} /> : null}
                   </span>
                 ))}
@@ -87,7 +87,7 @@ export function TimelinePage({ stackKey }: { stackKey: string }) {
               <i className="tl-mark crash tl-sw" /> crashed
             </span>
             <span className="grow" />
-            <span>hover a stretch for how long, and why it woke</span>
+            <span>hover or focus a stretch for how long, and why it woke; the list below has every event</span>
           </div>
         </section>
         <section className="card tl-events">
@@ -120,6 +120,8 @@ function dotClass(word: string): string {
       return "g";
     case "dozing":
       return "y";
+    case "waking":
+      return "c";
     case "crashing":
     case "failed":
       return "r";

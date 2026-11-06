@@ -81,7 +81,7 @@ var (
 		Name: "violet", About: "violet on white",
 		Bg: "#fbfaff", Side: "#f3f1fa", Panel: "#ffffff", Line: "#e4e0f0", Line2: "#d4cde6", Well: "#f6f4fb",
 		Text: "#3a3550", Dim: "#6f6888", Bright: "#17141f",
-		Accent: "#7a4fe0", Good: "#1d8a4a", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#cc3550", Extra: "#b85c00",
+		Accent: "#7a4fe0", Good: "#17773f", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#cc3550", Extra: "#b85c00",
 		Sel: "#ece6fb", Pick: "#e3d9ff", Track: "#ece8f5",
 		Pale: true,
 	}
@@ -89,7 +89,7 @@ var (
 		Name: "teal", About: "teal on a pale sea ground",
 		Bg: "#f6fbfa", Side: "#edf6f4", Panel: "#ffffff", Line: "#d9e9e6", Line2: "#c4dcd8", Well: "#f0f7f6",
 		Text: "#2d4744", Dim: "#5a7470", Bright: "#0f1f1d",
-		Accent: "#0f7f73", Good: "#1d8a4a", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#c8364b", Extra: "#b85c00",
+		Accent: "#0f7f73", Good: "#17773f", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#c8364b", Extra: "#b85c00",
 		Sel: "#dff0ed", Pick: "#c9e7e2", Track: "#e3efed",
 		Pale: true,
 	}
@@ -97,7 +97,7 @@ var (
 		Name: "burgundy", About: "rose on a blush ground",
 		Bg: "#fdf8f9", Side: "#f8eef1", Panel: "#ffffff", Line: "#efdde2", Line2: "#e3c8d0", Well: "#faf2f4",
 		Text: "#4a3038", Dim: "#7a5d65", Bright: "#22121a",
-		Accent: "#b5345a", Good: "#1d8a4a", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#c43c2c", Extra: "#7a4fe0",
+		Accent: "#b5345a", Good: "#17773f", Warn: "#9a6400", Cool: "#2f62d9", Bad: "#c43c2c", Extra: "#7a4fe0",
 		Sel: "#f6e3e9", Pick: "#f0d0da", Track: "#f3e6ea",
 		Pale: true,
 	}
@@ -171,7 +171,7 @@ var sizes = map[string]string{
 	"text-lg":     "16px",
 	"text-xl":     "20px",
 	"text-figure": "22px",
-	"line":        "20px",
+	"lh":          "20px", // line height; not --line, which is the border colour
 	"space-1":     "4px",
 	"space-2":     "8px",
 	"space-3":     "12px",

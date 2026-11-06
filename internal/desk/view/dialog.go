@@ -90,7 +90,7 @@ func DialogOf(st hub.StackView, name, verb string, now time.Time) Dialog {
 	}
 	switch verb {
 	case control.VerbSleep:
-		return sleepDialog(v)
+		return sleepDialog(v, snap)
 	case control.VerbRestart:
 		return restartDialog(v)
 	case control.VerbReset:
@@ -100,7 +100,7 @@ func DialogOf(st hub.StackView, name, verb string, now time.Time) Dialog {
 	return Dialog{Kind: verb}
 }
 
-func sleepDialog(v control.InstanceView) Dialog {
+func sleepDialog(v control.InstanceView, snap control.Snapshot) Dialog {
 	d := Dialog{Kind: "sleep", Title: "Sleep " + v.Name + "?"}
 	if display.InUse(v) == "" {
 		return d
@@ -111,22 +111,42 @@ func sleepDialog(v control.InstanceView) Dialog {
 		{K: "What happens", V: "Connections drop. The next connection wakes it again, so it is back within seconds unless what uses it sleeps too."},
 		{K: "Data", V: "Kept. Nothing is deleted."},
 	}
-	deps := display.Dependants(v)
-	for i, label := range display.SleepButtons(v) {
-		b := Button{Label: label, Primary: i == 0}
-		switch {
-		case label == "Cancel":
-			b.Cancel = true
-		case len(deps) > 0 && strings.Contains(label, " and "):
-			// Dependants first, then the target, as the dash's sleepKey did.
-			b.Verb, b.Targets = control.VerbSleep, append(append([]string{}, deps...), v.Name)
-		default:
-			b.Verb, b.Targets = control.VerbSleep, []string{v.Name}
+	// What uses it, less what is pinned awake: a pin is the person's word
+	// that it stays up, so the default never sleeps it unasked.
+	var deps, pinned []string
+	for _, n := range display.Dependants(v) {
+		if o, ok := display.Find(snap, n); ok && o.KeepAwake {
+			pinned = append(pinned, n)
+			continue
 		}
-		d.Buttons = append(d.Buttons, b)
+		deps = append(deps, n)
 	}
+	if len(pinned) > 0 {
+		d.Rows = append(d.Rows, KV{K: "Pinned", V: andWords(pinned) + " stays up, pinned awake, and wakes " + v.Name + " again when it connects. Turn " + v.Name + " off to keep it down."})
+	}
+	if len(deps) > 0 {
+		// Dependants first, then the target, as the dash's sleepKey did.
+		d.Buttons = append(d.Buttons, Button{Label: "Sleep " + v.Name + " and " + strings.Join(deps, ", "), Verb: control.VerbSleep, Targets: append(append([]string{}, deps...), v.Name), Primary: true})
+	}
+	d.Buttons = append(d.Buttons,
+		Button{Label: "Sleep " + v.Name + " only", Verb: control.VerbSleep, Targets: []string{v.Name}, Primary: len(deps) == 0},
+		// Off keeps it down whatever connects, until it is switched on.
+		Button{Label: "Turn " + v.Name + " off", Verb: control.VerbOff, Targets: []string{v.Name}},
+		Button{Label: "Cancel", Cancel: true},
+	)
 	d.Foot = []string{"doze only asks when something else is affected. Sleeping an idle service never asks."}
 	return d
+}
+
+// andWords joins names as a sentence does.
+func andWords(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
 func restartDialog(v control.InstanceView) Dialog {

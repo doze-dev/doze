@@ -142,11 +142,18 @@ func TimelineOf(st hub.StackView, now time.Time) Timeline {
 			out.Events = append(out.Events, Recent{At: e.Time.Local().Format("15:04:05"), Kind: kind, Text: e.Instance + " " + rest, Tone: eventTone(kind)})
 		}
 	}
+	waking := map[string]bool{}
+	for _, v := range st.Instances {
+		waking[v.Name] = v.State == "booting"
+	}
 	// What is still awake runs to now.
 	for name, o := range opened {
 		bar := TimelineSpanBar{From: pos(o.at), To: 1, Open: true, Title: "awake " + display.Ago(now.Sub(o.at)) + " · woke " + o.cause + " · still awake"}
 		if !o.ready.IsZero() && o.ready.After(from) {
 			bar.Ready = pos(o.ready)
+		} else if o.ready.IsZero() && waking[name] {
+			// Still starting: the whole stretch is the start's part, not awake.
+			bar.Ready, bar.Title = 1, "waking for "+display.Ago(now.Sub(o.at))+" · woke "+o.cause+" · not ready yet"
 		}
 		lane(name).Spans = append(lane(name).Spans, bar)
 	}

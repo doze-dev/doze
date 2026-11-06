@@ -61,6 +61,9 @@ type PaletteNothing struct {
 	Why     string `json:"why"`     // "kafka, in shop"
 	Key     string `json:"key,omitempty"`
 	Do      *Doing `json:"do,omitempty"`
+	// Fill is the corrected command a verb with a near name becomes: ⏎ puts
+	// it in the box to be read and run, never runs the verb on a guess.
+	Fill string `json:"fill,omitempty"`
 }
 
 // Doing is what choosing a row does. StackKey names the stack it is about.
@@ -238,13 +241,24 @@ func forVerb(stacks []hub.StackView, verb, name string, now time.Time) []Palette
 		case "up":
 			if !st.Running {
 				add(st.Name, upRow(st))
+			} else {
+				// Said, not missing: "up shop" on a running shop.
+				add(st.Name, PaletteRow{Glyph: "dot", Tone: "g", Label: st.Name + " is up", Note: "already running; ⏎ opens it", Key: "⏎ open", Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
 			}
 			continue
 		case "down":
 			if st.Running {
 				add(st.Name, PaletteRow{Glyph: "↓", Tone: "dim", Label: "Down " + st.Name, Note: "stops everything; the set is remembered", Key: "down " + st.Name, CLI: "doze down", Do: Doing{Kind: "stack", StackKey: st.Key, Verb: "down"}})
+			} else {
+				add(st.Name, PaletteRow{Glyph: "dot", Tone: "dim", Label: st.Name + " is stopped", Note: "already down; ⏎ opens it", Key: "⏎ open", Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
 			}
 			continue
+		case "restart":
+			if st.Running {
+				// A stack's name after restart restarts the stack: down, then up
+				// as last time.
+				add(st.Name, PaletteRow{Glyph: "↻", Tone: "dim", Label: "Restart " + st.Name, Note: "the whole stack: down, then up as last time", Key: "restart " + st.Name, CLI: "doze down && doze up --last", Do: Doing{Kind: "stack", StackKey: st.Key, Verb: "restart"}})
+			}
 		}
 		if !st.Running {
 			continue
@@ -506,9 +520,9 @@ func nothing(stacks []hub.StackView, verb, name string) *PaletteNothing {
 	out.Why = why
 	if verb != "" {
 		snap := snapshot(bestSt)
-		if row, ok := verbRow(bestSt, snap, bestV, verb, time.Now()); ok {
-			out.Key = "⏎ " + verb + " " + best
-			out.Do = &row.Do
+		if _, ok := verbRow(bestSt, snap, bestV, verb, time.Now()); ok {
+			out.Key = "⏎ use " + best
+			out.Fill = verb + " " + best
 			return out
 		}
 	}

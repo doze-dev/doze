@@ -312,7 +312,7 @@ export async function copy(text: string, what: string) {
   const t = await transport();
   try {
     await t.copy(text);
-    await say(`copied  to the clipboard`);
+    await say(`copied ${what} to the clipboard`);
   } catch {
     await say(`could not copy ${what}`, true);
   }

@@ -178,7 +178,7 @@ func TestDialogsSayWhatTheDashSaid(t *testing.T) {
 		}
 		return out
 	}
-	if got := labels(sleep); len(got) != 3 || got[0] != "Sleep db and api" || got[1] != "Sleep db only" || got[2] != "Cancel" {
+	if got := labels(sleep); len(got) != 4 || got[0] != "Sleep db and api" || got[1] != "Sleep db only" || got[2] != "Turn db off" || got[3] != "Cancel" {
 		t.Errorf("sleep buttons = %v", got)
 	}
 	if sleep.Buttons[0].Targets[0] != "api" || sleep.Buttons[0].Targets[1] != "db" {
@@ -246,9 +246,10 @@ func TestPaletteListsWhatIsAtHandThenAVerbThenNothing(t *testing.T) {
 		t.Errorf("by name = %+v", p.Sections)
 	}
 
-	// Nothing called that: the closest name, with the verb carried over.
+	// Nothing called that: the closest name, the verb carried over into the
+	// box to be read, never run on the guess.
 	p = PaletteOf(stacks, "shop-1", nil, "restart cachee", epoch)
-	if p.Nothing == nil || p.Nothing.Closest != "cache" || p.Nothing.Where != "shop or acme" || p.Nothing.Do == nil || p.Nothing.Do.Verb != "restart" {
+	if p.Nothing == nil || p.Nothing.Closest != "cache" || p.Nothing.Where != "shop or acme" || p.Nothing.Do != nil || p.Nothing.Fill != "restart cache" {
 		t.Errorf("nothing = %+v", p.Nothing)
 	}
 }
@@ -377,5 +378,26 @@ func TestKafkaConsoleLaysOutTablesThenTheStream(t *testing.T) {
 	keep := kids[2].Actions[1]
 	if ActionDialog(st, "events", keep).Needed {
 		t.Error("keep takes no input and deletes nothing: it just runs")
+	}
+}
+
+// A pinned dependant is never put to sleep by the default: it is named,
+// and the choices are this one, or off.
+func TestSleepLeavesAPinnedDependantAlone(t *testing.T) {
+	db := control.InstanceView{Name: "db", Kind: "module", State: "active", Holders: []control.HolderView{{Kind: "dependant", Name: "api"}}}
+	api := control.InstanceView{Name: "api", Kind: "app", State: "active", KeepAwake: true}
+	st := hub.StackView{Name: "shop", Running: true, Instances: []control.InstanceView{db, api}}
+	d := DialogOf(st, "db", control.VerbSleep, epoch)
+	if d.Buttons[0].Label != "Sleep db only" || !d.Buttons[0].Primary {
+		t.Errorf("first button = %+v", d.Buttons[0])
+	}
+	found := false
+	for _, r := range d.Rows {
+		if r.K == "Pinned" && strings.Contains(r.V, "api stays up") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("rows = %+v", d.Rows)
 	}
 }

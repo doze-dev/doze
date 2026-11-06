@@ -21,6 +21,9 @@ type ConfigError struct {
 	// "a number is required".
 	Summary string `json:"summary"`
 	Detail  string `json:"detail,omitempty"`
+	// Hint is what to write instead, for the mistakes doze knows: a number
+	// in quotes, text without them, an unknown or missing argument.
+	Hint string `json:"hint,omitempty"`
 	// File is the config's path, Line the line it points at (0 when it
 	// names none), Excerpt the lines around it.
 	File    string    `json:"file"`
@@ -78,6 +81,7 @@ func ConfigErrorOf(path string, err error, changed, now time.Time) *ConfigError 
 	} else if m := reLine.FindStringSubmatch(msg); m != nil {
 		ce.Line, _ = strconv.Atoi(m[1])
 	}
+	ce.Hint = configHint(msg)
 	if ce.Line > 0 {
 		if b, err := os.ReadFile(ce.File); err == nil {
 			src := strings.Split(string(b), "\n")
@@ -113,4 +117,25 @@ func ConfigChangedOf(mtime, loaded, now time.Time) *ConfigChanged {
 		return nil
 	}
 	return &ConfigChanged{Text: "doze.hcl changed " + display.Ago(now.Sub(mtime)) + " ago, after the stack read it"}
+}
+
+// configHint is what to write instead, for the errors people meet most.
+func configHint(msg string) string {
+	switch {
+	case strings.Contains(msg, "a number is required"):
+		return "Write the number without quotes: port = 8081."
+	case strings.Contains(msg, "a string is required"), strings.Contains(msg, "string required"):
+		return "Put text in double quotes: run = \"pnpm dev\"."
+	case strings.Contains(msg, "a bool is required"):
+		return "Write true or false, without quotes."
+	case strings.Contains(msg, "Unsupported argument"):
+		return "That name is not one this block takes; check its spelling against the docs for the block."
+	case strings.Contains(msg, "Missing required argument"):
+		return "The block needs that argument; add it inside the block's braces."
+	case strings.Contains(msg, "Invalid single-argument block"):
+		return "A block on one line holds one argument; put each on its own line."
+	case strings.Contains(msg, "Unclosed configuration block"), strings.Contains(msg, "Missing newline"):
+		return "A { is not closed: every block ends with } on a line of its own."
+	}
+	return ""
 }

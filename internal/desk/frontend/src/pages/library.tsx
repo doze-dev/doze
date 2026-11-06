@@ -215,8 +215,8 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
           role="switch"
           aria-checked={s.busy ? s.busy !== "stopping" : s.running}
           aria-busy={!!s.busy}
-          disabled={!!s.busy || (!s.running && !!s.broken)}
-          title={s.busy ? `${s.busy}…` : !s.running && s.broken ? "doze.hcl does not load, so it cannot start; open it to see why" : undefined}
+          disabled={!!s.busy || (!s.running && !!s.broken) || !s.dir}
+          title={s.busy ? `${s.busy}…` : !s.dir ? "Run by an older doze that does not say its folder: use doze down in that folder" : !s.running && s.broken ? "doze.hcl does not load, so it cannot start; open it to see why" : undefined}
           aria-label={s.busy ? `${s.name} is ${s.busy}` : s.running ? `${s.name} is up` : `${s.name} is stopped`}
           onDoubleClick={(e) => e.stopPropagation()}
           onClick={(e) => {

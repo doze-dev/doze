@@ -36,11 +36,19 @@ func TestThemesReadable(t *testing.T) {
 			mode = "light"
 		}
 		for _, ground := range []struct{ name, hex string }{{"bg", th.Bg}, {"panel", th.Panel}} {
-			for _, fg := range []struct{ name, hex string }{{"text", th.Text}, {"dim", th.Dim}, {"accent", th.Accent}, {"bad", th.Bad}} {
+			for _, fg := range []struct{ name, hex string }{{"text", th.Text}, {"dim", th.Dim}, {"accent", th.Accent}, {"bad", th.Bad}, {"good", th.Good}, {"warn", th.Warn}, {"cool", th.Cool}} {
 				if r := contrast(fg.hex, ground.hex); r < 4.5 {
 					t.Errorf("%s %s: %s on %s is %.2f:1, under 4.5", th.Name, mode, fg.name, ground.name, r)
 				}
 			}
+		}
+		// Text on a selected row (dim takes the text colour there).
+		if r := contrast(th.Text, th.Pick); r < 4.5 {
+			t.Errorf("%s %s: text on the selection is %.2f:1, under 4.5", th.Name, mode, r)
+		}
+		// Controls: an off switch's and a box's edge (dim) at 3:1.
+		if r := contrast(th.Dim, th.Track); r < 3 {
+			t.Errorf("%s %s: an off switch's edge is %.2f:1, under 3", th.Name, mode, r)
 		}
 		if r := contrast(th.ink(), th.Accent); r < 4.5 {
 			t.Errorf("%s %s: text on the accent is %.2f:1, under 4.5", th.Name, mode, r)

@@ -140,7 +140,10 @@ type Recent struct {
 // Run is one run of a task, newest first on the page.
 type Run struct {
 	// Seq counts the runs kept, the oldest 1: "run 4".
-	Seq  int    `json:"seq"`
+	Seq int `json:"seq"`
+	// Log is the run's number in its logs (the daemon's), to show or copy
+	// that run's output; 0 when its lines are no longer kept.
+	Log  int    `json:"log,omitempty"`
 	At   string `json:"at"`
 	When string `json:"when"` // clock time today, else the date
 	Ago  string `json:"ago"`

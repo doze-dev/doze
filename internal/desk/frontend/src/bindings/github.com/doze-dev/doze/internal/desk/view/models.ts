@@ -191,6 +191,12 @@ export interface ConfigError {
     "detail"?: string;
 
     /**
+     * Hint is what to write instead, for the mistakes doze knows: a number
+     * in quotes, text without them, an unknown or missing argument.
+     */
+    "hint"?: string;
+
+    /**
      * File is the config's path, Line the line it points at (0 when it
      * names none), Excerpt the lines around it.
      */
@@ -1048,6 +1054,12 @@ export interface PaletteNothing {
     "why": string;
     "key"?: string;
     "do"?: Doing | null;
+
+    /**
+     * Fill is the corrected command a verb with a near name becomes: ⏎ puts
+     * it in the box to be read and run, never runs the verb on a guess.
+     */
+    "fill"?: string;
 }
 
 /**
@@ -1220,6 +1232,12 @@ export interface Run {
      * Seq counts the runs kept, the oldest 1: "run 4".
      */
     "seq": number;
+
+    /**
+     * Log is the run's number in its logs (the daemon's), to show or copy
+     * that run's output; 0 when its lines are no longer kept.
+     */
+    "log"?: number;
     "at": string;
 
     /**
@@ -1261,6 +1279,12 @@ export interface Setup {
      * "doze trust"
      */
     "command": string;
+
+    /**
+     * Prompt is set where the app can ask for the password itself; without
+     * it the banner offers only the command.
+     */
+    "prompt"?: boolean;
 }
 
 /**

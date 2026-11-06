@@ -376,6 +376,11 @@ func (s *Service) Home(key string) view.Home {
 	st, _ := s.stack(key)
 	h := view.HomeOf(st, s.now())
 	h.Setup = s.setupFor(st)
+	if h.Setup != nil {
+		s.mu.Lock()
+		h.Setup.Prompt = s.admin != nil
+		s.mu.Unlock()
+	}
 	h.View = s.viewFor(key)
 	if st.Running && st.Dir != "" {
 		h.Config = s.configError(st.Dir)
@@ -434,6 +439,17 @@ func (s *Service) setupFor(st hub.StackView) *view.Setup {
 func (s *Service) Instance(key, name string) view.Instance {
 	st, _ := s.stack(key)
 	out := view.InstanceOf(st, name, s.now())
+	if n := len(out.Runs); n > 0 {
+		// Each run kept, matched to its run in the logs from the newest: the
+		// two count differently, and older lines may be gone.
+		logs := view.LogsOf(view.LogsQuery{Instance: name}, s.hub.Logs(key, name), st.Events, s.now())
+		for i := range out.Runs {
+			back := n - out.Runs[i].Seq // 0 for the newest
+			if j := len(logs.Runs) - 1 - back; j >= 0 && j < len(logs.Runs) {
+				out.Runs[i].Log = logs.Runs[j]
+			}
+		}
+	}
 	if st.Dir != "" {
 		if ce := s.configError(st.Dir); ce != nil {
 			out.Broken = "doze.hcl does not load"

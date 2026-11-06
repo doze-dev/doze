@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { set, useStore } from "../store";
+import { go, set, useStore } from "../store";
 
 const GOOD_MS = 4000;
 const BAD_MS = 12000;
@@ -8,6 +8,7 @@ const BAD_MS = 12000;
 // 12 s or until dismissed, as in the TUI.
 export function Toasts() {
   const toasts = useStore((s) => s.toasts);
+  const where = useStore((s) => s.where);
   const [, setTick] = useState(0);
   useEffect(() => {
     if (toasts.length === 0) return;
@@ -28,6 +29,11 @@ export function Toasts() {
           <div className="t">
             <b>{t.text}</b>
           </div>
+          {t.bad && where?.key && (
+            <button className="btn quiet" style={{ height: 24 }} onClick={() => void go({ key: where.key, page: "recent" })} title="Everything said lately, in full">
+              All
+            </button>
+          )}
           {t.bad && (
             <button className="ib" onClick={() => dismiss(t.id)} aria-label="Dismiss">
               ×

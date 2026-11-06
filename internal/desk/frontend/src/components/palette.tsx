@@ -62,6 +62,7 @@ export function Palette({ stackKey, onPick, onClose }: { stackKey: string; onPic
           if (!fresh) break;
           if ((e.metaKey || e.ctrlKey) && row?.acts?.[0]) onPick(row.acts[0].do);
           else if (row) onPick(row.do);
+          else if (p?.nothing?.fill) setQuery(p.nothing.fill);
           else if (p?.nothing?.do) onPick(p.nothing.do);
           break;
         case "Tab":
@@ -122,7 +123,7 @@ export function Palette({ stackKey, onPick, onClose }: { stackKey: string; onPic
           </div>
         ))}
         {p?.nothing && fresh && (
-          <button className="it" onClick={() => p.nothing?.do && onPick(p.nothing.do)}>
+          <button className="it" onClick={() => (p.nothing?.fill ? setQuery(p.nothing.fill) : p.nothing?.do && onPick(p.nothing.do))}>
             <span className="dim">?</span>
             <span className="m">
               Nothing called <b>{p.nothing.name}</b> in {p.nothing.where}.

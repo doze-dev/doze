@@ -33,6 +33,22 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
   // The keys act on the selected row only while it is shown: a row the
   // filter hides is not acted on unseen.
   const row = shown.find((r) => r.name === selected);
+  // What a screen reader is told as it happens: a service that starts
+  // crashing or fails. The figures are not announced; they change every
+  // second and are there to be read.
+  const [said, setSaid] = useState("");
+  const before = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const now: Record<string, string> = {};
+    const news: string[] = [];
+    for (const r of rows) {
+      now[r.name] = r.look.word;
+      const was = before.current[r.name];
+      if (was && was !== r.look.word && (r.look.word === "crashing" || r.look.word === "failed")) news.push(`${r.name} is ${r.look.word}`);
+    }
+    before.current = now;
+    if (news.length) setSaid(news.join(". "));
+  }, [rows]);
   const viewName = home.view || "tiles";
 
   useEffect(() => {
@@ -239,9 +255,11 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             <b>{home.setup.text}</b>
             <span>{home.setup.detail}</span>
           </div>
-          <button className="btn pri" onClick={() => void repair()} title="The same as doze trust, behind the system's password prompt">
-            Set it up <span className="dim">(one password)</span>
-          </button>
+          {home.setup.prompt && (
+            <button className="btn pri" onClick={() => void repair()} title="Runs the machine's setup (doze doctor --fix), which routes and trusts the domain, behind the system's password prompt">
+              Set up the machine <span className="dim">(one password)</span>
+            </button>
+          )}
           <button className="btn quiet" onClick={() => void copy(home.setup?.command ?? "", "the command")} title="For a terminal instead">
             Copy <span className="mono">{home.setup.command}</span>
           </button>
@@ -291,7 +309,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
       )}
       {viewName === "map" && (
         <div className="scrollarea">
-          <MapView m={home.map} rows={rows} selected={selected} stackKey={stackKey} />
+          <MapView m={home.map} rows={rows} shown={shown} selected={selected} stackKey={stackKey} />
         </div>
       )}
       <Keys
@@ -318,6 +336,9 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         }
         note={stopped ? "nothing runs while the stack is down" : "from Library: click a stack"}
       />
+      <div className="sr-only" aria-live="polite">
+        {said}
+      </div>
       {starting && stopped && <StartSheet stack={home.stack} rows={rows} lastSet={stopped.lastSet ?? []} stackKey={stackKey} />}
     </>
   );
@@ -343,7 +364,7 @@ function DownStrip({ s, tight, onUp, onChoose, dir, busy }: { s: view.Stopped; t
     );
   }
   return (
-    <div className={"strip" + (tight ? " tight" : "")} role="status">
+    <div className={"strip" + (tight ? " tight" : "")}>
       <div className="stat wide">
         <span className="v">
           Stopped<small>{s.when}</small>
@@ -963,7 +984,8 @@ function Pane({ inst, row, stackKey }: { inst: view.Instance | null; row?: view.
   );
 }
 
-function MapView({ m, rows, selected, stackKey }: { m: view.MapView; rows: view.Row[]; selected: string; stackKey: string }) {
+function MapView({ m, rows, shown, selected, stackKey }: { m: view.MapView; rows: view.Row[]; shown: view.Row[]; selected: string; stackKey: string }) {
+  const visible = new Set(shown.map((r) => r.name));
   const byName = new Map(rows.map((r) => [r.name, r]));
   const path = (e: view.MapEdge) => {
     if (e.same) return `M${e.x1} ${e.y1} C${e.x1} ${(e.y1 + e.y2) / 2}, ${e.x2} ${(e.y1 + e.y2) / 2}, ${e.x2} ${e.y2}`;
@@ -988,7 +1010,7 @@ function MapView({ m, rows, selected, stackKey }: { m: view.MapView; rows: view.
         return (
           <button
             key={n.name}
-            className={"node" + (n.task ? " task" : "") + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && !n.task ? " off" : "")}
+            className={"node" + (n.task ? " task" : "") + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && !n.task ? " off" : "") + (visible.has(r.name) ? "" : " faded")}
             style={{ left: n.x, top: n.y, width: n.w }}
             aria-label={`${r.name}, ${r.look.word}${r.because ? ", " + r.because : ""}`}
             onKeyDown={(e) => {
@@ -1090,6 +1112,7 @@ function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
         <div>
           <b className="bright">{c.summary}</b>
           {c.detail && <span className="dim"> · {c.detail}</span>}
+          {c.hint && <div style={{ marginTop: 4 }}>{c.hint}</div>}
         </div>
         <p className="dim" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
           The same message as <span className="mono">doze lint</span>.

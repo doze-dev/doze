@@ -43,7 +43,7 @@ test("a module's overview: connect, the snippets, why it's awake, the charts", a
   await expect(dlg).toContainText("api is running and needs it, and 4 connections are open to it right now.");
   await expect(dlg).toContainText("Connections drop.");
   await expect(dlg).toContainText("Kept. Nothing is deleted.");
-  await expect(dlg.locator(".btn")).toHaveText([/Sleep db and api/, "Sleep db only", /Cancel/]);
+  await expect(dlg.locator(".btn")).toHaveText([/Sleep db and api/, "Sleep db only", "Turn db off", /Cancel/]);
   await expect(dlg).toContainText("doze only asks when something else is affected.");
   await page.screenshot({ path: `.desk-look/ConfirmSleep-${info.project.name}.png` });
   await page.keyboard.press("Escape");
@@ -120,10 +120,12 @@ test("a task that ran: its last run, the runs kept, as the TaskRan board does", 
   await expect(runs.locator(".rr:not(.h)").nth(2)).toContainText("you asked");
   await expect(page.locator(".model")).toContainText("A task keeps nothing awake once it ends.");
   await page.screenshot({ path: `.desk-look/TaskRan-${info.project.name}.png` });
-  // Output on a run goes to the runs tab, which filters by run.
-  await runs.locator(".rr:not(.h)").first().getByRole("button", { name: "Output" }).click();
-  await expect(page.locator('.ptab[data-tab="logs"]')).toHaveClass(/on/);
-  await expect(page.getByRole("group", { name: "Level" })).toBeVisible();
+  // The newest run is shown; Output on another, the failed one, shows that
+  // run's output in the card instead.
+  await expect(runs.locator(".rr:not(.h)").first().getByRole("button", { name: "Shown" })).toBeVisible();
+  await runs.locator(".rr:not(.h)").nth(1).getByRole("button", { name: "Output" }).click();
+  await expect(runs.locator(".rr:not(.h)").nth(1).getByRole("button", { name: "Shown" })).toBeVisible();
+  await expect(output).toContainText("exit 1");
 });
 
 test("a task not yet run: what Run will do, as the TaskNotRun board does", async ({ page }, info) => {

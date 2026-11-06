@@ -495,22 +495,24 @@ function TaskOverview({ inst, stackKey, onRuns }: { inst: view.Instance; stackKe
   );
 }
 
-// copyOutput copies the last run's lines, as kept on the page.
-async function copyOutput(stackKey: string, name: string) {
+// copyOutput copies a run's lines (the last run when none is named), as kept on the page.
+async function copyOutput(stackKey: string, name: string, seq?: number) {
   const t = await transport();
   const l = await t.logs(stackKey, { instance: name, level: 0, from: 0, n: 4000 });
   const lines = l.lines ?? [];
-  const last = Math.max(0, ...lines.map((x) => x.run ?? 0));
+  const which = seq ?? Math.max(0, ...lines.map((x) => x.run ?? 0));
   const text = lines
-    .filter((x) => !x.doze && (x.run ?? 0) === last)
+    .filter((x) => !x.doze && (x.run ?? 0) === which)
     .map((x) => x.line)
     .join("\n");
   await copy(text, "the output");
 }
 
-function LastRun({ inst, stackKey, onRuns }: { inst: view.Instance; stackKey: string; onRuns: () => void }) {
+function LastRun({ inst, stackKey }: { inst: view.Instance; stackKey: string; onRuns: () => void }) {
   const runs = inst.runs ?? [];
-  const last = runs[0];
+  // The run whose output is shown: the newest until another is picked.
+  const [seq, setSeq] = useState<number | undefined>(undefined);
+  const last = runs.find((r) => r.seq === seq) ?? runs[0];
   const longest = Math.max(0.001, ...runs.map((r) => r.secs ?? 0));
   return (
     <div className="two" style={{ gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)" }}>
@@ -523,12 +525,12 @@ function LastRun({ inst, stackKey, onRuns }: { inst: view.Instance; stackKey: st
                 · run {last.seq} · {last.when} · {last.done ? `exit ${last.exit}` : "running"} · {last.took}
               </span>
             )}
-            <button className="copy" onClick={() => void copyOutput(stackKey, inst.name)}>
+            <button className="copy" onClick={() => void copyOutput(stackKey, inst.name, last?.log || undefined)}>
               Copy
             </button>
           </h3>
           <div className="dock" style={{ margin: 0, flex: 1 }}>
-            <LogsPage stackKey={inst.key} instance={inst.name} embedded bare />
+            <LogsPage stackKey={inst.key} instance={inst.name} embedded bare run={last?.log || undefined} />
           </div>
         </section>
       </div>
@@ -546,7 +548,7 @@ function LastRun({ inst, stackKey, onRuns }: { inst: view.Instance; stackKey: st
               <span />
             </div>
             {runs.map((r) => (
-              <div key={r.at} className="rr">
+              <div key={r.at} className={"rr" + (r.seq === last?.seq ? " sel" : "")}>
                 <span className="mono">{r.when}</span>
                 <span className="dur">
                   <i style={{ width: Math.max(6, Math.round(((r.secs ?? 0) / longest) * 40)), background: r.done && !r.ok ? "var(--bad)" : undefined }} />
@@ -556,8 +558,8 @@ function LastRun({ inst, stackKey, onRuns }: { inst: view.Instance; stackKey: st
                 <span className="m" title={r.why}>
                   {r.why}
                 </span>
-                <button className="copy" onClick={onRuns}>
-                  Output
+                <button className="copy" aria-pressed={r.seq === last?.seq} onClick={() => setSeq(r.seq)}>
+                  {r.seq === last?.seq ? "Shown" : "Output"}
                 </button>
               </div>
             ))}

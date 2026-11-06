@@ -46,7 +46,7 @@ func (d *desk) open(dir string) {
 			Title:            "doze",
 			Width:            960,
 			Height:           640,
-			MinWidth:         640,
+			MinWidth:         760, // the narrowest the Library and a stack page still fit
 			MinHeight:        400,
 			URL:              "/",
 			BackgroundType:   application.BackgroundTypeSolid,
