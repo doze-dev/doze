@@ -189,8 +189,19 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 	// to reference. It is still never invented: a kind with no well-known port
 	// (and an app, or a service) must say its own, and two that want the same one
 	// are reported by validatePorts.
+	//
+	// The module knows its own port: once its driver has resolved, its
+	// Describe's Port is asked first. doze's table (detect.ConventionalPort) is
+	// only the fallback, for when no module can be asked: the offline shape
+	// pass, `doze init` before anything is fetched, a module whose Describe
+	// gives no port.
 	if c.Port == 0 && c.Listen == "" && head.kind == KindModule && head.etype != "temporal" {
-		c.Port = detect.ConventionalPort(head.etype)
+		if drv != nil {
+			c.Port = l.hooks.defaultPort(head.etype)
+		}
+		if c.Port == 0 {
+			c.Port = detect.ConventionalPort(head.etype)
+		}
 	}
 	domains, cert, key, err := checkDomains(head, what, c.Domains, c.Cert, c.Key, blockBaseDir(cfg, block), l.shape)
 	if err != nil {

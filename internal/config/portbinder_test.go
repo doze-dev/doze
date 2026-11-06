@@ -195,6 +195,48 @@ module fake "api" {
 	}
 }
 
+func TestAModuleWithoutAPortTakesTheOneItsModuleGives(t *testing.T) {
+	src := []byte("module valkey \"cache\" { version = 9 }\n")
+	// the module's Describe says 6400: it wins over doze's table
+	hooks := &Hooks{DefaultPort: func(engineType string) int {
+		if engineType == "valkey" {
+			return 6400
+		}
+		return 0
+	}}
+	cfg, err := Parse(src, "doze.hcl", hooks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Instances[0].Port; got != 6400 {
+		t.Errorf("port from the module's Describe = %d, want 6400", got)
+	}
+	// a module that gives none, and the offline shape pass that asks no
+	// module, fall back to the table
+	cfg, err = Parse(src, "doze.hcl", &Hooks{DefaultPort: func(string) int { return 0 }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Instances[0].Port; got != 6379 {
+		t.Errorf("fallback port = %d, want 6379", got)
+	}
+	cfg, err = ParseShape(src, "doze.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Instances[0].Port; got != 6379 {
+		t.Errorf("shape pass port = %d, want 6379", got)
+	}
+	// a port the block names is never replaced
+	cfg, err = Parse([]byte("module valkey \"cache\" {\n  version = 9\n  port    = 7001\n}\n"), "doze.hcl", hooks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Instances[0].Port; got != 7001 {
+		t.Errorf("declared port = %d, want 7001", got)
+	}
+}
+
 func TestTwoModulesOfAKindStillSayWhichPortToChange(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "doze.hcl", `

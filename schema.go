@@ -1,16 +1,10 @@
 package doze
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
-	"github.com/doze-dev/doze-sdk/plugin"
 	"github.com/doze-dev/doze/internal/hostboot"
 )
 
@@ -60,7 +54,7 @@ func EngineSchema(opts Options, engineType string) (Schema, error) {
 	if !ok {
 		return Schema{}, fmt.Errorf("doze: unknown engine %q (no module provides it)", engineType)
 	}
-	desc, err := execDescribe(path, env)
+	desc, err := hostboot.DescribePlugin(path, env)
 	if err != nil {
 		return Schema{}, fmt.Errorf("doze: engine %q exposes no local schema: %w", engineType, err)
 	}
@@ -84,24 +78,6 @@ func initHost(opts Options) (*hostboot.Host, error) {
 		LockPath:    func() string { return filepath.Join(home, "doze.lock") },
 		PersistLock: func() bool { return false },
 	})
-}
-
-// execDescribe runs a plugin binary's __describe subcommand and decodes its
-// engine.Description JSON.
-func execDescribe(path string, env []string) (engine.Description, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, path, plugin.DescribeArg)
-	cmd.Env = append(os.Environ(), env...)
-	out, err := cmd.Output()
-	if err != nil {
-		return engine.Description{}, err
-	}
-	var desc engine.Description
-	if err := json.Unmarshal(out, &desc); err != nil {
-		return engine.Description{}, fmt.Errorf("decoding schema: %w", err)
-	}
-	return desc, nil
 }
 
 func schemaFrom(engineType string, d engine.Description) Schema {

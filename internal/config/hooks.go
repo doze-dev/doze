@@ -29,6 +29,18 @@ type Hooks struct {
 	// release exists — appended to remote-decode errors only. It must never
 	// fail: a "" return degrades to a bare diagnostic.
 	RemoteDecodeHint func(engineType string) string
+	// DefaultPort is the port an engine's module gives as its own (the Port
+	// of its Describe), for a module block that names none; 0 when the module
+	// gives none or cannot be asked. Consulted only once the block's module
+	// has resolved.
+	DefaultPort func(engineType string) int
+}
+
+func (h *Hooks) defaultPort(engineType string) int {
+	if h == nil || h.DefaultPort == nil {
+		return 0
+	}
+	return h.DefaultPort(engineType)
 }
 
 // The invokers below are nil-safe on both the receiver and the field, so the

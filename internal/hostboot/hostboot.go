@@ -154,6 +154,9 @@ func Init(opts Options) (*Host, error) {
 		resolvers = append(resolvers, modMgr.Lookup)
 	}
 	chain := plugin.Chain(resolvers...)
+	if hooks != nil {
+		hooks.DefaultPort = defaultPort(chain)
+	}
 	pluginMgr = plugin.NewManager(chain)
 	engine.SetPluginResolver(pluginMgr.Lookup)
 
