@@ -198,19 +198,42 @@ doze doctor     # validates the merged whole
 
 ### Per-developer overrides
 
-Keep shared instances committed in `doze.hcl`, and let each developer add personal
-ones in a **gitignored** `local.doze.hcl`:
+Keep the shared stack in `doze.hcl`, and let each developer change a few things
+for themselves in a **gitignored** file whose name ends in `.override.doze.hcl`:
 
 ```hcl
-# local.doze.hcl  (gitignored — yours alone)
-module postgres "scratch" {
-  version = 17
-  role "me" { password = "me" }
+# local.override.doze.hcl  (gitignored — yours alone)
+module postgres "db" {
+  port = 5499         # 5432 is taken on this laptop
+}
+
+app "admin" {
+  enabled = false     # I never work on it
 }
 ```
 
-Everyone shares the same baseline; your scratch instance never touches the team's
-config.
+An override names a block declared elsewhere, by kind and name, and changes only
+`port`, `enabled`, `sleep` and `version`: the arguments doze reads itself, so
+they work the same for every kind and module. Anything else in an override is
+an error that names it, as is an override for a block nothing declares, so a
+renamed block cannot leave a stale override quietly doing nothing.
+
+To **add** something of your own instead, such as a scratch database, put it in
+another gitignored `*.doze.hcl` file; every sibling `*.doze.hcl` is read too:
+
+```hcl
+# local.doze.hcl  (gitignored)
+module postgres "scratch" {
+  version = 17
+}
+```
+
+Add both to `.gitignore`:
+
+```
+*.override.doze.hcl
+local.doze.hcl
+```
 
 ## Multiple projects on one machine
 

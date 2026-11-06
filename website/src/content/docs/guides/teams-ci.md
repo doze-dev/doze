@@ -15,9 +15,10 @@ everyone runs the same thing.**
 - **Don't commit** `.doze/` (runtime manifest) or any in-repo `data_dir` —
   see [Files & storage](/guides/files-and-storage/#whats-what-committing-and-ignoring).
 
-Per-developer tweaks (a different port, an extra instance) go in
-`local.doze.hcl`, gitignored — merged automatically, overriding nothing anyone
-shares.
+Per-developer tweaks go in gitignored files beside `doze.hcl`: a different
+port or a block switched off in `local.override.doze.hcl`, an extra instance of
+your own in `local.doze.hcl`. Both are read automatically; neither changes what
+anyone else runs. Add `*.override.doze.hcl` and `local.doze.hcl` to `.gitignore`.
 
 A new teammate's onboarding is:
 

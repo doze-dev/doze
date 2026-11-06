@@ -28,6 +28,8 @@ type loader struct {
 	shape bool
 	// pluginSrc caches each file's bytes in the form a plugin decodes.
 	pluginSrc map[string][]byte
+	// overrides are the *.override.doze.hcl changes to declared blocks.
+	overrides overrides
 }
 
 // Load reads and validates the doze configuration at path, with no variable
@@ -86,7 +88,12 @@ func (l *loader) loadFiles(path string, files []string, primary string, cliVars 
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := l.buildConfig(hcl.MergeFiles(l.files), primary, &varInputs{cli: cliVars, auto: autoVars})
+	base, ov, err := splitOverrides(l.parser, l.files)
+	if err != nil {
+		return nil, err
+	}
+	l.overrides = ov
+	cfg, err := l.buildConfig(hcl.MergeFiles(base), primary, &varInputs{cli: cliVars, auto: autoVars})
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +203,9 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 	content, diags := body.Content(schema)
 	if diags.HasErrors() {
 		return nil, diagError(parser, diags)
+	}
+	if err := l.overrides.apply(parser, content.Blocks); err != nil {
+		return nil, err
 	}
 
 	cfg := &Config{

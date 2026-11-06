@@ -51,7 +51,11 @@ func LoadShallow(path string) (*ShallowConfig, error) {
 	if err := checkOldForms(parser, hclFiles); err != nil {
 		return nil, err
 	}
-	merged := hcl.MergeFiles(hclFiles)
+	base, ov, err := splitOverrides(parser, hclFiles)
+	if err != nil {
+		return nil, err
+	}
+	merged := hcl.MergeFiles(base)
 
 	out := &ShallowConfig{path: primary}
 	schema := &hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{
@@ -59,6 +63,7 @@ func LoadShallow(path string) (*ShallowConfig, error) {
 		{Type: KindApp, LabelNames: []string{"name"}},
 	}}
 	content, _, _ := merged.PartialContent(schema)
+	_ = ov.apply(parser, content.Blocks) // the full load says what is wrong with one
 	for _, block := range content.Blocks {
 		decl := ShallowDecl{Kind: KindApp, Type: AppEngine, Name: block.Labels[0]}
 		if block.Type == KindModule {

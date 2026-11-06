@@ -149,7 +149,7 @@ Kindness
 - [x] L11 the `$PORT` trap is named on a ready timeout
 
 Later items
-- [ ] L3 override files for core arguments
+- [x] L3 override files for core arguments
 - [x] L12 richer `defaults`
 - [ ] L14 ports from the module's Describe
 - [x] L15 `module.<x>.env`

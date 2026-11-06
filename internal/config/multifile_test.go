@@ -99,3 +99,52 @@ func TestPositionedMissingVersion(t *testing.T) {
 		t.Fatalf("missing-version error should be positioned (file:line): %v", err)
 	}
 }
+
+func TestOverrideFileChangesCoreArguments(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "doze.hcl", `
+module fake "db" {
+  version = 1
+  port    = 5432
+}
+app "api" {
+  run  = "x"
+  port = 3000
+  env  = { DB = module.db.address }
+}
+`)
+	writeFile(t, dir, "local.override.doze.hcl", `
+module fake "db" { port = 5499 }
+app "api" {
+  enabled = false
+  sleep   = "never"
+}
+`)
+	cfg, err := Load(filepath.Join(dir, "doze.hcl"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := cfg.Lookup("db").Port; p != 5499 {
+		t.Errorf("db port = %d, want the override's 5499", p)
+	}
+	api := cfg.Lookup("api")
+	if api.Enabled || len(api.Deps) != 1 {
+		t.Errorf("api: want disabled with its reference to db kept, got enabled=%v deps=%v", api.Enabled, api.Deps)
+	}
+}
+
+func TestOverrideFileRefusals(t *testing.T) {
+	for name, c := range map[string]struct{ over, want string }{
+		"other argument": {`app "api" { run = "y" }`, "an override changes port, enabled, sleep, version; not run"},
+		"nothing there":  {`app "apj" { port = 1 }`, `the override for app apj matches nothing declared`},
+		"new block":      {`variable "x" {}`, "not variable"},
+	} {
+		dir := t.TempDir()
+		writeFile(t, dir, "doze.hcl", "app \"api\" {\n  run  = \"x\"\n  port = 3000\n}\n")
+		writeFile(t, dir, "me.override.doze.hcl", c.over)
+		_, err := Load(filepath.Join(dir, "doze.hcl"), nil)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: want %q, got %v", name, c.want, err)
+		}
+	}
+}

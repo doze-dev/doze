@@ -93,7 +93,7 @@ done.
 Commit `doze.hcl` and `doze.lock`. A teammate clones the repo and runs
 `doze run -- …` (or `doze sync`) — they get the same engines, versions, databases,
 roles, buckets, and queues, with no manual setup. Personal tweaks go in a
-gitignored `local.doze.hcl` (see
+gitignored `local.override.doze.hcl` (see
 [Files & storage](/guides/files-and-storage/#per-developer-overrides)).
 
 - **docker-compose** runs a heavyweight, always-on stack in Docker. doze runs

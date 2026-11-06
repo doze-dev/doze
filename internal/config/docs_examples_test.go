@@ -185,6 +185,10 @@ func TestDocExamplesParse(t *testing.T) {
 	for _, file := range files {
 		for _, f := range fencesIn(t, file) {
 			where := fmt.Sprintf("%s:%d", strings.TrimPrefix(f.file, "../../"), f.line)
+			if strings.Contains(firstLine(f.src), config.OverrideSuffix) {
+				// An override file: it changes blocks shown elsewhere.
+				continue
+			}
 			if !declares.MatchString(f.src) {
 				// Part of a block. Not a config, but it must not teach a dead form.
 				if m := oldHeader.FindString(f.src); m != "" {
@@ -204,4 +208,9 @@ func TestDocExamplesParse(t *testing.T) {
 		t.Fatalf("only %d examples were checked — the docs moved, or the fence pattern stopped matching", checked)
 	}
 	t.Logf("checked %d examples in %d files", checked, len(files))
+}
+
+func firstLine(s string) string {
+	l, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
+	return l
 }

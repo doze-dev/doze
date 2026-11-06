@@ -387,6 +387,9 @@ func sortedConditionKeys(m map[string]engine.Condition) []string {
 // none. A block's own `after` is left out: it names blocks to wait for, and is
 // read by parseAfter.
 func referencedTraversals(body hcl.Body) []hcl.Traversal {
+	if o, ok := body.(overrideBody); ok {
+		return append(referencedTraversals(o.base), referencedTraversals(o.over)...)
+	}
 	hb, ok := body.(*hclsyntax.Body)
 	if !ok {
 		return nil
