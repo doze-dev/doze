@@ -208,19 +208,26 @@ app "worker" {
 }
 ```
 
-Each entry is a reference to a whole block. The app waits until a module or
-another app is ready, and until a task has succeeded.
+Each entry is a reference to a whole block. A bare reference waits until a
+module, app or service is ready, and until a task has succeeded. Wrap it to
+wait for less:
 
-`depends_on` is the longer form, for when the condition matters: a map of block
-name to `healthy` (the default for every reference and every `after` entry) or
-`started` (wait only until the dependency's process has spawned).
+| Entry | Waits until |
+|---|---|
+| `module.cloud` | it is ready (its probe passes; a task has succeeded) |
+| `started(module.cloud)` | its process has started (today doze still waits until it is ready; a later release starts sooner) |
+| `lazy(module.cloud)` | nothing: its address and env are filled in, it stays asleep, and the first connection wakes it |
 
 ```hcl
 app "worker" {
-  run        = "go run ./cmd/worker"
-  depends_on = { "cloud" = "started" }
+  run   = "go run ./cmd/worker"
+  after = [task.migrate, started(module.cloud)]
 }
 ```
+
+`after` works the same on every kind of block. It replaces `depends_on`:
+doze reads an old `depends_on = { "cloud" = "started" }` as a mistake and
+prints the `after` line to write instead.
 
 ---
 

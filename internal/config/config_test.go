@@ -507,30 +507,31 @@ module fake "b" {
 	}
 }
 
-func TestDependsOnAddsConditionedEdge(t *testing.T) {
+func TestAfterStartedAddsConditionedEdge(t *testing.T) {
 	cfg, err := Parse([]byte(`
 module fake "a" { version = 1 }
+module fake "c" { version = 1 }
 module fake "b" {
-  version    = 1
-  depends_on = { "module.a" = "started" }
+  version = 1
+  after   = [started(module.a), lazy(module.c)]
 }
 `), "doze.hcl", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	deps := cfg.Lookup("b").Deps
-	if len(deps) != 1 || deps[0].Name != "a" || deps[0].Condition != engine.Started {
-		t.Errorf("depends_on dep = %+v, want {a started}", deps)
+	if len(deps) != 2 || deps[0].Name != "a" || deps[0].Condition != engine.Started || deps[1].Condition != engine.Lazy {
+		t.Errorf("after deps = %+v, want {a started} {c lazy}", deps)
 	}
 }
 
-func TestDependsOnOverridesReferenceCondition(t *testing.T) {
+func TestAfterConditionOverridesReference(t *testing.T) {
 	cfg, err := Parse([]byte(`
 module fake "a" { version = 1 }
 module fake "b" {
-  version    = 1
-  ref        = module.a.name
-  depends_on = { "module.a" = "started" }
+  version = 1
+  ref     = module.a.name
+  after   = [started(module.a)]
 }
 `), "doze.hcl", nil)
 	if err != nil {
@@ -538,32 +539,64 @@ module fake "b" {
 	}
 	deps := cfg.Lookup("b").Deps
 	if len(deps) != 1 || deps[0].Condition != engine.Started {
-		t.Errorf("explicit condition should override the reference default: %+v", deps)
+		t.Errorf("started(...) should override the reference default: %+v", deps)
+	}
+}
+
+func TestAfterStartedOnServicesAndTasks(t *testing.T) {
+	cfg, err := Parse([]byte(`
+module fake "a" { version = 1 }
+service "s" {
+  run   = "true"
+  after = [started(module.a)]
+}
+`), "doze.hcl", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := cfg.Lookup("s").Deps
+	if len(deps) != 1 || deps[0].Condition != engine.Started {
+		t.Errorf("service after deps = %+v, want {a started}", deps)
+	}
+}
+
+func TestAfterUnknownWait(t *testing.T) {
+	_, err := Parse([]byte(`
+module fake "a" { version = 1 }
+module fake "b" {
+  version = 1
+  after   = [whenever(module.a)]
+}
+`), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "whenever") || !strings.Contains(err.Error(), "started(") {
+		t.Errorf("expected an unknown-wait error, got %v", err)
+	}
+}
+
+func TestDependsOnPointsAtAfter(t *testing.T) {
+	_, err := Parse([]byte(`
+module fake "a" { version = 1 }
+app "w" { run = "true" }
+module fake "b" {
+  version    = 1
+  depends_on = { "module.a" = "started", "w" = "healthy" }
+}
+`), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "after = [started(module.a), app.w]") {
+		t.Errorf("expected depends_on to be rewritten as after, got %v", err)
 	}
 }
 
 func TestDependsOnUndeclared(t *testing.T) {
 	_, err := Parse([]byte(`
+module fake "apple" { version = 1 }
 module fake "b" {
   version    = 1
-  depends_on = { "module.ghost" = "healthy" }
+  depends_on = { "module.appel" = "healthy" }
 }
 `), "doze.hcl", nil)
-	if err == nil || !strings.Contains(err.Error(), "depends_on") || !strings.Contains(err.Error(), "ghost") {
-		t.Errorf("expected depends_on undeclared error, got %v", err)
-	}
-}
-
-func TestDependsOnInvalidCondition(t *testing.T) {
-	_, err := Parse([]byte(`
-module fake "a" { version = 1 }
-module fake "b" {
-  version    = 1
-  depends_on = { "module.a" = "whenever" }
-}
-`), "doze.hcl", nil)
-	if err == nil || !strings.Contains(err.Error(), "condition") {
-		t.Errorf("expected invalid-condition error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "appel") || !strings.Contains(err.Error(), "module.apple") {
+		t.Errorf("expected depends_on undeclared error with a suggestion, got %v", err)
 	}
 }
 

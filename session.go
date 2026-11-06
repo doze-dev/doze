@@ -112,14 +112,35 @@ func (s *Session) KeepAwake(ctx context.Context, name string) error {
 // AddApp adds an app to the running stack and boots it, returning its state.
 // The stack need not have been built from a Stack.
 func (s *Session) AddApp(ctx context.Context, name string, a App) (Instance, error) {
-	return s.add(ctx, name, a.blockHCL(name))
+	return s.add(ctx, name, a.blockHCL(name, s.kindsFor(ctx, a.DependsOn)))
 }
 
 // AddModule adds a module-engine instance (built with NewModule or
 // Stack.AddModule) to the running stack, returning its state. Proxied engines
 // lazy-boot on first connection; the returned Instance carries its endpoint.
 func (s *Session) AddModule(ctx context.Context, m *Module) (Instance, error) {
-	return s.add(ctx, m.name, m.blockHCL())
+	return s.add(ctx, m.name, m.blockHCL(s.kindsFor(ctx, m.dependsOn)))
+}
+
+// kindsFor maps the running stack's names to their kinds, so a bare name in
+// DependsOn becomes a reference to the right block. Nothing is asked when no
+// name needs it.
+func (s *Session) kindsFor(ctx context.Context, names []string) map[string]string {
+	if len(names) == 0 {
+		return nil
+	}
+	all, err := s.Status(ctx)
+	if err != nil {
+		return nil
+	}
+	out := map[string]string{}
+	for _, in := range all {
+		out[in.Name] = "module"
+		if in.Engine == "process" {
+			out[in.Name] = "app"
+		}
+	}
+	return out
 }
 
 func (s *Session) add(ctx context.Context, name, block string) (Instance, error) {

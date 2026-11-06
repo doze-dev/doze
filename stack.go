@@ -29,7 +29,7 @@ type Stack struct {
 
 type blockRenderer interface {
 	instanceName() string
-	render(b *strings.Builder)
+	render(b *strings.Builder, kinds map[string]string)
 }
 
 // NewStack starts a stack with the given name (the stack/domain label).
@@ -65,15 +65,15 @@ func NewModule(engine, name string) *Module {
 
 // blockHCL renders a single instance block (no stack name/defaults), for the
 // live "add" control op.
-func (m *Module) blockHCL() string {
+func (m *Module) blockHCL(kinds map[string]string) string {
 	var b strings.Builder
-	m.render(&b)
+	m.render(&b, kinds)
 	return b.String()
 }
 
-func (a App) blockHCL(name string) string {
+func (a App) blockHCL(name string, kinds map[string]string) string {
 	var b strings.Builder
-	(&appBlock{name: name, a: a}).render(&b)
+	(&appBlock{name: name, a: a}).render(&b, kinds)
 	return b.String()
 }
 
@@ -99,8 +99,9 @@ func (s *Stack) HCL() string {
 			b.WriteString("}\n\n")
 		}
 	}
+	kinds := s.kinds()
 	for _, blk := range s.blocks {
-		blk.render(&b)
+		blk.render(&b, kinds)
 		b.WriteString("\n")
 	}
 	return b.String()
@@ -128,7 +129,7 @@ type rawBlock struct {
 
 func (r *rawBlock) instanceName() string { return r.name }
 
-func (r *rawBlock) render(b *strings.Builder) {
+func (r *rawBlock) render(b *strings.Builder, _ map[string]string) {
 	b.WriteString(strings.TrimRight(r.text, "\n"))
 	b.WriteString("\n")
 }
@@ -190,7 +191,7 @@ func (m *Module) Body(hcl string) *Module {
 
 func (m *Module) instanceName() string { return m.name }
 
-func (m *Module) render(b *strings.Builder) {
+func (m *Module) render(b *strings.Builder, kinds map[string]string) {
 	fmt.Fprintf(b, "module %s %s {\n", m.engine, hclString(m.name))
 	if m.version != "" {
 		fmt.Fprintf(b, "  version = %s\n", hclString(m.version))
@@ -208,7 +209,7 @@ func (m *Module) render(b *strings.Builder) {
 		fmt.Fprintf(b, "  enabled = %s\n", strconv.FormatBool(*m.enabled))
 	}
 	if len(m.dependsOn) > 0 {
-		fmt.Fprintf(b, "  depends_on = %s\n", hclDependsMap(m.dependsOn))
+		fmt.Fprintf(b, "  after = %s\n", hclAfter(nil, m.dependsOn, kinds))
 	}
 	for _, a := range m.attrs {
 		fmt.Fprintf(b, "  %s = %s\n", a.key, a.val)
@@ -239,7 +240,9 @@ type App struct {
 	// Direct keeps an app that declares a Port off the shared ingress.
 	Direct bool
 	// After names blocks to wait for, as references: "module.db", "app.api".
-	After     []string
+	After []string
+	// DependsOn names blocks to wait for by name ("db"); each becomes an
+	// `after` reference to the block of that name.
 	DependsOn []string
 	Enabled   *bool // default true
 }
@@ -269,7 +272,7 @@ type appBlock struct {
 
 func (ab *appBlock) instanceName() string { return ab.name }
 
-func (ab *appBlock) render(b *strings.Builder) {
+func (ab *appBlock) render(b *strings.Builder, kinds map[string]string) {
 	a := ab.a
 	fmt.Fprintf(b, "app %s {\n", hclString(ab.name))
 	fmt.Fprintf(b, "  run = %s\n", hclString(a.Run))
@@ -291,11 +294,8 @@ func (ab *appBlock) render(b *strings.Builder) {
 	if a.Enabled != nil {
 		fmt.Fprintf(b, "  enabled = %s\n", strconv.FormatBool(*a.Enabled))
 	}
-	if len(a.After) > 0 {
-		fmt.Fprintf(b, "  after = [%s]\n", strings.Join(a.After, ", "))
-	}
-	if len(a.DependsOn) > 0 {
-		fmt.Fprintf(b, "  depends_on = %s\n", hclDependsMap(a.DependsOn))
+	if len(a.After) > 0 || len(a.DependsOn) > 0 {
+		fmt.Fprintf(b, "  after = %s\n", hclAfter(a.After, a.DependsOn, kinds))
 	}
 	if r := a.Ready; r != nil {
 		switch {
@@ -374,15 +374,41 @@ func hclString(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace(s) + `"`
 }
 
-// hclDependsMap renders depends_on as HCL: a map of instance name → readiness
-// condition. doze's depends_on is `{ "name" = "healthy" }`, not a list; the
-// default condition is "healthy" (the runtime waits for Healthy regardless).
-func hclDependsMap(names []string) string {
-	parts := make([]string, len(names))
-	for i, n := range names {
-		parts[i] = fmt.Sprintf("%s = %q", hclIdent(n), "healthy")
+// hclAfter renders an `after` list: refs as written ("module.db"), then
+// each bare name in names as a reference to the block of that name. kinds maps
+// a declared name to its kind; a name it does not know is taken as a module.
+func hclAfter(refs, names []string, kinds map[string]string) string {
+	parts := append([]string{}, refs...)
+	for _, n := range names {
+		if strings.Contains(n, ".") {
+			parts = append(parts, n)
+			continue
+		}
+		kind := kinds[n]
+		if kind == "" {
+			kind = "module"
+		}
+		parts = append(parts, kind+"."+n)
 	}
-	return "{ " + strings.Join(parts, ", ") + " }"
+	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+// kinds maps each block's name to its kind, for references to it.
+func (s *Stack) kinds() map[string]string {
+	out := map[string]string{}
+	for _, blk := range s.blocks {
+		switch b := blk.(type) {
+		case *appBlock:
+			out[b.name] = "app"
+		case *Module:
+			out[b.name] = "module"
+		case *rawBlock:
+			if kind, _, ok := strings.Cut(strings.TrimSpace(b.text), " "); ok {
+				out[b.name] = kind
+			}
+		}
+	}
+	return out
 }
 
 func hclStringList(items []string) string {

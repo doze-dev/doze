@@ -77,6 +77,7 @@ func (l *loader) expandInstanceBlock(cfg *Config, block *hcl.Block, declRanges m
 		}
 		p.decl.Enabled = enabled
 		p.explicitDeps = explicit
+		p.dependsOn = meta.Attributes["depends_on"]
 		p.after = meta.Attributes["after"]
 		out = append(out, p)
 	}

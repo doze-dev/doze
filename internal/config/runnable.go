@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/doze-dev/doze-sdk/engine"
@@ -53,6 +54,7 @@ type ServiceDecl struct {
 	Refs         []Ref // what the body references, in source order
 
 	block *hcl.Block
+	waits map[string]engine.Condition // after entries that are not bare references
 }
 
 // TaskDecl is one `task "<name>" { … }` block: a command that runs to
@@ -69,6 +71,7 @@ type TaskDecl struct {
 	Refs    []Ref
 
 	block *hcl.Block
+	waits map[string]engine.Condition
 }
 
 // RestartDecl is a `restart { … }` block as written; empty fields take the
@@ -214,30 +217,30 @@ func (l *loader) decodeRunnables(cfg *Config, ctx *hcl.EvalContext, known *decla
 
 // splitAfter strips `after` off a body (it holds references, not a value) and
 // resolves it and the body's own references.
-func (l *loader) splitAfter(block *hcl.Block, self string, known *declared) (rest hcl.Body, after, refs []Ref, err error) {
+func (l *loader) splitAfter(block *hcl.Block, self string, known *declared) (rest hcl.Body, after, refs []Ref, waits map[string]engine.Condition, err error) {
 	meta, rest, diags := block.Body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "after"}}})
 	if diags.HasErrors() {
-		return nil, nil, nil, diagError(l.parser, diags)
+		return nil, nil, nil, nil, diagError(l.parser, diags)
 	}
 	if attr, ok := meta.Attributes["after"]; ok {
-		if after, err = parseAfter(l.parser, attr, known); err != nil {
-			return nil, nil, nil, err
+		if after, waits, err = parseAfter(l.parser, attr, known); err != nil {
+			return nil, nil, nil, nil, err
 		}
 	}
 	for _, t := range referencedTraversals(rest) {
 		ref, ok, err := known.resolve(l.parser, t)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		if ok && ref.Name != self {
 			refs = append(refs, ref)
 		}
 	}
-	return rest, after, refs, nil
+	return rest, after, refs, waits, nil
 }
 
 func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext, known *declared) error {
-	rest, after, refs, err := l.splitAfter(s.block, s.Name, known)
+	rest, after, refs, waits, err := l.splitAfter(s.block, s.Name, known)
 	if err != nil {
 		return err
 	}
@@ -262,7 +265,7 @@ func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext
 	baseDir := blockBaseDir(cfg, s.block)
 	s.Run, s.Env, s.Dir = raw.Run, raw.Env, resolveAgainst(baseDir, raw.Dir)
 	s.DirSet = raw.Dir != ""
-	s.After, s.Refs = after, refs
+	s.After, s.Refs, s.waits = after, refs, waits
 	s.Console = raw.Console
 	if raw.EnvFile != "" {
 		s.EnvFile = resolveAgainst(baseDir, raw.EnvFile)
@@ -326,14 +329,14 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 	}
 	cfg.Add(&InstanceDecl{
 		Kind: KindService, Type: AppEngine, Name: s.Name, Version: "builtin",
-		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(s.Name, s.Refs, s.After), Enabled: true,
+		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(s.Name, s.Refs, s.After, s.waits), Enabled: true,
 		After: s.After, Refs: s.Refs,
 	})
 	return nil
 }
 
 func (l *loader) decodeTask(cfg *Config, t *TaskDecl, ctx *hcl.EvalContext, known *declared) error {
-	rest, after, refs, err := l.splitAfter(t.block, t.Name, known)
+	rest, after, refs, waits, err := l.splitAfter(t.block, t.Name, known)
 	if err != nil {
 		return err
 	}
@@ -347,7 +350,7 @@ func (l *loader) decodeTask(cfg *Config, t *TaskDecl, ctx *hcl.EvalContext, know
 	baseDir := blockBaseDir(cfg, t.block)
 	t.Run, t.Env, t.Dir = raw.Run, raw.Env, resolveAgainst(baseDir, raw.Dir)
 	t.Inputs, t.Manual = raw.Inputs, raw.Manual
-	t.After, t.Refs = after, refs
+	t.After, t.Refs, t.waits = after, refs, waits
 	if raw.EnvFile != "" {
 		t.EnvFile = resolveAgainst(baseDir, raw.EnvFile)
 	}
@@ -378,7 +381,7 @@ func (cfg *Config) addTask(t *TaskDecl) error {
 	}
 	cfg.Add(&InstanceDecl{
 		Kind: KindTask, Type: AppEngine, Name: t.Name, Version: "builtin",
-		Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(t.Name, t.Refs, t.After), Enabled: true,
+		Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(t.Name, t.Refs, t.After, t.waits), Enabled: true,
 		After: t.After, Refs: t.Refs,
 	})
 	return nil
@@ -386,15 +389,25 @@ func (cfg *Config) addTask(t *TaskDecl) error {
 
 // bootEdges turns what a block references and waits for into dependencies:
 // every module, app, service and task it names, once, in order.
-func bootEdges(self string, refs, after []Ref) []engine.Dependency {
+// An `after` entry's condition (started, lazy) wins over the Healthy a
+// reference implies.
+func bootEdges(self string, refs, after []Ref, conds map[string]engine.Condition) []engine.Dependency {
 	var deps []engine.Dependency
-	seen := map[string]bool{self: true}
+	at := map[string]int{}
 	for _, ref := range append(append([]Ref{}, refs...), after...) {
-		if seen[ref.Name] {
+		if ref.Name == self {
 			continue
 		}
-		seen[ref.Name] = true
+		if _, ok := at[ref.Name]; ok {
+			continue
+		}
+		at[ref.Name] = len(deps)
 		deps = append(deps, engine.Dependency{Name: ref.Name, Condition: engine.Healthy})
+	}
+	for name, c := range conds {
+		if i, ok := at[name]; ok {
+			deps[i].Condition = c
+		}
 	}
 	return deps
 }
@@ -468,27 +481,52 @@ func parseRestart(r *hclRestart) (RestartDecl, error) {
 	return out, nil
 }
 
-// parseAfter reads `after = [task.migrate, module.db]`: a list of references
-// to whole blocks, each of which must be declared.
-func parseAfter(parser *hclparse.Parser, attr *hcl.Attribute, known *declared) ([]Ref, error) {
-	const want = "after takes a list of references to blocks, for example: after = [task.migrate, module.db]"
+// parseAfter reads `after = [task.migrate, module.db, started(app.cloud)]`:
+// a list of references to whole blocks, each of which must be declared. A
+// bare reference waits for the block to be ready; started(...) waits only for
+// it to be running, and lazy(...) orders without starting it. The second
+// result holds the condition of every entry that is not a bare reference.
+func parseAfter(parser *hclparse.Parser, attr *hcl.Attribute, known *declared) ([]Ref, map[string]engine.Condition, error) {
+	const want = "after takes a list of references to blocks, for example: after = [task.migrate, module.db, started(app.cloud)]"
 	exprs, diags := hcl.ExprList(attr.Expr)
 	if diags.HasErrors() {
-		return nil, posErr(parser, attr.Range, "invalid after", want)
+		return nil, nil, posErr(parser, attr.Range, "invalid after", want)
 	}
 	var out []Ref
+	conds := map[string]engine.Condition{}
 	for _, e := range exprs {
+		cond := engine.Healthy
+		if call, ok := e.(*hclsyntax.FunctionCallExpr); ok {
+			switch call.Name {
+			case "started":
+				cond = engine.Started
+			case "lazy":
+				cond = engine.Lazy
+			case "ready", "healthy":
+				cond = engine.Healthy
+			default:
+				return nil, nil, posErr(parser, e.Range(), fmt.Sprintf("after: %s(…) is not a way to wait", call.Name),
+					"write a bare reference to wait until it is ready, started(module.x) to wait until it runs, or lazy(module.x) to order without starting it")
+			}
+			if len(call.Args) != 1 {
+				return nil, nil, posErr(parser, e.Range(), fmt.Sprintf("after: %s takes one reference", call.Name), want)
+			}
+			e = call.Args[0]
+		}
 		t, diags := hcl.AbsTraversalForExpr(e)
 		if diags.HasErrors() || len(t) != 2 || !isKind(t.RootName()) {
-			return nil, posErr(parser, e.Range(), "invalid after", want)
+			return nil, nil, posErr(parser, e.Range(), "invalid after", want)
 		}
 		ref, _, err := known.resolve(parser, t)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		out = append(out, ref)
+		if cond != engine.Healthy {
+			conds[ref.Name] = cond
+		}
 	}
-	return out, nil
+	return out, conds, nil
 }
 
 // blockBaseDir is the absolute directory of the file that declared block:

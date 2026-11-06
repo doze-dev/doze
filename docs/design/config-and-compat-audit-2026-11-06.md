@@ -138,7 +138,7 @@ Compatibility
 - [x] C6b  — 1255047, run end to end (16 → 17, data intact)`doze migrate` for a postgres major (dump and restore)
 
 Vocabulary
-- [ ] L7 one word for ordering: `after = [..., started(x), lazy(y)]`
+- [x] L7 one word for ordering: `after = [..., started(x), lazy(y)]`
 - [ ] L8 `defaults { names, sleep }`, "never" everywhere, one verb in the docs
 - [ ] L10 shared meta-arguments on every kind
 

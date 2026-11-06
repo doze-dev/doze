@@ -41,7 +41,7 @@ var (
 	oldHeader    = regexp.MustCompile(`(?m)^(?:use\s+\w+\s+"|process\s+"|(?:postgres|valkey|kvrocks|ferret|mariadb|kafka|temporal|aws|documentdb|dynamodb|lambda|s3|sqs|sns)\s+"|modules \{|name\s*=)`)
 	oldReference = regexp.MustCompile(`\b(?:postgres|valkey|kvrocks|ferret|mariadb|kafka|temporal|aws|s3|sqs|sns|process)\.[a-z_][a-z0-9_]*\.(?:url|address|host|port|name|arn|socket|env_var)\b`)
 	undeclared   = regexp.MustCompile(`reference to undeclared (module|app|service|task) "([^"]+)"`)
-	dependsOnGap = regexp.MustCompile(`depends_on references undeclared instance "([^"]+)"`)
+	dependsOnGap = regexp.MustCompile(`depends_on names "([^"]+)", and nothing is declared`)
 	unknownVar   = regexp.MustCompile(`(?s)Unsupported attribute.*?\bvar\.([a-z_][a-z0-9_]*).*?does not have an attribute named`)
 )
 

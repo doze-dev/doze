@@ -233,7 +233,7 @@ task "migrate" { run = "y" }
 		"undeclared":       {`app "w" { run = "x"  env = { A = module.dbb.url } }`, []string{`undeclared module "dbb"`, "Did you mean module.db?"}},
 		"wrong kind":       {`app "w" { run = "x"  env = { A = app.db.url } }`, []string{`"db" is a module, not an app`, "write module.db"}},
 		"after undeclared": {`app "w" { run = "x"  after = [task.seed] }`, []string{`undeclared task "seed"`}},
-		"after not a ref":  {`app "w" { run = "x"  after = ["migrate"] }`, []string{"invalid after", "after = [task.migrate, module.db]"}},
+		"after not a ref":  {`app "w" { run = "x"  after = ["migrate"] }`, []string{"invalid after", "after = [task.migrate, module.db"}},
 		"after too deep":   {`app "w" { run = "x"  after = [module.db.url] }`, []string{"invalid after"}},
 		"in a service":     {`service "s" { run = "x"  env = { A = module.nope.url } }`, []string{`undeclared module "nope"`}},
 		"in a task":        {`task "t" { run = "x"  after = [app.nope] }`, []string{`undeclared app "nope"`}},

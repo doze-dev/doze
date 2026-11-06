@@ -114,7 +114,7 @@ type InstanceDecl struct {
 	// Deps are the other declared instances this one must boot first (e.g. an sns
 	// instance referencing sqs.jobs), each with a readiness condition. Derived
 	// from the config reference graph (every reference is a Healthy dependency)
-	// and any explicit `depends_on`; the runtime boots and holds them first.
+	// and `after` (whose started(…) and lazy(…) set a weaker condition).
 	Index int                 // declaration order, used for endpoint address assignment
 	Deps  []engine.Dependency // dependencies, in reference order
 	// Enabled defaults to true; `enabled = false` declares the instance but leaves it

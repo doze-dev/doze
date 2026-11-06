@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/agext/levenshtein"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -23,8 +24,9 @@ type pendingInstance struct {
 	body         hcl.Body                    // block body (meta-args stripped), for reference extraction
 	remain       hcl.Body                    // body minus common fields, for the driver decode
 	ctx          *hcl.EvalContext            // the context this stamp decodes against (carries each/count)
-	explicitDeps map[string]engine.Condition // explicit depends_on: instance name -> condition
-	after        *hcl.Attribute              // the block's `after`, nil if unset
+	explicitDeps map[string]engine.Condition // depends_on as written, for the error that rewrites it
+	dependsOn    *hcl.Attribute
+	after        *hcl.Attribute // the block's `after`, nil if unset
 	defRange     hcl.Range
 	blockLabel   string    // the source block's label (the count/for_each base, e.g. "assets")
 	sleepRange   hcl.Range // a module's `sleep`, for errors about it
@@ -309,8 +311,8 @@ func standInAttributes(decl *InstanceDecl, used map[string]bool) cty.Value {
 }
 
 // instanceDeps records what p must boot first: every module or app it
-// references (a Healthy dependency), any `after` entry, and any explicit
-// depends_on (which may set a stronger or weaker condition). A reference to a
+// references (a Healthy dependency) and every `after` entry, whose
+// started(…) or lazy(…) sets a weaker condition. A reference to a
 // task is an edge too, so the task runs before what needs it. Self references
 // drop.
 func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, known *declared) error {
@@ -338,7 +340,7 @@ func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, kno
 		edge(ref)
 	}
 	if p.after != nil {
-		after, err := parseAfter(parser, p.after, known)
+		after, waits, err := parseAfter(parser, p.after, known)
 		if err != nil {
 			return err
 		}
@@ -346,20 +348,12 @@ func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, kno
 		for _, ref := range after {
 			edge(ref)
 		}
+		for name, c := range waits {
+			cond[name] = c
+		}
 	}
-	// Explicit depends_on conditions (override the default, add new edges).
-	for _, name := range sortedConditionKeys(p.explicitDeps) {
-		if name == p.decl.Name {
-			continue
-		}
-		if _, declared := cfg.index[name]; !declared {
-			return posErr(parser, p.defRange,
-				fmt.Sprintf("%s: depends_on references undeclared instance %q", p.decl.Title(), name), "")
-		}
-		if _, ok := cond[name]; !ok {
-			order = append(order, name)
-		}
-		cond[name] = p.explicitDeps[name]
+	if p.dependsOn != nil {
+		return dependsOnGone(parser, p, known)
 	}
 	deps := make([]engine.Dependency, 0, len(order))
 	for _, n := range order {
@@ -528,4 +522,45 @@ func engineEndpoint(addr string) engine.Endpoint {
 		return engine.Endpoint{UnixSocket: path}
 	}
 	return engine.Endpoint{TCPAddr: addr}
+}
+
+// dependsOnGone is the error for `depends_on`, which `after` replaced: it
+// spells the same waits as an after list, so the fix is a paste.
+func dependsOnGone(parser *hclparse.Parser, p *pendingInstance, known *declared) error {
+	var items []string
+	for _, name := range sortedConditionKeys(p.explicitDeps) {
+		kind, ok := known.kind[name]
+		if !ok {
+			return posErr(parser, p.dependsOn.Range,
+				fmt.Sprintf("%s: depends_on names %q, and nothing is declared by that name", p.decl.Title(), name),
+				"depends_on is now after = [module.<name>, …]; "+didYouMean(name, known))
+		}
+		ref := kind + "." + name
+		switch p.explicitDeps[name] {
+		case engine.Started:
+			ref = "started(" + ref + ")"
+		case engine.Lazy:
+			ref = "lazy(" + ref + ")"
+		}
+		items = append(items, ref)
+	}
+	return posErr(parser, p.dependsOn.NameRange, "`depends_on` is now `after`",
+		"write: after = ["+strings.Join(items, ", ")+"] (a bare reference waits until it is ready; started(…) until it runs)")
+}
+
+// didYouMean names the declared block closest to name, or lists them.
+func didYouMean(name string, known *declared) string {
+	best, bestD := "", 4
+	var all []string
+	for n, k := range known.kind {
+		all = append(all, k+"."+n)
+		if d := levenshtein.Distance(name, n, nil); d < bestD {
+			best, bestD = k+"."+n, d
+		}
+	}
+	if best != "" {
+		return "did you mean " + best + "?"
+	}
+	sort.Strings(all)
+	return "declared: " + strings.Join(all, ", ")
 }
