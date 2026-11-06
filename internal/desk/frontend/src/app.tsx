@@ -8,7 +8,6 @@ import { Toasts } from "./components/toasts";
 import { Help } from "./components/help";
 import { LibraryPage } from "./pages/library";
 import { OverviewPage } from "./pages/overview";
-import { StoppedPage } from "./pages/stopped";
 import { InstancePage } from "./pages/instance";
 import { LogsPage } from "./pages/logs";
 import { RecentPage } from "./pages/recent";
@@ -165,7 +164,7 @@ export function App() {
           )}
           {!where && <Loading />}
           {where?.page === "library" && library && <LibraryPage lib={library} />}
-          {where?.page === "home" && home && (home.stopped ? <StoppedPage home={home} stackKey={where.key} /> : <OverviewPage home={home} stackKey={where.key} />)}
+          {where?.page === "home" && home && <OverviewPage home={home} stackKey={where.key} />}
           {where?.page === "instance" && instance && <InstancePage inst={instance} stackKey={where.key} />}
           {where?.page === "logs" && <LogsPage stackKey={where.key} instance={where.instance ?? ""} />}
           {where?.page === "empty" && empty && <EmptyPage e={empty} />}

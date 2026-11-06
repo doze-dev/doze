@@ -485,8 +485,8 @@ export interface Home {
     "up"?: string;
 
     /**
-     * Stopped is set for a stack that is not running: what doze.hcl
-     * declares, to tick and bring up.
+     * Stopped is set for a stack that is not running: when it was up, and
+     * the banner in place of the figures. Its rows are down (Row.Down).
      */
     "stopped"?: Stopped | null;
 }
@@ -1156,6 +1156,15 @@ export interface Row {
      * is crashing.
      */
     "err"?: string;
+
+    /**
+     * Down is a row of a stopped stack, read from doze.hcl. Tick is then
+     * what Up does with it: "on" starts it, "half" leaves it to wake when
+     * needed, "off" is paused in doze.hcl, "" is a task. Run is its command.
+     */
+    "down"?: boolean;
+    "tick"?: string;
+    "run"?: string;
 }
 
 /**
@@ -1303,46 +1312,10 @@ export interface Step {
 }
 
 /**
- * StopGroup is one heading of the stopped page: "APPS 3 · 2 ticked",
- * "MODULES 3 · wake when needed". What is empty for the apps, whose
- * ticked count the page keeps as it changes.
- */
-export interface StopGroup {
-    "title": string;
-    "count": number;
-    "what"?: string;
-    "rows": StopRow[] | null;
-}
-
-/**
- * StopRow is one declared instance.
- */
-export interface StopRow {
-    "name": string;
-    "kind": string;
-    "engine": string;
-    "run"?: string;
-
-    /**
-     * Needs is the first part of the sentence ("db, cache" or "nothing");
-     * Note the rest ("they start first", "not last time").
-     */
-    "needs": string;
-    "note": string;
-    "address"?: string;
-
-    /**
-     * Tick: "on" starts on Up, "half" wakes when something needs it, ""
-     * runs by hand (a task), "off" is declared but paused.
-     */
-    "tick": string;
-}
-
-/**
- * Stopped is a stack that is not running, as the StackStopped board lays
- * it out: what doze.hcl declares, ticked as last time, with what each
- * needs and where it will be once up. It is read from the config, since
- * there is no daemon to ask.
+ * Stopped is what the overview adds for a stack that is not running: when
+ * it was last up, the banner's words, and a doze.hcl that does not load.
+ * The rows themselves are the overview's own (Home.Groups), each down and
+ * ticked as last time, so stopping a stack changes states, not the page.
  */
 export interface Stopped {
     /**
@@ -1360,7 +1333,6 @@ export interface Stopped {
      * LastSet is what was started last time; empty means everything.
      */
     "lastSet"?: string[] | null;
-    "groups": StopGroup[] | null;
 
     /**
      * doze.hcl did not load

@@ -27,10 +27,14 @@ if (!stack) {
   // A stopped stack, opened from the Library by its name.
   await page.waitForSelector(".lib", { timeout: 10000 });
   await page.locator(".lrow", { has: page.locator("b", { hasText: new RegExp(`^${stack}$`) }) }).first().dblclick();
-  await page.waitForSelector(".box, .banner.bad", { timeout: 10000 });
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${out}/${stack}-stopped.png` });
-  console.log(`${out}/${stack}-stopped.png`);
+  await page.waitForSelector(".strip", { timeout: 10000 });
+  // The same page as a running stack, in each of its views.
+  for (const [i, v] of ["tiles", "list", "map"].entries()) {
+    await page.keyboard.press(String(i + 1));
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${out}/${stack}-stopped-${v}.png` });
+    console.log(`${out}/${stack}-stopped-${v}.png`);
+  }
 } else {
   await page.getByRole("tab", { name: new RegExp(`^${stack}`) }).click();
   await page.waitForSelector(".strip", { timeout: 10000 });

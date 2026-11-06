@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/display"
 )
 
-// Stopped is a stack that is not running, as the StackStopped board lays
-// it out: what doze.hcl declares, ticked as last time, with what each
-// needs and where it will be once up. It is read from the config, since
-// there is no daemon to ask.
+// Stopped is what the overview adds for a stack that is not running: when
+// it was last up, the banner's words, and a doze.hcl that does not load.
+// The rows themselves are the overview's own (Home.Groups), each down and
+// ticked as last time, so stopping a stack changes states, not the page.
 type Stopped struct {
 	// When is "last up 3 days ago", or "never up".
 	When string `json:"when"`
@@ -22,41 +23,16 @@ type Stopped struct {
 	// api, web and db. That is ticked for you."
 	LastLine string `json:"lastLine"`
 	// LastSet is what was started last time; empty means everything.
-	LastSet []string    `json:"lastSet,omitempty"`
-	Groups  []StopGroup `json:"groups"`
-	Problem string      `json:"problem,omitempty"` // doze.hcl did not load
+	LastSet []string `json:"lastSet,omitempty"`
+	Problem string   `json:"problem,omitempty"` // doze.hcl did not load
 }
 
-// StopGroup is one heading of the stopped page: "APPS 3 · 2 ticked",
-// "MODULES 3 · wake when needed". What is empty for the apps, whose
-// ticked count the page keeps as it changes.
-type StopGroup struct {
-	Title string    `json:"title"`
-	Count int       `json:"count"`
-	What  string    `json:"what,omitempty"`
-	Rows  []StopRow `json:"rows"`
-}
-
-// StopRow is one declared instance.
-type StopRow struct {
-	Name   string `json:"name"`
-	Kind   string `json:"kind"`
-	Engine string `json:"engine"`
-	Run    string `json:"run,omitempty"`
-	// Needs is the first part of the sentence ("db, cache" or "nothing");
-	// Note the rest ("they start first", "not last time").
-	Needs   string `json:"needs"`
-	Note    string `json:"note"`
-	Address string `json:"address,omitempty"`
-	// Tick: "on" starts on Up, "half" wakes when something needs it, ""
-	// runs by hand (a task), "off" is declared but paused.
-	Tick string `json:"tick"`
-}
-
-// StoppedOf reads the stack's config and lays it out. A config that does
-// not load is reported, not fatal: the page says so and offers the file.
-func StoppedOf(st hub.StackView, now time.Time) Stopped {
-	out := Stopped{LastSet: st.LastSet, Groups: []StopGroup{}}
+// StoppedHome fills h for a stack that is not running, from its doze.hcl
+// since there is no daemon to ask: the same groups, rows in the same
+// order and the same map as when it runs, every row down, with a tick
+// that says whether Up starts it.
+func StoppedHome(h *Home, st hub.StackView, now time.Time) {
+	out := Stopped{LastSet: st.LastSet}
 	if st.LastUp.IsZero() {
 		out.When = "never up"
 	} else {
@@ -67,10 +43,13 @@ func StoppedOf(st hub.StackView, now time.Time) Stopped {
 	} else {
 		out.LastLine = "Everything is ticked, as last time."
 	}
+	h.Stopped = &out
+	h.Groups, h.Side = []Group{}, []Side{}
+	h.Map = MapView{Columns: []MapColumn{}, Nodes: []MapNode{}, Edges: []MapEdge{}, W: mapLeft + 3*mapColW, H: 580}
 	cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
 	if err != nil {
 		out.Problem = display.Humanise(err)
-		return out
+		return
 	}
 	stack := cfg.Stack()
 	decls := cfg.Decls()
@@ -105,7 +84,6 @@ func StoppedOf(st hub.StackView, now time.Time) Stopped {
 			mark(d.Name)
 		}
 	}
-	// Who needs each row, in declaration order.
 	dependants := map[string][]string{}
 	for _, d := range decls {
 		for _, dep := range d.Deps {
@@ -113,74 +91,83 @@ func StoppedOf(st hub.StackView, now time.Time) Stopped {
 		}
 	}
 
-	byGroup := map[int][]StopRow{}
+	// The instances as the daemon would list them, so the rows sort and
+	// the map places exactly as they will once the stack is up.
+	snap := control.Snapshot{Stack: stack, Dir: st.Dir}
 	for _, d := range decls {
-		row := StopRow{Name: d.Name, Kind: d.Kind, Engine: engineOf(d)}
-		if r, ok := d.Spec.(interface{ RunLine() string }); ok {
-			row.Run = r.RunLine()
-		}
-		var needs []string
+		v := control.InstanceView{Name: d.Name, Kind: d.Kind}
 		for _, dep := range d.Deps {
-			needs = append(needs, dep.Name)
+			v.Needs = append(v.Needs, dep.Name)
 		}
-		row.Needs = "nothing"
-		if len(needs) > 0 {
-			row.Needs = strings.Join(needs, ", ")
-		}
-		row.Address = addressWhenUp(d, stack)
-		var onDependants []string
-		for _, n := range dependants[d.Name] {
-			if on[n] {
-				onDependants = append(onDependants, n)
-			}
-		}
-		switch {
-		case !d.Enabled:
-			row.Tick, row.Note = "off", "paused in doze.hcl (enabled = false)"
-		case d.Kind == "task":
-			row.Tick, row.Note = "", "runs when you say, not on Up"
-		case d.Kind == "module" && on[d.Name] && len(onDependants) > 0:
-			row.Tick = "on"
-			if len(onDependants) == 1 {
-				row.Note = onDependants[0] + " needs it, so it starts first"
-			} else {
-				row.Note = andList(onDependants) + " need it, so they start after it"
-			}
-		case on[d.Name] && len(needs) == 1:
-			row.Tick, row.Note = "on", "it starts first"
-		case on[d.Name] && len(needs) > 1:
-			row.Tick, row.Note = "on", "they start first"
-		case on[d.Name]:
-			row.Tick, row.Note = "on", "starts on Up"
-		case d.Kind == "module" && len(dependants[d.Name]) > 0:
-			row.Tick, row.Note = "half", "starts when "+dependants[d.Name][0]+" asks for it"
-		case d.Kind == "module":
-			row.Tick, row.Note = "half", "wakes when something needs it"
-		default:
-			row.Tick, row.Note = "half", "not last time"
-		}
-		if len(d.Domains) > 0 && row.Tick != "off" {
-			row.Note += " · https://" + d.Domains[0]
-		}
-		byGroup[groupOf(d.Kind)] = append(byGroup[groupOf(d.Kind)], row)
+		snap.Instances = append(snap.Instances, v)
 	}
+	rows := display.Rows(snap)
+	_, depth := display.TreeOrder(rows)
 	for gi, g := range display.Groups {
-		rows := byGroup[gi]
-		if len(rows) == 0 {
-			continue
+		grp := Group{Title: g.Title, What: g.What}
+		for _, r := range rows {
+			if r.Group != gi {
+				continue
+			}
+			d := byName[r.V.Name]
+			row := downRow(d, r.V.Needs, on, dependants[d.Name], stack)
+			row.Depth = depth[d.Name]
+			grp.Rows = append(grp.Rows, row)
+			grp.Count++
+			if d.Kind != "task" {
+				h.Total++
+			}
+			h.Side = append(h.Side, Side{Name: d.Name, Kind: d.Kind, Look: row.Look, Note: "down"})
 		}
-		grp := StopGroup{Title: g.Title, Count: len(rows), Rows: rows}
-		switch g.Kinds[0] {
-		case "module":
-			grp.What = "wake when needed"
-		case "task":
-			grp.What = "run by hand"
-		case "service":
-			grp.What = "started by you"
+		if len(grp.Rows) > 0 {
+			h.Groups = append(h.Groups, grp)
 		}
-		out.Groups = append(out.Groups, grp)
 	}
-	return out
+	h.Map = mapOf(hub.StackView{}, rows)
+}
+
+// downRow is one declared instance of a stopped stack: down, with what it
+// needs and what Up will do with it as the because, and where it will
+// answer.
+func downRow(d *config.InstanceDecl, needs []string, on map[string]bool, dependants []string, stack string) Row {
+	row := Row{Name: d.Name, Kind: d.Kind, Engine: engineOf(d), Down: true, BecauseTone: "dim",
+		Look: Look{Word: "down", Glyph: "·", Tone: "dim"}}
+	if r, ok := d.Spec.(interface{ RunLine() string }); ok {
+		row.Run = r.RunLine()
+	}
+	row.Address = addressWhenUp(d, stack)
+	var onDependants []string
+	for _, n := range dependants {
+		if on[n] {
+			onDependants = append(onDependants, n)
+		}
+	}
+	var note string
+	switch {
+	case !d.Enabled:
+		row.Tick, note = "off", "paused in doze.hcl (enabled = false)"
+		row.Off = true
+	case d.Kind == "task":
+		row.Tick, note = "", "runs when you say, once the stack is up"
+	case on[d.Name] && len(onDependants) == 1:
+		row.Tick, note = "on", "starts on Up, before "+onDependants[0]
+	case on[d.Name] && len(onDependants) > 1:
+		row.Tick, note = "on", "starts on Up, before "+andList(onDependants)
+	case on[d.Name]:
+		row.Tick, note = "on", "starts on Up"
+	case d.Kind == "module" && len(dependants) > 0:
+		row.Tick, note = "half", "wakes when "+dependants[0]+" asks for it"
+	case d.Kind == "module":
+		row.Tick, note = "half", "wakes when something needs it"
+	default:
+		row.Tick, note = "half", "not started last time"
+	}
+	if len(needs) > 0 && d.Kind != "module" {
+		note = "needs " + andList(needs) + " · " + note
+	}
+	row.Because = note
+	row.On = row.Tick == "on"
+	return row
 }
 
 // addressWhenUp is where the row answers once the stack is up: its own

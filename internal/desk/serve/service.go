@@ -350,8 +350,7 @@ func (s *Service) Home(key string) view.Home {
 		}
 	}
 	if !st.Running && st.Dir != "" {
-		stopped := view.StoppedOf(st, s.now())
-		h.Stopped = &stopped
+		view.StoppedHome(&h, st, s.now())
 	}
 	return h
 }

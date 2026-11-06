@@ -1,19 +1,45 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ask, copy, go, repair, run, select, setView, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 import { StackMenu } from "./library";
 
+// Flip ticks a down row of a stopped stack: its switch says whether Up
+// starts it. Null while the stack runs, when the switch wakes and sleeps.
+const Flip = createContext<((name: string) => void) | null>(null);
+
 // The stack's overview, as the Tiles, List and Map boards lay it out: the
 // head with the view switch and the stack's switch, one quiet strip of
 // figures, then the stack in the view remembered for it. Every word is
-// Go's; this keeps only the selection, the filter and which menu is open.
+// Go's; this keeps only the selection, the filter, which menu is open and,
+// while the stack is stopped, what is ticked to start.
+//
+// A stopped stack is the same page in another state: the same rows in the
+// same places, each down, its switch the tick for Up; the strip of figures
+// becomes the banner that brings it up.
 export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: string }) {
   const narrow = useNarrow();
   const selected = useStore((s) => s.selected);
   const [filter, setFilter] = useState("");
   const [menu, setMenu] = useState(false);
-  const rows = useMemo(() => (home.groups ?? []).flatMap((g) => g.rows ?? []), [home.groups]);
+  const stopped = home.stopped;
+  const [ticked, setTicked] = useState<Record<string, boolean>>({});
+  const tickKey = stopped ? (home.groups ?? []).flatMap((g) => (g.rows ?? []).map((r) => r.name + r.tick)).join(",") : "";
+  useEffect(() => {
+    // As last time, each time the stack stops or its doze.hcl changes.
+    if (!stopped) return;
+    setTicked(Object.fromEntries((home.groups ?? []).flatMap((g) => g.rows ?? []).map((r) => [r.name, r.tick === "on"])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stackKey, tickKey]);
+  const flip = (name: string) => setTicked((t) => ({ ...t, [name]: !t[name] }));
+  const groups = useMemo(
+    () => (stopped ? (home.groups ?? []).map((g) => ({ ...g, rows: (g.rows ?? []).map((r) => ({ ...r, on: !!ticked[r.name] })) })) : (home.groups ?? [])),
+    [home.groups, stopped, ticked],
+  );
+  const rows = useMemo(() => groups.flatMap((g) => g.rows ?? []), [groups]);
+  const chosen = rows.filter((r) => r.down && tickable(r) && ticked[r.name]).map((r) => r.name);
+  const upTicked = () => void stackAction(stackKey, chosen.length === 0 ? "up-all" : "up", chosen);
+  const tickAll = () => setTicked(Object.fromEntries(rows.filter(tickable).map((r) => [r.name, true])));
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return rows;
@@ -37,6 +63,28 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         const next = list[i + d];
         if (next) void select(next.name);
       };
+      if (stopped) {
+        // Down rows: space ticks, ⏎ brings the stack up as ticked; the
+        // verbs that need a running stack do nothing.
+        switch (e.key) {
+          case " ":
+            e.preventDefault();
+            if (row && tickable(row)) flip(row.name);
+            return;
+          case "Enter":
+            upTicked();
+            return;
+          case "a":
+            tickAll();
+            return;
+          case "p":
+          case "w":
+          case "s":
+          case "r":
+          case "l":
+            return;
+        }
+      }
       switch (e.key) {
         case "ArrowDown":
         case "j":
@@ -97,7 +145,8 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, row, selected, stackKey, viewName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, row, selected, stackKey, viewName, stopped, ticked]);
 
   const stackSummary = useStore((s) => s.stacks.find((x) => x.key === stackKey));
   const libRow: view.LibStack | undefined = useStore((s) => s.library?.stacks?.find((x) => x.key === stackKey));
@@ -106,7 +155,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
   useEffect(() => {
     // The List view's pane: the selected one in full, from Go.
     let live = true;
-    if (viewName !== "list" || !selected) return;
+    if (viewName !== "list" || !selected || stopped) return;
     transport().then(async (t) => {
       try {
         const i = await t.instance(stackKey, selected);
@@ -127,6 +176,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         <span className="path">
           {home.dir}
           {home.up ? ` · up ${home.up}` : ""}
+          {stopped ? ` · stopped · ${stopped.when}` : ""}
         </span>
         <span className="grow" />
         <div className="seg" role="group" aria-label="View">
@@ -191,7 +241,11 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           </button>
         </div>
       )}
-      <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} />
+      {stopped ? (
+        <DownStrip s={stopped} count={chosen.length} total={rows.filter(tickable).length} tight={viewName === "list"} onUp={upTicked} onAll={() => void stackAction(stackKey, "up-all")} dir={home.dir} />
+      ) : (
+        <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} />
+      )}
     </>
   );
   // The filter row; in the list view it sits inside the left column, so
@@ -210,12 +264,12 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
   // rows share their room with the details pane. The map scrolls like the
   // tiles, so the keys stay in view under it.
   return (
-    <>
+    <Flip.Provider value={stopped ? flip : null}>
       {page}
       {viewName !== "list" && filterRow}
       {viewName === "tiles" && (
         <div className="scrollarea">
-          <Tiles groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
+          <Tiles groups={groups} shown={shown} selected={selected} stackKey={stackKey} />
         </div>
       )}
       {viewName === "list" && (
@@ -223,10 +277,10 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           <div className="main" style={{ paddingTop: 28 }}>
             {filterRow}
             <div className="scrollarea" style={{ paddingBottom: 12 }}>
-              <List groups={home.groups ?? []} shown={shown} selected={selected} stackKey={stackKey} />
+              <List groups={groups} shown={shown} selected={selected} stackKey={stackKey} />
             </div>
           </div>
-          <Pane inst={inst} row={row} stackKey={stackKey} />
+          {row?.down ? <DownPane row={row} /> : <Pane inst={inst} row={row} stackKey={stackKey} />}
         </div>
       )}
       {viewName === "map" && (
@@ -235,19 +289,113 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         </div>
       )}
       <Keys
-        keys={[
-          ["↑↓", "move"],
-          ["space", "wake / sleep"],
-          ["p", "pin"],
-          ["⏎", "open"],
-          ["l", "logs"],
-          ["y", "copy address"],
-          ["/", "filter"],
-          ["esc", "library"],
-        ]}
-        note="from Library: click a stack"
+        keys={
+          stopped
+            ? [
+                ["↑↓", "move"],
+                ["space", "tick for Up"],
+                ["⏎", "up as ticked"],
+                ["a", "tick all"],
+                ["/", "filter"],
+                ["esc", "library"],
+              ]
+            : [
+                ["↑↓", "move"],
+                ["space", "wake / sleep"],
+                ["p", "pin"],
+                ["⏎", "open"],
+                ["l", "logs"],
+                ["y", "copy address"],
+                ["/", "filter"],
+                ["esc", "library"],
+              ]
+        }
+        note={stopped ? "a switch on a stopped stack says whether Up starts it" : "from Library: click a stack"}
       />
-    </>
+    </Flip.Provider>
+  );
+}
+
+/** DownStrip stands where the figures do while the stack is stopped: when it was up, what Up will start, and the two ways up. */
+function DownStrip({ s, count, total, tight, onUp, onAll, dir }: { s: view.Stopped; count: number; total: number; tight?: boolean; onUp: () => void; onAll: () => void; dir: string }) {
+  if (s.problem) {
+    return (
+      <div className={"strip" + (tight ? " tight" : "")} role="alert">
+        <div className="stat wide">
+          <span className="v bad">
+            doze.hcl does not load<small>nothing can start until it does</small>
+          </span>
+          <span className="s" title={s.problem}>
+            {s.problem}
+          </span>
+        </div>
+        <button className="btn" onClick={() => transport().then((t) => t.open("file://" + dir + "/doze.hcl"))}>
+          Edit doze.hcl <kbd>⌘E</kbd>
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className={"strip" + (tight ? " tight" : "")} role="status">
+      <div className="stat wide">
+        <span className="v">
+          {count === 0 ? "everything" : count}
+          <small>{count === 0 ? "starts on Up" : `of ${total} start on Up`}</small>
+        </span>
+        <span className="s">{s.lastLine} The switches say what starts; the rest wakes when something needs it.</span>
+      </div>
+      <button className="btn pri" onClick={onUp}>
+        Up as ticked <kbd>⏎</kbd>
+      </button>
+      <button className="btn" onClick={onAll}>
+        Up everything
+      </button>
+    </div>
+  );
+}
+
+/** DownPane is the List view's pane for a row of a stopped stack: what doze.hcl says about it. */
+function DownPane({ row }: { row: view.Row }) {
+  return (
+    <aside className="insp" aria-label={`${row.name}, from doze.hcl`}>
+      <div className="ih">
+        <Dot r={row} />
+        <h2>{row.name}</h2>
+        <span className="sub">{row.engine} · down</span>
+      </div>
+      <div className="sec">
+        <h3>On Up</h3>
+        <div className="kv">
+          <span className="k">{row.on ? "starts" : row.tick === "off" ? "paused" : row.kind === "task" ? "task" : "waits"}</span>
+          <span className="v" title={row.because}>
+            {row.because}
+          </span>
+          <span />
+        </div>
+        {row.address && (
+          <div className="kv">
+            <span className="k">address</span>
+            <span className="v b" title={row.address}>
+              {row.address}
+            </span>
+            <button className="copy" onClick={() => void copy(row.address ?? "", `the address of ${row.name}`)}>
+              Copy
+            </button>
+          </div>
+        )}
+        {row.run && (
+          <div className="kv">
+            <span className="k">command</span>
+            <span className="v b" title={row.run}>
+              {row.run}
+            </span>
+            <button className="copy" onClick={() => void copy(row.run ?? "", "the command")}>
+              Copy
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -333,6 +481,25 @@ function PinGlyph() {
 }
 
 function Switch({ r, stackKey }: { r: view.Row; stackKey: string }) {
+  const flip = useContext(Flip);
+  if (r.down) {
+    // A stopped stack: the switch is the tick for Up, in the same place.
+    if (r.kind === "task") return <span aria-hidden />;
+    return (
+      <button
+        className={"sw" + (r.on ? " on" : "") + (r.tick === "off" ? " dis" : "")}
+        role="switch"
+        aria-checked={r.on}
+        aria-label={r.on ? `${r.name} starts on Up` : `${r.name} does not start on Up`}
+        title={r.tick === "off" ? "paused in doze.hcl (enabled = false)" : r.on ? "starts on Up" : "not started on Up; wakes when something needs it"}
+        disabled={r.tick === "off"}
+        onClick={(e) => {
+          e.stopPropagation();
+          flip?.(r.name);
+        }}
+      />
+    );
+  }
   if (r.kind === "task") {
     return (
       <button
@@ -444,7 +611,7 @@ function Tiles({ groups, shown, selected, stackKey }: { groups: view.Group[]; sh
                   key={r.name}
                   className={"tile" + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && r.kind !== "task" ? " off" : "")}
                   onClick={() => void select(r.name)}
-                  onDoubleClick={() => void go({ key: stackKey, page: "instance", instance: r.name })}
+                  onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
                 >
                   <div className="top">
                     <Dot r={r} />
@@ -493,7 +660,7 @@ function List({ groups, shown, selected, stackKey }: { groups: view.Group[]; sho
                     key={r.name}
                     className={"qr narrow" + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && r.kind !== "task" ? " off" : "")}
                     onClick={() => void select(r.name)}
-                    onDoubleClick={() => void go({ key: stackKey, page: "instance", instance: r.name })}
+                    onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
                   >
                     <Dot r={r} />
                     <b>{r.name}</b>
@@ -669,7 +836,7 @@ function MapView({ m, rows, selected, stackKey }: { m: view.MapView; rows: view.
             className={"node" + (n.task ? " task" : "") + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && !n.task ? " off" : "")}
             style={{ left: n.x, top: n.y, width: n.w }}
             onClick={() => void select(r.name)}
-            onDoubleClick={() => void go({ key: stackKey, page: "instance", instance: r.name })}
+            onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
           >
             <div className="top">
               <Dot r={r} />
@@ -768,4 +935,9 @@ function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
       </section>
     </>
   );
+}
+
+/** tickable is a down row Up can start: not a task, not paused in doze.hcl. */
+function tickable(r: view.Row): boolean {
+  return r.tick === "on" || r.tick === "half";
 }

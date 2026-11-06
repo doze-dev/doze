@@ -63,8 +63,6 @@ export type {
     Stat,
     States,
     Step,
-    StopGroup,
-    StopRow,
     Stopped,
     Tab,
     Timeline,
