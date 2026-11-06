@@ -162,17 +162,24 @@ func downRow(d *config.InstanceDecl, needs []string, on map[string]bool, dependa
 	return row
 }
 
-// addressWhenUp is where the row answers once the stack is up: its own
-// domain if it has one, else its .doze name with the port when it has one.
+// addressWhenUp is where the row answers once the stack is up, written as
+// the running stack writes it: its own domain over https; an app's or a
+// service's .doze name as a web address (the page's host drops the port
+// while the front door is up, as it does for a running stack); a module's
+// name and port, since what connects to it is not a browser.
 func addressWhenUp(d *config.InstanceDecl, stack string) string {
 	if len(d.Domains) > 0 {
-		return d.Domains[0]
+		return "https://" + strings.TrimPrefix(d.Domains[0], "*.")
 	}
 	if stack == "" || d.Kind == "task" {
 		return ""
 	}
 	name := fmt.Sprintf("%s.%s.%s", d.Name, stack, config.DomainSuffix)
-	if d.Port > 0 {
+	web := d.Kind == "app" || d.Kind == "service"
+	switch {
+	case web && d.Port > 0:
+		return fmt.Sprintf("http://%s:%d", name, d.Port)
+	case d.Port > 0:
 		return fmt.Sprintf("%s:%d", name, d.Port)
 	}
 	return name

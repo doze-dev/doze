@@ -250,7 +250,7 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
             onMenu();
           }}
         >
-          ▾
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4" fill="currentColor" /><circle cx="8" cy="8" r="1.4" fill="currentColor" /><circle cx="12.5" cy="8" r="1.4" fill="currentColor" /></svg>
         </button>
       </div>
       {menuOpen && <StackMenu s={s} onClose={onCloseMenu} />}
@@ -327,24 +327,26 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
     onClose();
     void stackAction(s.key, action, names);
   };
+  // The switch beside it is Up as last time and Down; this holds the rest.
+  const openFile = (path: string) => transport().then((t) => t.open("file://" + path));
   return (
     <div ref={ref} className="pop" role="menu" aria-label={`${s.name}`} style={up ? { bottom: "calc(100% - 8px)", right: 16 } : { top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
-      <div className="ph">Up</div>
-      <button className="pi" role="menuitem" disabled={!!s.missing} onClick={() => act("up-last")}>
+      {s.running && (
+        <button className="pi" role="menuitem" disabled={!!s.busy} onClick={() => act("restart")}>
+          <div className="t">
+            <b>Restart {s.name}</b>
+            <span>stops everything and starts what was running</span>
+          </div>
+        </button>
+      )}
+      <button className="pi" role="menuitem" disabled={!!s.missing || !!s.busy} onClick={() => act("up-all")}>
         <div className="t">
-          <b>As last time</b>
-          <span>{s.lastSet && s.lastSet.length > 0 ? s.lastSet.join(", ") + ", and what they need" : "everything declared"}</span>
-        </div>
-        <kbd>space</kbd>
-      </button>
-      <button className="pi" role="menuitem" disabled={!!s.missing} onClick={() => act("up-all")}>
-        <div className="t">
-          <b>Everything</b>
-          <span>all {s.declared}</span>
+          <b>{s.running ? "Start everything else" : "Start everything"}</b>
+          <span>all {s.declared} declared, not only last time&apos;s</span>
         </div>
       </button>
       {!s.running && (
-        <button className="pi" role="menuitem" onClick={() => {
+        <button className="pi" role="menuitem" disabled={!!s.missing || !!s.busy} onClick={() => {
           onClose();
           void chooseStart(s.key);
         }}>
@@ -356,18 +358,26 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
         </button>
       )}
       <div className="msep" />
-      {s.running && (
-        <button className="pi" role="menuitem" onClick={() => {
-          onClose();
-          void askStop(s.key);
-        }}>
-          <div className="t">
-            <b>Down</b>
-            <span>stops everything; this set is remembered</span>
-          </div>
-        </button>
-      )}
-      <button className="pi" role="menuitem" onClick={() => {
+      <button className="pi" role="menuitem" disabled={!s.dir || !!s.missing} onClick={() => {
+        onClose();
+        void openFile(s.dir + "/doze.hcl");
+      }}>
+        <div className="t">
+          <b>Edit doze.hcl</b>
+          <span>in your editor</span>
+        </div>
+      </button>
+      <button className="pi" role="menuitem" disabled={!s.dir || s.missing === "the folder is gone"} onClick={() => {
+        onClose();
+        void openFile(s.dir);
+      }}>
+        <div className="t">
+          <b>Show in Finder</b>
+          <span className="mono">{s.dir}</span>
+        </div>
+      </button>
+      <div className="msep" />
+      <button className="pi" role="menuitem" disabled={!!s.busy} onClick={() => {
         onClose();
         void askStack(s.key, "remove");
       }}>

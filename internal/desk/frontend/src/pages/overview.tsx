@@ -216,7 +216,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             onClick={() => void (home.running ? askStop(stackKey) : stackAction(stackKey, "up-last"))}
           />
           <button className={"ib" + (menu ? " on" : "")} aria-label={`More for ${home.stack}`} onClick={() => setMenu((m) => !m)}>
-            ▾
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4" fill="currentColor" /><circle cx="8" cy="8" r="1.4" fill="currentColor" /><circle cx="12.5" cy="8" r="1.4" fill="currentColor" /></svg>
           </button>
         </span>
         {menu && libRow && <StackMenu s={libRow} onClose={() => setMenu(false)} />}

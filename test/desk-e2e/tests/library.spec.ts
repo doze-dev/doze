@@ -42,10 +42,10 @@ test("the Library lists every stack with a switch, as the Library board does", a
   // The ▾ beside the switch: as last time, everything, and Remove.
   await acme.getByRole("button", { name: "More for acme" }).click();
   const menu = page.getByRole("menu", { name: "acme" });
-  await expect(menu).toContainText("As last time");
-  await expect(menu).toContainText("api, web, db, and what they need");
-  await expect(menu).toContainText("Everything");
-  await expect(menu).toContainText("Remove from doze…");
+  // The switch is Up as last time and Down; the ⋯ holds the rest.
+  await expect(menu.getByRole("menuitem")).toHaveText([/Start everything/, /Choose what starts…/, /Edit doze\.hcl/, /Show in Finder/, /Remove from doze…/]);
+  await expect(menu).not.toContainText("As last time");
+  await page.screenshot({ path: `.desk-look/StackMenu-${info.project.name}.png` });
   await expect(menu).toContainText("stops listing it; every file stays");
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
@@ -70,7 +70,9 @@ test("a stopped stack is the same page, down: every switch off, and a sheet to c
   await expect(page.locator(".tile .sw.on")).toHaveCount(0);
   await expect(page.getByRole("switch", { name: "api is stopped" })).toHaveAttribute("aria-checked", "false");
   await expect(tile("api")).toContainText("stopped · needs db and cache");
-  await expect(tile("api")).toContainText("api.acme.doze:8080");
+  // Written as it will be once up: a web address, its own domain over https.
+  await expect(tile("api")).toContainText("http://api.acme.doze:8080");
+  await expect(tile("web")).toContainText("https://dev.acme.com");
   await expect(tile("web")).toContainText("dev.acme.com");
   await expect(tile("db")).toContainText("api and migrate use it");
   await expect(tile("migrate")).toContainText("needs db · runs once the stack is up");

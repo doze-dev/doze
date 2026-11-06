@@ -436,6 +436,7 @@ func (s *Service) Home(key string) view.Home {
 	}
 	if !st.Running && st.Dir != "" {
 		view.StoppedHome(&h, st, s.now())
+		s.frontedDown(&h)
 	}
 	s.mu.Lock()
 	h.Busy, h.Failed = s.busy[key], s.failed[key]
@@ -1223,6 +1224,60 @@ func (s *Service) fronted(h *view.Home, st hub.StackView) {
 			}
 		}
 	}
+}
+
+// frontedDown gives a stopped stack's web rows the address they will have
+// once it is up: port-less while a doze process holds the front door, as
+// fronted does for a running stack.
+func (s *Service) frontedDown(h *view.Home) {
+	port := s.frontDoorPort()
+	if port == "" {
+		return
+	}
+	for gi := range h.Groups {
+		for ri := range h.Groups[gi].Rows {
+			r := &h.Groups[gi].Rows[ri]
+			rest, ok := strings.CutPrefix(r.Address, "http://")
+			if !ok {
+				continue
+			}
+			host, _, _ := strings.Cut(rest, ":")
+			if !strings.HasSuffix(host, "."+config.DomainSuffix) {
+				continue
+			}
+			if port == "80" {
+				r.Address = "http://" + host
+			} else {
+				r.Address = "http://" + host + ":" + port
+			}
+		}
+	}
+}
+
+// frontDoorPort is the port a doze process holds the front door on ("80"),
+// or "" when none does; kept a moment, like urlFor.
+func (s *Service) frontDoorPort() string {
+	const key = "\x00front"
+	s.mu.Lock()
+	if c, ok := s.urls[key]; ok && s.now().Sub(c.at) < configLook {
+		s.mu.Unlock()
+		return c.url
+	}
+	s.mu.Unlock()
+	port := ""
+	if h, ok := names.Open(s.hub.Home(), "doze").IngressHolder(); ok {
+		port = "80"
+		if _, p, err := net.SplitHostPort(h.Target); err == nil {
+			port = p
+		}
+	}
+	s.mu.Lock()
+	if s.urls == nil {
+		s.urls = map[string]urlSeen{}
+	}
+	s.urls[key] = urlSeen{url: port, at: s.now()}
+	s.mu.Unlock()
+	return port
 }
 
 func hasRow(rows []view.KV, k string) bool {
