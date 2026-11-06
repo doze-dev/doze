@@ -1,10 +1,13 @@
 package serve
 
 import (
+	"io"
+
 	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/doze-dev/doze/internal/adminprompt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,26 +75,145 @@ func (s *Service) Leftovers() []view.Leftover {
 			Detail: tilde(dir) + " · " + size, Action: "Delete…", Danger: true,
 		})
 	}
+	// Routes and the authority are the machine's: removing them takes the
+	// administrator's password, asked once for all the routes.
+	s.mu.Lock()
+	admin := s.admin != nil
+	s.mu.Unlock()
+	action := "Remove (one password)"
+	if !admin {
+		action = "Remove"
+	}
 	for _, d := range names.StaleRoutes(home) {
 		out = append(out, view.Leftover{
-			Kind: "route", ID: "route:" + d, What: "a route for " + d,
-			Detail: "no project with a doze.hcl declares it any more", Action: "Remove",
+			Kind: "route", ID: "route:" + d, What: "a route sending " + d + " to doze",
+			Detail: "/etc/resolver/" + d + " · no project with a doze.hcl declares it any more", Action: action, Admin: true,
 		})
 	}
+	if ca, ok := names.OpenCA(names.CADir(home)); ok && !names.AnyDeclared(home) {
+		trusted := false
+		for _, st := range names.TrustStatus(names.TrustRequest{CA: ca}) {
+			if st.Name == "certificate authority" && st.Done {
+				trusted = true
+			}
+		}
+		l := view.Leftover{Kind: "authority", ID: "ca:", What: "doze's certificate authority, which no stack uses now",
+			Detail: tilde(names.CADir(home)) + " · not trusted; its files only", Action: "Remove"}
+		if trusted {
+			l.What = "doze's certificate authority, still trusted by this Mac"
+			l.Detail = tilde(names.CADir(home)) + " · no stack declares a domain any more"
+			l.Action, l.Admin = action, true
+		}
+		out = append(out, l)
+	}
 	return out
+}
+
+// errNoPrompt says a machine leftover needs the administrator's password
+// and this face cannot ask for it.
+var errNoPrompt = errors.New("this needs the administrator's password, which doze can only ask for in the app: in a terminal, doze doctor --fix removes stale routes")
+
+// clearRoutes removes the routes named, in one prompt, the way doze trust
+// prunes them: the files go first, and only a route that is gone is
+// forgotten from the record.
+func (s *Service) clearRoutes(domains []string) error {
+	s.mu.Lock()
+	admin := s.admin
+	s.mu.Unlock()
+	if admin == nil {
+		return errNoPrompt
+	}
+	home := s.hub.Home()
+	err := names.Trust(names.Options{Out: io.Discard, Run: admin}, names.TrustRequest{Home: home, Prune: domains})
+	if errors.Is(err, adminprompt.ErrCancelled) {
+		return adminprompt.ErrCancelled
+	}
+	if err != nil {
+		return err
+	}
+	left := map[string]bool{}
+	for _, d := range names.StaleRoutes(home) {
+		left[d] = true
+	}
+	var gone, kept []string
+	for _, d := range domains {
+		if left[d] {
+			kept = append(kept, d)
+		} else {
+			gone = append(gone, d)
+		}
+	}
+	s.forgetMachine()
+	if len(gone) > 0 {
+		s.Say("removed the route for "+strings.Join(gone, ", "), false)
+	}
+	if len(kept) > 0 {
+		return fmt.Errorf("the route for %s is still there", strings.Join(kept, ", "))
+	}
+	return nil
+}
+
+// clearAuthority stops trusting doze's certificate authority (every doze
+// root this Mac trusts) and deletes its files, when no stack declares a
+// domain any more.
+func (s *Service) clearAuthority() error {
+	home := s.hub.Home()
+	if names.AnyDeclared(home) {
+		return errors.New("a stack declares a domain again; the authority stays")
+	}
+	ca, ok := names.OpenCA(names.CADir(home))
+	if !ok {
+		return nil
+	}
+	trusted := false
+	for _, st := range names.TrustStatus(names.TrustRequest{CA: ca}) {
+		if st.Name == "certificate authority" && st.Done {
+			trusted = true
+		}
+	}
+	if trusted {
+		s.mu.Lock()
+		admin := s.admin
+		s.mu.Unlock()
+		if admin == nil {
+			return errNoPrompt
+		}
+		err := names.Untrust(names.Options{Out: io.Discard, Run: admin}, names.TrustRequest{Home: home, CA: ca, UntrustAll: true})
+		if errors.Is(err, adminprompt.ErrCancelled) {
+			return errors.New("cancelled; nothing was removed")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if err := names.RemoveCA(home); err != nil {
+		return err
+	}
+	s.forgetMachine()
+	s.Say("removed doze's certificate authority", false)
+	return nil
 }
 
 // ClearLeftover clears one leftover by its ID; "all" clears every one
 // that is not a deletion of data.
 func (s *Service) ClearLeftover(id string) error {
 	if id == "all" {
-		var failed []string
+		var failed, routes []string
 		for _, l := range s.Leftovers() {
 			if l.Danger {
 				continue
 			}
+			if l.Kind == "route" {
+				routes = append(routes, strings.TrimPrefix(l.ID, "route:"))
+				continue
+			}
 			if err := s.clear(l.ID); err != nil {
 				failed = append(failed, l.What+": "+err.Error())
+			}
+		}
+		if len(routes) > 0 && s.FakeStack == nil {
+			if err := s.clearRoutes(routes); err != nil {
+				failed = append(failed, "routes: "+err.Error())
 			}
 		}
 		s.recountLeftovers()
@@ -152,11 +274,9 @@ func (s *Service) clear(id string) error {
 		s.Say("deleted "+tilde(arg), false)
 		return nil
 	case "route":
-		if err := names.RouteRemoved(s.hub.Home(), arg); err != nil {
-			return err
-		}
-		s.Say("removed the route for "+arg, false)
-		return nil
+		return s.clearRoutes([]string{arg})
+	case "ca":
+		return s.clearAuthority()
 	}
 	return fmt.Errorf("no leftover called %q", id)
 }

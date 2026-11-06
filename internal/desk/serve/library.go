@@ -193,7 +193,9 @@ func (s *Service) doctor(stacks []hub.StackView) []view.Check {
 	for _, st := range stacks {
 		domains = append(domains, view.Domains(st)...)
 	}
-	if len(domains) > 0 && !names.Disabled() {
+	// Stale routes are reported with the domains, so Repair removes them as
+	// doze doctor --fix does, even when no stack declares a domain now.
+	if (len(domains) > 0 || len(names.StaleRoutes(s.hub.Home())) > 0) && !names.Disabled() {
 		for _, step := range s.trust(domains) {
 			c := view.Check{Section: "domains", Name: step.Name, OK: step.Done, Text: step.Detail}
 			if !step.Done {
@@ -230,15 +232,16 @@ func dozeOnPath() (string, bool) {
 // trust is the domains' setup, kept a minute: the checks read files and
 // the keychain.
 func (s *Service) trust(domains []string) []names.Step {
-	key := "machine|" + strings.Join(domains, ",")
+	prune := names.StaleRoutes(s.hub.Home())
+	key := "machine|" + strings.Join(domains, ",") + "|" + strings.Join(prune, ",")
 	s.mu.Lock()
 	steps, fresh := s.trustSteps, s.trustKey == key && s.now().Sub(s.trustAt) < time.Minute
 	s.mu.Unlock()
 	if fresh {
 		return steps
 	}
-	req := names.TrustRequest{Domains: domains, Home: s.hub.Home()}
-	if ca, ok := names.OpenCA(names.CADir(s.hub.Home())); ok {
+	req := names.TrustRequest{Domains: domains, Home: s.hub.Home(), Prune: prune}
+	if ca, ok := names.OpenCA(names.CADir(s.hub.Home())); ok && len(domains) > 0 {
 		req.CA = ca
 	}
 	steps = names.TrustStatus(req)
@@ -252,15 +255,23 @@ func (s *Service) trust(domains []string) []names.Step {
 func machine(doctor []view.Check, stacks []hub.StackView) []view.Check {
 	out := []view.Check{}
 	domainsOK, anyDomain := true, false
+	var stale []string
 	for _, c := range doctor {
-		switch c.Section {
-		case "names":
+		switch {
+		case c.Section == "names":
 			out = append(out, c)
-		case "domains":
+		case c.Section == "domains" && strings.HasPrefix(c.Name, "stale route "):
+			stale = append(stale, strings.TrimPrefix(c.Name, "stale route "))
+		case c.Section == "domains":
 			anyDomain = true
 			domainsOK = domainsOK && c.OK
 		}
 	}
+	defer func() {
+		if len(stale) > 0 {
+			out = append(out, view.Check{Name: "stale routes", Text: strings.Join(stale, ", ") + " · no stack declares them"})
+		}
+	}()
 	if anyDomain {
 		var domains []string
 		for _, st := range stacks {

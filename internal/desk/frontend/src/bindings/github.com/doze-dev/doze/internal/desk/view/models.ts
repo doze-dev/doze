@@ -788,6 +788,11 @@ export interface Leftover {
      * Danger is a deletion of data: asked one by one, never by "all".
      */
     "danger"?: boolean;
+
+    /**
+     * Admin says removing it asks for the administrator's password.
+     */
+    "admin"?: boolean;
 }
 
 /**

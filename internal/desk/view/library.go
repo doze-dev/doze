@@ -419,4 +419,6 @@ type Leftover struct {
 	Action string `json:"action"` // Stop, Remove, Delete…
 	// Danger is a deletion of data: asked one by one, never by "all".
 	Danger bool `json:"danger,omitempty"`
+	// Admin says removing it asks for the administrator's password.
+	Admin bool `json:"admin,omitempty"`
 }

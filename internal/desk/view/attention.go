@@ -241,8 +241,8 @@ func MachineItems(checks []Check, repairable bool, leftovers, data int) []Item {
 	bySection := map[string][]Check{}
 	var order []string
 	for _, c := range checks {
-		if c.OK {
-			continue
+		if c.OK || strings.HasPrefix(c.Name, "stale route ") {
+			continue // a stale route is a leftover, said once there
 		}
 		if _, ok := bySection[c.Section]; !ok {
 			order = append(order, c.Section)

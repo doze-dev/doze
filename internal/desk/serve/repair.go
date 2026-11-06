@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze/internal/adminprompt"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/view"
@@ -41,6 +43,8 @@ type repairStep struct {
 	dir    string
 	args   []string
 	script string
+	// prune removes the stale routes in-process (clearRoutes).
+	prune bool
 }
 
 // fixable says some part is missing and has a fix.
@@ -66,9 +70,21 @@ func repairSteps(stacks []hub.StackView, checks []view.Check, self string) []rep
 		steps = append(steps, repairStep{what: "the .doze names", args: []string{"dns-setup"}})
 	}
 	if need["domains"] {
+		any := false
 		for _, st := range stacks {
 			if len(view.Domains(st)) > 0 {
+				any = true
 				steps = append(steps, repairStep{what: st.Name + "'s domains", dir: st.Dir, args: []string{"trust"}})
+			}
+		}
+		// doze trust prunes stale routes in the same prompt; with no stack
+		// to run it in, the app prunes them itself.
+		if !any {
+			for _, c := range checks {
+				if !c.OK && strings.HasPrefix(c.Name, "stale route ") {
+					steps = append(steps, repairStep{what: "remove stale routes", prune: true})
+					break
+				}
 			}
 		}
 	}
@@ -147,6 +163,9 @@ func (s *Service) repair(admin func(what, script string) error, stacks []hub.Sta
 }
 
 func (s *Service) runStep(admin func(what, script string) error, st repairStep) error {
+	if st.prune {
+		return s.clearRoutes(names.StaleRoutes(s.hub.Home()))
+	}
 	if st.script != "" {
 		return admin(st.what, st.script)
 	}
@@ -173,6 +192,12 @@ func (s *Service) RepairPlan() string {
 	s.forgetMachine()
 	var b strings.Builder
 	for _, st := range repairSteps(stacks, s.doctor(stacks), selfPath()) {
+		if st.prune {
+			fmt.Fprintf(&b, "# %s\n", st.what)
+			_ = names.Trust(names.Options{Print: true, Out: &b}, names.TrustRequest{Home: s.hub.Home(), Prune: names.StaleRoutes(s.hub.Home())})
+			b.WriteString("\n")
+			continue
+		}
 		if st.script != "" {
 			fmt.Fprintf(&b, "# %s\nsudo sh <<'DOZE_SETUP'\n%s\nDOZE_SETUP\n\n", st.what, st.script)
 			continue

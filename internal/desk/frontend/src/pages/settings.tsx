@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { copy, go, repair, reopens, set, setMode, setReopens, setTheme, useStore, type Mode, type Theme } from "../store";
+import { copy, go, repair, say, reopens, set, setMode, setReopens, setTheme, useStore, type Mode, type Theme } from "../store";
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
@@ -197,7 +197,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
   );
 }
 
-const KINDS: Record<string, string> = { daemon: "daemons", engine: "engines", state: "data", route: "routes" };
+const KINDS: Record<string, string> = { daemon: "daemons", engine: "engines", state: "data", route: "network routes", authority: "certificate authority" };
 
 // Leftovers is what stacks left behind, out of step with doze: an engine
 // whose daemon died, a daemon for a stack no longer listed (its folder
@@ -220,7 +220,7 @@ function Leftovers() {
     try {
       await t.clearLeftover(id);
     } catch (e) {
-      t.log(`clear ${id}: ${String(e)}`);
+      await say(String(e).replace(/^Error: /, ""), true);
     }
     setBusy("");
     await load();
