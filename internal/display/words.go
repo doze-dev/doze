@@ -40,8 +40,10 @@ type Look struct {
 // failed, ready) because it does not sleep; the rest follow the daemon's state.
 func LookOf(v control.InstanceView) Look {
 	switch {
+	case v.Paused:
+		return Look{"paused", "⊘", ToneDim}
 	case v.Disabled:
-		return Look{"disabled", "⊘", ToneDim}
+		return Look{"off", "○", ToneDim}
 	case v.Kind == "task" && v.State == "booting":
 		return Look{"running", "◌", ToneCool}
 	case v.Task != nil && v.State != "booting":
@@ -50,7 +52,7 @@ func LookOf(v control.InstanceView) Look {
 		}
 		return Look{"done", "✓", ToneGood}
 	case v.Kind == "task" && v.State != "booting":
-		return Look{"ready", "▸", ToneDim}
+		return Look{"not run", "▸", ToneDim}
 	}
 	switch v.State {
 	case "active":
@@ -149,6 +151,10 @@ func What(v control.InstanceView, snap control.Snapshot, now time.Time) string {
 // it awake, what it waits for, when it will sleep, why it is not well.
 func Because(v control.InstanceView, snap control.Snapshot, now time.Time) string {
 	switch {
+	case v.Paused:
+		return "enabled = false in doze.hcl"
+	case v.Disabled:
+		return "turned off; nothing wakes it until it is switched on"
 	case v.Kind == "task":
 		switch {
 		case v.State == "booting":
@@ -208,9 +214,9 @@ func Because(v control.InstanceView, snap control.Snapshot, now time.Time) strin
 			if h := Hint(v, snap, now); h != "" {
 				return h
 			}
-			return "idle: sleeps soon"
+			return "quiet; sleeps soon"
 		}
-		return "nothing holds it"
+		return "no connection right now"
 	}
 	switch v.Kind {
 	case "module":
@@ -399,4 +405,20 @@ func Hint(v control.InstanceView, snap control.Snapshot, now time.Time) string {
 		}
 	}
 	return ""
+}
+
+// SwitchOn is where a service's switch stands, the same on every surface:
+// on while it is up or on its way (awake, dozing, waking, and crashing,
+// which is doze still trying), off while it is asleep, has failed, is off
+// or paused. A task has no switch. The switch is the state; flipping it
+// wakes or sleeps.
+func SwitchOn(v control.InstanceView) bool {
+	if v.Disabled || v.Paused || v.Kind == "task" {
+		return false
+	}
+	switch v.State {
+	case "active", "idle", "booting", "crashing":
+		return true
+	}
+	return false
 }

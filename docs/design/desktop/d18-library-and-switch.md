@@ -128,14 +128,16 @@ Services page changes from a table you read to a list you operate.
 │       ○  stripe  reachable                      api.stripe.com           │
 ```
 
-- **The switch is "part of this run".** On means doze starts it and keeps
-  it (asleep or awake as idle decides, which is doze's whole point and
-  stays automatic). Off means doze does not start it and nothing wakes it.
-  Today On is `doze up <name>` on a running stack (exists). **Off on a
-  single instance needs work**: `sleep` puts it down until the next
-  connection wakes it, and there is no verb that leaves it down. It is
-  one daemon verb, and the natural meaning of the switch, so it should be
-  built rather than approximated.
+- **The switch is the state, and flipping it wakes or sleeps.** Decided by
+  the owner on 2026-11-05 and kept on 2026-11-06 against the UX audit's
+  "part of this run" recommendation: on while the service is up or on its
+  way (awake, dozing, waking, crashing), off while it is asleep, failed,
+  turned off (`doze off`, greyed; turning it on brings it back and wakes
+  it) or the whole stack is stopped. A service paused in doze.hcl
+  (`enabled = false`) has no switch, a lock instead. The switch can move by
+  itself, since doze sleeps idle services: that is the state changing, and
+  the word beside it says why. One rule in Go, `display.SwitchOn`, for
+  every surface.
 - **The pin** (📌) is `pin` (exists): never sleeps. Shown only when set or
   on hover, so the list stays quiet.
 - **State word and because** stay; they are what no other tool has. The

@@ -9,8 +9,9 @@
     "glyph": "●",
     "tone": "good"
   },
+  "on": true,
   "path": "process · go run ./cmd/api · awake 14m",
-  "because": "nothing holds it",
+  "because": "no connection right now",
   "up": "14m",
   "pid": 48211,
   "run": "go run ./cmd/api",
@@ -960,11 +961,11 @@
       "name": "seed",
       "kind": "task",
       "look": {
-        "word": "ready",
+        "word": "not run",
         "glyph": "▸",
         "tone": "dim"
       },
-      "note": "ready",
+      "note": "not run",
       "trouble": false
     }
   ],

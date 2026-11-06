@@ -11,7 +11,9 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -67,6 +69,9 @@ func main() {
 			fail(err)
 		}
 		write(filepath.Join(*out, fmt.Sprintf("bat-%d.png", side)), img)
+		// The bat with a dot, for "something needs you": a template image too,
+		// so macOS draws it right on a light or a dark menu bar.
+		write(filepath.Join(*out, fmt.Sprintf("bat-alert-%d.png", side)), withDot(img, color.RGBA{0, 0, 0, 255}, side))
 	}
 }
 
@@ -112,6 +117,33 @@ func atOrigin(svg string) string {
 }
 
 // render draws an SVG into a canvas of cw×ch, placed at x,y with size w×h.
+// withDot puts a dot at the bat's top right in ink, cut out from the bat
+// by a ring of transparency so the two read apart.
+func withDot(src image.Image, ink color.RGBA, side int) image.Image {
+	b := src.Bounds()
+	out := image.NewRGBA(b)
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			_, _, _, a := src.At(x, y).RGBA()
+			out.Set(x, y, color.NRGBA{ink.R, ink.G, ink.B, uint8(a >> 8)})
+		}
+	}
+	r := float64(side) * 0.17
+	cx, cy := float64(side)-r-1, r+1
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			d := math.Hypot(float64(x)+0.5-cx, float64(y)+0.5-cy)
+			switch {
+			case d <= r:
+				out.Set(x, y, color.NRGBA{ink.R, ink.G, ink.B, 0xFF})
+			case d <= r+float64(side)/22:
+				out.Set(x, y, color.NRGBA{})
+			}
+		}
+	}
+	return out
+}
+
 func render(svg string, cw, ch, x, y, w, h int) (image.Image, error) {
 	icon, err := oksvg.ReadIconStream(strings.NewReader(svg))
 	if err != nil {

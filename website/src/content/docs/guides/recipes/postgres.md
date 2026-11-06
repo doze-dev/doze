@@ -37,7 +37,7 @@ module postgres "app" {
 
 ```sh
 doze run -- <your app>     # ensures backends are up; the DB boots on first use
-doze shell app              # or open a SQL shell directly (boots `app` if cold)
+psql "$(doze url app)"     # or open a SQL shell directly (the connection wakes `app`)
 ```
 
 Point your app at the stable URL — `postgresql://app:app@127.0.0.1:5432/app`
@@ -213,7 +213,7 @@ Sometimes you want a clean slate:
 
 ```sh
 doze reset app                                   # wipe its data
-doze shell app                                   # next connect re-provisions + converges
+psql "$(doze url app)"                          # next connect re-provisions + converges
 ```
 
 For an isolated, freshly-converged database before a test run — isolation is now

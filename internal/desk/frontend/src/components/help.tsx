@@ -87,12 +87,15 @@ const ROW: Array<[string, string]> = [
 ];
 
 const WORDS: Array<[string, string, string]> = [
-  ["awake", "ok", "running and reachable"],
-  ["dozing", "warn", "awake with nothing holding it; counting down to sleep"],
-  ["asleep", "dim", "stopped, data kept; the next connection wakes it"],
-  ["waking", "cool", "starting because something asked for it"],
-  ["pinned", "bright", "never sleeps"],
-  ["off", "dim", "not part of this run; nothing wakes it until you switch it on"],
-  ["crashing", "bad", "exits soon after starting; doze tries 5 times, then leaves it off"],
-  ["needs", "bright", "what it wakes with · held by: what keeps it awake"],
+  ["awake", "ok", "running, and something used it lately"],
+  ["dozing", "warn", "running, quiet for a while; sleeps when its timer runs out"],
+  ["waking", "cool", "starting, because something asked for it"],
+  ["asleep", "dim", "not running, data kept; the next connection wakes it"],
+  ["crashing", "bad", "exits soon after starting; doze tries again, a few times"],
+  ["failed", "bad", "doze stopped trying; it waits for you"],
+  ["off", "dim", "turned off: nothing wakes it until you switch it on"],
+  ["paused", "dim", "enabled = false in doze.hcl; only the file brings it back"],
+  ["pinned", "bright", "never sleeps, whatever holds it"],
+  ["stopped", "dim", "the whole stack is down; nothing runs"],
+  ["the switch", "bright", "on while it is up or on its way; flip it to wake or sleep"],
 ];

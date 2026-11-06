@@ -4,6 +4,7 @@ import { transport, type view } from "../transport";
 import { ChartCard } from "../components/chart";
 import { KVRows } from "../components/card";
 import { Keys } from "../components/keys";
+import { pageKey } from "../keys";
 import { Dot } from "../components/sidebar";
 import { LogsPage } from "./logs";
 import { ConsoleTab, Extends } from "../components/console";
@@ -19,39 +20,39 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
   const task = inst.kind === "task";
   const stackDir = useStore((s) => s.stacks.find((x) => x.key === stackKey)?.dir);
   const word = inst.look.word;
+  // Every state is Go's: the switch (on, off, paused), the word beside it,
+  // and whether it is serving (awake or dozing) for the verbs that need that.
   const awake = word === "awake" || word === "dozing";
-  const off = word === "disabled";
-  const on = !off && word !== "asleep";
+  const off = !!inst.off;
+  const paused = !!inst.paused;
+  const on = inst.on;
   const asleep = word === "asleep";
+  const crashing = !!inst.crash;
   const url = inst.connect?.find((r) => /^https?:\/\//.test(r.copy ?? ""))?.copy;
+  const flip = () => void (off ? run(stackKey, "on", inst.name).then(() => run(stackKey, "wake", inst.name)) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      if (!pageKey(e)) return;
       switch (e.key) {
-        case "Tab": {
-          e.preventDefault();
-          const i = tabs.findIndex((t) => t.id === current);
-          const next = tabs[(i + (e.shiftKey ? tabs.length - 1 : 1)) % tabs.length];
-          if (next) setTab(next.id);
-          break;
-        }
         case "r":
-          task ? void run(stackKey, "task", inst.name) : void ask(stackKey, inst.name, "restart");
+          if (task) void run(stackKey, "task", inst.name);
+          else if (crashing) void run(stackKey, "restart", inst.name);
+          else if (awake) void ask(stackKey, inst.name, "restart");
           break;
         case "s":
-          if (!task && awake) void ask(stackKey, inst.name, "sleep");
+          if (task || paused) break;
+          if (crashing) void run(stackKey, "off", inst.name);
+          else if (awake) void ask(stackKey, inst.name, "sleep");
           break;
         case "w":
-          if (!task && !awake && !off) void run(stackKey, "wake", inst.name);
+          if (!task && !on && !paused) flip();
           break;
         case "p":
-          if (!task) void run(stackKey, "pin", inst.name);
+          if (!task && !paused && !off) void run(stackKey, "pin", inst.name);
           break;
         case "o":
-          if (url) transport().then((t) => t.open(url));
+          if (url && awake) transport().then((t) => t.open(url));
           break;
         case "y": {
           const line = inst.connect?.find((r) => r.k === "URL" || r.k === "Address")?.copy;
@@ -68,7 +69,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stackKey, inst, tabs, current, task, awake, off, url]);
+  }, [stackKey, inst, tabs, current, task, awake, on, off, paused, crashing, url]);
 
   if (inst.missing) {
     return (
@@ -78,7 +79,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
       </div>
     );
   }
-  const pinned = (inst.holders ?? []).some((h) => h.text === "pinned");
+  const pinned = !!inst.pinned;
   return (
     <>
       <div className={"head" + (inst.banner.ok ? "" : " faded")}>
@@ -110,10 +111,20 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
         ) : (
           <>
             <span className="swl">
-              {on ? "awake" : off ? "off" : "asleep"}
-              <button className={"sw" + (on ? " on" : "") + (off ? " dis" : "")} role="switch" aria-checked={on} aria-label={on ? `${inst.name} is awake` : off ? `${inst.name} is off` : `${inst.name} is asleep`} onClick={() => void (off ? run(stackKey, "on", inst.name).then(() => run(stackKey, "wake", inst.name)) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name))} />
+              <span className={"tone-" + inst.look.tone}>{word}</span>
+              {paused ? (
+                <span className="lock" title="enabled = false in doze.hcl: only the file brings it back">
+                  ⊘
+                </span>
+              ) : (
+                <button className={"sw" + (on ? " on" : "") + (off ? " dis" : "")} role="switch" aria-checked={on} aria-label={`${inst.name} is ${word}`} title={off ? "Turned off: switch it on to bring it back and wake it" : on ? "Switch off to put it to sleep" : "Switch on to wake it"} onClick={flip} />
+              )}
             </span>
-            {inst.crash ? (
+            {paused ? (
+              <button className="btn" onClick={() => transport().then((t) => t.open("file://" + (stackDir ?? "") + "/doze.hcl"))}>
+                Edit doze.hcl
+              </button>
+            ) : inst.crash ? (
               <>
                 <button className="btn" onClick={() => void run(stackKey, "off", inst.name)} title="Take it out of this run while you look">
                   Stop trying <kbd>s</kbd>
@@ -139,8 +150,8 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
                     Sleep <kbd>s</kbd>
                   </button>
                 )}
-                {!awake && !off && (
-                  <button className="btn pri" onClick={() => void run(stackKey, "wake", inst.name)}>
+                {!on && !off && (
+                  <button className="btn pri" onClick={flip}>
                     Wake <kbd>w</kbd>
                   </button>
                 )}
@@ -172,16 +183,21 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
             task
               ? [
                   ["⏎", "run"],
-                  ["tab", "next tab"],
                   ["l", "logs"],
-                  ["esc", "back"],
+                  ["esc", "up"],
                 ]
               : [
-                  ["esc", "back"],
-                  ["tab", "next tab"],
+                  ["esc", "up"],
+                  ["l", "logs"],
                   ["y", "copy address"],
-                  ...(url ? ([["o", "open in browser"]] as Array<[string, string]>) : []),
-                  ...(awake ? ([["s", "sleep"], ["r", "restart"]] as Array<[string, string]>) : off ? [] : ([["w", "wake"]] as Array<[string, string]>)),
+                  ...(url && awake ? ([["o", "open in browser"]] as Array<[string, string]>) : []),
+                  ...(crashing
+                    ? ([["r", "try now"], ["s", "stop trying"]] as Array<[string, string]>)
+                    : awake
+                      ? ([["s", "sleep"], ["r", "restart"], ["p", pinned ? "unpin" : "pin"]] as Array<[string, string]>)
+                      : on || paused
+                        ? []
+                        : ([["w", "wake"]] as Array<[string, string]>)),
                 ]
           }
           note="from Overview: a row's name, or ⏎"
@@ -213,7 +229,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
         <div className="banner bad" role="status" style={{ marginTop: 14 }}>
           <span className="dot r" aria-hidden />
           <div className="t">
-            <b>{inst.crash.gaveUp ? "It stopped exiting on its own; doze gave up and waits for you." : `It exits soon after starting. ${inst.crash.tries ? inst.crash.tries + "; " : ""}doze will ${inst.crash.nextIn ? "try again in " + inst.crash.nextIn : "try again"}, then stop and leave it off until you say.`}</b>
+            <b>{inst.crash.gaveUp ? "It kept exiting soon after starting, so doze stopped trying. It waits for you." : `It exits soon after starting. doze tries again${inst.crash.nextIn ? " in " + inst.crash.nextIn : ""}${inst.crash.tries ? " (" + inst.crash.tries + ")" : ""}, and stops trying if it keeps exiting.`}</b>
             <span>What it said is below. Fix it and press Try now, or stop trying while you look.</span>
           </div>
           {inst.crash.tries && <span className="pill bad">{inst.crash.tries}</span>}
@@ -226,7 +242,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
             <section className="card" style={{ flex: 1 }}>
               <h3>
                 What it said <span className="dim" style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· the last lines before it exited</span>
-                <button className="copy" onClick={() => void copy([inst.crash?.error, inst.crash?.where].filter(Boolean).join("\n"), "the error")}>
+                <button className="copy" onClick={() => void copy([...(inst.crash?.lastRun ?? []).map((l) => `${l.time} ${l.line}`), inst.crash?.error, inst.crash?.where].filter(Boolean).join("\n"), "what it said")}>
                   Copy
                 </button>
               </h3>
@@ -248,8 +264,9 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
           )}
           {module && <Snippets inst={inst} />}
           <Extends after="connect" inst={inst} stackKey={stackKey} />
+          {!inst.crash && (
           <section className="card">
-            <h3>{inst.look.word === "awake" ? "Why it's awake" : inst.look.word === "disabled" ? "Off" : "Awake because"}</h3>
+            <h3>{STATE_TITLE[inst.look.word] ?? inst.look.word}</h3>
             {(inst.holders ?? []).map((p) => (
               <div key={p.text} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <span className="pill">
@@ -284,6 +301,7 @@ function Overview({ inst, stackKey }: { inst: view.Instance; stackKey: string })
               </div>
             )}
           </section>
+          )}
           <Extends after="awake" inst={inst} stackKey={stackKey} />
           <section className="card" style={{ flex: 1 }}>
             <h3>
@@ -655,3 +673,15 @@ function PortClash({ inst, stackKey }: { inst: view.Instance; stackKey: string }
     </section>
   );
 }
+
+/** STATE_TITLE heads the card that says why a service is in its state, in the state's own word. */
+const STATE_TITLE: Record<string, string> = {
+  awake: "Why it's awake",
+  dozing: "Dozing",
+  waking: "Waking",
+  asleep: "Asleep",
+  off: "Turned off",
+  paused: "Paused in doze.hcl",
+  failed: "Failed",
+};
+

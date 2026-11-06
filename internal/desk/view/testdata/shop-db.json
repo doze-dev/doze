@@ -10,6 +10,7 @@
     "glyph": "●",
     "tone": "good"
   },
+  "on": true,
   "path": "postgres 17 · awake for 14m · pid 612",
   "because": "api needs it · 4 connections",
   "up": "14m",
@@ -956,11 +957,11 @@
       "name": "seed",
       "kind": "task",
       "look": {
-        "word": "ready",
+        "word": "not run",
         "glyph": "▸",
         "tone": "dim"
       },
-      "note": "ready",
+      "note": "not run",
       "trouble": false
     }
   ],

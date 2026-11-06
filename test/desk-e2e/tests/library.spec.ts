@@ -53,7 +53,7 @@ test("a stopped stack is the same page, down: every switch off, and a sheet to c
   // The head is the running stack's: the view switch is where it always is.
   await expect(page.getByRole("group", { name: "View" })).toBeVisible();
   const strip = page.locator(".strip");
-  await expect(strip).toContainText("Down");
+  await expect(strip).toContainText("Stopped");
   await expect(strip).toContainText("Up starts api, web and db, as last time, and what they need.");
   await expect(strip.getByRole("button", { name: /Up as last time/ })).toBeVisible();
 
@@ -61,7 +61,7 @@ test("a stopped stack is the same page, down: every switch off, and a sheet to c
   const tile = (n: string) => page.locator(".tile", { has: page.locator("b", { hasText: new RegExp(`^${n}$`) }) }).first();
   await expect(page.locator(".tile .sw.on")).toHaveCount(0);
   await expect(page.getByRole("switch", { name: "api is down" })).toHaveAttribute("aria-checked", "false");
-  await expect(tile("api")).toContainText("down · needs db and cache");
+  await expect(tile("api")).toContainText("stopped · needs db and cache");
   await expect(tile("api")).toContainText("api.acme.doze:8080");
   await expect(tile("web")).toContainText("dev.acme.com");
   await expect(tile("db")).toContainText("api and migrate use it");

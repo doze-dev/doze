@@ -59,16 +59,11 @@ func Build(stacks []hub.StackView, now time.Time) Model {
 			continue
 		}
 		l := Line{Key: st.Key, Name: name, Dir: st.Dir, Running: true}
-		n, mem := 0, int64(0)
+		// The same tally as the Library and the overview, so the counts agree.
+		t := display.TallyOf(st.Instances)
+		n, mem := t.Awake, t.RAM
 		snap := view.Snapshot(st)
 		for _, v := range st.Instances {
-			if v.Kind == "task" {
-				continue
-			}
-			if display.Awake(v.State) {
-				n++
-				mem += v.RAM
-			}
 			if display.Troubled(v) && !l.Trouble {
 				// The first thing wrong is the line: what, and the try.
 				l.Trouble, m.NeedsYou = true, true
@@ -87,6 +82,12 @@ func Build(stacks []hub.StackView, now time.Time) Model {
 			l.Sub = "daemon not responding"
 		default:
 			l.Sub = fmt.Sprintf("%d awake", n)
+			if t.Dozing > 0 {
+				l.Sub += fmt.Sprintf(" · %d dozing", t.Dozing)
+			}
+			if t.Waking > 0 {
+				l.Sub += fmt.Sprintf(" · %d waking", t.Waking)
+			}
 			if mem > 0 {
 				l.Sub += " · " + display.MB(mem)
 			}

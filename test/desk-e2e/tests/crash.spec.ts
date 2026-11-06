@@ -21,7 +21,7 @@ test("a crashing app shows as the Crash board does", async ({ page }, info) => {
   await expect(page.getByRole("button", { name: /Stop trying/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Try now/ })).toBeVisible();
   const banner = page.locator(".banner.bad");
-  await expect(banner).toContainText("It exits soon after starting. try 3 of 5; doze will try again, then stop and leave it off until you say.");
+  await expect(banner).toContainText("It exits soon after starting. doze tries again (try 3 of 5), and stops trying if it keeps exiting.");
   await expect(banner).toContainText("What it said is below.");
   const said = page.locator(".card", { hasText: "What it said" });
   await expect(said).toContainText("panic: STRIPE_KEY is required");

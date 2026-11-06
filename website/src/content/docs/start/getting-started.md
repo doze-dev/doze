@@ -67,10 +67,12 @@ doze doctor
 
 ## 3. Connect — and watch it boot itself
 
-Open a SQL shell:
+Bring the stack up, then open a SQL shell with your own `psql`, pointed at the
+address doze gives the database:
 
 ```sh
-doze shell app
+doze up
+psql "$(doze url app)"
 ```
 
 The first time, this does a lot for you, transparently:
@@ -83,7 +85,7 @@ The first time, this does a lot for you, transparently:
 4. boots the server,
 5. **converges** your declared shape — creates the `app` role, the `app`
    database, and grants — then
-6. drops you into `psql`.
+6. lets the connection through, so `psql` lands in it.
 
 ```
 psql (16.14)

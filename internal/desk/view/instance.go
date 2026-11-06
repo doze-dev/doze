@@ -23,6 +23,11 @@ type Instance struct {
 	Engine  string `json:"engine"`
 	Version string `json:"version,omitempty"`
 	Look    Look   `json:"look"`
+	// On, Off, Paused and Pinned are the head switch, as a row's (Row).
+	On     bool `json:"on"`
+	Off    bool `json:"off,omitempty"`
+	Paused bool `json:"paused,omitempty"`
+	Pinned bool `json:"pinned,omitempty"`
 	// Path is the line beside the name: "postgres 17 · awake for 14m ·
 	// pid 612", "task · done · ran 2m ago in 1.2s".
 	Path    string `json:"path"`
@@ -185,6 +190,7 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 	}
 	out.Kind, out.Engine, out.Version, out.PID, out.Run = v.Kind, v.Engine, v.Version, v.PID, v.Run
 	out.Look = lookOf(v)
+	out.On, out.Off, out.Paused, out.Pinned = display.SwitchOn(v), v.Disabled && !v.Paused, v.Paused, v.KeepAwake
 	out.Because, out.Hint = display.Because(v, snap, now), display.Hint(v, snap, now)
 	if display.Awake(v.State) && !v.StartedAt.IsZero() {
 		out.Up = display.Ago(now.Sub(v.StartedAt))
@@ -230,7 +236,9 @@ func InstanceOf(st hub.StackView, name string, now time.Time) Instance {
 	for _, n := range display.Needs(v, snap) {
 		out.Needs = append(out.Needs, Need{Name: n.Name, Known: n.Known, Look: Look{n.Look.Word, n.Look.Glyph, string(n.Look.Tone)}, Glyph: n.Glyph, Task: n.Task})
 	}
-	if s, ok := st.Series[name]; ok && len(s.RAM) > 0 {
+	// Figures only while it serves: a crashing or waking process's last
+	// numbers would read as live.
+	if s, ok := st.Series[name]; ok && len(s.RAM) > 0 && display.AwakeNow(v) {
 		out.Vitals = &Vitals{
 			RAM:   chartOf(s.RAM, display.BytesLabel, "resident", len(s.RAM)),
 			CPU:   chartOf(s.CPU, display.Pct, "of one core", len(s.CPU)),

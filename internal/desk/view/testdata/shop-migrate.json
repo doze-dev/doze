@@ -9,6 +9,7 @@
     "glyph": "✓",
     "tone": "good"
   },
+  "on": false,
   "path": "task · last run 2m ago · exit 0 in 1.2s",
   "because": "ran 2m ago in 1.2s",
   "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
@@ -224,11 +225,11 @@
       "name": "seed",
       "kind": "task",
       "look": {
-        "word": "ready",
+        "word": "not run",
         "glyph": "▸",
         "tone": "dim"
       },
-      "note": "ready",
+      "note": "not run",
       "trouble": false
     }
   ],

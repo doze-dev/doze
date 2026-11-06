@@ -24,7 +24,7 @@ func TestAlwaysOnRowsSayTheyRunUntilStopped(t *testing.T) {
 		t.Errorf("sleeping app row says %q", got)
 	}
 	active := control.InstanceView{Name: "api", Kind: "app", State: "active"}
-	if got := Because(active, snap, epoch); got != "nothing holds it" {
+	if got := Because(active, snap, epoch); got != "no connection right now" {
 		t.Errorf("fronted app with no holders says %q", got)
 	}
 }

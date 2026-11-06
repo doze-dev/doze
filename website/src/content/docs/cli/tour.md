@@ -72,7 +72,7 @@ When you want to actually *look* at a service:
 
 ```sh
 doze status          # everything, at a glance
-doze shell app       # a real psql into "app" — booting it if it was asleep
+psql "$(doze url app)"   # a real psql into "app"; the connection wakes it
 doze logs -f app     # follow a service's logs
 ```
 

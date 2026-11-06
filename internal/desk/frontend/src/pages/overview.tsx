@@ -325,7 +325,7 @@ function DownStrip({ s, tight, onUp, onChoose, dir }: { s: view.Stopped; tight?:
     <div className={"strip" + (tight ? " tight" : "")} role="status">
       <div className="stat wide">
         <span className="v">
-          Down<small>{s.when}</small>
+          Stopped<small>{s.when}</small>
         </span>
         <span className="s">{s.lastLine} Modules wake on their own when something connects.</span>
       </div>
@@ -513,12 +513,13 @@ function DownPane({ row }: { row: view.Row }) {
   );
 }
 
-/** toggle flips a row's switch: part of this run, or not. */
+/** toggle flips a row's switch: wake it, or put it to sleep; one turned off comes back and wakes. */
 function toggle(stackKey: string, r: view.Row) {
   if (r.kind === "task") {
     void run(stackKey, "task", r.name);
     return;
   }
+  if (r.paused) return;
   // The switch is awake or asleep. Sleeping asks when something depends on
   // it; a service doze off took out of the run comes back in first.
   if (r.off) void run(stackKey, "on", r.name).then(() => run(stackKey, "wake", r.name));
@@ -627,13 +628,20 @@ function Switch({ r, stackKey }: { r: view.Row; stackKey: string }) {
       </button>
     );
   }
+  if (r.paused) {
+    return (
+      <span className="lock" role="img" aria-label={`${r.name} is paused in doze.hcl`} title="enabled = false in doze.hcl: only the file brings it back">
+        ⊘
+      </span>
+    );
+  }
   return (
     <button
       className={"sw" + (r.on ? " on" : "") + (r.off ? " dis" : "")}
       role="switch"
       aria-checked={r.on}
-      aria-label={r.on ? `${r.name} is awake` : r.off ? `${r.name} is off` : `${r.name} is asleep`}
-      title={r.off ? "doze off took it out of this run; the switch puts it back" : undefined}
+      aria-label={`${r.name} is ${r.look.word}`}
+      title={r.off ? "Turned off: switch it on to bring it back and wake it" : r.on ? "Switch off to put it to sleep" : "Switch on to wake it"}
       onClick={(e) => {
         e.stopPropagation();
         toggle(stackKey, r);

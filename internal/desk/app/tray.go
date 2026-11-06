@@ -20,6 +20,11 @@ import (
 //go:embed icons/bat-44.png
 var batIcon []byte
 
+// alertIcon is the bat with a dot: something crashed or a task failed.
+//
+//go:embed icons/bat-alert-44.png
+var alertIcon []byte
+
 // bar turns the tray package's model into the native menu bar item, and
 // rebuilds it only when the model changes: the hub reports every frame, and
 // most frames change nothing a menu shows.
@@ -27,6 +32,7 @@ type bar struct {
 	item *application.SystemTray
 
 	mu      sync.Mutex
+	alert   bool   // the dot is showing
 	built   uint64 // models built, in order
 	applied uint64 // the newest model the menu shows
 	shown   string
@@ -74,6 +80,14 @@ func (d *desk) refreshTray() {
 		}
 		d.item.SetTooltip(m.Tooltip)
 		d.item.SetMenu(menu)
+		if m.NeedsYou != d.alert {
+			d.alert = m.NeedsYou
+			if m.NeedsYou {
+				d.item.SetTemplateIcon(alertIcon)
+			} else {
+				d.item.SetTemplateIcon(batIcon)
+			}
+		}
 	})
 }
 

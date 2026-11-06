@@ -30,7 +30,8 @@ func upCmd() *cobra.Command {
 			"keeps supervising everything in the background; nothing stays attached to\n" +
 			"your terminal. Watch logs in the dash (`doze`), or pass `-f` to wake and\n" +
 			"stream in one step (Ctrl-C then just detaches — it does not stop anything).\n" +
-			"`doze down` stops the stack. Disabled services are skipped.\n\n" +
+			"`doze down` stops the stack. Paused services (enabled = false) and ones\n" +
+			"turned off with `doze off` are skipped.\n\n" +
 			"With no names, up starts everything; when last time started fewer, it\n" +
 			"asks whether to start the same again (on a terminal; -y says yes;\n" +
 			"with no terminal it starts everything).\n" +

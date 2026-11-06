@@ -134,7 +134,7 @@ func downRow(d *config.InstanceDecl, needs []string, on map[string]bool, dependa
 	// says what the service is to the others; what Up starts is the strip's
 	// to say, and the start sheet's to change.
 	row := Row{Name: d.Name, Kind: d.Kind, Engine: engineOf(d), Down: true, BecauseTone: "dim",
-		Look: Look{Word: "down", Glyph: "·", Tone: "dim"}, Needs: needs}
+		Look: Look{Word: "stopped", Glyph: "·", Tone: "dim"}, Needs: needs}
 	if r, ok := d.Spec.(interface{ RunLine() string }); ok {
 		row.Run = r.RunLine()
 	}
@@ -142,7 +142,8 @@ func downRow(d *config.InstanceDecl, needs []string, on map[string]bool, dependa
 	row.Last = on[d.Name] && d.Kind != "task"
 	switch {
 	case !d.Enabled:
-		row.Because, row.Off = "paused in doze.hcl (enabled = false)", true
+		row.Because, row.Paused = "enabled = false in doze.hcl", true
+		row.Look = Look{Word: "paused", Glyph: "⊘", Tone: "dim"}
 	case d.Kind == "task" && len(needs) > 0:
 		row.Because = "needs " + andList(needs) + " · runs once the stack is up"
 	case d.Kind == "task":

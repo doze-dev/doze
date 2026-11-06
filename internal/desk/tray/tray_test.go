@@ -31,7 +31,7 @@ func TestBuild(t *testing.T) {
 	}
 	want := []Line{
 		{Key: "k-data", Name: "data", Dir: "/code/data", Running: true, Sub: "search is crashing · try 2 of 5", Trouble: true},
-		{Key: "k-shop", Name: "shop", Dir: "/code/shop", Running: true, Sub: "3 awake · 350 MB · https://shop.acme.dev"},
+		{Key: "k-shop", Name: "shop", Dir: "/code/shop", Running: true, Sub: "2 awake · 1 dozing · 350 MB · https://shop.acme.dev"},
 		{Key: "k-acme", Name: "acme", Dir: "/code/acme", Sub: "up 3d ago"},
 		{Key: "k-old", Name: "old", Dir: "/code/old", Sub: "up 14d ago"},
 	}
@@ -43,7 +43,7 @@ func TestBuild(t *testing.T) {
 			t.Errorf("line %d = %+v, want %+v", i, l, want[i])
 		}
 	}
-	if m.Tooltip != "doze · 3 awake" {
+	if m.Tooltip != "doze · 2 awake" {
 		t.Errorf("tooltip = %q", m.Tooltip)
 	}
 }

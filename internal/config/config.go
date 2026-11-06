@@ -119,7 +119,7 @@ type InstanceDecl struct {
 	Deps  []engine.Dependency // dependencies, in reference order
 	// Enabled defaults to true; `enabled = false` declares the instance but leaves it
 	// paused — not booted by up/wake, not converged or pruned by sync (its data is
-	// preserved), shown as "disabled" in the tree. Re-enabling brings it back as-is.
+	// preserved), shown as "paused" in the app and the tree. Re-enabling brings it back as-is.
 	Enabled bool
 	// After is the block's `after` list. Refs is everything its body references,
 	// of any kind — Deps holds only the ones that are instances.

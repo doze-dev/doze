@@ -43,6 +43,23 @@ func (s *Service) Library() view.Library {
 		}
 	}
 	lib := view.LibraryOf(stacks, hints, s.now())
+	// An https domain that this machine cannot serve yet is not offered as a
+	// link: the stack's page says what the setup is.
+	for _, st := range stacks {
+		if s.setupFor(st) == nil {
+			continue
+		}
+		for j := range lib.Stacks {
+			if lib.Stacks[j].Key != st.Key {
+				continue
+			}
+			for k, a := range lib.Stacks[j].Addresses {
+				if strings.HasPrefix(a.Text, "https://") {
+					lib.Stacks[j].Addresses[k].Unready, lib.Stacks[j].Addresses[k].URL, lib.Stacks[j].Addresses[k].Up = true, "", false
+				}
+			}
+		}
+	}
 	lib.Doctor = s.doctorCached(stacks)
 	lib.Machine = machine(lib.Doctor, stacks)
 	s.mu.Lock()

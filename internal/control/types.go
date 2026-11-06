@@ -183,8 +183,12 @@ type InstanceView struct {
 	LastError string `json:"last_error,omitempty"` // most recent boot/crash failure
 	Tainted   bool   `json:"tainted,omitempty"`    // last convergence failed/incomplete
 	Declared  bool   `json:"declared"`
-	Disabled  bool   `json:"disabled,omitempty"`   // declared with enabled = false (paused; no listener, not booted)
-	KeepAwake bool   `json:"keep_awake,omitempty"` // pinned: exempt from the idle reaper
+	Disabled  bool   `json:"disabled,omitempty"` // not running by choice: enabled = false in the config, or doze off
+	// Paused is the config's half of Disabled: declared with enabled = false,
+	// so only an edit to the file brings it back. Disabled without Paused is
+	// doze off, which doze on undoes.
+	Paused    bool `json:"paused,omitempty"`
+	KeepAwake bool `json:"keep_awake,omitempty"` // pinned: exempt from the idle reaper
 	// Group is the display heading for status/dash; empty means "infer from engine
 	// category" (an explicit `group=` or a module address can set it later).
 	Group string `json:"group,omitempty"`

@@ -32,7 +32,7 @@ build: frontend ## Build the doze binary, page included
 icons: ## Render the app icon (.icns) and the menu bar bat from website/brand
 	cd tools/icons && go run . -brand ../../website/brand -out ../../build/darwin
 	iconutil -c icns build/darwin/doze.iconset -o build/darwin/doze.icns
-	cp build/darwin/bat-22.png build/darwin/bat-44.png internal/desk/app/icons/
+	cp build/darwin/bat-22.png build/darwin/bat-44.png build/darwin/bat-alert-44.png internal/desk/app/icons/
 
 .PHONY: app
 app: build ## Build Doze.app around the binary, ad-hoc signed (DOZE_SIGN_ID for a Developer ID)

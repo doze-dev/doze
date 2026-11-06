@@ -235,7 +235,7 @@ function AddrPill({ a }: { a: view.Addr }) {
     });
   };
   return (
-    <button className={"pill" + (a.up ? "" : " dim")} onClick={open} title={a.url ? `Open ${a.url}` : a.text}>
+    <button className={"pill" + (a.up ? "" : " dim")} onClick={open} title={a.unready ? `${a.text} needs a one-time setup on this machine; the stack's page has it` : a.url ? `Open ${a.url}` : a.text}>
       {a.up && <span className="dot g" aria-hidden />}
       <span className={"t" + (a.url && a.up ? " link" : "")}>{a.text}</span>
     </button>

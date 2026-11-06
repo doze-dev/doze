@@ -70,7 +70,7 @@ proxy, or a download fails:
 - **Use a local build** instead of downloading — point doze at an existing bin
   directory:
   ```sh
-  DOZE_POSTGRES_BINDIR=/opt/homebrew/opt/postgresql@16/bin doze shell app
+  DOZE_POSTGRES_BINDIR=/opt/homebrew/opt/postgresql@16/bin doze wake app
   ```
 - **Point at a mirror you can reach** with `DOZE_<ENGINE>_MIRROR` /
   `DOZE_MIRROR`, including a `file://` path for a fully offline mirror — see

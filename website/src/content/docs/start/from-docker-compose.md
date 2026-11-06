@@ -22,7 +22,7 @@ moments later.
 | `docker compose up -d` | `doze up` | Converges structure, boots in dependency order, then **everything idles to zero when unused** — the part compose has no equivalent for. |
 | `docker compose down -v` | `doze down` / `doze reset` | `down` sleeps everything; `reset` wipes data (re-clones fresh). |
 | `docker compose logs -f app` | `doze logs -f app` | Engine logs are also just files on your disk. |
-| `docker exec -it db psql` | `doze shell app` | A real `psql` to a native process — no exec, no TTY plumbing. |
+| `docker exec -it db psql` | `psql "$(doze url app)"` | A real `psql` to a native process — no exec, no TTY plumbing. |
 
 ## What has no equivalent — in either direction
 

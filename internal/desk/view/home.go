@@ -77,9 +77,11 @@ type States struct {
 	Dozing int `json:"dozing"`
 	Waking int `json:"waking"`
 	Asleep int `json:"asleep"`
-	// Off counts the ones declared but not part of this run; Crashing the
-	// ones in trouble. Neither is in the four above.
+	// Off counts the ones turned off (doze off), Paused the ones with
+	// enabled = false, Crashing the ones in trouble. None is in the four
+	// above.
 	Off      int `json:"off"`
+	Paused   int `json:"paused"`
 	Crashing int `json:"crashing"`
 	// Sleeps is the sentence under the counts: "sleeps after 5:00 with
 	// nothing holding it".
@@ -89,7 +91,7 @@ type States struct {
 // Conns is the connections card: open across the stack, and the tasks.
 type Conns struct {
 	Open  int    `json:"open"`
-	Tasks string `json:"tasks"` // "tasks ✓ 1 done · ▸ 1 ready"
+	Tasks string `json:"tasks"` // "tasks ✓ 1 done · ▸ 1 not run"
 }
 
 // Group is a heading over part of the stack.
@@ -125,11 +127,14 @@ type Row struct {
 	// uses, empty when it is not http.
 	Address string `json:"address,omitempty"`
 	URL     string `json:"url,omitempty"`
-	// On is the switch: awake, or on its way (waking, dozing, even crashing);
-	// off is asleep. Off says doze off took it out of this run, so the
-	// switch is off and greyed. Pinned says it never sleeps.
+	// On is the switch (display.SwitchOn): up or on its way, crashing
+	// included; off when asleep, failed, off or paused. Off says doze off
+	// took it out, so the switch is greyed and turning it on brings it
+	// back. Paused is enabled = false in doze.hcl: no switch at all, since
+	// only the file can change it. Pinned says it never sleeps.
 	On     bool `json:"on"`
 	Off    bool `json:"off,omitempty"`
+	Paused bool `json:"paused,omitempty"`
 	Pinned bool `json:"pinned"`
 	// Err is the first line of what it last said before exiting, while it
 	// is crashing.
@@ -219,12 +224,12 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 			if row.Awake {
 				row.Mem = display.MB(v.RAM)
 				row.CPU = fmt.Sprintf("%.1f", v.CPU)
-				row.Conns = fmt.Sprint(v.Conns)
+				row.Conns = fmt.Sprint(display.Connections(v))
 				if !v.StartedAt.IsZero() {
 					row.Up = display.Ago(now.Sub(v.StartedAt))
 				}
 			}
-			row.On, row.Off, row.Pinned = !v.Disabled && display.LookOf(v).Word != "asleep", v.Disabled, v.KeepAwake
+			row.On, row.Off, row.Paused, row.Pinned = display.SwitchOn(v), v.Disabled && !v.Paused, v.Paused, v.KeepAwake
 			if row.Trouble && v.LastError != "" {
 				row.Err = display.FirstLine(v.LastError)
 			}
@@ -299,6 +304,11 @@ func becauseTone(v control.InstanceView) string {
 func vitalsOf(st hub.StackView) Vitals4 {
 	var mem, cpu []display.Share
 	var v4 Vitals4
+	// The counts and the connections are the tally every surface uses.
+	t := display.TallyOf(st.Instances)
+	v4.State.Awake, v4.State.Dozing, v4.State.Waking, v4.State.Asleep = t.Awake, t.Dozing, t.Waking, t.Asleep
+	v4.State.Off, v4.State.Paused, v4.State.Crashing = t.Off, t.Paused, t.Trouble
+	v4.Conns.Open = t.Conns
 	done, ready, failed := 0, 0, 0
 	for _, v := range st.Instances {
 		if v.Kind == "task" {
@@ -312,21 +322,6 @@ func vitalsOf(st hub.StackView) Vitals4 {
 			}
 			continue
 		}
-		switch {
-		case v.Disabled:
-			v4.State.Off++
-		case display.Troubled(v):
-			v4.State.Crashing++
-		case v.State == "active":
-			v4.State.Awake++
-		case v.State == "idle":
-			v4.State.Dozing++
-		case v.State == "booting":
-			v4.State.Waking++
-		default:
-			v4.State.Asleep++
-		}
-		v4.Conns.Open += v.Conns
 		if display.AwakeNow(v) {
 			mem = append(mem, display.Share{Name: v.Name, V: float64(v.RAM)})
 			cpu = append(cpu, display.Share{Name: v.Name, V: v.CPU})
@@ -370,7 +365,7 @@ func vitalsOf(st hub.StackView) Vitals4 {
 		tasks = append(tasks, fmt.Sprintf("✗ %d failed", failed))
 	}
 	if ready > 0 {
-		tasks = append(tasks, fmt.Sprintf("▸ %d ready", ready))
+		tasks = append(tasks, fmt.Sprintf("▸ %d not run", ready))
 	}
 	if len(tasks) > 0 {
 		v4.Conns.Tasks = "tasks " + strings.Join(tasks, " · ")

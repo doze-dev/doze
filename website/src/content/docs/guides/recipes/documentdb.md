@@ -66,10 +66,10 @@ doze status
 #   docs   documentdb   idle        127.0.0.1:6441
 ```
 
-Or open `mongosh` directly — `doze shell` picks the right client for the engine:
+Or open `mongosh` directly, pointed at the same URL:
 
 ```sh
-doze shell docs
+mongosh "$(doze url docs)"
 ```
 
 ## Notes

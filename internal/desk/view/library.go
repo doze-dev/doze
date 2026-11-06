@@ -84,6 +84,9 @@ type Addr struct {
 	// URL is what Open uses; empty for a name that is not http.
 	URL string `json:"url,omitempty"`
 	Up  bool   `json:"up"`
+	// Unready is an https domain this machine is not set up for yet: not a
+	// link, and not green, until the one-time setup is done.
+	Unready bool `json:"unready,omitempty"`
 }
 
 // Step is one of the help strip's three.
@@ -216,39 +219,21 @@ func libStackOf(st hub.StackView, now time.Time) LibStack {
 		name = filepath.Base(st.Dir)
 	}
 	row := LibStack{Key: st.Key, Name: name, Dir: display.Tilde(st.Dir), Running: st.Running, Live: st.Conn == hub.ConnLive, Addresses: []Addr{}}
-	var awake, dozing, waking, asleep, off, trouble int
-	var mem int64
-	var conns int
+	// The counts are the tally every surface uses.
+	t := display.TallyOf(st.Instances)
+	awake, dozing, waking, asleep, off, trouble := t.Awake, t.Dozing, t.Waking, t.Asleep, t.Off+t.Paused, t.Trouble+t.Failed
+	mem, conns := t.RAM, t.Conns
 	var need string
 	for _, v := range st.Instances {
-		if v.Kind == "task" {
-			continue
+		if v.Kind != "task" {
+			row.Declared++
 		}
-		row.Declared++
 		look := display.LookOf(v)
-		switch {
-		case display.Troubled(v):
-			trouble++
-			if need == "" {
-				need = v.Name + " is " + look.Word
-				if b := display.Because(v, snapshot(st), now); b != "" {
-					need += " · " + b
-				}
+		if display.Troubled(v) && need == "" {
+			need = v.Name + " is " + look.Word
+			if b := display.Because(v, snapshot(st), now); b != "" {
+				need += " · " + b
 			}
-		case look.Word == "awake":
-			awake++
-		case look.Word == "dozing":
-			dozing++
-		case look.Word == "waking":
-			waking++
-		case look.Word == "disabled" || look.Word == "off":
-			off++
-		default:
-			asleep++
-		}
-		if display.AwakeNow(v) {
-			mem += v.RAM
-			conns += display.Connections(v)
 		}
 	}
 	row.Need = need

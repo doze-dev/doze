@@ -80,6 +80,7 @@ func (h *handler) snapshot() []control.InstanceView {
 			Name: decl.Name, Kind: decl.Kind, Engine: decl.Type, State: state,
 			Version: decl.Version.String(), Declared: true, Disabled: state == "disabled",
 		}
+		v.Paused = !decl.Enabled
 		v.Task = h.taskView(decl)
 		h.hydrateDecl(&v, decl)
 		h.hydrateEndpoint(&v, eps[decl.Name])
@@ -105,6 +106,7 @@ func (h *handler) view(inst registry.Instance, eps map[string]endpoints.Endpoint
 		h.hydrateDecl(&v, decl)
 	}
 	v.Disabled = (decl != nil && !decl.Enabled) || h.d.rt.IsOff(inst.Name)
+	v.Paused = decl != nil && !decl.Enabled
 	v.Holders = h.holders(inst.Name)
 	h.hydrateEndpoint(&v, eps[inst.Name])
 	h.hydrateConsole(&v, decl)

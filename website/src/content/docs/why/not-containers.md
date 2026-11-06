@@ -24,7 +24,7 @@ observability toolbox you already own works on both, with nothing in between:
 
 - **Attach anything, directly.** `dlv attach`, `lldb -p`, an IDE debugger —
   onto your app while it talks to the real database. Breakpoint a request
-  handler, step into the query call, and in another pane `doze shell app` is a
+  handler, step into the query call, and in another pane `psql "$(doze url app)"` is a
   real `psql` inside the same server, inspecting the row your paused code just
   wrote. No remote-debug ports, no "attach to process in container", no
   source-path mapping because the filesystem in the debugger *is* your

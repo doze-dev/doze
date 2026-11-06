@@ -97,7 +97,7 @@ doze run -- true
 ps -o rss= -p "$(pgrep -f 'doze __daemon')"
 
 # a booted engine's RSS — boot it, then read its process
-doze wake app                  # or: doze shell app
+doze wake app                  # or connect: psql "$(doze url app)"
 doze status                 # the RAM column reports the same figure
 ps -Ao rss,command | grep '/bin/postgres'
 ```

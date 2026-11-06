@@ -48,7 +48,7 @@ func New() *Rules {
 // the same episode, as the Crash board's "try 3 of 5" says.
 func episodeOver(v control.InstanceView) bool {
 	switch display.LookOf(v).Word {
-	case "awake", "dozing", "asleep", "disabled":
+	case "awake", "dozing", "asleep", "off", "paused":
 		return true
 	}
 	return false

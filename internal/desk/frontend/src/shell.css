@@ -526,3 +526,6 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .dialog .pick.at { background: var(--pick); }
 .dialog .pick b { color: var(--bright); font-weight: 600; }
 .dialog .also { font-size: var(--text-sm); color: var(--text); }
+
+/* paused in doze.hcl: no switch, a lock in its place, the same size */
+.lock { width: 34px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; flex: none; border: 1px dashed var(--line2); border-radius: 9px; }

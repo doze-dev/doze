@@ -33,6 +33,12 @@ export interface Addr {
      */
     "url"?: string;
     "up": boolean;
+
+    /**
+     * Unready is an https domain this machine is not set up for yet: not a
+     * link, and not green, until the one-time setup is done.
+     */
+    "unready"?: boolean;
 }
 
 /**
@@ -504,6 +510,14 @@ export interface Instance {
     "engine": string;
     "version"?: string;
     "look": Look;
+
+    /**
+     * On, Off, Paused and Pinned are the head switch, as a row's (Row).
+     */
+    "on": boolean;
+    "off"?: boolean;
+    "paused"?: boolean;
+    "pinned"?: boolean;
 
     /**
      * Path is the line beside the name: "postgres 17 · awake for 14m ·
@@ -1128,12 +1142,15 @@ export interface Row {
     "url"?: string;
 
     /**
-     * On is the switch: awake, or on its way (waking, dozing, even crashing);
-     * off is asleep. Off says doze off took it out of this run, so the
-     * switch is off and greyed. Pinned says it never sleeps.
+     * On is the switch (display.SwitchOn): up or on its way, crashing
+     * included; off when asleep, failed, off or paused. Off says doze off
+     * took it out, so the switch is greyed and turning it on brings it
+     * back. Paused is enabled = false in doze.hcl: no switch at all, since
+     * only the file can change it. Pinned says it never sleeps.
      */
     "on": boolean;
     "off"?: boolean;
+    "paused"?: boolean;
     "pinned": boolean;
 
     /**
@@ -1274,10 +1291,12 @@ export interface States {
     "asleep": number;
 
     /**
-     * Off counts the ones declared but not part of this run; Crashing the
-     * ones in trouble. Neither is in the four above.
+     * Off counts the ones turned off (doze off), Paused the ones with
+     * enabled = false, Crashing the ones in trouble. None is in the four
+     * above.
      */
     "off": number;
+    "paused": number;
     "crashing": number;
 
     /**

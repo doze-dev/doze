@@ -12,7 +12,7 @@
             0,
             1
           ],
-          "note": "in shop · dozing, 11 MB · idle: sleeps soon",
+          "note": "in shop · dozing, 11 MB · quiet; sleeps soon",
           "key": "⏎ sleep now",
           "cli": "doze sleep cache",
           "do": {
