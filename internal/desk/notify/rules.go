@@ -11,6 +11,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
+	"github.com/doze-dev/doze/internal/desk/view"
 	"github.com/doze-dev/doze/internal/display"
 )
 
@@ -67,6 +68,17 @@ func (r *Rules) Next(stacks []hub.StackView, visible func(key, instance string) 
 			seen[id] = true
 			if v.Kind == "task" {
 				r.task(&out, st, v, id, visible, primed)
+				continue
+			}
+			if it, stuck := view.StuckWaking(st, v, now); stuck {
+				// D8's third: a wake that hangs without failing. Once per
+				// wake, like a crash episode.
+				if !r.crashed[id] {
+					r.crashed[id] = true
+					if primed && !visible(st.Key, v.Name) {
+						out = append(out, Note{ID: id + "/stuck", Key: st.Key, Dir: st.Dir, Instance: v.Name, Title: it.Title + " · " + st.Name, Body: it.Detail})
+					}
+				}
 				continue
 			}
 			if episodeOver(v) {

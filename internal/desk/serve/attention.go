@@ -2,6 +2,7 @@ package serve
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/doze-dev/doze/internal/control"
@@ -43,7 +44,16 @@ func (s *Service) Attention() view.Attention {
 	// missing: "live" (it was fixed), "stopped" (instance items leave
 	// quietly), "carry" (mid-action or out of touch: keep it as it was).
 	steady := map[string]string{"": "live"}
+	// insts is each stack's instances now, for a failed task: it stays red
+	// until a run of it succeeds (D19), whatever happened in between.
+	insts := map[string]map[string]control.InstanceView{}
+	names := map[string]string{}
 	for _, st := range stacks {
+		insts[st.Key] = map[string]control.InstanceView{}
+		for _, v := range st.Instances {
+			insts[st.Key][v.Name] = v
+		}
+		names[st.Key] = st.Name
 		f := view.StackFacts{Held: heldBy, Port: func(v control.InstanceView) int { return portInUse(v.LastError) }}
 		if st.Dir != "" {
 			f.Missing = view.MissingFiles(st.Dir)
@@ -107,6 +117,24 @@ func (s *Service) Attention() view.Attention {
 		case state == "carry":
 			items, present[id] = append(items, prev), true
 			continue
+		case prev.Kind == "task" && state == "stopped":
+			// It cannot run again until its stack is up: say so, keep it red.
+			prev.Detail = trimStopped(prev.Detail) + " · its stack is stopped"
+			prev.Fixes = []view.Fix{{Label: "Up " + names[prev.Key], Kind: "stack", Verb: "up-last", Primary: true}}
+			items, present[id] = append(items, prev), true
+			continue
+		case prev.Kind == "task" && state == "live":
+			v, declared := insts[prev.Key][prev.Instance]
+			if !declared {
+				continue // no longer in doze.hcl: nothing to run
+			}
+			if v.Task == nil {
+				// Up again with no run since: still the last word on it.
+				prev.Detail = trimStopped(prev.Detail)
+				prev.Fixes = []view.Fix{{Label: "Run again", Kind: "do", Verb: "task", Primary: true}, {Label: "Output", Kind: "show"}}
+				items, present[id] = append(items, prev), true
+				continue
+			}
 		case state == "stopped" && prev.Instance != "":
 			continue // the stack stopped; its services' trouble went with it
 		case s.attnQuiet[id]:
@@ -301,4 +329,9 @@ func (s *Service) Away() *view.Away {
 		since = s.started
 	}
 	return view.AwayOf(s.hub.Stacks(), since, s.now())
+}
+
+// trimStopped takes " · its stack is stopped" off a task item's detail.
+func trimStopped(d string) string {
+	return strings.TrimSuffix(d, " · its stack is stopped")
 }

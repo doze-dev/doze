@@ -242,6 +242,23 @@ func Handler(s *Service) http.Handler {
 		}
 		return s.Preflight(a.Key, a.Action, a.Names), nil
 	})
+	call("preflightinstance", func(b json.RawMessage) (any, error) {
+		var a struct{ Key, Name string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.PreflightInstance(a.Key, a.Name), nil
+	})
+	call("preflightinstancefix", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Name, Verb, Kind string
+			PID                   int
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, s.PreflightInstanceFix(a.Key, a.Name, a.Verb, a.Kind, a.PID)
+	})
 	call("preflightfix", func(b json.RawMessage) (any, error) {
 		var a struct {
 			Key, Action, Kind, Without string

@@ -167,6 +167,9 @@ func StackItems(st hub.StackView, f StackFacts, now time.Time) []Item {
 // instanceItem is an instance in trouble: crashing, failed, not ready in
 // time, or a task whose last run failed.
 func instanceItem(st hub.StackView, stack string, v control.InstanceView, f StackFacts, now time.Time) (Item, bool) {
+	if it, ok := stuckWaking(st, stack, v, now); ok {
+		return it, true
+	}
 	if !display.Troubled(v) {
 		return Item{}, false
 	}
@@ -367,4 +370,51 @@ type PreCheck struct {
 	// Note is a second line under the detail, in plain words.
 	Note  string `json:"note,omitempty"`
 	Fixes []Fix  `json:"fixes,omitempty"`
+}
+
+// stuckFor is how long a wake may take before doze says so; quietFor is
+// how long it must have said nothing. The daemon's own ready check (60 s
+// unless doze.hcl allows more) fails a start that never answers; this is
+// for one that hangs without failing: still waking, and silent.
+const (
+	stuckFor = 5 * time.Minute
+	quietFor = 2 * time.Minute
+)
+
+// StuckWaking is stuckWaking, for notifications (D8's third rule).
+func StuckWaking(st hub.StackView, v control.InstanceView, now time.Time) (Item, bool) {
+	return stuckWaking(st, st.Name, v, now)
+}
+
+// stuckWaking is an instance waking for stuckFor with no journal word
+// from it for quietFor.
+func stuckWaking(st hub.StackView, stack string, v control.InstanceView, now time.Time) (Item, bool) {
+	if v.State != "booting" {
+		return Item{}, false
+	}
+	var woke, heard time.Time
+	for i := len(st.Events) - 1; i >= 0; i-- {
+		e := st.Events[i]
+		if e.Instance != v.Name {
+			continue
+		}
+		if heard.IsZero() {
+			heard = e.Time
+		}
+		if e.Kind == "wake" {
+			woke = e.Time
+			break
+		}
+	}
+	if woke.IsZero() || now.Sub(woke) < stuckFor || now.Sub(heard) < quietFor {
+		return Item{}, false
+	}
+	return Item{
+		ID: "instance:" + st.Key + "/" + v.Name, Print: "stuck|" + woke.String(), Red: true, Kind: "instance", Key: st.Key, Stack: stack, Instance: v.Name,
+		Title:  v.Name + " is still waking",
+		Detail: fmt.Sprintf("for %s, with no word from it for %s; its logs usually say why", display.Ago(now.Sub(woke)), display.Ago(now.Sub(heard))),
+		Since:  woke,
+		Fixes:  []Fix{{Label: "Restart", Kind: "do", Verb: "restart", Primary: true}, {Label: "Logs", Kind: "show"}},
+		Show:   &Place{Key: st.Key, Page: "instance", Instance: v.Name},
+	}, true
 }

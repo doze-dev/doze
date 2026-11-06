@@ -29,7 +29,7 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
   const asleep = word === "asleep";
   const crashing = !!inst.crash;
   const url = inst.connect?.find((r) => /^https?:\/\//.test(r.copy ?? ""))?.copy;
-  const flip = () => void (off ? run(stackKey, "on", inst.name).then(() => run(stackKey, "wake", inst.name)) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name));
+  const flip = () => void (off ? run(stackKey, "on", inst.name).then((went) => went && run(stackKey, "wake", inst.name)) : on ? ask(stackKey, inst.name, "sleep") : run(stackKey, "wake", inst.name));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

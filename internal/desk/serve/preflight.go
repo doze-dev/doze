@@ -358,3 +358,95 @@ func andWords(xs []string) string {
 	}
 	return strings.Join(xs[:len(xs)-1], ", ") + " and " + xs[len(xs)-1]
 }
+
+// PreflightInstance looks before one service of a running stack starts
+// (turned on, or woken): the port it declares, and who holds it. Nothing
+// to say for one already awake.
+func (s *Service) PreflightInstance(key, name string) view.Preflight {
+	p := view.Preflight{Stack: name, Checks: []view.PreCheck{}}
+	st, ok := s.stack(key)
+	if !ok || !st.Running || st.Dir == "" {
+		return p
+	}
+	if v, ok := display.Find(view.Snapshot(st), name); !ok || display.AwakeNow(v) || v.Kind == "task" {
+		return p
+	}
+	cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
+	if err != nil {
+		return p // the page already says doze.hcl does not load
+	}
+	d := cfg.Lookup(name)
+	if d == nil {
+		return p
+	}
+	port := declPort(d)
+	if port == 0 {
+		return p
+	}
+	h, taken := listening()[port]
+	switch {
+	case taken && !h.Doze:
+		if s.ownedBy(&h); h.Stack != "" {
+			p.Blocked = true
+			p.Checks = append(p.Checks, view.PreCheck{Tone: "bad", Title: fmt.Sprintf("Port %d for %s is used by %s in %s", port, name, h.Service, h.Stack),
+				Note: "Two services cannot both have it. Stop " + h.Service + " first.", Fixes: []view.Fix{{Label: "Edit doze.hcl", Kind: "edit", Path: filepath.Join(st.Dir, "doze.hcl")}}})
+			return p
+		}
+		p.Blocked = true
+		p.Checks = append(p.Checks, view.PreCheck{Tone: "bad", Title: fmt.Sprintf("Port %d for %s is taken", port, name), Detail: fmt.Sprintf("%s (pid %d)", h.Command, h.PID), Mono: true,
+			Note:  name + " would crash on start. doze never stops a process it did not start without asking.",
+			Fixes: []view.Fix{{Label: fmt.Sprintf("Stop pid %d, then start %s", h.PID, name), Kind: "stop", PID: h.PID, Primary: true}, {Label: "Edit doze.hcl", Kind: "edit", Path: filepath.Join(st.Dir, "doze.hcl")}}})
+	case !taken && !bindable(port):
+		p.Blocked = true
+		p.Checks = append(p.Checks, view.PreCheck{Tone: "bad", Title: fmt.Sprintf("Port %d for %s is taken", port, name), Detail: "by a process of another user, which doze cannot see or stop",
+			Note: name + " would crash on start.", Fixes: []view.Fix{{Label: "Edit doze.hcl", Kind: "edit", Path: filepath.Join(st.Dir, "doze.hcl")}}})
+	}
+	return p
+}
+
+// PreflightInstanceFix is a way out for one service: stop the process the
+// checks named on its port and then run the verb, or run it anyway.
+func (s *Service) PreflightInstanceFix(key, name, verb, kind string, pid int) error {
+	if kind == "stop" {
+		st, ok := s.stack(key)
+		if !ok {
+			return errors.New("no such stack")
+		}
+		cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
+		if err != nil {
+			return err
+		}
+		d := cfg.Lookup(name)
+		if d == nil {
+			return fmt.Errorf("%s is not declared", name)
+		}
+		h, ok := listening()[declPort(d)]
+		if !ok || h.PID != pid || h.Doze {
+			return fmt.Errorf("pid %d no longer holds %s's port; nothing was stopped", pid, name)
+		}
+		if s.ownedBy(&h); h.Stack != "" {
+			return fmt.Errorf("pid %d is %s in %s; doze does not stop another stack's service from here", pid, h.Service, h.Stack)
+		}
+		if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+			return fmt.Errorf("could not stop pid %d: %w", pid, err)
+		}
+		for i := 0; i < 30 && hub.Alive(pid); i++ {
+			time.Sleep(100 * time.Millisecond)
+		}
+		if hub.Alive(pid) {
+			return fmt.Errorf("pid %d did not stop; %s was not started", pid, name)
+		}
+		forgetHeld(declPort(d))
+		s.Say(fmt.Sprintf("stopped pid %d", pid), false)
+	} else if kind != "anyway" {
+		return fmt.Errorf("no such way %q", kind)
+	}
+	if verb == "on" {
+		// Turned on, then woken, as the switch does.
+		if err := s.Do(key, "on", name); err != nil {
+			return err
+		}
+		verb = "wake"
+	}
+	return s.Do(key, verb, name)
+}

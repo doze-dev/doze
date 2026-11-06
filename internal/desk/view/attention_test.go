@@ -141,3 +141,17 @@ func TestAwayOf(t *testing.T) {
 		t.Error("nothing happened, yet a strip")
 	}
 }
+
+func TestStuckWaking(t *testing.T) {
+	st := running(control.InstanceView{Name: "kafka", Kind: "module", State: "booting"})
+	st.Events = []journal.Event{{Time: t0.Add(-6 * time.Minute), Kind: journal.Wake, Instance: "kafka"}, {Time: t0.Add(-3 * time.Minute), Kind: journal.Step, Instance: "kafka"}}
+	items := StackItems(st, StackFacts{}, t0)
+	if len(items) != 1 || items[0].Title != "kafka is still waking" || !items[0].Red {
+		t.Fatalf("items = %+v", items)
+	}
+	// A step a moment ago: it is still saying things, so not stuck.
+	st.Events = append(st.Events, journal.Event{Time: t0.Add(-10 * time.Second), Kind: journal.Step, Instance: "kafka"})
+	if items := StackItems(st, StackFacts{}, t0); len(items) != 0 {
+		t.Errorf("busy wake reported stuck: %+v", items)
+	}
+}

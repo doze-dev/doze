@@ -77,7 +77,7 @@ export interface State {
   /** away is what happened while the window was closed, until Got it or the bell. */
   away: view.Away | null;
   /** preflight is the checks that stopped an Up, with what was asked, until a way out or Cancel. */
-  preflight: { key: string; action: string; names: string[]; p: view.Preflight } | null;
+  preflight: { key: string; action: string; names: string[]; p: view.Preflight; instance?: string; verb?: string } | null;
 }
 
 export const store = new Store<State>({
@@ -343,6 +343,11 @@ export async function preflightWay(f: view.Fix) {
   if (!pf) return;
   const t = await transport();
   try {
+    if (pf.instance && (f.kind === "stop" || f.kind === "anyway")) {
+      set({ preflight: null });
+      await t.preflightInstanceFix(pf.key, pf.instance, pf.verb ?? "wake", f.kind, f.pid ?? 0);
+      return;
+    }
     switch (f.kind) {
       case "stop":
       case "without":
@@ -400,14 +405,26 @@ export async function select(name: string) {
   await focus(s.where, name);
 }
 
-/** run sends a verb. A failure is said by Go as a toast, so here it is only logged. */
-export async function run(key: string, verb: string, target: string) {
+/** run sends a verb. A failure is said by Go as a toast, so here it is only logged. Starting one service looks first (D19): false says the checks' sheet asks instead. */
+export async function run(key: string, verb: string, target: string): Promise<boolean> {
   const t = await transport();
+  if ((verb === "on" || verb === "wake") && target) {
+    try {
+      const p = await t.preflightInstance(key, target);
+      if (p.blocked) {
+        set({ preflight: { key, action: "", names: [], p, instance: target, verb }, palette: false, bell: false });
+        return false;
+      }
+    } catch (e) {
+      t.log(`preflight ${target}: ${String(e)}`);
+    }
+  }
   try {
     await t.do(key, verb, target);
   } catch (e) {
     t.log(`${verb} ${target} failed: ${String(e)}`);
   }
+  return true;
 }
 
 /** ask runs a verb on an instance, after the dash's confirmation when one is due. */

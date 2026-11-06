@@ -28,7 +28,7 @@ export function PreflightSheet() {
         <h2>
           Before {pf.p.stack} starts: {bad === 1 ? "one thing is" : `${bad} things are`} in the way
         </h2>
-        <p className="lead">doze looks before every Up. When all is well there is no sheet: the switch flips and the stack starts.</p>
+        <p className="lead">{pf.instance ? "doze looks before it starts a service. When all is well there is no sheet: it just starts." : "doze looks before every Up. When all is well there is no sheet: the switch flips and the stack starts."}</p>
         {(pf.p.checks ?? []).map((c, i) => (
           <div key={i} className={"ck" + (c.tone === "ok" ? " okr" : "")}>
             <span className={"g " + c.tone} aria-hidden>
@@ -52,8 +52,8 @@ export function PreflightSheet() {
         ))}
         <div className="acts">
           <span className="note">nothing has started yet</span>
-          <button className="btn quiet" onClick={() => void preflightWay({ label: "Up anyway", kind: "anyway" })} title="Start as asked; what is in the way will show as it happens">
-            Up anyway
+          <button className="btn quiet" onClick={() => void preflightWay({ label: "anyway", kind: "anyway" })} title="Start as asked; what is in the way will show as it happens">
+            {pf.instance ? "Start anyway" : "Up anyway"}
           </button>
           <button className="btn" onClick={() => set({ preflight: null })}>
             Cancel <kbd>esc</kbd>

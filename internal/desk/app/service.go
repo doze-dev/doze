@@ -157,6 +157,16 @@ func (a *API) PreflightFix(key, action string, names []string, kind string, pid 
 	return a.s.PreflightFix(key, action, names, kind, pid, without)
 }
 
+// PreflightInstance looks before one service of a running stack starts.
+func (a *API) PreflightInstance(key, name string) view.Preflight {
+	return a.s.PreflightInstance(key, name)
+}
+
+// PreflightInstanceFix is a way out for one service: stop, or anyway.
+func (a *API) PreflightInstanceFix(key, name, verb, kind string, pid int) error {
+	return a.s.PreflightInstanceFix(key, name, verb, kind, pid)
+}
+
 // Away is what happened while the window was closed, once; nil for nothing.
 func (a *API) Away() *view.Away { return a.s.Away() }
 

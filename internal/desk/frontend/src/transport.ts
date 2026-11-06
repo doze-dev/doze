@@ -79,6 +79,10 @@ export interface Transport {
   away(): Promise<view.Away | null>;
   /** preflight looks before a stopped stack starts; blocked says to ask first. */
   preflight(key: string, action: string, names: string[]): Promise<view.Preflight>;
+  /** preflightInstance looks before one service of a running stack starts. */
+  preflightInstance(key: string, name: string): Promise<view.Preflight>;
+  /** preflightInstanceFix is a way out for one service: stop (pid), then the verb, or anyway. */
+  preflightInstanceFix(key: string, name: string, verb: string, kind: string, pid: number): Promise<void>;
   /** preflightFix is a way out from the checks: stop (pid), without (a name), anyway. */
   preflightFix(key: string, action: string, names: string[], kind: string, pid: number, without: string): Promise<void>;
   /** notNow puts an item aside until what it says changes; "" brings it back. */
@@ -144,6 +148,8 @@ async function wails(): Promise<Transport> {
     attention: () => api.Attention(),
     away: () => api.Away(),
     preflight: (key, action, names) => api.Preflight(key, action, names),
+    preflightInstance: (key, name) => api.PreflightInstance(key, name),
+    preflightInstanceFix: (key, name, verb, kind, pid) => api.PreflightInstanceFix(key, name, verb, kind, pid),
     preflightFix: (key, action, names, kind, pid, without) => api.PreflightFix(key, action, names, kind, pid, without),
     notNow: (id, print) => api.NotNow(id, print),
     clearLeftover: (id) => api.ClearLeftover(id),
@@ -220,6 +226,8 @@ function http(): Transport {
     attention: () => call("attention", {}),
     away: () => call("away", {}),
     preflight: (key, action, names) => call("preflight", { key, action, names }),
+    preflightInstance: (key, name) => call("preflightinstance", { key, name }),
+    preflightInstanceFix: (key, name, verb, kind, pid) => call("preflightinstancefix", { key, name, verb, kind, pid }),
     preflightFix: (key, action, names, kind, pid, without) => call("preflightfix", { key, action, names, kind, pid, without }),
     notNow: (id, print) => call("notnow", { id, print }),
     clearLeftover: (id) => call("clearleftover", { id }),

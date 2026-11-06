@@ -240,6 +240,20 @@ export function PreflightFix(key: string, action: string, names: string[] | null
 }
 
 /**
+ * PreflightInstance looks before one service of a running stack starts.
+ */
+export function PreflightInstance(key: string, name: string): $CancellablePromise<view$0.Preflight> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.PreflightInstance", key, name);
+}
+
+/**
+ * PreflightInstanceFix is a way out for one service: stop, or anyway.
+ */
+export function PreflightInstanceFix(key: string, name: string, verb: string, kind: string, pid: number): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.PreflightInstanceFix", key, name, verb, kind, pid);
+}
+
+/**
  * Recent is the last twenty things said, newest first.
  */
 export function Recent(): $CancellablePromise<serve$0.Notice[] | null> {

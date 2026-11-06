@@ -571,7 +571,7 @@ function toggle(stackKey: string, r: view.Row) {
   if (r.paused) return;
   // The switch is awake or asleep. Sleeping asks when something depends on
   // it; a service doze off took out of the run comes back in first.
-  if (r.off) void run(stackKey, "on", r.name).then(() => run(stackKey, "wake", r.name));
+  if (r.off) void run(stackKey, "on", r.name).then((went) => went && run(stackKey, "wake", r.name));
   else if (r.on) void ask(stackKey, r.name, "sleep");
   else void run(stackKey, "wake", r.name);
 }

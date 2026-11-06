@@ -137,58 +137,37 @@ func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	return menu
 }
 
-// needsYou is the MenuBarNeeds board's section above the stacks: up to
-// three red items, each a submenu with its first fix and Show, then one
-// line for the things worth doing, which opens the window's bell. With
-// nothing red and nothing worth doing there is no section.
+// needsYou renders tray.NeedsOf above the stacks: each red item a submenu
+// with its detail, its fix and Show; the yellow line opens the bell.
 func (d *desk) needsYou(menu *application.Menu, a view.Attention) {
-	shown := 0
-	for _, it := range a.Items {
-		if !it.Red || it.Fixed {
-			continue
-		}
-		if shown == 0 {
-			menu.Add(fmt.Sprintf("Needs you · %d", a.Red)).SetEnabled(false)
-		}
-		if shown == 3 {
-			break
-		}
-		shown++
-		title := it.Title
-		if it.Stack != "" {
-			title += "   ·   " + it.Stack
-		}
-		sub := menu.AddSubmenu(title)
-		if it.Detail != "" {
-			sub.Add(it.Detail).SetEnabled(false)
+	n := tray.NeedsOf(a)
+	if n.Header != "" {
+		menu.Add(n.Header).SetEnabled(false)
+	}
+	for _, l := range n.Lines {
+		sub := menu.AddSubmenu(l.Title)
+		if l.Detail != "" {
+			sub.Add(l.Detail).SetEnabled(false)
 			sub.AddSeparator()
 		}
-		item := it
-		for _, f := range it.Fixes {
-			if f.Kind == "show" {
-				continue
-			}
-			fix := f
+		item := l.Item
+		if l.Fix != nil {
+			fix := *l.Fix
 			sub.Add(fix.Label).OnClick(func(*application.Context) {
 				if err := d.svc.FixItem(item, fix); err != nil {
 					d.showItem(item)
 				}
 			})
-			break
 		}
 		sub.Add("Show in doze").OnClick(func(*application.Context) { d.showItem(item) })
 	}
-	if a.Yellow > 0 {
-		label := fmt.Sprintf("%d thing%s worth doing", a.Yellow, map[bool]string{true: "", false: "s"}[a.Yellow == 1])
-		if shown > 0 {
-			label = "and " + label
-		}
-		menu.Add(label + "   ·   Open").OnClick(func(*application.Context) {
+	if n.Worth != "" {
+		menu.Add(n.Worth).OnClick(func(*application.Context) {
 			d.svc.OpenBell()
 			d.open("")
 		})
 	}
-	if shown > 0 || a.Yellow > 0 {
+	if !n.Empty() {
 		menu.AddSeparator()
 	}
 }

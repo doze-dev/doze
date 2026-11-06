@@ -215,10 +215,15 @@ notification's fix button, ⌘⇧N in the Go menu. An independent review found
 - What Up starts follows the CLI's rule (`chooseUpTargets`), tasks
   included.
 
-Not done:
-- Starting one service inside a running stack is not checked first.
-- "Did not wake in time" comes from the instance's error text, not from
-  notify's own wake timer.
-- The menu bar section lives in `app/tray.go` and has no table test.
-- A failed task's item leaves quietly when its stack stops, since it can
-  only run again once the stack is up.
+The four left from the first pass, done the same day:
+- Starting one service inside a running stack (its switch, Wake) looks
+  first at the port it declares (`PreflightInstance`), with Stop pid N,
+  then start, or Start anyway; never another stack's service.
+- A wake that hangs without failing (still waking after 5 minutes, and
+  silent for 2) is a red item and a notification, once per wake. The
+  daemon's own ready check (60 s unless doze.hcl allows more) stays the
+  source for a start that never answers.
+- The menu bar section is `tray.NeedsOf`, table-tested; `app/tray.go`
+  only draws it.
+- A failed task stays red when its stack stops (its fix becomes Up), and
+  after the stack is up again until a run of it succeeds.
