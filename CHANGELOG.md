@@ -76,8 +76,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `depends_on` is `after`; in `defaults`, `idle_timeout` is `sleep` (`"0s"`
   is `"never"`) and `domains = true` is `names = true`. A root `listen` is gone.
   A `--var` for an undeclared variable, and an `env_file` that is not there,
-  are errors now. A version written as a number must be quoted when it has a
-  trailing zero (`"10.10"`).
+  are errors now. A version that is not a whole number must be quoted
+  (`"11.4"`; a number drops trailing zeros).
 - A service with no port no longer sleeps by default: nothing could wake it.
 
 - **Services doze after 2 minutes, not 5.** The default `idle_timeout` is now
