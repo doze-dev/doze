@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { copy, go, repair, reopens, setMode, setReopens, setTheme, useStore, type Mode, type Theme } from "../store";
+import { copy, go, repair, reopens, set, setMode, setReopens, setTheme, useStore, type Mode, type Theme } from "../store";
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
@@ -28,11 +28,17 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
   const dark = useStore((s) => s.dark);
   const [part, setPart] = useState(section ?? "general");
   useEffect(() => {
-    if (!library) void go({ key: "", page: "settings" });
+    if (!library) void go({ key: "", page: "settings", section });
   }, [library]);
   useEffect(() => {
     if (section) setPart(section);
   }, [section]);
+  // The part shown is part of where the page is, so back and forward
+  // return to it.
+  const show = (p: string) => {
+    setPart(p);
+    set((s) => (s.where?.page === "settings" ? { where: { ...s.where, section: p } } : {}));
+  };
   const checks = library?.doctor ?? [];
   const todo = checks.filter((c) => !c.ok).length;
 
@@ -49,14 +55,14 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
     <div className="sets">
       <aside className="side" aria-label="Settings">
         <h4>Settings</h4>
-          <button className={"si" + (part === "general" ? " on" : "")} onClick={() => setPart("general")}>
+          <button className={"si" + (part === "general" ? " on" : "")} onClick={() => show("general")}>
             <span className="t">General</span>
           </button>
-          <button className={"si" + (part === "machine" ? " on" : "")} onClick={() => setPart("machine")}>
+          <button className={"si" + (part === "machine" ? " on" : "")} onClick={() => show("machine")}>
             <span className="t">Machine</span>
             <small className={todo ? "warn" : ""}>{todo ? `${todo} to do` : "all good"}</small>
           </button>
-          <button className={"si" + (part === "about" ? " on" : "")} onClick={() => setPart("about")}>
+          <button className={"si" + (part === "about" ? " on" : "")} onClick={() => show("about")}>
             <span className="t">About</span>
             <small>{version}</small>
           </button>

@@ -12,7 +12,7 @@
   "on": false,
   "path": "aws · asleep · wakes on a connection",
   "because": "wakes on a connection",
-  "sleeps": "Nothing holds it. It sleeps after 5:00 with nothing connected; the next connection wakes it.",
+  "sleeps": "No connection right now. It dozes, then sleeps after 5:00 if nothing connects; the next connection wakes it.",
   "tabs": [
     {
       "id": "overview",

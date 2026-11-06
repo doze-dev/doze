@@ -390,7 +390,7 @@ func holders(v control.InstanceView, idle time.Duration) ([]Pill, string) {
 		if v.State == "idle" {
 			return nil, "nothing: it sleeps when the idle time is up"
 		}
-		return nil, "Nothing holds it. It sleeps" + after + " with nothing connected; the next connection wakes it."
+		return nil, "No connection right now. It dozes, then sleeps" + after + " if nothing connects; the next connection wakes it."
 	}
 	return pills, "With neither, it sleeps" + after + ". Its data stays; the next connection wakes it."
 }

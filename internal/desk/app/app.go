@@ -118,6 +118,8 @@ func Run(o Options) error {
 		u := e.Context().URL()
 		time.AfterFunc(300*time.Millisecond, func() { d.follow(u) })
 	})
+	// doze's own menu bar, in place of the framework's default.
+	d.app.Menu.Set(d.appMenu())
 	d.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		d.measure("tray ready %s after start", time.Since(began).Round(time.Millisecond))
 		d.startTray()

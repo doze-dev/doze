@@ -15,6 +15,8 @@ export interface Where {
   instance?: string;
   /** dir is the folder an empty page is for. */
   dir?: string;
+  /** section is the part of Settings shown: general, machine, about. */
+  section?: string;
 }
 
 /** Theme is a colour theme; Mode is dark, light, or system (follow macOS). The two are chosen apart. */
@@ -442,6 +444,33 @@ export function useBoot() {
         t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
         t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir, instance: n.instance })),
         t.on<serve.Notice>("notice", toast),
+        // A native menu item: the same move as its key on the page.
+        t.on<string>("menu", (item) => {
+          const w = get().where;
+          switch (item) {
+            case "open":
+              void chooseFolder();
+              break;
+            case "library":
+              void go({ key: "", page: "library" });
+              break;
+            case "back":
+              void back();
+              break;
+            case "forward":
+              void forward();
+              break;
+            case "logs":
+              if (w?.key) void go({ key: w.key, page: "logs" });
+              break;
+            case "palette":
+              set((s) => ({ palette: !s.palette, dialog: null, help: false }));
+              break;
+            case "help":
+              set((s) => ({ help: !s.help, palette: false }));
+              break;
+          }
+        }),
       ];
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { askStack, askStop, chooseFolder, chooseStart, dismissHints, go, repair, say, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
@@ -67,6 +67,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           Settings <kbd>⌘,</kbd>
         </button>
       </div>
+      <div className="scrollarea" style={{ paddingBottom: 16 }}>
       {lib.steps && lib.steps.length > 0 && <Steps steps={lib.steps} />}
       {stacks.length === 0 ? (
         <EmptyLibrary />
@@ -91,6 +92,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
         </p>
       )}
       {(lib.others ?? []).length > 0 && <Others others={lib.others ?? []} />}
+      </div>
       <Machine checks={lib.machine ?? []} repairable={!!lib.repairable} repairing={!!lib.repairing} />
       <Keys
         keys={[
@@ -252,6 +254,12 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
     return () => document.removeEventListener("mousedown", onDoc);
   }, [onClose]);
   const ref = useRef<HTMLDivElement>(null);
+  const [up, setUp] = useState(false);
+  useLayoutEffect(() => {
+    // Near the window's bottom the menu opens upward, so all of it shows.
+    const r = ref.current?.getBoundingClientRect();
+    if (r && r.bottom > window.innerHeight - 8) setUp(true);
+  }, []);
   useEffect(() => {
     // A menu owns the keyboard while it is open: focus starts on its first
     // item, the arrows move, esc closes it and nothing else.
@@ -290,7 +298,7 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
     void stackAction(s.key, action, names);
   };
   return (
-    <div ref={ref} className="pop" role="menu" aria-label={`Ways to start ${s.name}`} style={{ top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
+    <div ref={ref} className="pop" role="menu" aria-label={`Ways to start ${s.name}`} style={up ? { bottom: "calc(100% - 8px)", right: 16 } : { top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
       <div className="ph">Up</div>
       <button className="pi" role="menuitem" onClick={() => act("up-last")}>
         <div className="t">
@@ -359,8 +367,8 @@ function Machine({ checks, repairable, repairing }: { checks: view.Check[]; repa
           {repairing ? "Setting up…" : "Set up (one password)"}
         </button>
       )}
-      <button className="btn" style={{ height: 26 }} onClick={() => void go({ key: "", page: "settings" })} title="What doze set up here, part by part">
-        Doctor
+      <button className="btn" style={{ height: 26 }} onClick={() => void go({ key: "", page: "settings", section: "machine" })} title="What doze set up here, part by part">
+        Machine…
       </button>
     </div>
   );

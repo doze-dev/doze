@@ -29,7 +29,11 @@ test("the Library lists every stack with a switch, as the Library board does", a
   await expect(acme.getByRole("switch")).toHaveAttribute("aria-checked", "false");
   await expect(page.locator(".machine")).toContainText("Machine");
   await expect(page.locator(".machine")).toContainText("resolver route");
-  await expect(page.locator(".machine .btn")).toHaveText("Doctor");
+  await expect(page.locator(".machine .btn")).toHaveText("Machine…");
+  await page.locator(".machine .btn").click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Machine");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
   await expect(page.locator(".keys")).toContainText("the first tab; it never closes");
   await page.screenshot({ path: `.desk-look/Library-${info.project.name}.png` });
 
@@ -154,4 +158,17 @@ test("the window reopens on the page it had, unless told not to", async ({ page 
   await page.getByRole("switch", { name: /Reopen the page I had/ }).click();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+});
+
+test("a narrow window keeps the sidebars, and the Library scrolls", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 420 });
+  await page.goto("/");
+  await expect(page.locator(".lib")).toBeVisible();
+  // The Machine line stays in view; the list above it scrolls.
+  await expect(page.locator(".machine")).toBeInViewport();
+  await page.keyboard.press("ControlOrMeta+,");
+  const side = page.getByRole("complementary", { name: "Settings" });
+  await expect(side).toBeVisible();
+  await side.locator(".si", { hasText: "About" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("About");
 });

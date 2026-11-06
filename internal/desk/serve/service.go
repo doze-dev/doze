@@ -48,6 +48,9 @@ const (
 	EventNotice = "notice"
 	// EventLibrary carries the first tab, while it is in focus.
 	EventLibrary = "library"
+	// EventMenu is a native menu item the page acts on, as its own key
+	// would: data is its name (back, forward, logs, palette, help).
+	EventMenu = "menu"
 )
 
 // Notice is one thing said to the person, kept among the last twenty.
@@ -914,4 +917,15 @@ func collectActions(n view.Node) []view.Action {
 		out = append(out, collectActions(ch)...)
 	}
 	return out
+}
+
+// Menu passes a native menu item to the page: the accelerators take their
+// keys before the page sees them, so the page is told which one was chosen.
+func (s *Service) Menu(item string) {
+	s.mu.Lock()
+	emit := s.emit
+	s.mu.Unlock()
+	if emit != nil {
+		emit(EventMenu, item)
+	}
 }

@@ -149,7 +149,7 @@ export function App() {
       <Titlebar
         stacks={stacks}
         current={where?.key ?? ""}
-        library={onLibrary || where?.page === "settings"}
+        library={onLibrary}
         onLibrary={() => void go({ key: "", page: "library" })}
         pending={where?.page === "empty" && empty ? { name: empty.name, dir: empty.dir } : undefined}
         onPick={(key) => void go({ key, page: "home" })}
@@ -182,7 +182,7 @@ export function App() {
           {where?.page === "empty" && empty && <EmptyPage e={empty} />}
           {where?.page === "timeline" && <TimelinePage stackKey={where.key} />}
           {where?.page === "recent" && <RecentPage stackKey={where.key} stack={stacks.find((s) => s.key === where.key)?.name ?? ""} />}
-          {where?.page === "settings" && <SettingsPage library={library} version={version} />}
+          {where?.page === "settings" && <SettingsPage library={library} version={version} section={where.section} />}
         </main>
       </div>
       {dialog && <Dialog d={dialog.d} onChoose={(b, text) => void choose(b, text)} onCancel={() => set({ dialog: null })} />}

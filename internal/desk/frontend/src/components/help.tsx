@@ -71,7 +71,7 @@ const ANYWHERE: Array<[string, string]> = [
   ["⌘O", "open a folder"],
   ["esc", "up a level: a service or the logs → its stack → the Library"],
   ["⌘[ ⌘]", "back · forward, the way you came"],
-  ["⌘W", "close a folder with no doze.hcl; a stack keeps running"],
+  ["⌘W", "close the window; the stacks keep running"],
   ["⌘L", "all logs of the stack"],
   ["⌘,", "settings"],
   ["?", "this"],
