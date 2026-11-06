@@ -18,8 +18,10 @@ is the terminal dash instead, and piped it prints the status table.
 The first tab, and the one that never closes. Every stack doze knows, running
 first, each with a switch: on brings it up as last time, off brings it down,
 and the ▾ beside it offers everything or a chosen set. A stopped stack keeps
-its page: the same view with every service down, read from its `doze.hcl`, and
-each switch says whether Up starts it, set as last time. The Machine line at the
+its page: the same view, every service down and every switch off. **Up as last
+time** starts it again; **Choose what starts…** (`c`) opens a sheet to tick the
+apps you will work on, showing what starts with them because they need it; and
+turning one service on starts the stack with just that one and what it needs. The Machine line at the
 bottom says whether the names, the network daemon and any declared domains are
 in place; when one is not, **Repair** in Settings puts it there behind the
 system's password prompt.

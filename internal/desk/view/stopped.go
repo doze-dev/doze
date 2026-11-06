@@ -19,8 +19,8 @@ import (
 type Stopped struct {
 	// When is "last up 3 days ago", or "never up".
 	When string `json:"when"`
-	// LastLine is the banner's second sentence: "Last time you started
-	// api, web and db. That is ticked for you."
+	// LastLine says what Up as last time does: "Up starts api, web and
+	// db, as last time, and what they need."
 	LastLine string `json:"lastLine"`
 	// LastSet is what was started last time; empty means everything.
 	LastSet []string `json:"lastSet,omitempty"`
@@ -39,9 +39,9 @@ func StoppedHome(h *Home, st hub.StackView, now time.Time) {
 		out.When = "last up " + display.Ago(now.Sub(st.LastUp)) + " ago"
 	}
 	if len(st.LastSet) > 0 {
-		out.LastLine = "Last time you started " + andList(st.LastSet) + ". That is ticked for you."
+		out.LastLine = "Up starts " + andList(st.LastSet) + ", as last time, and what they need."
 	} else {
-		out.LastLine = "Everything is ticked, as last time."
+		out.LastLine = "Up starts everything, as last time."
 	}
 	h.Stopped = &out
 	h.Groups, h.Side = []Group{}, []Side{}
@@ -130,43 +130,34 @@ func StoppedHome(h *Home, st hub.StackView, now time.Time) {
 // needs and what Up will do with it as the because, and where it will
 // answer.
 func downRow(d *config.InstanceDecl, needs []string, on map[string]bool, dependants []string, stack string) Row {
+	// A stopped stack runs nothing, so every switch is off. The because
+	// says what the service is to the others; what Up starts is the strip's
+	// to say, and the start sheet's to change.
 	row := Row{Name: d.Name, Kind: d.Kind, Engine: engineOf(d), Down: true, BecauseTone: "dim",
-		Look: Look{Word: "down", Glyph: "·", Tone: "dim"}}
+		Look: Look{Word: "down", Glyph: "·", Tone: "dim"}, Needs: needs}
 	if r, ok := d.Spec.(interface{ RunLine() string }); ok {
 		row.Run = r.RunLine()
 	}
 	row.Address = addressWhenUp(d, stack)
-	var onDependants []string
-	for _, n := range dependants {
-		if on[n] {
-			onDependants = append(onDependants, n)
-		}
-	}
-	var note string
+	row.Last = on[d.Name] && d.Kind != "task"
 	switch {
 	case !d.Enabled:
-		row.Tick, note = "off", "paused in doze.hcl (enabled = false)"
-		row.Off = true
+		row.Because, row.Off = "paused in doze.hcl (enabled = false)", true
+	case d.Kind == "task" && len(needs) > 0:
+		row.Because = "needs " + andList(needs) + " · runs once the stack is up"
 	case d.Kind == "task":
-		row.Tick, note = "", "runs when you say, once the stack is up"
-	case on[d.Name] && len(onDependants) == 1:
-		row.Tick, note = "on", "starts on Up, before "+onDependants[0]
-	case on[d.Name] && len(onDependants) > 1:
-		row.Tick, note = "on", "starts on Up, before "+andList(onDependants)
-	case on[d.Name]:
-		row.Tick, note = "on", "starts on Up"
-	case d.Kind == "module" && len(dependants) > 0:
-		row.Tick, note = "half", "wakes when "+dependants[0]+" asks for it"
+		row.Because = "runs once the stack is up"
+	case d.Kind == "module" && len(dependants) == 1:
+		row.Because = dependants[0] + " uses it"
+	case d.Kind == "module" && len(dependants) > 1:
+		row.Because = andList(dependants) + " use it"
 	case d.Kind == "module":
-		row.Tick, note = "half", "wakes when something needs it"
+		row.Because = "nothing uses it yet"
+	case len(needs) > 0:
+		row.Because = "needs " + andList(needs)
 	default:
-		row.Tick, note = "half", "not started last time"
+		row.Because = "needs nothing"
 	}
-	if len(needs) > 0 && d.Kind != "module" {
-		note = "needs " + andList(needs) + " · " + note
-	}
-	row.Because = note
-	row.On = row.Tick == "on"
 	return row
 }
 

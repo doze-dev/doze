@@ -134,12 +134,13 @@ type Row struct {
 	// Err is the first line of what it last said before exiting, while it
 	// is crashing.
 	Err string `json:"err,omitempty"`
-	// Down is a row of a stopped stack, read from doze.hcl. Tick is then
-	// what Up does with it: "on" starts it, "half" leaves it to wake when
-	// needed, "off" is paused in doze.hcl, "" is a task. Run is its command.
-	Down bool   `json:"down,omitempty"`
-	Tick string `json:"tick,omitempty"`
-	Run  string `json:"run,omitempty"`
+	// Down is a row of a stopped stack, read from doze.hcl: its switch is
+	// off, since nothing runs. Last says Up as last time starts it; Needs
+	// is what it needs, for the start sheet; Run is its command.
+	Down  bool     `json:"down,omitempty"`
+	Last  bool     `json:"last,omitempty"`
+	Needs []string `json:"needs,omitempty"`
+	Run   string   `json:"run,omitempty"`
 }
 
 // MapView is the stack as the Map view draws it: nodes in columns by

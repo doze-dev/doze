@@ -517,3 +517,12 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .rr .m { overflow: hidden; text-overflow: ellipsis; color: var(--dim); font-size: var(--text-sm); }
 .rr .dur { display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); }
 .rr .dur i { display: block; height: 6px; border-radius: 3px; background: var(--cool); flex: none; }
+
+/* the start sheet: what starts with a stopped stack */
+.dialog.start { width: 560px; }
+.dialog .picks { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--well); max-height: 320px; overflow: auto; }
+.dialog .pick { display: grid; grid-template-columns: 14px 120px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+.dialog .pick:last-child { border-bottom: 0; }
+.dialog .pick.at { background: var(--pick); }
+.dialog .pick b { color: var(--bright); font-weight: 600; }
+.dialog .also { font-size: var(--text-sm); color: var(--text); }

@@ -642,12 +642,6 @@ export interface LibStack {
      * LastSet is what Up as last time starts; empty means everything.
      */
     "lastSet"?: string[] | null;
-
-    /**
-     * Choices are the instances the switch's menu lists for Choose, tasks
-     * aside, each with what it brings and whether it was in the last set.
-     */
-    "choices"?: Pick[] | null;
 }
 
 /**
@@ -1036,15 +1030,6 @@ export interface PaletteSection {
 }
 
 /**
- * Pick is one line of the switch's Choose list.
- */
-export interface Pick {
-    "name": string;
-    "brings"?: string;
-    "on": boolean;
-}
-
-/**
  * Pill is one reason it is awake, and a word on it.
  */
 export interface Pill {
@@ -1158,12 +1143,13 @@ export interface Row {
     "err"?: string;
 
     /**
-     * Down is a row of a stopped stack, read from doze.hcl. Tick is then
-     * what Up does with it: "on" starts it, "half" leaves it to wake when
-     * needed, "off" is paused in doze.hcl, "" is a task. Run is its command.
+     * Down is a row of a stopped stack, read from doze.hcl: its switch is
+     * off, since nothing runs. Last says Up as last time starts it; Needs
+     * is what it needs, for the start sheet; Run is its command.
      */
     "down"?: boolean;
-    "tick"?: string;
+    "last"?: boolean;
+    "needs"?: string[] | null;
     "run"?: string;
 }
 
@@ -1324,8 +1310,8 @@ export interface Stopped {
     "when": string;
 
     /**
-     * LastLine is the banner's second sentence: "Last time you started
-     * api, web and db. That is ticked for you."
+     * LastLine says what Up as last time does: "Up starts api, web and
+     * db, as last time, and what they need."
      */
     "lastLine": string;
 

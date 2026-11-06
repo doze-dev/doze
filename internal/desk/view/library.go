@@ -70,9 +70,6 @@ type LibStack struct {
 	When string `json:"when"`
 	// LastSet is what Up as last time starts; empty means everything.
 	LastSet []string `json:"lastSet,omitempty"`
-	// Choices are the instances the switch's menu lists for Choose, tasks
-	// aside, each with what it brings and whether it was in the last set.
-	Choices []Pick `json:"choices,omitempty"`
 }
 
 // Bit is a run of text in a tone.
@@ -87,13 +84,6 @@ type Addr struct {
 	// URL is what Open uses; empty for a name that is not http.
 	URL string `json:"url,omitempty"`
 	Up  bool   `json:"up"`
-}
-
-// Pick is one line of the switch's Choose list.
-type Pick struct {
-	Name   string `json:"name"`
-	Brings string `json:"brings,omitempty"`
-	On     bool   `json:"on"`
 }
 
 // Step is one of the help strip's three.
@@ -298,7 +288,6 @@ func libStackOf(st hub.StackView, now time.Time) LibStack {
 	}
 	row.LastSet = st.LastSet
 	row.Addresses, row.More = addressesOf(st)
-	row.Choices = choicesOf(st)
 	return row
 }
 
@@ -378,25 +367,6 @@ func addressesOf(st hub.StackView) ([]Addr, int) {
 		return out[:3], len(out) - 3
 	}
 	return out, 0
-}
-
-func choicesOf(st hub.StackView) []Pick {
-	var out []Pick
-	last := map[string]bool{}
-	for _, n := range st.LastSet {
-		last[n] = true
-	}
-	for _, v := range st.Instances {
-		if v.Kind == "task" {
-			continue
-		}
-		c := Pick{Name: v.Name, On: len(st.LastSet) == 0 || last[v.Name]}
-		if len(v.Needs) > 0 {
-			c.Brings = "brings " + strings.Join(v.Needs, ", ")
-		}
-		out = append(out, c)
-	}
-	return out
 }
 
 // Other is a service another doze program runs: its name, the program,

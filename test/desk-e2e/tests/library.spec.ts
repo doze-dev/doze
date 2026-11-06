@@ -45,7 +45,7 @@ test("the Library lists every stack with a switch, as the Library board does", a
   await expect(menu).toBeHidden();
 });
 
-test("a stopped stack is the same page, down: its rows in place, each switch the tick for Up", async ({ page }, info) => {
+test("a stopped stack is the same page, down: every switch off, and a sheet to choose what starts", async ({ page }, info) => {
   await page.goto("/");
   await page.locator(".lrow", { hasText: "acme" }).first().dblclick();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("acme");
@@ -53,32 +53,37 @@ test("a stopped stack is the same page, down: its rows in place, each switch the
   // The head is the running stack's: the view switch is where it always is.
   await expect(page.getByRole("group", { name: "View" })).toBeVisible();
   const strip = page.locator(".strip");
-  await expect(strip).toContainText("Last time you started api, web and db. That is ticked for you.");
-  await expect(strip).toContainText(/4\s*of 5 start on Up/);
-  await expect(strip.getByRole("button", { name: /Up as ticked/ })).toBeVisible();
+  await expect(strip).toContainText("Down");
+  await expect(strip).toContainText("Up starts api, web and db, as last time, and what they need.");
+  await expect(strip.getByRole("button", { name: /Up as last time/ })).toBeVisible();
 
-  // The rows are tiles, as when it runs, every one down.
+  // Nothing runs, so no switch is on.
   const tile = (n: string) => page.locator(".tile", { has: page.locator("b", { hasText: new RegExp(`^${n}$`) }) }).first();
-  await expect(tile("api")).toContainText("down · needs db and cache · starts on Up, before web");
+  await expect(page.locator(".tile .sw.on")).toHaveCount(0);
+  await expect(page.getByRole("switch", { name: "api is down" })).toHaveAttribute("aria-checked", "false");
+  await expect(tile("api")).toContainText("down · needs db and cache");
   await expect(tile("api")).toContainText("api.acme.doze:8080");
   await expect(tile("web")).toContainText("dev.acme.com");
-  await expect(tile("db")).toContainText("starts on Up, before api");
-  await expect(tile("worker")).toContainText("not started last time");
-  await expect(tile("migrate")).toContainText("needs db · runs when you say, once the stack is up");
-  await expect(page.getByRole("switch", { name: "api starts on Up" })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByRole("switch", { name: "worker does not start on Up" })).toHaveAttribute("aria-checked", "false");
+  await expect(tile("db")).toContainText("api and migrate use it");
+  await expect(tile("migrate")).toContainText("needs db · runs once the stack is up");
   await page.screenshot({ path: `.desk-look/StackStopped-${info.project.name}.png` });
 
-  // Space ticks the selected row; the strip counts it.
-  await tile("worker").click();
-  await page.keyboard.press(" ");
-  await expect(page.getByRole("switch", { name: "worker starts on Up" })).toHaveAttribute("aria-checked", "true");
-  await expect(strip).toContainText(/5\s*of 5 start on Up/);
+  // c opens the start sheet, ticked as last time; what they need is said.
+  await page.keyboard.press("c");
+  const sheet = page.getByRole("dialog", { name: "Start acme" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("checkbox", { name: "api", exact: true })).toHaveAttribute("aria-checked", "true");
+  await expect(sheet.getByRole("checkbox", { name: "worker", exact: true })).toHaveAttribute("aria-checked", "false");
+  await expect(sheet).toContainText("Also starts, because they are needed: db, cache");
+  await page.screenshot({ path: `.desk-look/StartSheet-${info.project.name}.png` });
+  await sheet.getByRole("checkbox", { name: "worker", exact: true }).click();
+  await expect(sheet.getByRole("checkbox", { name: "worker", exact: true })).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
 
-  // The other views show the same down rows, ticks kept.
+  // The other views show the same down rows.
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
-  await expect(page.getByRole("switch", { name: "worker starts on Up" })).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "worker, from doze.hcl" })).toContainText("not started last time");
+  await expect(page.getByRole("switch", { name: "worker is down" })).toBeVisible();
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
   // The tab for a stopped stack is there while it is looked at.
   await expect(page.getByRole("tab", { name: /^acme/ })).toHaveAttribute("aria-selected", "true");

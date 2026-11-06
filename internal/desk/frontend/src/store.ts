@@ -38,6 +38,8 @@ export interface State {
   empty: view.Empty | null;
   /** selected is the row the home table has picked; its logs fill the dock. */
   selected: string;
+  /** choosing is the stack whose start sheet is open, or "". */
+  choosing: string;
   /** show, on the merged logs page, is the instances ticked in the sidebar; null is all. */
   show: string[] | null;
   /** logsVersion bumps when the focused logs changed; the logs views refetch. */
@@ -69,6 +71,7 @@ export const store = new Store<State>({
   instance: null,
   empty: null,
   selected: "",
+  choosing: "",
   show: null,
   logsVersion: 0,
   logsTotal: 0,
@@ -182,6 +185,12 @@ export async function stackAction(key: string, action: string, names: string[] =
   } catch (e) {
     t.log(`${action} ${key} failed: ${String(e)}`);
   }
+}
+
+/** chooseStart opens a stopped stack's start sheet, on its page; "" closes it. */
+export async function chooseStart(key: string) {
+  if (key && get().where?.key !== key) await go({ key, page: "home" });
+  set({ choosing: key });
 }
 
 /** setView remembers a stack's overview view (tiles, list, map); Go pushes the page back with it set. */

@@ -48,7 +48,6 @@ export type {
     PaletteNothing,
     PaletteRow,
     PaletteSection,
-    Pick,
     Pill,
     PortHolder,
     Proc,

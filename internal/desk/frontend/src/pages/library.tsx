@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { chooseFolder, dismissHints, go, repair, say, stackAction, useStore } from "../store";
+import { chooseFolder, chooseStart, dismissHints, go, repair, say, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 
@@ -243,7 +243,6 @@ function AddrPill({ a }: { a: view.Addr }) {
 }
 
 export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => void }) {
-  const [ticked, setTicked] = useState<Record<string, boolean>>(() => Object.fromEntries((s.choices ?? []).map((c) => [c.name, c.on])));
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest(".pop")) onClose();
@@ -255,9 +254,6 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
     onClose();
     void stackAction(s.key, action, names);
   };
-  const chosen = Object.entries(ticked)
-    .filter(([, on]) => on)
-    .map(([n]) => n);
   return (
     <div className="pop" role="menu" aria-label={`Ways to start ${s.name}`} style={{ top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
       <div className="ph">Up</div>
@@ -274,23 +270,17 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
           <span>all {s.declared}</span>
         </div>
       </button>
-      {(s.choices ?? []).length > 0 && (
-        <>
-          <div className="ph">Choose what runs</div>
-          {(s.choices ?? []).map((c) => (
-            <button key={c.name} className="tick" role="menuitemcheckbox" aria-checked={!!ticked[c.name]} onClick={() => setTicked((t) => ({ ...t, [c.name]: !t[c.name] }))}>
-              <span className={"box" + (ticked[c.name] ? " on" : "")}>{ticked[c.name] ? "✓" : ""}</span>
-              {c.name}
-              {c.brings && <span className="dim">{c.brings}</span>}
-            </button>
-          ))}
-          <button className="pi" role="menuitem" disabled={chosen.length === 0} onClick={() => act("up", chosen)}>
-            <div className="t">
-              <b>Up the ticked</b>
-              <span>{chosen.length === 0 ? "tick at least one" : chosen.join(", ")}</span>
-            </div>
-          </button>
-        </>
+      {!s.running && (
+        <button className="pi" role="menuitem" onClick={() => {
+          onClose();
+          void chooseStart(s.key);
+        }}>
+          <div className="t">
+            <b>Choose what starts…</b>
+            <span>tick the apps; what they need comes too</span>
+          </div>
+          <kbd>c</kbd>
+        </button>
       )}
       <div className="msep" />
       {s.running ? (
