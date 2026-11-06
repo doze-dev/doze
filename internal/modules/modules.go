@@ -25,6 +25,8 @@ import (
 	"github.com/doze-dev/doze-sdk/modindex"
 	dozeplugin "github.com/doze-dev/doze-sdk/plugin"
 	"github.com/doze-dev/doze/internal/binaries"
+	"github.com/doze-dev/doze/internal/dozeversion"
+	"gopkg.in/yaml.v3"
 )
 
 // RegistryBase is the doze registry: the one place modules come from. A module
@@ -63,10 +65,14 @@ type Manager struct {
 	persist  func() bool   // whether the running command may write doze.lock (nil = never)
 	logf     func(string, ...any)
 
-	mu      sync.Mutex
-	enabled bool              // fetch modules at all
-	base    string            // RegistryBase; a test points it at a registry on disk
-	key     ed25519.PublicKey // RegistryKey; a test swaps in the key it signed with
+	mu sync.Mutex
+	// dozeNeeds is the doze each release needs, by "ns/name@version", from
+	// the indexes fetched (releases.<v>.doze).
+	dozeNeeds map[string]string
+	saidLock  bool              // the newer-lock note was given
+	enabled   bool              // fetch modules at all
+	base      string            // RegistryBase; a test points it at a registry on disk
+	key       ed25519.PublicKey // RegistryKey; a test swaps in the key it signed with
 	// requires accumulates the engine MAJORS declared in config per engine type
 	// (fed by config.Hooks.RequireEngine before the first driver lookup), so fresh
 	// module selection picks a release that supports what the project declares.
@@ -187,6 +193,10 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 	// compatibility gates run offline from the metadata frozen at pin time, and
 	// a warm cache never touches the network — not even for keys.json.
 	if pin, ok := lock.GetModule(source); ok {
+		if dozeversion.NeedsNewer(pin.Doze) {
+			return "", fmt.Errorf("module %s %s (pinned in doze.lock) needs doze %s or newer; this doze is %s. Update doze (in the app: Settings › About); the lock was written by a newer doze",
+				source, pin.Version, pin.Doze, strings.TrimPrefix(dozeversion.Current, "v"))
+		}
 		if pin.Protocol != 0 && pin.Protocol != dozeplugin.ProtocolVersion {
 			return "", fmt.Errorf("module %s %s (pinned in doze.lock) speaks plugin protocol %d; this doze requires %d — run 'doze modules upgrade %s'",
 				source, pin.Version, pin.Protocol, dozeplugin.ProtocolVersion, engineType)
@@ -238,7 +248,7 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 	if err != nil {
 		return "", err
 	}
-	version, rel, err := m.selectRelease(idx, majors)
+	version, rel, err := m.selectRelease(idx, ns, majors)
 	if err != nil {
 		return "", err
 	}
@@ -256,8 +266,44 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 
 // selectRelease picks a module release by modindex.Select's newest-compatible
 // policy. A project holds a module back by keeping its pin in doze.lock.
-func (m *Manager) selectRelease(idx *modindex.Index, majors []string) (string, modindex.Release, error) {
-	return modindex.Select(idx, dozeplugin.ProtocolVersion, majors, DefaultChannel)
+//
+// Releases that need a newer doze than this one are left out first, so an
+// older doze gets the newest release it can run; when that leaves nothing,
+// the error says which doze to get.
+func (m *Manager) selectRelease(idx *modindex.Index, ns string, majors []string) (string, modindex.Release, error) {
+	fits := &modindex.Index{Schema: idx.Schema, Module: idx.Module, Namespace: idx.Namespace, Releases: map[string]modindex.Release{}, Channels: idx.Channels}
+	need := ""
+	for v, r := range idx.Releases {
+		if n := m.dozeNeed(ns, idx.Module, v); dozeversion.NeedsNewer(n) {
+			if r.Protocol == dozeplugin.ProtocolVersion && modindex.Supports(r, majors) && (need == "" || dozeversion.Older(n, need)) {
+				need = n
+			}
+			continue
+		}
+		fits.Releases[v] = r
+	}
+	v, rel, err := modindex.Select(fits, dozeplugin.ProtocolVersion, majors, DefaultChannel)
+	if err != nil && need != "" {
+		return "", modindex.Release{}, newerDoze(idx.Module, majors, need)
+	}
+	return v, rel, err
+}
+
+// dozeNeed is the doze a release needs, as its index said, or "".
+func (m *Manager) dozeNeed(ns, name, version string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.dozeNeeds[ns+"/"+name+"@"+version]
+}
+
+// newerDoze is the one sentence for "nothing here runs on this doze".
+func newerDoze(module string, majors []string, need string) error {
+	what := module
+	if len(majors) > 0 {
+		what += " " + strings.Join(majors, ", ")
+	}
+	return fmt.Errorf("%s needs doze %s or newer; this doze is %s. Update doze (in the app: Settings › About), then run the command again",
+		what, need, strings.TrimPrefix(dozeversion.Current, "v"))
 }
 
 // fetchIndex fetches a module's schema-1 index and verifies its index-level
@@ -279,6 +325,26 @@ func (m *Manager) fetchIndex(bm *binaries.Manager, ns, name string) (*modindex.I
 	idx, err := modindex.Parse(body)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", url, err)
+	}
+	// Which doze each release needs (releases.<v>.doze), read beside the
+	// index: it is outside the signed payload, and this doze's SDK predates
+	// the field.
+	var needs struct {
+		Releases map[string]struct {
+			Doze string `yaml:"doze"`
+		} `yaml:"releases"`
+	}
+	if yaml.Unmarshal(body, &needs) == nil {
+		m.mu.Lock()
+		if m.dozeNeeds == nil {
+			m.dozeNeeds = map[string]string{}
+		}
+		for v, r := range needs.Releases {
+			if r.Doze != "" {
+				m.dozeNeeds[ns+"/"+name+"@"+v] = r.Doze
+			}
+		}
+		m.mu.Unlock()
 	}
 	if idx.Module != name {
 		return nil, fmt.Errorf("%s: index is for module %q, expected %q", url, idx.Module, name)
@@ -364,6 +430,16 @@ func (m *Manager) loadLock() *binaries.Lock {
 	if err != nil {
 		return nil
 	}
+	if dozeversion.NeedsNewer(lock.Doze) {
+		m.mu.Lock()
+		said := m.saidLock
+		m.saidLock = true
+		m.mu.Unlock()
+		if !said {
+			m.logf("%s was written by doze %s, newer than this doze (%s); if a module will not start, update doze",
+				filepath.Base(lock.Path()), lock.Doze, strings.TrimPrefix(dozeversion.Current, "v"))
+		}
+	}
 	return lock
 }
 
@@ -381,11 +457,13 @@ func (m *Manager) recordPin(lock *binaries.Lock, source, version string, rel mod
 	for triple, art := range rel.Artifacts {
 		hashes[triple] = "sha256:" + strings.ToLower(art.SHA256)
 	}
+	ns, name, _ := splitSource(source)
 	lock.RecordModule(source, binaries.ModulePin{
 		Version:  version,
 		Protocol: rel.Protocol,
 		Engines:  append([]string(nil), rel.Engines...),
 		Hashes:   hashes,
+		Doze:     m.dozeNeed(ns, name, version),
 	})
 	// Read commands resolve but never write: the pin lives in this process only,
 	// and doze.lock stays byte-identical until a mutating command freezes it.
@@ -451,7 +529,7 @@ func (m *Manager) Upgrade(ctx context.Context, engineType string) (from, to stri
 	if err != nil {
 		return "", "", false, err
 	}
-	version, rel, err := m.selectRelease(idx, m.requiredMajors(engineType))
+	version, rel, err := m.selectRelease(idx, ns, m.requiredMajors(engineType))
 	if err != nil {
 		return old.Version, "", false, err
 	}
@@ -490,7 +568,7 @@ func (m *Manager) UpgradeHint(engineType string) string {
 	if err != nil {
 		return ""
 	}
-	version, _, err := m.selectRelease(idx, m.requiredMajors(engineType))
+	version, _, err := m.selectRelease(idx, ns, m.requiredMajors(engineType))
 	if err != nil || version == pin.Version || modindex.CompareVersions(version, pin.Version) <= 0 {
 		return ""
 	}

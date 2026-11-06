@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/doze-dev/doze-sdk/engine"
+
+	"github.com/doze-dev/doze/internal/dozeversion"
 )
 
 // LockFileName is the conventional name of the binaries lockfile, kept next to
@@ -23,6 +26,9 @@ const LockFileName = "doze.lock"
 // commit it and every machine gets byte-identical binaries. Lock implements
 // engine.Locker.
 type Lock struct {
+	// Doze is the newest doze that wrote this file. An older doze reading it
+	// says so, since a newer one may have pinned what the older cannot run.
+	Doze string `yaml:"doze,omitempty"`
 	// Engines maps engine type -> version spec ("16" or "16.14") -> pin.
 	Engines map[string]map[string]*lockPin `yaml:"engines"`
 	// Modules maps a module source ("doze/postgres") to its pin — one pin per
@@ -53,6 +59,9 @@ type ModulePin struct {
 	Protocol int               `yaml:"protocol,omitempty"`
 	Engines  []string          `yaml:"engines,omitempty"` // supported engine majors; empty = no gate
 	Hashes   map[string]string `yaml:"hashes,omitempty"`  // triple -> "sha256:<hex>", every published triple
+	// Doze is the oldest doze that runs this release, copied from the index
+	// (releases.<v>.doze); empty for releases from before the field.
+	Doze string `yaml:"doze,omitempty"`
 }
 
 // LoadLock reads the lockfile at path. A missing file yields an empty lock.
@@ -163,7 +172,7 @@ func (l *Lock) GetModule(source string) (ModulePin, bool) {
 	if p == nil || p.Version == "" {
 		return ModulePin{}, false
 	}
-	return ModulePin{Version: p.Version, Protocol: p.Protocol, Engines: append([]string(nil), p.Engines...), Hashes: copyMap(p.Hashes)}, true
+	return ModulePin{Version: p.Version, Protocol: p.Protocol, Engines: append([]string(nil), p.Engines...), Hashes: copyMap(p.Hashes), Doze: p.Doze}, true
 }
 
 // RecordModule pins a module source to a release — the doze-modules layer of the
@@ -177,7 +186,7 @@ func (l *Lock) RecordModule(source string, pin ModulePin) {
 		l.Modules = map[string]*ModulePin{}
 	}
 	p := l.Modules[source]
-	if p != nil && p.Version == pin.Version && p.Protocol == pin.Protocol &&
+	if p != nil && p.Version == pin.Version && p.Protocol == pin.Protocol && p.Doze == pin.Doze &&
 		slices.Equal(p.Engines, pin.Engines) && maps.Equal(p.Hashes, pin.Hashes) {
 		return
 	}
@@ -186,6 +195,7 @@ func (l *Lock) RecordModule(source string, pin ModulePin) {
 		Protocol: pin.Protocol,
 		Engines:  append([]string(nil), pin.Engines...),
 		Hashes:   copyMap(pin.Hashes),
+		Doze:     pin.Doze,
 	}
 	l.dirty = true
 }
@@ -227,6 +237,9 @@ func (l *Lock) Specs(eng string) []string {
 func (l *Lock) Save() error {
 	if l == nil || !l.dirty || l.path == "" {
 		return nil
+	}
+	if dozeversion.Released(dozeversion.Current) && (l.Doze == "" || dozeversion.Older(l.Doze, dozeversion.Current)) {
+		l.Doze = strings.TrimPrefix(dozeversion.Current, "v")
 	}
 	data, err := yaml.Marshal(l)
 	if err != nil {

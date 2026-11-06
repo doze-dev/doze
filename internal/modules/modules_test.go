@@ -19,6 +19,7 @@ import (
 	"github.com/doze-dev/doze-sdk/modindex"
 	dozeplugin "github.com/doze-dev/doze-sdk/plugin"
 	"github.com/doze-dev/doze/internal/binaries"
+	"github.com/doze-dev/doze/internal/dozeversion"
 )
 
 // registryKeys maps a test registry's root directory to the key it is signed
@@ -30,6 +31,7 @@ type release struct {
 	version  string
 	protocol int
 	engines  []string
+	doze     string // the oldest doze it runs under (releases.<v>.doze), unsigned
 }
 
 // signedRegistry lays out a schema-1 file:// registry on disk for one
@@ -89,7 +91,86 @@ func signedRegistry(t *testing.T, ns, name string, priv ed25519.PrivateKey, rele
 		t.Fatal(err)
 	}
 	writeIndex(t, modDir, idx)
+	addDozeNeeds(t, modDir, releases)
 	return "file://" + root, pubB64
+}
+
+// addDozeNeeds writes each release's doze into the index beside the signed
+// fields, as the registry does.
+func addDozeNeeds(t *testing.T, modDir string, releases []release) {
+	t.Helper()
+	path := filepath.Join(modDir, "index.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal(b, &doc); err != nil {
+		t.Fatal(err)
+	}
+	rels, _ := doc["releases"].(map[string]any)
+	for _, r := range releases {
+		if r.doze == "" {
+			continue
+		}
+		if rel, ok := rels[r.version].(map[string]any); ok {
+			rel["doze"] = r.doze
+		}
+	}
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// An older doze picks the newest release it can run, and records what that
+// release needs in its pin; a newer requirement in a pin, or nothing that
+// fits, says which doze to get. A development build runs everything.
+func TestSelectionSkipsWhatThisDozeCannotRun(t *testing.T) {
+	was := dozeversion.Current
+	t.Cleanup(func() { dozeversion.Current = was })
+	_, priv, _ := ed25519.GenerateKey(nil)
+	base, _ := signedRegistry(t, "doze", "postgres", priv,
+		release{version: "0.2.4", protocol: dozeplugin.ProtocolVersion, engines: []string{"17", "18"}},
+		release{version: "0.2.5", protocol: dozeplugin.ProtocolVersion, engines: []string{"17", "18"}, doze: "0.2.0"},
+		release{version: "0.3.0", protocol: dozeplugin.ProtocolVersion, engines: []string{"18", "19"}, doze: "0.3.0"})
+
+	dozeversion.Current = "0.1.1"
+	m := newTestManager(t, base)
+	m.Require("postgres", "18")
+	if _, err := m.Resolve(context.Background(), "postgres"); err != nil {
+		t.Fatalf("Resolve on 0.1.1: %v", err)
+	}
+	if pin, _, _ := m.Pinned("postgres"); pin.Version != "0.2.4" || pin.Doze != "" {
+		t.Errorf("0.1.1 pin = %+v, want 0.2.4", pin)
+	}
+
+	dozeversion.Current = "0.2.3"
+	m = newTestManager(t, base)
+	m.Require("postgres", "19")
+	_, err := m.Resolve(context.Background(), "postgres")
+	if err == nil || !strings.Contains(err.Error(), "postgres 19 needs doze 0.3.0 or newer; this doze is 0.2.3") {
+		t.Errorf("0.2.3 for 19: %v", err)
+	}
+
+	dozeversion.Current = "dev"
+	m = newTestManager(t, base)
+	m.Require("postgres", "19")
+	if _, err := m.Resolve(context.Background(), "postgres"); err != nil {
+		t.Fatalf("dev for 19: %v", err)
+	}
+	pin, _, _ := m.Pinned("postgres")
+	if pin.Version != "0.3.0" || pin.Doze != "0.3.0" {
+		t.Fatalf("dev pin = %+v", pin)
+	}
+	// The same lock, read by an older doze.
+	dozeversion.Current = "0.2.3"
+	if _, err := m.Resolve(context.Background(), "postgres"); err == nil || !strings.Contains(err.Error(), "pinned in doze.lock) needs doze 0.3.0 or newer") {
+		t.Errorf("pinned on 0.2.3: %v", err)
+	}
 }
 
 func writeIndex(t *testing.T, modDir string, idx *modindex.Index) {

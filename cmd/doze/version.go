@@ -6,6 +6,8 @@ import (
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
+
+	"github.com/doze-dev/doze/internal/dozeversion"
 )
 
 // version is overridable at build time with -ldflags "-X main.version=..."
@@ -15,6 +17,7 @@ import (
 var version = "dev"
 
 func init() {
+	defer func() { dozeversion.Current = version }()
 	if version != "dev" {
 		return
 	}
