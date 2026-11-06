@@ -397,7 +397,13 @@ type configSeen struct {
 	mtime time.Time
 	size  int64
 	err   *view.ConfigError
+	// at is when the files were last stamped: a push every second must not
+	// stat and glob every stack's folder each time.
+	at time.Time
 }
+
+// configLook is how often a project's files are stamped again.
+const configLook = 2 * time.Second
 
 // configError is the running stack's doze.hcl when it does not load, or
 // nil. The file is stat'ed on every look and loaded only when its stamp
@@ -405,6 +411,17 @@ type configSeen struct {
 // is pushed every second costs one stat.
 func (s *Service) configError(dir string) *view.ConfigError {
 	path := filepath.Join(dir, "doze.hcl")
+	s.mu.Lock()
+	recent, seenAt := s.configs[path]
+	s.mu.Unlock()
+	if seenAt && s.now().Sub(recent.at) < configLook {
+		if recent.err == nil {
+			return nil
+		}
+		fresh := *recent.err
+		fresh.Text = view.ConfigErrorText(recent.mtime, s.now())
+		return &fresh
+	}
 	fi, ok := configStamp(dir)
 	if !ok {
 		return nil
@@ -413,6 +430,10 @@ func (s *Service) configError(dir string) *view.ConfigError {
 	seen, ok := s.configs[path]
 	s.mu.Unlock()
 	if ok && seen.mtime.Equal(fi.mtime) && seen.size == fi.size {
+		s.mu.Lock()
+		seen.at = s.now()
+		s.configs[path] = seen
+		s.mu.Unlock()
 		if seen.err != nil {
 			// The words keep their "changed 20 s ago" fresh.
 			fresh := *seen.err
@@ -427,7 +448,7 @@ func (s *Service) configError(dir string) *view.ConfigError {
 	if s.configs == nil {
 		s.configs = map[string]configSeen{}
 	}
-	s.configs[path] = configSeen{mtime: fi.mtime, size: fi.size, err: ce}
+	s.configs[path] = configSeen{mtime: fi.mtime, size: fi.size, err: ce, at: s.now()}
 	s.mu.Unlock()
 	return ce
 }
@@ -435,6 +456,14 @@ func (s *Service) configError(dir string) *view.ConfigError {
 // configChanged is the running stack's doze.hcl when it loads and is newer
 // than what the daemon read, or nil.
 func (s *Service) configChanged(st hub.StackView) *view.ConfigChanged {
+	// The stamp configError just took, when it is fresh; else a new one.
+	path := filepath.Join(st.Dir, "doze.hcl")
+	s.mu.Lock()
+	seen, ok := s.configs[path]
+	s.mu.Unlock()
+	if ok && s.now().Sub(seen.at) < configLook {
+		return view.ConfigChangedOf(seen.mtime, st.Loaded, s.now())
+	}
 	fi, ok := configStamp(st.Dir)
 	if !ok {
 		return nil
