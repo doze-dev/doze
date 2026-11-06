@@ -20,7 +20,7 @@ directly.
 | **The app** | `doze` · `open` |
 | **The stack** | `up` · `down` · `sync` · `status` · `env` · `run` |
 | **One service** | `wake` · `sleep` · `restart` · `reset` · `pin` · `logs` · `url` |
-| **Before the app** | `init` · `lint` · `doctor` · `dns-setup` |
+| **Before the app** | `init` · `lint` · `fmt` · `doctor` · `dns-setup` |
 | **Lockfile maintenance** | `modules upgrade` |
 | | `version` |
 
@@ -248,6 +248,20 @@ name that is taken is refused, and what would be written has to parse.
 Validate the config without touching the daemon or any data: schema, references,
 ports, engine-version gates. Exit 5 on problems, 6 with no config (CI-friendly;
 see [exit codes](#exit-codes)).
+
+### `doze fmt [--check]`
+
+Rewrite `doze.hcl` and every sibling `*.doze.hcl` in HCL's canonical layout
+(indentation, aligned `=`, spacing), in place, and print the files it changed.
+Layout only, never meaning; a file that does not parse is an error and nothing
+is written.
+
+`--check` writes nothing: it lists the files that would change and exits 1 if
+there are any, so CI or a pre-commit hook can fail on an unformatted config.
+
+```bash
+doze fmt --check   # in CI
+```
 
 ### `doze doctor [--fix]`
 

@@ -114,6 +114,13 @@ func configDirOf(path string) string {
 	return filepath.Dir(path)
 }
 
+// Files is every file a load of path reads: doze.hcl and its sibling
+// *.doze.hcl, or a directory's *.hcl. `doze fmt` formats exactly these.
+func Files(path string) ([]string, error) {
+	files, _, err := gatherConfigFiles(path)
+	return files, err
+}
+
 // gatherConfigFiles resolves the ordered set of HCL files to merge, and the
 // "primary" path used for diagnostics and the project slug. doze.hcl is always
 // first so its root settings are authoritative; sibling *.doze.hcl are appended sorted.

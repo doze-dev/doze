@@ -203,6 +203,7 @@ func rootCmd() *cobra.Command {
 		grouped(groupOne, jsonCapable(urlCmd())),
 		// Before-the-dash tools
 		grouped(groupTools, jsonCapable(lintCmd())),
+		grouped(groupTools, fmtCmd()),
 		grouped(groupTools, addCmd()),
 		grouped(groupTools, initCmd()),
 		grouped(groupTools, jsonCapable(doctorCmd())),
