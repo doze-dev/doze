@@ -26,9 +26,10 @@ needs. The Machine line at the bottom says whether the names, the network daemon
 in place; when one is not, **Repair** in Settings puts it there behind the
 system's password prompt.
 
-Drop a project folder on the window, or press ⌘O, to add one. A folder with no
-`doze.hcl` shows what doze found in it and the three ways to start, and
-nothing runs until you choose.
+Drop a project folder on the window, or press ⌘O, to add one. A folder with a
+`doze.hcl` appears stopped, with Up a press away; opening it never starts it.
+A folder with no `doze.hcl` shows what doze found in it and the three ways to
+start; each writes the file, and nothing runs until you bring the stack up.
 
 ## A stack
 

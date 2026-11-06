@@ -46,6 +46,8 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           if (row) void go({ key: row.key, page: "home" });
           break;
         case "Backspace":
+          // Claimed, or WebKit takes it as "go back" and leaves the page.
+          e.preventDefault();
           if (row && !row.running) void askStack(row.key, "forget");
           break;
       }
@@ -88,7 +90,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
       )}
       {stacks.length > 0 && (
         <p className="model" style={{ marginTop: 12 }}>
-          Drop a project folder anywhere in this window to add it. A stack appears here the first time it runs, and stays until you forget it.
+          Drop a project folder anywhere in this window, or press ⌘O, to add it. It appears here, stopped, until you bring it up, and stays until you forget it.
         </p>
       )}
       {(lib.others ?? []).length > 0 && <Others others={lib.others ?? []} />}

@@ -13,6 +13,9 @@ test("a folder with no doze.hcl offers the three ways to start", async ({ page }
   // Each browser starts from an empty folder: the last one wrote the file.
   fs.rmSync(path.join(emptyDir, "doze.hcl"), { force: true });
   await page.goto("/");
+  // The server opened the folder at start; a browser before this one may
+  // have closed its page, which lets it go, so it is opened again, as ⌘O does.
+  await page.evaluate((d) => fetch("/api/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir: d }) }), emptyDir);
   const tab = page.locator(".stab.on");
   await expect(tab).toContainText(path.basename(emptyDir));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(path.basename(emptyDir));

@@ -38,6 +38,9 @@ type Choice struct {
 	Action string `json:"action"` // init, add, empty
 	Title  string `json:"title"`
 	What   string `json:"what"`
+	// Off is a way that cannot work here: set up from the repo when nothing
+	// in it is recognised. It is shown, greyed, with why.
+	Off bool `json:"off,omitempty"`
 }
 
 // EmptyOf is the page for a folder, given what the detector found there
@@ -58,11 +61,11 @@ func EmptyOf(dir string, found []string) Empty {
 	}
 	actions := [3]string{"init", "add", "empty"}
 	for i, c := range display.EmptyChoices {
-		what := c.What
+		ch := Choice{N: i + 1, Action: actions[i], Title: c.Title, What: c.What}
 		if i == 0 && len(found) == 0 {
-			what = display.EmptyNothingFound
+			ch.What, ch.Off = display.EmptyNothingFound, true
 		}
-		out.Choices = append(out.Choices, Choice{N: i + 1, Action: actions[i], Title: c.Title, What: what})
+		out.Choices = append(out.Choices, ch)
 	}
 	out.Add = Dialog{
 		Kind: "setup", Needed: true, Title: "Add one thing", Setup: dir, Input: true, Hint: "postgres, valkey, mongo, …",

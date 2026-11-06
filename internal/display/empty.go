@@ -16,7 +16,7 @@ var EmptyChoices = [3]Choice{
 
 // EmptyNothingFound is what the first choice says instead when the project
 // has nothing doze recognises.
-const EmptyNothingFound = "nothing recognised here; it asks instead"
+const EmptyNothingFound = "nothing here it recognises; add one thing instead"
 
 // StarterFile is what "start with an empty file" writes: the four nouns, and
 // what each is for, with nothing declared. Both faces write the same one.

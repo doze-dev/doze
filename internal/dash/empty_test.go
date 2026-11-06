@@ -20,7 +20,7 @@ func TestEmptyScreenSaysWhatItFound(t *testing.T) {
 			t.Errorf("empty screen lacks %q:\n%s", want, out)
 		}
 	}
-	if out := frame2(emptyFor().render(100, 24)); !strings.Contains(out, "nothing recognised") {
+	if out := frame2(emptyFor().render(100, 24)); !strings.Contains(out, "nothing here it recognises") {
 		t.Errorf("with nothing found it should say so:\n%s", out)
 	}
 }

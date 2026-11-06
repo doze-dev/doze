@@ -142,6 +142,12 @@ export interface Choice {
     "action": string;
     "title": string;
     "what": string;
+
+    /**
+     * Off is a way that cannot work here: set up from the repo when nothing
+     * in it is recognised. It is shown, greyed, with why.
+     */
+    "off"?: boolean;
 }
 
 /**

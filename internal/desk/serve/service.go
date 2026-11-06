@@ -19,6 +19,7 @@ import (
 
 	names "github.com/doze-dev/doze-names"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/notify"
@@ -26,6 +27,7 @@ import (
 	"github.com/doze-dev/doze/internal/desk/view"
 	"github.com/doze-dev/doze/internal/detect"
 	"github.com/doze-dev/doze/internal/display"
+	"github.com/doze-dev/doze/internal/projects"
 )
 
 // Push names. The page subscribes by name; data is the view as JSON.
@@ -165,6 +167,9 @@ type Service struct {
 	pendingInstance string
 	// pendingPage is a page the menu bar asked for with no stack: "settings".
 	pendingPage string
+	// emptyShown is the folder with no doze.hcl the page was last sent to,
+	// so each push does not send it there again.
+	emptyShown string
 	// busy is each stack's action in flight (starting, stopping,
 	// restarting), failed the last one that did not work, with its output,
 	// kept until it is dismissed or tried again.
@@ -238,7 +243,18 @@ func (s *Service) push() {
 	dir := s.pendingDir
 	emit := s.emit
 	s.mu.Unlock()
-	if dir != "" && emit != nil {
+	if dir != "" && emit != nil && noConfig(dir) {
+		// A folder with nothing to run yet: its page, at once, whether or not
+		// the window just opened. It stays pending until a stack appears there.
+		s.mu.Lock()
+		shown := s.emptyShown == dir
+		s.emptyShown = dir
+		s.mu.Unlock()
+		if !shown {
+			emit(EventNav, Nav{Page: "empty", Dir: dir})
+		}
+	}
+	if dir != "" && emit != nil && !noConfig(dir) {
 		if key := s.KeyFor(dir); key != "" {
 			s.mu.Lock()
 			if s.pendingDir == dir {
@@ -467,6 +483,11 @@ func (s *Service) SetFocus(f Focus) {
 		}
 	}
 	s.mu.Lock()
+	// Leaving a folder's three-ways page lets the folder go: a window
+	// opened later starts where it should, not back on that folder.
+	if f.Page != "empty" && f.Page != "" && s.emptyShown != "" && s.pendingDir == s.emptyShown && noConfig(s.pendingDir) {
+		s.pendingDir, s.emptyShown = "", ""
+	}
 	old := s.releases
 	s.releases = nil
 	s.focus = f
@@ -474,6 +495,10 @@ func (s *Service) SetFocus(f Focus) {
 	delete(s.sent, EventInstance)
 	delete(s.sent, EventLogs)
 	delete(s.sent, EventConsole)
+	// The Library too: what was last sent may be older than what the page
+	// fetched on the way back, and a change that returns the list to that
+	// older state would otherwise not be sent at all.
+	delete(s.sent, EventLibrary)
 	if f.Key != "" {
 		switch f.Page {
 		case "home":
@@ -645,11 +670,22 @@ func (s *Service) Open(dir string) {
 	if dir == "" {
 		return
 	}
+	// A doze.hcl that never ran is a stack all the same: it is recorded as
+	// doze up would record it, so it shows, stopped, and the page goes to it.
+	if !noConfig(dir) && s.KeyFor(dir) == "" {
+		if cfg, err := config.LoadShape(filepath.Join(dir, "doze.hcl"), nil); err == nil {
+			path := filepath.Join(dir, "doze.hcl")
+			_ = projects.Update(config.ProjectDirIn(s.hub.Home(), path), func(p *projects.Project) {
+				p.Config, p.Name = path, cfg.Stack()
+			})
+		}
+	}
 	s.mu.Lock()
 	if s.pendingDir != dir {
 		s.pendingInstance = "" // an older Show's instance is not for this folder
 	}
 	s.pendingDir = dir
+	s.emptyShown = "" // asked again: go there again
 	s.mu.Unlock()
 	s.hub.Refresh() // a socket that appeared since the last look
 	s.changed()     // push resolves it when it can
@@ -693,7 +729,7 @@ func (s *Service) Pending() Nav {
 		return Nav{}
 	}
 	key := s.KeyFor(dir)
-	if key == "" {
+	if key == "" || noConfig(dir) {
 		if noConfig(dir) {
 			// Nothing to run yet: the page offers the three ways to start,
 			// and the folder stays pending until a daemon appears there.

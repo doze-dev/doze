@@ -3,6 +3,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -49,6 +51,8 @@ func (d *desk) open(dir string) {
 			URL:              "/",
 			BackgroundType:   application.BackgroundTypeSolid,
 			BackgroundColour: application.NewRGB(0x14, 0x16, 0x1a),
+			// A project folder dropped anywhere on the page opens, as ⌘O does.
+			EnableFileDrop: true,
 			Mac: application.MacWindow{
 				TitleBar:                application.MacTitleBarHiddenInset,
 				InvisibleTitleBarHeight: 38,
@@ -89,6 +93,18 @@ func (d *desk) open(dir string) {
 			})
 			// Nothing streams for a page nobody is looking at (D14).
 			d.svc.Blur()
+		})
+		d.win.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
+			// One folder at a time: the first one dropped.
+			files := e.Context().DroppedFiles()
+			if len(files) == 0 {
+				return
+			}
+			dir := files[0]
+			if fi, err := os.Stat(dir); err == nil && !fi.IsDir() {
+				dir = filepath.Dir(dir) // a dropped doze.hcl means its folder
+			}
+			d.svc.Open(dir)
 		})
 		d.win.Show()
 		d.win.Focus()

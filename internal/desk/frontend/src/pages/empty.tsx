@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { set } from "../store";
+import { say, set } from "../store";
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
@@ -13,12 +13,21 @@ export function EmptyPage({ e }: { e: view.Empty }) {
   const items = e.items ?? [];
   const [at, setAt] = useState(0);
 
+  // busy is the way being written, so a second press does not run it twice.
+  const [busy, setBusy] = useState("");
   const choose = (c: view.Choice) => {
+    if (c.off || busy) return;
     if (c.action === "add") {
       set({ dialog: { key: "", d: e.add } });
       return;
     }
-    transport().then((t) => t.setup(e.dir, c.action, "").catch((err) => t.log(`setup ${c.action} failed: ${String(err)}`)));
+    setBusy(c.action);
+    transport().then((t) =>
+      t
+        .setup(e.dir, c.action, "")
+        .catch((err) => void say(`${c.title} failed: ${String(err).replace(/^Error: /, "")}`, true))
+        .finally(() => setBusy("")),
+    );
   };
 
   useEffect(() => {
@@ -90,13 +99,13 @@ export function EmptyPage({ e }: { e: view.Empty }) {
       )}
       <div className="tiles" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 14 }}>
         {choices.map((c, i) => (
-          <button key={c.n} className={"tile" + (i === at ? " sel" : "")} style={{ minHeight: 96 }} onClick={() => choose(c)} onMouseEnter={() => setAt(i)}>
+          <button key={c.n} className={"tile" + (i === at ? " sel" : "") + (c.off ? " off" : "")} style={{ minHeight: 96 }} disabled={!!c.off || (!!busy && busy !== c.action)} aria-busy={busy === c.action} onClick={() => choose(c)} onMouseEnter={() => setAt(i)}>
             <div className="top">
               <span className="step-num">{c.n}</span>
               <b>{c.title}</b>
             </div>
             <div className="dim" style={{ fontSize: 12, lineHeight: "17px", whiteSpace: "normal" }}>
-              {c.what}
+              {busy === c.action ? "writing doze.hcl…" : c.what}
             </div>
           </button>
         ))}

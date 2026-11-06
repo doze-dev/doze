@@ -8,6 +8,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/display"
+	"github.com/doze-dev/doze/internal/projects"
 )
 
 // setupFolder is what the app does when a folder with no doze.hcl picks one
@@ -44,14 +45,13 @@ func setupFolder(dir, action, arg string) error {
 	default:
 		return fmt.Errorf("no way to start called %q", action)
 	}
-	// The stack is shown live: its daemon is started as doze open does.
-	cfg, err := config.Load(path, activeHost.ConfigHooks())
+	// The stack is recorded, stopped, as the page promises: nothing runs
+	// until it is brought up. The app shows it, and Up is one press.
+	cfg, err := config.LoadShape(path, nil)
 	if err != nil {
 		return err
 	}
-	if !daemonRunning(cfg) {
-		return startDaemon(cfg)
-	}
+	remember(cfg, func(*projects.Project) {})
 	return nil
 }
 

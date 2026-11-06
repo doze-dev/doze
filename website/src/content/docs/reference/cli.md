@@ -59,8 +59,9 @@ time's set. `--last` and `--all` decide without asking.
 
 ### `doze down`
 
-Bring the whole stack down: sleep every service and stop the daemon. Data
-persists — the next `up` (or the first connection) brings everything back.
+Bring the whole stack down: stop every service and the daemon. Data
+persists. Nothing wakes a stopped stack, not even a connection; the next
+`up` brings it back (in the app: Up as last time).
 
 ### `doze sync [service]`
 

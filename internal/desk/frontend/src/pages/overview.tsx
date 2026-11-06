@@ -632,7 +632,7 @@ function Switch({ r, stackKey }: { r: view.Row; stackKey: string }) {
         className={"sw" + (r.off ? " dis" : "")}
         role="switch"
         aria-checked={false}
-        aria-label={`${r.name} is down`}
+        aria-label={`${r.name} is stopped`}
         title={r.off ? "paused in doze.hcl (enabled = false)" : `Start the stack with ${r.name} and what it needs`}
         disabled={r.off}
         onClick={(e) => {

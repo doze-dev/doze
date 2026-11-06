@@ -157,7 +157,7 @@ export function App() {
       />
       <div className="body">
         {withSidebar && <Sidebar where={where} side={side ?? []} version={version} stacks={stacks.length} />}
-        <main className="main" data-page={where?.page ?? "none"}>
+        <main className="main" data-page={where?.page ?? "none"} data-file-drop-target>
           {banner && !banner.ok && (
             <div className="banner warn" role="status">
               <span className="ring" aria-hidden />

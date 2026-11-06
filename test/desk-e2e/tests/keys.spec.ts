@@ -50,9 +50,12 @@ test("esc in the stack's ▾ menu closes the menu and nothing else", async ({ pa
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   // Focus starts in the menu; the arrows move it.
-  await expect(menu.locator("button").first()).toBeFocused();
+  // Which button is the active element (toBeFocused also needs the page
+  // to hold window focus, which headless WebKit sometimes drops).
+  const active = () => page.evaluate(() => Array.from(document.querySelectorAll(".pop[role=menu] button")).indexOf(document.activeElement as HTMLButtonElement));
+  await expect.poll(active).toBe(0);
   await page.keyboard.press("ArrowDown");
-  await expect(menu.locator("button").nth(1)).toBeFocused();
+  await expect.poll(active).toBe(1);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");

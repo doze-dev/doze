@@ -62,20 +62,15 @@ With no display (SSH, CI) it prints the status table instead.`,
 				dir = abs
 				configPath = filepath.Join(dir, "doze.hcl")
 			}
-			// A project with a config gets its daemon started, as the dash did,
-			// so the first thing the app shows is live. Over a fixture there
-			// is no project.
+			// A project is opened as it is: a stopped stack stays stopped, and
+			// the app offers Up (the dash used to start it; looking at a stack
+			// should not). Over a fixture there is no project.
 			if fixture != "" || linkArg != "" {
 				// A fixture has no project, and a link names its own.
 				dir = ""
-			} else if cfg, err := loadConfig(); err == nil {
+			} else if _, err := loadConfig(); err == nil {
 				if dir == "" {
 					dir, _ = filepath.Abs(configDir(configPath))
-				}
-				if !daemonRunning(cfg) {
-					if err := startDaemon(cfg); err != nil {
-						return err
-					}
 				}
 			} else if _, statErr := os.Stat(configPath); !os.IsNotExist(statErr) {
 				return err

@@ -125,3 +125,10 @@ func sanitizeSlug(s string) string {
 	}
 	return out
 }
+
+// ProjectDirIn is the project state dir a config at path gets under home:
+// what DefaultProjectDir says, for a caller that knows its home (the app,
+// whose home may be a fixture's).
+func ProjectDirIn(home, path string) string {
+	return filepath.Join(home, "projects", projectSlug(path))
+}

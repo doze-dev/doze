@@ -64,7 +64,7 @@ test("a stopped stack is the same page, down: every switch off, and a sheet to c
   // Nothing runs, so no switch is on.
   const tile = (n: string) => page.locator(".tile", { has: page.locator("b", { hasText: new RegExp(`^${n}$`) }) }).first();
   await expect(page.locator(".tile .sw.on")).toHaveCount(0);
-  await expect(page.getByRole("switch", { name: "api is down" })).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByRole("switch", { name: "api is stopped" })).toHaveAttribute("aria-checked", "false");
   await expect(tile("api")).toContainText("stopped · needs db and cache");
   await expect(tile("api")).toContainText("api.acme.doze:8080");
   await expect(tile("web")).toContainText("dev.acme.com");
@@ -87,7 +87,7 @@ test("a stopped stack is the same page, down: every switch off, and a sheet to c
 
   // The other views show the same down rows.
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
-  await expect(page.getByRole("switch", { name: "worker is down" })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "worker is stopped" })).toBeVisible();
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();
   // The tab for a stopped stack is there while it is looked at.
   await expect(page.getByRole("tab", { name: /^acme/ })).toHaveAttribute("aria-selected", "true");
@@ -188,4 +188,32 @@ test("starting a stack shows at once, takes no second start, and a failure stays
   await page.screenshot({ path: `.desk-look/StackFailed-${test.info().project.name}.png` });
   await failed.getByRole("button", { name: "Dismiss" }).click();
   await expect(failed).toBeHidden();
+});
+
+test("a folder opened while the window is open lands on its page: three ways in, or its stack, stopped", async ({ page }) => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  await page.goto("/");
+  await expect(page.locator(".lib")).toBeVisible();
+  const open = (dir: string) => page.evaluate((d) => fetch("/api/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir: d }) }), dir);
+
+  // No doze.hcl: the three ways in, at once.
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "doze-open-empty-"));
+  await open(empty);
+  await expect(page.locator(".head .path")).toContainText("no doze.hcl yet");
+
+  // A doze.hcl that never ran: its stack, stopped, with Up.
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), "doze-open-fresh-"));
+  fs.writeFileSync(path.join(fresh, "doze.hcl"), 'stack = "fresh"\n\napp "web" {\n  run  = "true"\n  port = 3999\n}\n');
+  await open(fresh);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("fresh", { timeout: 10000 });
+  await expect(page.locator(".strip")).toContainText("Stopped");
+  await expect(page.getByRole("switch", { name: "web is stopped" })).toBeVisible();
+  // Forget it again, so the next spec's Library is as it was.
+  await page.keyboard.press("Escape");
+  await page.locator(".lrow", { hasText: "fresh" }).first().click();
+  await page.keyboard.press("Backspace");
+  await page.getByRole("dialog").getByRole("button", { name: "Forget fresh" }).click();
+  await expect(page.locator(".lrow", { hasText: "fresh" })).toHaveCount(0);
 });
