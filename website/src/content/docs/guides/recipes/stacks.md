@@ -9,7 +9,7 @@ wired into apps with zero hardcoded ports.
 ## A typical web app: Postgres + cache + object storage + queue
 
 ```hcl
-defaults { idle_timeout = "10m" }
+defaults { sleep = "10m" }
 
 module postgres "app" {
   version = 16
@@ -91,7 +91,7 @@ Split across `*.doze.hcl` for readability — see [config layout](/guides/recipe
 
 ```hcl
 # doze.hcl
-defaults { idle_timeout = "10m" }
+defaults { sleep = "10m" }
 module postgres "app" {
   version = 16
   role "app" { password = "app" }

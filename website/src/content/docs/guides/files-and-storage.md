@@ -160,7 +160,7 @@ my-app/
 
 ```hcl
 # doze.hcl  — root settings live here, and only here
-defaults { idle_timeout = "5m" }
+defaults { sleep = "5m" }
 
 module postgres "app" {
   version = 16

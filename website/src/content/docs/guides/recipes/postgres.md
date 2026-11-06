@@ -235,7 +235,7 @@ doze reset app && doze run -- pytest        # real Postgres, clean slate, backen
     autovacuum      = false
   }
   ```
-- **Idle reaping** is by connection count — a pool holding idle connections keeps
+- **Idle sleep** is by connection count — a pool holding idle connections keeps
   the backend alive; close them (or `doze sleep app`) to let it sleep.
 - **Pin versions** for the team: `version = "16.14"` (exact) or `version = 16`
   (newest, pinned in `doze.lock`). Run `doze binaries available postgres` to see options.

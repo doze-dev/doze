@@ -11,7 +11,7 @@ import (
 )
 
 // bindPlan decides, for one daemon run, where each proxied instance listens and
-// what its DNS name resolves to. In loopback mode (defaults{domains=true} and
+// what its DNS name resolves to. In loopback mode (defaults{names=true} and
 // the machine set up) every service gets an address of its own and keeps its
 // declared port — so many services share a canonical port, disambiguated by IP.
 // Otherwise services listen on 127.0.0.1 with distinct ports (today's behavior).

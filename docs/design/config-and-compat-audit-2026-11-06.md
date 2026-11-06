@@ -139,7 +139,7 @@ Compatibility
 
 Vocabulary
 - [x] L7 one word for ordering: `after = [..., started(x), lazy(y)]`
-- [ ] L8 `defaults { names, sleep }`, "never" everywhere, one verb in the docs
+- [x] L8 `defaults { names, sleep }`, "never" everywhere, one verb in the docs
 - [ ] L10 shared meta-arguments on every kind
 
 Kindness

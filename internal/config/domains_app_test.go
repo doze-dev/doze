@@ -17,7 +17,7 @@ func TestAppDomainsAreDeclaredCheckedAndListed(t *testing.T) {
 		return Load(path, nil)
 	}
 	cfg, err := write(`stack = "shop"
-defaults { domains = true }
+defaults { names = true }
 app "web" {
   run     = "pnpm dev"
   port    = 3000
@@ -35,13 +35,13 @@ app "web" {
 		t.Errorf("AppDomains = %v", got)
 	}
 	for _, bad := range []struct{ body, want string }{
-		{"stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"web.shop.doze\"]\n}\n", "doze name already"},
-		{"stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"app.localhost\"]\n}\n", "localhost"},
-		{"stack = \"shop\"\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n}\n", "domains = true"},
-		{"stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n}\napp \"api\" {\n  run = \"y\"\n  port = 3001\n  domains = [\"dev.acme.com\"]\n}\n", "domain conflict"},
-		{"stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n  cert = \"missing.crt\"\n  key = \"missing.key\"\n}\n", "not a file"},
-		{"stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n  cert = \"a.crt\"\n}\n", "both"},
-		{"stack = \"shop\"\ndefaults { domains = true }\nservice \"db\" {\n  run = \"x\"\n  port = 5432\n  domains = [\"db.acme.com\"]\n}\n", "not expected"},
+		{"stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"web.shop.doze\"]\n}\n", "doze name already"},
+		{"stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"app.localhost\"]\n}\n", "localhost"},
+		{"stack = \"shop\"\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n}\n", "names = true"},
+		{"stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n}\napp \"api\" {\n  run = \"y\"\n  port = 3001\n  domains = [\"dev.acme.com\"]\n}\n", "domain conflict"},
+		{"stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n  cert = \"missing.crt\"\n  key = \"missing.key\"\n}\n", "not a file"},
+		{"stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"dev.acme.com\"]\n  cert = \"a.crt\"\n}\n", "both"},
+		{"stack = \"shop\"\ndefaults { names = true }\nservice \"db\" {\n  run = \"x\"\n  port = 5432\n  domains = [\"db.acme.com\"]\n}\n", "not expected"},
 	} {
 		if _, err := write(bad.body); err == nil || !strings.Contains(err.Error(), bad.want) {
 			t.Errorf("want an error with %q, got %v", bad.want, err)
@@ -52,14 +52,14 @@ app "web" {
 func TestABarePublicSuffixIsNotADomainOfYours(t *testing.T) {
 	dir := t.TempDir()
 	for _, bad := range []string{"*.co.uk", "com", "*.github.io"} {
-		body := "stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"" + bad + "\"]\n}\n"
+		body := "stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"" + bad + "\"]\n}\n"
 		path := filepath.Join(dir, "doze.hcl")
 		_ = os.WriteFile(path, []byte(body), 0o644)
 		if _, err := Load(path, nil); err == nil || (!strings.Contains(err.Error(), "public suffix") && !strings.Contains(err.Error(), "no top-level domain")) {
 			t.Errorf("%q: want a public-suffix error, got %v", bad, err)
 		}
 	}
-	body := "stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"app.github.io\", \"*.dev.acme.co.uk\"]\n}\n"
+	body := "stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run = \"x\"\n  port = 3000\n  domains = [\"app.github.io\", \"*.dev.acme.co.uk\"]\n}\n"
 	path := filepath.Join(dir, "doze.hcl")
 	_ = os.WriteFile(path, []byte(body), 0o644)
 	if _, err := Load(path, nil); err != nil {

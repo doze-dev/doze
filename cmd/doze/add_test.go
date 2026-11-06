@@ -206,7 +206,7 @@ func TestInitFindsNothingAndSaysSo(t *testing.T) {
 }
 
 func TestDoctorSaysWhoHoldsAPortAndWhatToDo(t *testing.T) {
-	inProject(t, "stack = \"p\"\n\ndefaults {\n  domains = false\n}\n\nmodule postgres \"db\" {\n  version = 16\n  port    = 5432\n}\n\napp \"web\" {\n  run  = \"x\"\n  port = 8080\n}\n")
+	inProject(t, "stack = \"p\"\n\ndefaults {\n  names = false\n}\n\nmodule postgres \"db\" {\n  version = 16\n  port    = 5432\n}\n\napp \"web\" {\n  run  = \"x\"\n  port = 8080\n}\n")
 	cfg, err := config.ParseShape([]byte(read(t)), configPath)
 	if err != nil {
 		t.Fatal(err)

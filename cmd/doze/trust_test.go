@@ -35,7 +35,7 @@ func dozeAt(t *testing.T, dir, home string, args ...string) (int, string, string
 // points the store-replacing variables at the root alone.
 func TestTrustFlagsOnlyLookUnlessTheyAreAskedToSetUp(t *testing.T) {
 	stack, home := t.TempDir(), t.TempDir()
-	if err := os.WriteFile(filepath.Join(stack, "doze.hcl"), []byte("stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run     = \"sleep 60\"\n  port    = 28082\n  domains = [\"dev.acme.example\", \"*.dev.acme.example\"]\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(stack, "doze.hcl"), []byte("stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run     = \"sleep 60\"\n  port    = 28082\n  domains = [\"dev.acme.example\", \"*.dev.acme.example\"]\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	root := filepath.Join(home, "ca", "root.crt")

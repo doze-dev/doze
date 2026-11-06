@@ -7,7 +7,7 @@ description: "Real local Postgres, declared not scripted."
 
 **Runs PostgreSQL 14 – 18 · macOS & Linux** · [registry page ↗](https://doze.nerdmenot.in/registry/doze/postgres/)
 
-A real PostgreSQL server per instance — no Docker. Declare roles, schemas, extensions and grants in HCL and doze converges them: creating what's new, updating what changed, dropping what you removed. Boots on first connect, reaps when idle.
+A real PostgreSQL server per instance — no Docker. Declare roles, schemas, extensions and grants in HCL and doze converges them: creating what's new, updating what changed, dropping what you removed. Boots on first connect, sleeps when idle.
 
 ## Usage
 

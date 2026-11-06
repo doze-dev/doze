@@ -1,4 +1,4 @@
-// Local DNS names for services: with defaults{domains=true} every enabled TCP
+// Local DNS names for services: with defaults{names=true} every enabled TCP
 // endpoint gets <service>.<stack>.doze, answered by the built-in
 // resolver (resolver.go) — so connection strings read as the service
 // (postgres://…@orders-pg.demo.doze:5432) instead of a loopback

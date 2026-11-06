@@ -209,7 +209,7 @@ func scaffoldFor(picks []string, app string, offers []initEngine) string {
 	b.WriteString("# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n")
 	b.WriteString("# Edit freely, then: doze lint · doze up · doze status\n\n")
 	b.WriteString(dozeversion.Marker())
-	b.WriteString("defaults {\n  idle_timeout = \"2m\"\n  domains      = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n")
+	b.WriteString("defaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n")
 	hasPostgres := false
 	for _, p := range picks {
 		for _, e := range offers {

@@ -83,4 +83,4 @@ doze lint && doze status && <connect a real client>
 ```
 
 Ten seconds, and it exercises the actual plugin protocol, the proxy splice,
-readiness, and reaping — the full production path minus the registry.
+readiness, and sleep — the full production path minus the registry.

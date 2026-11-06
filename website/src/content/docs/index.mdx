@@ -56,7 +56,7 @@ latency where your inner loop should be. doze reverses that bargain.
 <CardGrid>
   <Card title="Your fans stay off" icon="moon">
     No VM, no reserved slab of RAM. At rest, your entire backend is one ~15 MB
-    daemon; engines boot on first connection and reap to zero when idle. The
+    daemon; engines boot on first connection and sleep when idle. The
     machine's power goes to your build, not to virtualization.
   </Card>
   <Card title="Your debugger just attaches" icon="magnifier">

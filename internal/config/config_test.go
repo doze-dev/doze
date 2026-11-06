@@ -53,7 +53,7 @@ func (fakeDriver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, _ string, _ 
 
 func TestParseRootAndInstances(t *testing.T) {
 	src := `
-defaults { idle_timeout = "90s" }
+defaults { sleep = "90s" }
 
 module fake "a" {
   version = 16
@@ -68,7 +68,7 @@ module fake "b" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if cfg.Defaults.IdleTimeout != 90*time.Second {
-		t.Errorf("idle_timeout = %s", cfg.Defaults.IdleTimeout)
+		t.Errorf("sleep = %s", cfg.Defaults.IdleTimeout)
 	}
 	if len(cfg.Instances) != 2 {
 		t.Fatalf("got %d instances, want 2", len(cfg.Instances))
@@ -117,7 +117,7 @@ func TestDefaultsApplied(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.Defaults.IdleTimeout != DefaultIdleTimeout {
-		t.Errorf("default idle_timeout = %s", cfg.Defaults.IdleTimeout)
+		t.Errorf("default sleep = %s", cfg.Defaults.IdleTimeout)
 	}
 	if cfg.Home == "" || cfg.DataDir == "" {
 		t.Error("home and data_dir should default")
@@ -125,8 +125,8 @@ func TestDefaultsApplied(t *testing.T) {
 }
 
 func TestBadDuration(t *testing.T) {
-	_, err := Parse([]byte(`defaults { idle_timeout = "not-a-duration" }`), "doze.hcl", nil)
-	if err == nil || !strings.Contains(err.Error(), "idle_timeout") {
+	_, err := Parse([]byte(`defaults { sleep = "not-a-duration" }`), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "sleep") {
 		t.Errorf("expected duration error, got %v", err)
 	}
 }
@@ -603,7 +603,7 @@ module fake "b" {
 func TestSiblingDozeHCLFilesAreMerged(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "doze.hcl", `
-defaults { idle_timeout = "1m" }
+defaults { sleep = "1m" }
 module fake "anchor" {
   version = 1
   port    = 7001
@@ -677,7 +677,7 @@ func TestStackFromRelativeConfigPath(t *testing.T) {
 
 func TestValidateDomainsCollision(t *testing.T) {
 	src := `
-defaults { domains = true }
+defaults { names = true }
 module fake "orders_pg" {
   version = 1
   port    = 1001
@@ -746,10 +746,10 @@ func TestLogRetentionDefaults(t *testing.T) {
 
 // DOZE_ZONE=off turns names off whatever the config asks for.
 func TestZoneOffOverridesDomains(t *testing.T) {
-	const src = "defaults {\n  domains = true\n}\n"
+	const src = "defaults {\n  names = true\n}\n"
 	cfg, err := Parse([]byte(src), "doze.hcl", nil)
 	if err != nil || !cfg.Defaults.Domains {
-		t.Fatalf("domains = true should hold by default: %+v, %v", cfg.Defaults, err)
+		t.Fatalf("names = true should hold by default: %+v, %v", cfg.Defaults, err)
 	}
 	t.Setenv("DOZE_ZONE", "off")
 	cfg, err = Parse([]byte(src), "doze.hcl", nil)
@@ -803,5 +803,22 @@ func TestDozeVersionIsReadFirst(t *testing.T) {
 	dozeversion.Current = "dev"
 	if _, err := Parse([]byte("doze = \">= 9.9\"\nmodule fake \"x\" { version = 1 }"), "doze.hcl", nil); err != nil {
 		t.Errorf("a development build reads every file: %v", err)
+	}
+}
+
+func TestDefaultsOldSpellingsPointAtNew(t *testing.T) {
+	for src, want := range map[string]string{
+		`defaults { idle_timeout = "5m" }`: `sleep = "5m"`,
+		`defaults { idle_timeout = "0s" }`: `sleep = "never"`,
+		`defaults { domains = true }`:      `names = true`,
+	} {
+		_, err := Parse([]byte(src), "doze.hcl", nil)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: want a pointer at %s, got %v", src, want, err)
+		}
+	}
+	cfg, err := Parse([]byte(`defaults { sleep = "never" }`), "doze.hcl", nil)
+	if err != nil || cfg.Defaults.IdleTimeout != 0 {
+		t.Errorf(`sleep = "never" should turn the stack's timer off: %v %v`, cfg, err)
 	}
 }

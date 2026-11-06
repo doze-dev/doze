@@ -21,7 +21,7 @@ func TestLoadMergesSiblingDozeHCL(t *testing.T) {
 	dir := t.TempDir()
 	main := filepath.Join(dir, "doze.hcl")
 	write(t, main, `
-defaults { idle_timeout = "1m" }
+defaults { sleep = "1m" }
 module fake "a" {
   version = "1"
   port    = 7001

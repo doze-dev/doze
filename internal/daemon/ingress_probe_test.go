@@ -34,7 +34,7 @@ func TestIngressRouteDerivation(t *testing.T) {
 func TestAppWithAPortIsForwarded(t *testing.T) {
 	src := `
 stack = "demo"
-defaults { domains = true }
+defaults { names = true }
 app "api" {
   run  = "sleep 1"
   port = 28080

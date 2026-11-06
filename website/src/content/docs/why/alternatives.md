@@ -8,7 +8,7 @@ we see it — including when you should **not** pick doze.
 
 | | Best at | Reach for it when | doze's edge over it |
 |---|---|---|---|
-| **docker-compose** | Declaring multi-service stacks portably | Your stack must mirror production containers exactly | Native processes (debuggers, no VM tax), lazy boot/reap, pinned real binaries, typed config |
+| **docker-compose** | Declaring multi-service stacks portably | Your stack must mirror production containers exactly | Native processes (debuggers, no VM tax), lazy boot/sleep, pinned real binaries, typed config |
 | **Testcontainers** | Ephemeral per-test services in code | Tests must own service lifecycle programmatically, per language | One shared declarative stack for dev *and* tests; instant warm boots; no Docker daemon required |
 | **LocalStack** | Broad AWS API surface in one box | You need many AWS services (Lambda, DynamoDB, …) | Real engines for data stores; S3/SQS/SNS in pure Go, ~instant, no Docker/JVM/Python |
 | **Nix / devenv / Flox** | Reproducible toolchains & environments | You want the *whole* environment (compilers, tools) pinned | Radically smaller learning curve; services that sleep; one lockfile scoped to backing services |
@@ -65,7 +65,7 @@ missing management layer.
 
 ## When not to use doze
 
-Plainly: **production** (single instances, no HA, idle reaping — by design);
+Plainly: **production** (single instances, no HA, idle sleep — by design);
 **Windows without WSL2**; **apps needing AWS beyond S3/SQS/SNS** (pair doze
 with LocalStack, or wait for modules); **teams whose dev loop is contractually
 k8s**. And if your whole company happily runs Nix — carry on; you have our

@@ -11,8 +11,8 @@
 # See README.md for the full reference.
 
 defaults {
-  idle_timeout = "5m"            # reap an instance after this long with no connections
-  domains      = true            # publish <name>.local via mDNS (app-dev.local:5432)
+  sleep = "5m"            # sleep an instance after this long with no connections
+  names = true            # publish <name>.local via mDNS (app-dev.local:5432)
 }
 
 # --- PostgreSQL -------------------------------------------------------------

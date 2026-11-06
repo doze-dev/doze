@@ -45,13 +45,13 @@ If ten connections race in at once on a cold instance, doze coalesces them: one
 boot happens, and everyone attaches to it (this is the "singleflight" in the
 internals).
 
-## Idle reap
+## Idle sleep
 
-doze reaps an instance when it has had **zero live connections** for the
-`idle_timeout` (2 minutes by default). The key word is *connections*, not
+doze puts an instance to sleep when it has had **zero live connections** for the
+`sleep` in `defaults` (2 minutes by default). The key word is *connections*, not
 *queries*:
 
-> doze reaps on connection count, **never** on query inactivity. A connection
+> doze sleeps on connection count, **never** on query inactivity. A connection
 > pool that holds idle connections open keeps its backend alive — doze will never
 > pull the rug out from under your app.
 
@@ -61,15 +61,15 @@ laptop running doze is quiet: nothing runs unless something is using it — at r
 it's one ~15 MB daemon and zero engine processes (see
 [Resource footprint](/guides/resource-footprint/)).
 
-You can reap on demand (`doze sleep <name>`), boot eagerly (`doze wake <name>`), or just let
+You can sleep on demand (`doze sleep <name>`), boot eagerly (`doze wake <name>`), or just let
 it happen.
 
 ## Waking back up
 
-If reaping shut the engine down, isn't reconnecting slow? No — and this is the
+If sleep shut the engine down, isn't reconnecting slow? No — and this is the
 point that makes the whole sleep/wake cycle worth it.
 
-**A reap stops the process but keeps the data directory.** So waking an instance
+**Sleep stops the process but keeps the data directory.** So waking an instance
 isn't a from-scratch boot: doze just restarts the backend on the files that are
 already there and runs the (idempotent, no-op) convergence. There's no
 re-`initdb` and no template clone. In practice that's **sub-second** — your next
@@ -80,7 +80,7 @@ The slower paths are one-offs you pay once, not on every wake:
 
 | Event | Cost | How often |
 |---|---|---|
-| **Wake a reaped instance** | sub-second (just restart the backend) | every idle → reconnect |
+| **Wake a sleeping instance** | sub-second (just restart the backend) | every idle → reconnect |
 | **First boot of a new instance** | a few seconds (clone the [template](#real-engines-pinned-for-reproducibility), provision roles/db) | once per instance, ever |
 | **First use of an engine version** | + a one-time binary download | once per version, ever |
 
@@ -190,7 +190,7 @@ app "worker" {
 ```
 
 Booting `events` boots `jobs` first, injects its connection info, and **holds it
-running** for as long as `events` runs (so the reaper won't take the backend out
+running** for as long as `events` runs (so the sleep timer won't take the backend out
 from under it). Stopping `events` releases it. The ordering falls out of the
 reference — there's nothing extra to declare.
 
@@ -201,7 +201,7 @@ doze runs that Postgres privately and exposes only the Mongo wire.)
 
 S3, SQS, and SNS aren't downloaded binaries — they're implemented in pure Go and
 ship *inside* the doze binary. doze runs each as a managed child process behind
-the same proxy, so they cold-boot, persist to disk, and reap just like the
+the same proxy, so they cold-boot, persist to disk, and sleep just like the
 databases. That's how doze offers "local AWS" with no Docker, no JVM, and no
 LocalStack. (S3 embeds [gofakes3](https://github.com/johannesboyne/gofakes3);
 SQS and SNS are built from scratch.)
@@ -210,7 +210,7 @@ SQS and SNS are built from scratch.)
 
 doze is meant to fade into the background, so it heals itself:
 
-- A backend that crashes is detected and marked reaped, so your next connection
+- A backend that crashes is detected and marked asleep, so your next connection
   cleanly re-boots it instead of hitting a dead socket.
 - Boot and convergence failures are recorded and surfaced in `doze status` and
   `doze doctor` — not swallowed.

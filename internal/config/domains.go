@@ -60,7 +60,7 @@ func (c *Config) Stack() string {
 	return "default"
 }
 
-// DomainFor returns an instance's local DNS name when defaults{domains=true}:
+// DomainFor returns an instance's local DNS name when defaults{names=true}:
 // <service>.<stack>.doze (e.g. orders-pg.demo.doze).
 func (c *Config) DomainFor(name string) string {
 	return DomainLabel(name) + "." + c.Stack() + "." + DomainSuffix
@@ -165,7 +165,7 @@ func (cfg *Config) validateAppDomains() error {
 			if names.Disabled() {
 				return fmt.Errorf("%q declares domains, but names are switched off here (%s); unset it to serve them", decl.Name, names.EnvZone)
 			}
-			return fmt.Errorf("%q declares domains, which need names on: add `domains = true` to the defaults block", decl.Name)
+			return fmt.Errorf("%q declares domains, which need names on: add `names = true` to the defaults block", decl.Name)
 		}
 	}
 	return nil

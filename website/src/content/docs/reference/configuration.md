@@ -10,7 +10,7 @@ kinds of block:
 
 ```hcl
 stack = "shop"                            # root settings
-defaults { idle_timeout = "2m" }
+defaults { sleep = "2m" }
 
 module postgres "app"   { version = 16 }  # an engine from the doze registry
 module valkey   "cache" { version = 9 }
@@ -40,7 +40,8 @@ generated from the module itself, so it can't be stale.
 | `stack` | string | the config folder's name | Names the stack. It scopes local domains (`<name>.<stack>.doze`) and must be unique among the stacks running on the machine. |
 | `home` | string | `$DOZE_HOME` or `~/.doze` | Shared toolchain store + cache (deduplicated across projects). |
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |
-| `defaults { idle_timeout }` | duration | `2m` | Reap an instance after this long at **zero connections**. |
+| `defaults { sleep }` | duration or `"never"` | `2m` | Put an instance to sleep after this long at **zero connections**; a block's own `sleep` wins. `"never"` keeps everything on unless a block says otherwise. (Was `idle_timeout`.) |
+| `defaults { names }` | bool | `false` | Give every instance a `<name>.<stack>.doze` name. (Was `domains = true`; `domains` on an app is for your own hostnames.) |
 | `defaults { log_runs }` | number | `5` | How many runs of each service's log are kept. A run is one start. |
 | `defaults { log_size }` | size | `"10MB"` | The most log kept per service, across its runs. |
 | `tls { … }` | block | off | Terminate client TLS for Postgres — see [TLS](#tls). |
@@ -71,7 +72,7 @@ Every `module <type> "<name>" { … }` block accepts:
 | `enabled` | bool | `true` | `false` keeps it declared but never started (paused). |
 | `count` / `for_each` | number / map or set | none | Stamp several instances from one block; see [Stamping](#stamping-with-for_each--count). |
 | `after` | list of references | none | Start only after these; see [Explicit ordering](#explicit-ordering-after). |
-| `sleep` | duration or `"never"` | the stack's `idle_timeout` | How long the module sits with nothing holding it before it sleeps. `"never"` keeps it on. Its data stays; the next connection wakes it. A module doze doesn't sit in front of, such as `temporal`, can't take a duration: nothing would wake it. |
+| `sleep` | duration or `"never"` | the stack's `sleep` | How long the module sits with nothing holding it before it sleeps. `"never"` keeps it on. Its data stays; the next connection wakes it. A module doze doesn't sit in front of, such as `temporal`, can't take a duration: nothing would wake it. |
 
 `version` is the only version you declare. The *module* (the plugin that
 provides the engine) is selected automatically — the newest release compatible
@@ -605,7 +606,7 @@ app "api" {
 | `dir` | string | the file's dir | Working directory, resolved relative to the declaring file. |
 | `port` | number | none | The app's public port. **doze listens on it, not the app**: the app is started with `$PORT`, a private port doze picks at each start, and doze forwards between the two (see [Ports](#ports-for-an-app)). Exposed as `app.<name>.{url,address,host,port}`. Omit for a worker with no endpoint. |
 | `direct` | bool | `false` | The app binds `port` itself, and doze only starts it: no `$PORT`, no waking on a connection, no connection count. For anything a TCP proxy cannot carry, such as UDP. |
-| `sleep` | duration or `"never"` | the stack's `idle_timeout` with a `port`; `"never"` without one, or with `direct` | Put the app to sleep after this long with nothing holding it; its next connection wakes it. `"never"` keeps it on. A duration needs a `port` and not `direct`, since only a connection through doze can wake it. |
+| `sleep` | duration or `"never"` | the stack's `sleep` with a `port`; `"never"` without one, or with `direct` | Put the app to sleep after this long with nothing holding it; its next connection wakes it. `"never"` keeps it on. A duration needs a `port` and not `direct`, since only a connection through doze can wake it. |
 | `watch` | list of globs | none | Restart the app when a file matching one of these (relative to `dir`, `**` for any depth) changes while it is awake. The inputs of the tasks it waits for count too: the task runs first if its inputs changed. Files are checked once a second; a burst of writes is one restart. |
 | `console` | URL | none | A web console the app serves on a second port, such as `http://127.0.0.1:8025`. doze fronts that port too, on the app's own address, and opening it wakes the app. |
 | `env` | map | none | Environment for the app and its steps. Highest precedence; values may reference other blocks. |

@@ -116,7 +116,7 @@ func TestAServiceWakesOnConnectAndSleepsWhenIdle(t *testing.T) {
 stack = "svc"
 
 defaults {
-  domains = false
+  names = false
 }
 
 service "mail" {
@@ -198,7 +198,7 @@ func TestSetupRunsOncePerDataFolder(t *testing.T) {
 stack = "svc"
 
 defaults {
-  domains = false
+  names = false
 }
 
 service "mail" {
@@ -256,7 +256,7 @@ func TestAFailedOnReadyKeepsTheCommandAndRerunsOnlyTheStep(t *testing.T) {
 stack = "svc"
 
 defaults {
-  domains = false
+  names = false
 }
 
 service "mail" {
@@ -301,7 +301,7 @@ func TestStopStepsAndSIGTERM(t *testing.T) {
 stack = "svc"
 
 defaults {
-  domains = false
+  names = false
 }
 
 service "termy" {
@@ -349,7 +349,7 @@ func TestATaskRerunsOnlyWhenItsInputsChange(t *testing.T) {
 stack = "tasks"
 
 defaults {
-  domains = false
+  names = false
 }
 
 task "migrate" {
@@ -409,7 +409,7 @@ func TestAFailedTaskStopsWhatIsAfterIt(t *testing.T) {
 stack = "tasks"
 
 defaults {
-  domains = false
+  names = false
 }
 
 task "migrate" {
@@ -476,7 +476,7 @@ func TestWatchRestartsAnAppAndRerunsItsTasks(t *testing.T) {
 stack = "watch"
 
 defaults {
-  domains = false
+  names = false
 }
 
 task "gen" {
@@ -548,7 +548,7 @@ func TestADownloadedServiceIsPinnedAndAChangeIsRefused(t *testing.T) {
 stack = "dl"
 
 defaults {
-  domains = false
+  names = false
 }
 
 service "tool" {
@@ -619,7 +619,7 @@ func TestSyncNamesTheBlocksThatDifferFromTheRunningDaemon(t *testing.T) {
 stack = "blocks"
 
 defaults {
-  domains = false
+  names = false
 }
 
 app "api" {
@@ -645,7 +645,7 @@ app "same" {
 stack = "blocks"
 
 defaults {
-  domains = false
+  names = false
 }
 
 app "api" {

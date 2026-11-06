@@ -21,7 +21,7 @@ func TestADomainAddedLiveGetsTheRecordAndTheAuthority(t *testing.T) {
 	t.Setenv("DOZE_HOME", home)
 	project := t.TempDir()
 	path := filepath.Join(project, "doze.hcl")
-	if err := os.WriteFile(path, []byte("stack = \"shop\"\ndefaults { domains = true }\napp \"web\" {\n  run  = \"sleep 60\"\n  port = 28081\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("stack = \"shop\"\ndefaults { names = true }\napp \"web\" {\n  run  = \"sleep 60\"\n  port = 28081\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := config.Load(path, nil)

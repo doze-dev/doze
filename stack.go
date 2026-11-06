@@ -91,10 +91,10 @@ func (s *Stack) HCL() string {
 		if s.domains != nil || s.idleTimeout != 0 {
 			b.WriteString("defaults {\n")
 			if s.idleTimeout != 0 {
-				fmt.Fprintf(&b, "  idle_timeout = %s\n", hclString(s.idleTimeout.String()))
+				fmt.Fprintf(&b, "  sleep = %s\n", hclString(s.idleTimeout.String()))
 			}
 			if s.domains != nil {
-				fmt.Fprintf(&b, "  domains = %s\n", strconv.FormatBool(*s.domains))
+				fmt.Fprintf(&b, "  names = %s\n", strconv.FormatBool(*s.domains))
 			}
 			b.WriteString("}\n\n")
 		}

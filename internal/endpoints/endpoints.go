@@ -27,7 +27,7 @@ type Endpoint struct {
 	Name    string `yaml:"name"`
 	Engine  string `yaml:"engine"`
 	Address string `yaml:"address"` // "host:port" or "unix:/path" — the dialable truth
-	// Domain is the instance's local DNS name (defaults{domains=true}):
+	// Domain is the instance's local DNS name (defaults{names=true}):
 	// <sanitized-name>.<stack>.doze, served by the daemon's unicast resolver
 	// (doze dns-setup). When set, URL uses it in place of the loopback address.
 	Domain string `yaml:"domain,omitempty"`

@@ -17,7 +17,7 @@ cache, and an **SQS** queue the worker drains.
 
 ```hcl
 # doze.hcl — a full local microservices stack
-defaults { idle_timeout = "10m" }
+defaults { sleep = "10m" }
 
 # ── backing stores ───────────────────────────────────────────────
 module postgres "db" {

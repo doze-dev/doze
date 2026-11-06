@@ -21,7 +21,7 @@ my-app/
 
 ```hcl
 # doze.hcl
-defaults { idle_timeout = "5m" }
+defaults { sleep = "5m" }
 
 module postgres "app" {
   version = 16

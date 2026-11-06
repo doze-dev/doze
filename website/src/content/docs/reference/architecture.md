@@ -5,7 +5,7 @@ title: "Architecture"
 
 doze is a single Go binary that is both a CLI and a long-running daemon. The
 daemon is a thin proxy in front of many real backing-service instances — one per
-declared block — that it boots on demand and reaps when idle.
+declared block — that it boots on demand and puts to sleep when idle.
 
 Its shape is two layers: a **generic, engine-blind core** (this repo) and a
 **driver per engine** behind a small interface. The core compiles in exactly one
@@ -26,7 +26,7 @@ clients │  proxy (one listener per instance)                                  
               │   runs IN the plugin via fd handoff]└─ Converge (structural)      │
               │     ▼                                                             │
               │  splice ──▶ backend @instance (unix socket)                       │
-        │     │  reaper (idle, by connection count)   control IPC   pidfile/log   │
+        │     │  sleeper (idle, by connection count)  control IPC   pidfile/log   │
         └────────│────────────────────────────────────────────────────────────────┘
                  │ gRPC (go-plugin)
         ┌────────▼─────────┐   fetched from the signed registry, one process per
@@ -90,7 +90,7 @@ artifact signatures + TOFU key pinning.
    provision `Converge` the declared structure (roles/schemas/buckets/queues).
 4. The proxy dials the backend socket and **splices** byte-for-byte;
    **registry** counts the live connection.
-5. The **reaper** reaps only after `idle_timeout` at **zero connections** —
+5. The **sleep timer** puts an instance to sleep only after the `sleep` time at **zero connections** —
    never on query inactivity, so pools holding idle connections survive.
 
 ## Packages (this repo)
@@ -101,10 +101,10 @@ artifact signatures + TOFU key pinning.
 | `engine/process` | The one compiled-in driver: supervised host applications (hooks, health, restart policy, port binding). |
 | `internal/config` | HCL → engine-agnostic root + per-block plugin decode. Two-phase evaluator: variables/locals/outputs, `for_each`/`count`, typed cross-instance references (the dependency graph), multi-file merge, positioned diagnostics with did-you-mean (catalog-backed for engine types). Feeds declared engine versions into module selection and validates every block against the pinned module's engine support. |
 | `internal/modules` | The module fetcher: signed-index fetch + verification, release selection, TOFU key pinning, lock pins, `upgrade`, the registry catalog (`search`/`docs`/`info`). |
-| `internal/runtime` | Engine-agnostic orchestration: `singleflight` boot, dependency boot+hold, idle reaper, the instance state machine (`internal/registry`), plan/apply/destroy. |
+| `internal/runtime` | Engine-agnostic orchestration: `singleflight` boot, dependency boot+hold, idle sleep timer, the instance state machine (`internal/registry`), plan/apply/destroy. |
 | `internal/proxy` | One listener per instance, byte splice, cancel registry, wire-filter dispatch (fd handoff to plugins). |
 | `internal/supervisor` | Generic process lifecycle: spawn, clean stop (SIGINT→SIGQUIT→SIGKILL), parent-death cleanup, ring log buffer. |
-| `internal/daemon` | Wires runtime + listeners + reaper + control IPC into the hidden `doze __daemon` self-exec. |
+| `internal/daemon` | Wires runtime + listeners + sleep timer + control IPC into the hidden `doze __daemon` self-exec. |
 | `internal/control` / `internal/endpoints` / `internal/state` / `internal/health` | Admin IPC · connection strings + `.doze/endpoints.yaml` · project state · health probes. |
 | `internal/ui` / `internal/dash` | Color-gated CLI vocabulary · the Bubble Tea dashboard (pages, tabs and overlays; it reaches the daemon only through `control.Daemon`). |
 
@@ -120,7 +120,7 @@ artifact signatures + TOFU key pinning.
   and every compatibility failure names its fix (`doze modules upgrade …`).
 - **Per-instance listeners.** Routing needs no protocol parsing; protocol
   awareness is a per-engine opt-in that runs in the engine's own process.
-- **Reap on connection count, never query inactivity.** Pools hold idle
+- **Sleep on connection count, never query inactivity.** Pools hold idle
   connections open and must not be severed.
 - **Instance dependencies are first-class**, derived from the config reference
   graph (SNS boots and holds its SQS).

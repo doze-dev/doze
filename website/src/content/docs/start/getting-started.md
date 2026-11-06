@@ -101,7 +101,7 @@ shows the `app` database. Quit with `\q`.
 > grants you declared — it did not insert any rows. Your app's migrations own the
 > schema and data; doze owns the scaffolding around them.
 
-## 4. See the magic: lazy boot and idle reap
+## 4. See the magic: lazy boot and idle sleep
 
 See your declared instances and their state (everything's asleep until you
 connect):
@@ -119,9 +119,9 @@ psql "postgresql://app:app@127.0.0.1:6432/app" -c "select 1"
 ```
 
 While that query runs, `doze status` shows the instance **active** with a live
-connection. Close the client, wait for the idle timeout (2 minutes by default),
-and it **reaps** back to zero — the process exits, RAM goes back to your laptop,
-and the next connection boots it again. The reap keeps the data directory, so
+connection. Close the client, wait for the `sleep` time (2 minutes by default),
+and it **goes to sleep** — the process exits, RAM goes back to your laptop,
+and the next connection boots it again. Sleep keeps the data directory, so
 waking back up is **sub-second** (only the very first boot of an instance takes a
 few seconds) — you never have to think about starting or stopping it. See
 [Waking back up](/start/concepts/#waking-back-up) for the full cost model.
@@ -157,7 +157,7 @@ module valkey "cache" {
 ```sh
 doze status
 #   app    postgres   idle     …
-#   cache  valkey     reaped   …    (boots when something connects)
+#   cache  valkey     asleep   …    (boots when something connects)
 ```
 
 Two engines, one file. Each has its own endpoint and its own lifecycle.
@@ -201,13 +201,13 @@ perfect when a run needs a known-clean database.
 ## You've got the model
 
 That's the whole loop: **declare** in `doze.hcl`, **use** via `doze run` or a
-direct connection to the stable port, and let doze **boot on demand** and **reap
+direct connection to the stable port, and let doze **boot on demand** and **sleep
 when idle**. From here:
 
 - **[Why doze](/why/doze/)** — the case against docker-compose / native installs,
   and **[the footprint numbers](/guides/resource-footprint/)** behind "quiet laptop."
 - **[The engines](/guides/engines/)** — what Valkey, Kvrocks, and DocumentDB actually are.
-- **[Core concepts](/start/concepts/)** — how lazy boot, reaping, convergence, and the
+- **[Core concepts](/start/concepts/)** — how lazy boot, sleep, convergence, and the
   proxy actually work.
 - **[Files & storage](/guides/files-and-storage/)** — where doze keeps everything, what
   to commit, and how to split your config across files.

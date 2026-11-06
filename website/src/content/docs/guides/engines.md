@@ -8,7 +8,7 @@ rest are picked to be **cheap, real, and license-clean local stand-ins** for
 software that's otherwise heavy, costly, or legally encumbered to run yourself —
 so you get the API your code already speaks, without the baggage.
 
-Every engine boots on first connect and reaps when idle, the same way
+Every engine boots on first connect and sleeps when idle, the same way
 ([concepts](/start/concepts/)). What differs is *what* each one is and *when*
 you'd reach for it.
 
@@ -82,7 +82,7 @@ to disk via RocksDB** instead of holding everything in memory.[^kvrocks] It's an
 Apache Software Foundation project (Apache-2.0).
 
 Reach for Kvrocks over Valkey when your dataset is large and you'd rather not pay
-to keep it all resident in RAM, or when you want the keys to **survive a reap and
+to keep it all resident in RAM, or when you want the keys to **survive sleep and
 a restart** without configuring snapshots. Same client code, different trade-off:
 Valkey optimizes for in-memory speed and volatility; Kvrocks for durability and a
 small memory footprint.

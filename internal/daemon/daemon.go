@@ -287,7 +287,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := endpoints.WriteManifest(endpoints.ManifestPath(d.cfg), eps); err != nil {
 		d.logf("warning: could not write endpoints manifest: %v", err)
 	}
-	// Local DNS names (defaults{domains=true}): <service>.<stack>.doze via
+	// Local DNS names (defaults{names=true}): <service>.<stack>.doze via
 	// the built-in resolver, each answering with the service's per-service IP.
 	releaseNames, err := d.setupDomains(ctx, plan.resolve)
 	if err != nil {

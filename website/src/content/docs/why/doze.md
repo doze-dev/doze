@@ -82,7 +82,7 @@ Concretely:
   [measured footprint](/guides/resource-footprint/).)
 - **You pay only for what you touch.** Connect to your database and doze boots
   *that one engine* — a real, native ~5 MB Postgres — and nothing else. Stop, and
-  it reaps back to zero a few minutes later.
+  it goes back to sleep a few minutes later.
 - **It's real, not emulated.** doze doesn't reimplement Postgres or fake the wire
   protocol; it runs the genuine binary and gets out of the way. Every client,
   extension, and protocol feature behaves exactly like production.
@@ -125,7 +125,7 @@ you want real infrastructure without the always-on weight. If you've ever run
 
 **No, if** you need production infrastructure. doze runs **single** local
 instances — no replication, no HA, no failover — tuned toward fast iteration over
-durability, and it reaps them when idle. It's not a place to keep data you can't
+durability, and it puts them to sleep when idle. It's not a place to keep data you can't
 lose, and its S3/SQS/SNS are dev-grade conveniences, not a substitute for real
 AWS. Use managed databases and real AWS in production. (Full rationale in the
 [FAQ](/guides/faq/#is-doze-production-ready).)

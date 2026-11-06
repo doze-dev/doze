@@ -10,7 +10,7 @@ No — and it isn't meant to be. doze is for **local development and CI**. Concr
 - It runs **single instances** — no replication, no high availability, no
   failover.
 - Engines are tuned for fast local iteration (e.g. Postgres defaults toward
-  speed over crash-safety), and instances **reap when idle**.
+  speed over crash-safety), and instances **sleep when idle**.
 - The built-in **S3/SQS/SNS are dev-grade** conveniences, not a substitute for
   real AWS (limited versioning/IAM; single-node semantics).
 

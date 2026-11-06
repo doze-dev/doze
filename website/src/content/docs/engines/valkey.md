@@ -7,7 +7,7 @@ description: "In-memory cache, Redis-compatible."
 
 **Runs Valkey 8 – 9 · macOS & Linux** · [registry page ↗](https://doze.nerdmenot.in/registry/doze/valkey/)
 
-A local Valkey server — the open-source Redis fork. Speaks the Redis protocol, so any redis client works. Set a memory ceiling and an eviction policy and use it as a cache; doze boots it on first connect and reaps it when idle.
+A local Valkey server — the open-source Redis fork. Speaks the Redis protocol, so any redis client works. Set a memory ceiling and an eviction policy and use it as a cache; doze boots it on first connect and puts it to sleep when idle.
 
 ## Usage
 

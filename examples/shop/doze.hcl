@@ -5,7 +5,7 @@
 # docs/design/next/phases.md).
 #
 #   doze up            from this directory
-#   doze up --var domains=false    on a machine without `doze dns-setup`,
+#   doze up --var names=false    on a machine without `doze dns-setup`,
 #                                  or beside other stacks you must not disturb
 
 stack = "shop"
@@ -17,8 +17,8 @@ variable "domains" {
 }
 
 defaults {
-  idle_timeout = "5m"
-  domains      = var.domains
+  # sleep = "5m"
+  names      = var.domains
 }
 
 # ── modules ───────────────────────────────────────────────────────────────

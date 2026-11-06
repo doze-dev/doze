@@ -109,7 +109,7 @@ Two more for the moments you need them, one gentle and one not:
 
 ```sh
 doze wake cache      # boot one service now (and anything it depends on)
-doze sleep cache     # reap one service now
+doze sleep cache     # put one service to sleep now
 ```
 
 ```sh

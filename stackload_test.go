@@ -18,7 +18,7 @@ func TestStackRoundTrip(t *testing.T) {
 	original := `stack = "shop"
 
 defaults {
-  domains = true
+  names = true
 }
 
 app "api" {
@@ -41,7 +41,7 @@ app "legacy" {
 
 	// The loaded stack round-trips the existing blocks verbatim.
 	out := sb.HCL()
-	for _, want := range []string{`stack = "shop"`, "domains = true", `app "api"`, "port    = 8080", `app "legacy"`} {
+	for _, want := range []string{`stack = "shop"`, "names = true", `app "api"`, "port    = 8080", `app "legacy"`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("round-trip HCL missing %q:\n%s", want, out)
 		}

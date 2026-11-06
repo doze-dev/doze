@@ -188,7 +188,7 @@ func waitFor(t *testing.T, what string, check func() error) {
 const appStack = `stack = "namestest"
 
 defaults {
-  domains = true
+  names = true
 }
 
 app "api" {

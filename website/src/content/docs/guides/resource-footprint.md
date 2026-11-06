@@ -13,7 +13,7 @@ doze actually uses, measured, and how that compares to the alternatives.
 - **Active, you pay for one engine at a time.** A booted Postgres is a single
   native process of a few megabytes to a few tens of megabytes; an idle-but-booted
   Valkey is ~4 MB. Nothing else runs unless you connect to it.
-- **Reaped, it's gone.** When an instance goes idle, its process exits and the
+- **Asleep, it's gone.** When an instance goes idle, its process exits and the
   kernel reclaims every byte. Back to ~15 MB.
 
 There is no VM, no container runtime, no JVM, and no per-service "always-on"
@@ -25,14 +25,14 @@ The figures below were measured with `ps` on Apple Silicon (macOS, arm64), using
 the real engine binaries doze downloads. They'll vary with your hardware, the
 engine version, and load — see [how we measured](#how-we-measured) — but the
 *shape* (one tiny daemon idle; one native process per active engine; zero when
-reaped) is structural, not machine-specific.
+asleep) is structural, not machine-specific.
 
 | State | What's running | Resident memory |
 |---|---|---|
-| doze idle | the daemon only (listeners + reaper) | **~15 MB** |
+| doze idle | the daemon only (listeners + sleep timer) | **~15 MB** |
 | Postgres booted | daemon + 1 native `postgres` | ~15 MB + **~5 MB** |
 | Valkey booted | daemon + 1 native `valkey-server` | ~15 MB + **~4 MB** |
-| any engine reaped | daemon only | back to **~15 MB** |
+| any engine asleep | daemon only | back to **~15 MB** |
 
 A booted Postgres grows under load toward its `shared_buffers` (16 MB in doze's
 dev profile by default), and adds a few small background workers — so call it
@@ -59,8 +59,8 @@ a service**, which on a dev machine is most of the time.
 
 The difference is categorical. Docker reserves **gigabytes** for a VM that's up
 all day; doze's idle cost is a **single process smaller than a browser tab**.
-When you actually need a database, doze runs *one real native engine* and reaps
-it when you're done — so even "active" doze is a handful of megabytes against
+When you actually need a database, doze runs *one real native engine* and puts
+it to sleep when you're done — so even "active" doze is a handful of megabytes against
 Docker's always-resident VM.
 
 A worked example — a typical app needing Postgres + a cache + a bucket:
@@ -82,7 +82,7 @@ The footprint isn't a tuning trick — it falls out of the architecture
 - **One real process per active instance.** doze spawns the genuine engine binary
   as a child process and splices your connection to it — no supervisor pool, no
   per-connection backends, no sidecars.
-- **Idle reap.** Zero connections for a few minutes and the process exits; the OS
+- **Idle sleep.** Zero connections for a few minutes and the process exits; the OS
   returns all of its RAM, file descriptors, and sockets.
 - **Pure-Go AWS.** S3/SQS/SNS are compiled into the doze binary and run as
   short-lived child processes — no Docker image, no Python, no JVM.

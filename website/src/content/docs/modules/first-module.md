@@ -40,7 +40,7 @@ curl localhost:8080
 `DOZE_<TYPE>_PLUGIN` points doze at your local binary, skipping fetch and
 signature checks entirely — the whole author inner loop is *build, run,
 curl*. `doze lint` exercises your `DecodeConfig` (your typos become positioned
-errors); `doze logs site` shows your server's output; `doze down` reaps it.
+errors); `doze logs site` shows your server's output; `doze down` stops it.
 
 ## 3. Make it yours
 

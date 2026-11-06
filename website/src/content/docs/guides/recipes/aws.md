@@ -48,7 +48,7 @@ module aws "local" {
 ```
 
 Everything inside is created (or updated) when the instance boots, and it all
-persists to disk across reaps like any other engine. There's no `version =` —
+persists to disk across sleeps like any other engine. There's no `version =` —
 the services track current AWS APIs.
 
 ## Point your SDK at it

@@ -7,7 +7,7 @@ Something not working? Start here. Most issues fall into a few buckets, and thre
 commands tell you almost everything:
 
 ```sh
-doze status     # what's up, what's reaped, and any instance in an "error" state
+doze status     # what's up, what's asleep, and any instance in an "error" state
 doze doctor     # config parses? platform? toolchains? daemon?
 doze logs       # the daemon log — or `doze logs <instance>` for a backend's log
 ```
@@ -89,15 +89,15 @@ proxy, or a download fails:
 - **TLS.** If you set a `tls {}` block with `required = true`, plaintext clients
   are rejected; connect with `sslmode=require`.
 
-## My database reaped while I was still working
+## My database went to sleep while I was still working
 
-That's by design — but it shouldn't interrupt you. doze reaps on **zero
+That's by design — but it shouldn't interrupt you. doze sleeps on **zero
 connections**, never on query inactivity, so an open connection (or pool) keeps it
 alive. If a short-lived script makes it sleep between runs and that bothers you,
 raise the timeout:
 
 ```hcl
-defaults { idle_timeout = "30m" }
+defaults { sleep = "30m" }
 ```
 
 (The next connection re-boots it instantly either way.)

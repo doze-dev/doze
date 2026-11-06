@@ -30,7 +30,7 @@ func TestStackHCLRender(t *testing.T) {
 	got := sb.HCL()
 	for _, want := range []string{
 		`stack = "shop"`,
-		"domains = true",
+		"names = true",
 		`app "worker"`,
 		`run = "python worker.py"`,
 		`ready = http("/health")`,

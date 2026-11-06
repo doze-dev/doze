@@ -9,7 +9,7 @@ tests and dev servers, operating the stack, and CI.
 ## `doze run` — the everyday command
 
 Ensures the daemon is up, runs your command, and propagates its exit code.
-Instances boot on first connect and reap after — so `run` guarantees the backends
+Instances boot on first connect and sleep after — so `run` guarantees the backends
 are awake before your command touches them.
 
 ```sh
@@ -95,8 +95,8 @@ doze down             # sleep everything and stop the daemon
 
 doze wake app         # boot one service now (and its deps)
 doze wake             # warm every enabled service
-doze sleep app        # reap one service (and its dependents); daemon keeps running
-doze sleep            # reap all awake services
+doze sleep app        # put one service (and its dependents) to sleep; daemon keeps running
+doze sleep            # put all awake services to sleep
 
 doze sync             # reconcile declared structure (create/update/prune)
 doze sync --dry-run   # preview the changes; boots nothing
@@ -140,4 +140,4 @@ doze down                # sleep everything and stop the daemon
 Tips for CI:
 - Commit `doze.lock` so the binaries are byte-identical to local.
 - Use `DOZE_<ENGINE>_BINDIR` to point at preinstalled binaries and skip downloads.
-- `idle_timeout` can be short; the daemon reaps idle backends between steps.
+- `sleep` in `defaults` can be short; idle services sleep between steps.

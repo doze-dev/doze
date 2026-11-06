@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	names "github.com/doze-dev/doze-names"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+
+	"github.com/doze-dev/doze/internal/runspec"
 )
 
 // common is the partial-decode target for the fields config reads from every
@@ -36,31 +38,52 @@ type hclTLS struct {
 }
 
 type hclDefaults struct {
-	IdleTimeout string `hcl:"idle_timeout,optional"`
-	Domains     bool   `hcl:"domains,optional"`
-	LogRuns     int    `hcl:"log_runs,optional"`
-	LogSize     string `hcl:"log_size,optional"`
+	Sleep   string `hcl:"sleep,optional"`
+	Names   bool   `hcl:"names,optional"`
+	LogRuns int    `hcl:"log_runs,optional"`
+	LogSize string `hcl:"log_size,optional"`
+}
+
+// oldDefaults are the defaults arguments a later spelling replaced: the
+// words now match what a block says for itself (`sleep`), and `domains`
+// is left for your own hostnames on an app.
+var oldDefaults = map[string]func(text string) (string, string){
+	"idle_timeout": func(text string) (string, string) {
+		if strings.Trim(text, `"`) == "0s" || strings.Trim(text, `"`) == "0" {
+			text = `"never"`
+		}
+		return "`idle_timeout` is now `sleep`, the word a block uses for its own", "write: sleep = " + text
+	},
+	"domains": func(text string) (string, string) {
+		return "in defaults, `domains` is now `names`: it turns on the <name>.<stack>.doze names", "write: names = " + text + " (`domains` on an app is for your own hostnames)"
+	},
 }
 
 func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx *hcl.EvalContext) error {
+	if body, ok := block.Body.(*hclsyntax.Body); ok {
+		for name, hint := range oldDefaults {
+			if attr, ok := body.Attributes[name]; ok {
+				msg, fix := hint(exprText(parser, attr.Expr.Range()))
+				return posErr(parser, attr.NameRange, msg, fix)
+			}
+		}
+	}
 	var d hclDefaults
 	if diags := gohcl.DecodeBody(block.Body, ctx, &d); diags.HasErrors() {
 		return diagError(parser, diags)
 	}
-	if d.IdleTimeout != "" {
-		td, err := time.ParseDuration(d.IdleTimeout)
+	if d.Sleep != "" {
+		sl, err := runspec.ParseSleep(d.Sleep)
 		if err != nil {
-			return posErr(parser, block.DefRange, "invalid idle_timeout", fmt.Sprintf("%q is not a valid duration (try \"5m\", \"30s\")", d.IdleTimeout))
+			return posErr(parser, block.DefRange, "invalid sleep in defaults", err.Error())
 		}
-		if td < 0 {
-			return posErr(parser, block.DefRange, "invalid idle_timeout", "must not be negative")
+		// Zero is "never": only a block with a sleep of its own sleeps.
+		cfg.Defaults.IdleTimeout = sl.After
+		if sl.Never {
+			cfg.Defaults.IdleTimeout = 0
 		}
-		cfg.Defaults.IdleTimeout = td
 	}
-	// DOZE_ZONE=off switches names off for every doze program at once: a CI job or
-	// a container says so once, and a config that asks for names runs without
-	// them — everything on 127.0.0.1, as if the line were not there.
-	cfg.Defaults.Domains = d.Domains && !names.Disabled()
+	cfg.Defaults.Domains = d.Names && !names.Disabled()
 	if d.LogRuns < 0 {
 		return posErr(parser, block.DefRange, "invalid log_runs", "must not be negative")
 	}

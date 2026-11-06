@@ -66,7 +66,7 @@ kcat -b "$addr" -t orders -P <<< '{"order":1}'   # produce
 kcat -b "$addr" -t orders -C -o beginning        # consume
 ```
 
-The broker wakes on the first connect and reaps when idle, like every engine —
+The broker wakes on the first connect and sleeps when idle, like every engine —
 a long-polling consumer holds it awake, which is what you want.
 
 ## Consumer groups & lag

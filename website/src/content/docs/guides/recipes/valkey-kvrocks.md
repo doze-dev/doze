@@ -12,7 +12,7 @@ lives:
 
 - **Valkey** — in-memory, like Redis. Fast, volatile. Use it as a **cache**.
 - **Kvrocks** — RocksDB-backed (on disk). Redis API, durable storage, lower RAM.
-  Use it as a **persistent KV store** that survives reaps and restarts.
+  Use it as a **persistent KV store** that survives sleep and restarts.
 
 ## A cache (Valkey)
 
@@ -43,7 +43,7 @@ module kvrocks "store" {
 ```
 
 Identical client experience, but writes persist to disk — stop touching it, let it
-reap, reconnect later, and your keys are still there.
+sleep, reconnect later, and your keys are still there.
 
 ## Connecting clients & GUIs
 
@@ -98,8 +98,8 @@ doze sleep cache                                         # put it to sleep now
 - **Valkey is a drop-in Redis fork** — your `ioredis`/`redis-py`/`go-redis` code
   needs no changes; just point it at the stable `redis://127.0.0.1:<port>`.
 - **Pick by durability:** ephemeral cache → `valkey`; data you don't want to lose
-  on a reap → `kvrocks`.
+  when it sleeps → `kvrocks`.
 - **`maxmemory`** (Valkey) caps memory; pair it with an eviction policy from your
   client if you want LRU behavior.
-- Reaping is by connection count — a client that keeps a connection open keeps the
+- Sleep is by connection count — a client that keeps a connection open keeps the
   instance awake.

@@ -126,7 +126,7 @@ type InstanceDecl struct {
 	After []Ref
 	Refs  []Ref
 	// Sleep is a module block's own `sleep`: unset follows the stack's
-	// idle_timeout, "never" keeps it on, a duration replaces the timeout. An
+	// sleep, "never" keeps it on, a duration replaces the timeout. An
 	// app's sleep lives in its engine config.
 	Sleep runspec.Sleep
 }

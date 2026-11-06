@@ -318,7 +318,7 @@ func engineCell(decl *config.InstanceDecl, v control.InstanceView, running bool)
 // endpointCell shows the client-facing address whenever the daemon knows it (even
 // asleep — connecting wakes it). With the daemon down the declared address still
 // prints (muted) — the endpoint is the whole point of the table, and connecting
-// to it is exactly how you wake the stack. With defaults{domains=true} the local
+// to it is exactly how you wake the stack. With defaults{names=true} the local
 // DNS name renders instead of the loopback address (both resolve to the same
 // listener). Portless services render as "-".
 func endpointCell(cfg *config.Config, decl *config.InstanceDecl, v control.InstanceView, running bool) string {

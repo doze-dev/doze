@@ -41,7 +41,7 @@ on hotel wifi; picking restart policies for a laptop.
   declaration.
 - **The lockfile.** `doze.lock` pins engines, modules, and publisher keys —
   compose has image digests if you remember to use them; nobody does.
-- **Sleep.** Idle instances reap to zero and wake on the next connection in
+- **Sleep.** Idle instances go to sleep and wake on the next connection in
   well under a second. Your laptop is quiet because nothing is running.
 
 ## A worked translation

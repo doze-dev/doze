@@ -55,7 +55,7 @@ Numbers, not vibes — [measured here](/guides/resource-footprint/):
   Desktop installation idles at hundreds of MB to several GB reserved, running
   or not, because the VM holds its allocation.
 - **Engines sleep.** Zero connections for a few minutes and the instance is
-  reaped to zero. The whole stack exists only while something talks to it —
+  asleep. The whole stack exists only while something talks to it —
   compose stacks run everything you defined, all day, because stopping and
   starting them is annoying enough that nobody does.
 - **Apple Silicon runs native binaries.** doze's engines are arm64 builds. No
@@ -83,7 +83,7 @@ An honest list, because pretending otherwise would cost this page its
 credibility:
 
 - **Production packaging and orchestration.** doze is explicitly not for
-  production — no HA, no replication, reaps when idle. Ship containers.
+  production — no HA, no replication, sleeps when idle. Ship containers.
 - **Your app's own runtime, when it must match Linux exactly.** doze manages
   backing services; if your bug only reproduces on a Linux userland, you want
   a container (or CI) for the *app*. The two compose fine — doze's services
