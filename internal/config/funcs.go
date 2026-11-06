@@ -139,8 +139,14 @@ func envOfFunc() function.Function {
 		Impl: func(args []cty.Value, _ cty.Type) (cty.Value, error) {
 			out := map[string]cty.Value{}
 			from := map[string]string{}
+			for _, a := range args {
+				if !a.IsWhollyKnown() {
+					// The shape pass, before modules have addresses: decided later.
+					return cty.UnknownVal(cty.Map(cty.String)), nil
+				}
+			}
 			for i, a := range args {
-				if a.IsNull() || !a.IsKnown() || !a.Type().IsObjectType() || !a.Type().HasAttribute("env") {
+				if a.IsNull() || !a.Type().IsObjectType() || !a.Type().HasAttribute("env") {
 					return cty.NilVal, function.NewArgErrorf(i, "env_of takes blocks that publish env, such as module.db")
 				}
 				name := fmt.Sprintf("argument %d", i+1)

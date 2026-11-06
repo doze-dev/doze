@@ -303,6 +303,7 @@ func standInAttributes(decl *InstanceDecl, used map[string]bool) cty.Value {
 		"url":     cty.StringVal(""),
 		"env_var": cty.StringVal(""),
 		"socket":  cty.StringVal(""),
+		"env":     cty.EmptyObjectVal, // the module names its variable; empty without it, as env_var is
 	}
 	for attr := range used {
 		if _, ok := m[attr]; !ok {
@@ -471,6 +472,7 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 		return cty.ObjectVal(map[string]cty.Value{
 			"name":   cty.StringVal(p.decl.Name),
 			"engine": cty.StringVal(p.decl.Type),
+			"env":    cty.EmptyObjectVal,
 		}), nil
 	}
 	// In domains mode a reference's user-facing host is the service's DNS name
