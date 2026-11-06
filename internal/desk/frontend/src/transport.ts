@@ -22,6 +22,8 @@ export interface Nav {
   instance?: string;
   /** bell says Needs you was asked for as the window opened. */
   bell?: boolean;
+  /** act is a stack action to make on arrival (up-last, up-all), from the menu bar. */
+  act?: string;
 }
 
 export interface Transport {

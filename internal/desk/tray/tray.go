@@ -91,9 +91,6 @@ func Build(stacks []hub.StackView, now time.Time) Model {
 			if mem > 0 {
 				l.Sub += " · " + display.MB(mem)
 			}
-			if url := firstURL(st); url != "" {
-				l.Sub += " · " + url
-			}
 		}
 		running = append(running, l)
 	}
@@ -110,17 +107,6 @@ func Build(stacks []hub.StackView, now time.Time) Model {
 		m.Tooltip = fmt.Sprintf("doze · %d awake", awake)
 	}
 	return m
-}
-
-// firstURL is the stack's own domain if an app declares one, else nothing:
-// the menu has room for one address.
-func firstURL(st hub.StackView) string {
-	for _, v := range st.Instances {
-		if v.HTTPS != "" {
-			return v.HTTPS
-		}
-	}
-	return ""
 }
 
 func lastUp(stacks []hub.StackView, key string) time.Time {

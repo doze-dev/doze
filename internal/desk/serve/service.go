@@ -119,6 +119,9 @@ type Nav struct {
 	Dir string `json:"dir,omitempty"`
 	// Bell says Needs you was asked for as the window opened.
 	Bell bool `json:"bell,omitempty"`
+	// Act is a stack action the page makes on arrival: "up-last" or
+	// "up-all" from the menu bar, on Key.
+	Act string `json:"act,omitempty"`
 }
 
 // Emitter delivers a push to the page.
@@ -208,9 +211,13 @@ type Service struct {
 	notNowSet bool
 	attnTimer bool
 	bellAt    time.Time
-	sent      map[string]uint64 // event name → hash of what was last sent
-	dirty     bool
-	wake      chan struct{}
+	// upKey and upAction are an Up the menu bar asked the page to make,
+	// at upAt, so the checks' sheet can ask (AskUp).
+	upKey, upAction string
+	upAt            time.Time
+	sent            map[string]uint64 // event name → hash of what was last sent
+	dirty           bool
+	wake            chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -850,9 +857,17 @@ func (s *Service) Pending() Nav {
 	s.mu.Lock()
 	bell := !s.bellAt.IsZero() && s.now().Sub(s.bellAt) < 5*time.Second
 	s.bellAt = time.Time{}
+	upKey, upAct := "", ""
+	if !s.upAt.IsZero() && s.now().Sub(s.upAt) < 5*time.Second {
+		upKey, upAct = s.upKey, s.upAction
+	}
+	s.upAt = time.Time{}
 	s.mu.Unlock()
 	nav := s.pending()
 	nav.Bell = bell
+	if upKey != "" {
+		nav.Key, nav.Page, nav.Act = upKey, "home", upAct
+	}
 	return nav
 }
 

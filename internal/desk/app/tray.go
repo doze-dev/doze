@@ -98,34 +98,52 @@ func (d *desk) refreshTray() {
 	})
 }
 
-// menu is the MenuBar board: one line per stack, running first, with how
-// it is under the name; then Open doze, Settings…, Quit. A line opens its
-// stack in the window; a stopped stack's line opens its page, where the
-// switch is. Native menus take one line of text, so the second line of the
-// board follows the name after a dot.
+// menu is the menu bar, rethought (2026-11-06): what needs you, at the top
+// and only when something is red; one line per stack, each a submenu of
+// what fits its state; then Open doze, Settings… and Quit. The window is
+// for everything else.
 func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	menu := d.app.NewMenu()
 	d.needsYou(menu, a)
 	if len(m.Lines) == 0 {
 		menu.Add("No stacks yet · open a folder in doze").SetEnabled(false)
+	} else {
+		menu.AddSectionHeader("Stacks")
 	}
-	stoppedStarted := false
 	for _, l := range m.Lines {
-		if !l.Running && !stoppedStarted {
-			stoppedStarted = true
-			if l != m.Lines[0] {
-				menu.AddSeparator()
-			}
+		mark := "○  "
+		if l.Running {
+			mark = "●  "
 		}
-		dir := l.Dir
-		title := l.Name
+		if l.Trouble {
+			mark = "⚠︎  "
+		}
+		title := mark + l.Name
 		if l.Sub != "" {
 			title += "   ·   " + l.Sub
 		}
-		item := menu.Add(title).OnClick(func(*application.Context) { d.open(dir) })
-		if l.Trouble {
-			item.SetTooltip("needs you")
+		sub := menu.AddSubmenu(title)
+		line := l
+		sub.Add("Open in doze").OnClick(func(*application.Context) { d.open(line.Dir) })
+		if l.Running {
+			if url := d.svc.WebURL(l.Key); url != "" {
+				sub.Add("Open " + url).OnClick(func(*application.Context) { _ = d.app.Browser.OpenURL(url) })
+			}
+			sub.AddSeparator()
+			sub.Add("Sleep everything").OnClick(func(*application.Context) {
+				d.report(d.svc.Do(line.Key, "sleep", ""), "sleep everything in "+line.Name)
+			})
+			sub.Add("Restart").OnClick(func(*application.Context) {
+				d.report(d.svc.Stack(line.Key, "restart", nil), "restart "+line.Name)
+			})
+			sub.Add("Down").OnClick(func(*application.Context) {
+				d.report(d.svc.Stack(line.Key, "down", nil), "bring "+line.Name+" down")
+			})
+			continue
 		}
+		sub.AddSeparator()
+		sub.Add("Up as last time").OnClick(func(*application.Context) { d.up(line, "up-last") })
+		sub.Add("Up everything").OnClick(func(*application.Context) { d.up(line, "up-all") })
 	}
 	menu.AddSeparator()
 	menu.Add("Open doze").SetAccelerator("CmdOrCtrl+Shift+D").OnClick(func(*application.Context) { d.open("") })
@@ -135,6 +153,27 @@ func (d *desk) menu(m tray.Model, a view.Attention) *application.Menu {
 	})
 	menu.Add("Quit doze   ·   stacks keep running").OnClick(func(*application.Context) { d.app.Quit() })
 	return menu
+}
+
+// up starts a stopped stack from the menu bar. Up looks first (D19): with
+// something in the way the window opens on the stack, where the checks'
+// sheet asks; otherwise it just starts.
+func (d *desk) up(l tray.Line, action string) {
+	if d.svc.Preflight(l.Key, action, nil).Blocked {
+		d.svc.AskUp(l.Key, action)
+		d.open(l.Dir)
+		return
+	}
+	d.report(d.svc.Stack(l.Key, action, nil), "start "+l.Name)
+}
+
+// report says a menu bar action that failed: the window may be closed, so
+// it is said as the app says things (a notice, and a notification when it
+// is not on screen is the notifier's call).
+func (d *desk) report(err error, what string) {
+	if err != nil {
+		d.svc.Say("could not "+what+": "+err.Error(), true)
+	}
 }
 
 // needsYou renders tray.NeedsOf above the stacks: each red item a submenu

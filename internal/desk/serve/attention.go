@@ -9,6 +9,7 @@ import (
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/prefs"
 	"github.com/doze-dev/doze/internal/desk/view"
+	"github.com/doze-dev/doze/internal/display"
 )
 
 const (
@@ -334,4 +335,40 @@ func (s *Service) Away() *view.Away {
 // trimStopped takes " · its stack is stopped" off a task item's detail.
 func trimStopped(d string) string {
 	return strings.TrimSuffix(d, " · its stack is stopped")
+}
+
+// WebURL is the address to open a running stack at, for the menu bar: its
+// own domain when an app declares one, else its first app's .doze address
+// (port-less while the front door is up), else "".
+func (s *Service) WebURL(key string) string {
+	st, ok := s.stack(key)
+	if !ok || !st.Running {
+		return ""
+	}
+	for _, v := range st.Instances {
+		if v.HTTPS != "" {
+			return v.HTTPS
+		}
+	}
+	for _, v := range st.Instances {
+		if v.Kind != "app" || v.Domain == "" {
+			continue
+		}
+		if url := s.urlFor(v.Domain); url != "" {
+			return url
+		}
+		if addr, port := display.URL(v); strings.HasPrefix(addr, "http") {
+			return addr + port
+		}
+	}
+	return ""
+}
+
+// AskUp has the page start a stack itself, so the checks' sheet can ask:
+// at once on a page that is up, or as the page boots (Pending, briefly).
+func (s *Service) AskUp(key, action string) {
+	s.mu.Lock()
+	s.upKey, s.upAction, s.upAt = key, action, s.now()
+	s.mu.Unlock()
+	s.Menu(action + ":" + key)
 }

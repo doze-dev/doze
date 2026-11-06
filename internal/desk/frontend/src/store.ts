@@ -663,6 +663,12 @@ export function useBoot() {
         // A native menu item: the same move as its key on the page.
         t.on<string>("menu", (item) => {
           const w = get().where;
+          // The menu bar's Up, made here so the checks' sheet can ask.
+          const up = /^(up-last|up-all):(.+)$/.exec(item);
+          if (up) {
+            void go({ key: up[2], page: "home" }).then(() => stackAction(up[2], up[1]));
+            return;
+          }
           switch (item) {
             case "open":
               void chooseFolder();
@@ -695,6 +701,7 @@ export function useBoot() {
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
       void t.attention().then(gotAttention);
       if (pending.bell) set({ bell: true });
+      if (pending.act && pending.key) void stackAction(pending.key, pending.act);
       void t.away().then((away) => set({ away: away ?? null }));
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);
       set({ stacks, version });
