@@ -252,9 +252,9 @@ func forgetDialog(st hub.StackView) Dialog {
 	if name == "" {
 		name = "this stack"
 	}
-	what := "doze stops listing it: the Library, its tab and the menu bar."
+	what := "doze stops listing it: on Home, as a tab and in the menu bar."
 	if st.Running {
-		what = "Its services stop, then doze stops listing it: the Library, its tab and the menu bar."
+		what = "Its services stop, then doze stops listing it: on Home, as a tab and in the menu bar."
 	}
 	return Dialog{
 		Kind: "remove", Title: "Remove " + name + " from doze?", Stack: true, Needed: true,

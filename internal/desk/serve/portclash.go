@@ -94,7 +94,7 @@ func (s *Service) StopHolder(key, name string, pid int) error {
 		return errors.New("that process no longer holds the port; nothing was stopped")
 	}
 	if inst.Crash.Held.Doze {
-		return errors.New("that is doze's own; bring its stack down from the Library instead")
+		return errors.New("that is doze's own; bring its stack down from Home instead")
 	}
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
 		s.Say(fmt.Sprintf("could not stop pid %d: %v", pid, err), true)

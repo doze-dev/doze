@@ -92,7 +92,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
               </div>
               <div className="k">
                 List rows
-                <small>how much room each row gets, in the Library and a stack&apos;s List</small>
+                <small>how much room each row gets, on Home and in a stack&apos;s List</small>
               </div>
               <div className="v">
                 <DensityPick words />
@@ -191,7 +191,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
             </div>
           </>
         )}
-        <Keys keys={part === "machine" ? [["c", "copy report"], ["esc", "back"]] : [["⌘,", "here"], ["esc", "back"]]} note="from the menu bar, the Library's Machine line, or ⌘," />
+        <Keys keys={part === "machine" ? [["c", "copy report"], ["esc", "back"]] : [["⌘,", "here"], ["esc", "back"]]} note="from the menu bar, Home's Machine line, or ⌘," />
       </div>
     </div>
   );
@@ -234,7 +234,7 @@ function Leftovers() {
         <h3>Left behind</h3>
         <span className="dim">
           {items.length === 0
-            ? "nothing: every process, folder and route doze sees belongs to a stack in the Library"
+            ? "nothing: every process, folder and route doze sees belongs to a stack on Home"
             : `${items.length} thing${items.length === 1 ? "" : "s"} stacks left behind, out of step with doze`}
         </span>
         <span className="grow" />

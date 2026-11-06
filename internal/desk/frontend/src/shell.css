@@ -303,6 +303,12 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 :root[data-density="compact"] .lrow .fig, :root[data-density="compact"] .lrow .name { gap: 0; }
 :root[data-density="compact"] .qr { border-radius: 6px; }
 .seg.icons button { padding: 0 8px; }
+/* Home's head: the mark and the name, large. */
+.head.brandhead { gap: 18px; padding-top: 26px; padding-bottom: 24px; }
+.brandhead .brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.brandhead h1 { font-size: 40px; line-height: 44px; font-weight: 750; letter-spacing: -0.03em; color: var(--bright); }
+.brandhead .tagline { color: var(--dim); font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brandhead .tagline .path { color: var(--text); }
 .lrow { display: grid; grid-template-columns: 10px minmax(150px, 1fr) minmax(230px, 1.1fr) minmax(120px, 1.1fr) 96px 86px; align-items: center; column-gap: 14px; padding: 12px 16px 12px 14px; border-top: 1px solid var(--line); width: 100%; }
 .lrow:first-child { border-top: 0; }
 .lrow.h { padding: 7px 16px 7px 14px; background: var(--well); color: var(--dim); font-size: var(--text-xs); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }

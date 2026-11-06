@@ -336,7 +336,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
                 ["esc", "library"],
               ]
         }
-        note={stopped ? "nothing runs while the stack is down" : "from Library: click a stack"}
+        note={stopped ? "nothing runs while the stack is down" : "from Home: click a stack"}
       />
       <div className="sr-only" aria-live="polite">
         {said}

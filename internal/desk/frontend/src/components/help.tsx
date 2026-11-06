@@ -66,10 +66,10 @@ export function Help({ version, onClose }: { version: string; onClose: () => voi
 
 const ANYWHERE: Array<[string, string]> = [
   ["⌘K", "search a name, or type a verb and a name"],
-  ["⌘0", "Library"],
+  ["⌘0", "Home"],
   ["⌘1–9", "a stack's tab"],
   ["⌘O", "open a folder"],
-  ["esc", "up a level: a service or the logs → its stack → the Library"],
+  ["esc", "up a level: a service or the logs → its stack → Home"],
   ["⌘[ ⌘]", "back · forward, the way you came"],
   ["⌘W", "close the window; the stacks keep running"],
   ["⌘L", "all logs of the stack"],

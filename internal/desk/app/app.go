@@ -258,7 +258,7 @@ func (d *desk) follow(raw string) {
 	}
 	if dir == "" {
 		d.svc.OpenLibrary()
-		d.svc.Say("no stack called "+l.Stack+" here; the Library lists the ones doze knows", true)
+		d.svc.Say("no stack called "+l.Stack+" here; Home lists the ones doze knows", true)
 		d.open("")
 		return
 	}

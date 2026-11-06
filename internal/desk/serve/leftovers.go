@@ -46,7 +46,7 @@ func (s *Service) Leftovers() []view.Leftover {
 	for _, p := range processes() {
 		switch {
 		case p.daemon != "" && !known[canon(p.daemon)]:
-			why := "for a stack this Library does not list"
+			why := "for a stack Home does not list"
 			if _, err := os.Stat(p.daemon); err != nil {
 				why = "for a doze.hcl that is gone"
 			}

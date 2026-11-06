@@ -161,7 +161,7 @@ func atHand(stacks []hub.StackView, recent []prefs.Recent, now time.Time) []Pale
 			do = append(do, upRow(st))
 		}
 	}
-	do = append(do, PaletteRow{Glyph: "⌘O", Tone: "dim", Label: "Open folder…", Note: "add a project to the Library", Key: "open", Do: Doing{Kind: "folder"}})
+	do = append(do, PaletteRow{Glyph: "⌘O", Tone: "dim", Label: "Open folder…", Note: "add a project to Home", Key: "open", Do: Doing{Kind: "folder"}})
 	out = append(out, PaletteSection{Title: "Do", Rows: do})
 	return out
 }
@@ -199,7 +199,7 @@ func byName(stacks []hub.StackView, query string, now time.Time) []PaletteSectio
 			add(sleepAllRow(st, "wakes on connect; nothing is lost"))
 		}
 	}
-	add(PaletteRow{Glyph: "⌘O", Tone: "dim", Label: "Open folder…", Note: "add a project to the Library", Key: "open", Do: Doing{Kind: "folder"}})
+	add(PaletteRow{Glyph: "⌘O", Tone: "dim", Label: "Open folder…", Note: "add a project to Home", Key: "open", Do: Doing{Kind: "folder"}})
 	if len(hits) == 0 {
 		return nil
 	}

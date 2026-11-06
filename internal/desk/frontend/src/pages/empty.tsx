@@ -119,7 +119,7 @@ export function EmptyPage({ e }: { e: view.Empty }) {
           ["⏎", "choose"],
           ["esc ⌘W", "close without writing anything"],
         ]}
-        note="from Library: Open folder, a drop, or doze open in a terminal"
+        note="from Home: Open folder, a drop, or doze open in a terminal"
       />
     </>
   );

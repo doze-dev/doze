@@ -3,9 +3,10 @@ import { askStack, askStop, chooseFolder, chooseStart, dismissHints, go, repair,
 import { transport, type view } from "../transport";
 import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
+import { Bat } from "../components/bat";
 import { DensityPick } from "../components/density";
 
-// The Library, as the Library boards lay it out: the help strip while it
+// Home (the Library boards): the doze mark and name, large, then the help strip while it
 // is useful, every stack with a switch, the machine line. Every word and
 // figure is Go's; this decides only what is selected and which menu is
 // open.
@@ -61,9 +62,15 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
 
   return (
     <>
-      <div className="head">
-        <h1>Library</h1>
-        <span className="path">{lib.counts}</span>
+      <div className="head brandhead">
+        <Bat size={64} />
+        <div className="brand">
+          <h1 aria-label="Home">doze</h1>
+          <span className="tagline">
+            starts a service when something connects, and puts it to sleep when nothing does
+            {lib.counts && <span className="path"> · {lib.counts}</span>}
+          </span>
+        </div>
         <span className="grow" />
         {stacks.length > 0 && <DensityPick />}
         <button className="btn" onClick={() => void chooseFolder()} title="Open a project folder (⌘O)">
@@ -108,7 +115,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           ["⌘O", "open folder"],
           ["⌫", "remove"],
         ]}
-        note="the first tab; it never closes"
+        note="Home is the first tab; it never closes"
       />
     </>
   );

@@ -135,7 +135,7 @@ test("esc goes up a level on every page; ⌘[ and ⌘] walk the way you came", a
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
   await page.keyboard.press("ControlOrMeta+[");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
   await page.keyboard.press("ControlOrMeta+[");

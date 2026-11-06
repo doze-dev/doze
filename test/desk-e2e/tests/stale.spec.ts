@@ -13,6 +13,6 @@ test("a daemon that stopped answering: the banner, faded figures, and switches t
   await expect(sw).toBeDisabled();
   // The tab says it on every page, and so does the Library row.
   await expect(page.getByRole("tab", { name: /^shop/ })).toHaveAttribute("title", /daemon not answering/);
-  await page.getByRole("tab", { name: /Library/ }).click();
+  await page.getByRole("tab", { name: /Home/ }).click();
   await expect(page.locator(".lrow", { hasText: "shop" }).first()).toContainText("daemon not answering");
 });

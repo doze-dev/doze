@@ -125,7 +125,7 @@
           "glyph": "⌘O",
           "tone": "dim",
           "label": "Open folder…",
-          "note": "add a project to the Library",
+          "note": "add a project to Home",
           "key": "open",
           "do": {
             "kind": "folder"

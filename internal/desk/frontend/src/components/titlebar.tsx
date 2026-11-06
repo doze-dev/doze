@@ -1,5 +1,4 @@
 import { transport, type serve } from "../transport";
-import { Bat } from "./bat";
 import { Bell } from "./bell";
 import { closeTab, tabStacks, useStore } from "../store";
 
@@ -38,9 +37,9 @@ export function Titlebar({
       }}
     >
       <div className="stabs" role="tablist" aria-label="Tabs">
-        <button role="tab" aria-selected={library} className={"stab" + (library ? " on" : "")} onClick={onLibrary} title="Library  ⌘0">
-          <Bat size={18} />
-          <span className="t">Library</span>
+        <button role="tab" aria-selected={library} className={"stab" + (library ? " on" : "")} onClick={onLibrary} title="Home  ⌘0">
+          <HomeIcon />
+          <span className="t">Home</span>
         </button>
         {open.map((s, i) => (
           <span key={s.key} className={"stabw" + (!library && s.key === current ? " on" : "")}>
@@ -58,7 +57,7 @@ export function Titlebar({
             <button
               className="stabx"
               aria-label={`Close the ${s.name || "stack"} tab`}
-              title={s.running ? "Close the tab. The stack keeps running; open it again from the Library." : "Close the tab"}
+              title={s.running ? "Close the tab. The stack keeps running; open it again from Home." : "Close the tab"}
               onClick={() => void closeTab(s.key)}
             >
               ×
@@ -77,5 +76,15 @@ export function Titlebar({
         <kbd>⌘K</kbd> Search or do
       </button>
     </header>
+  );
+}
+
+/** HomeIcon is the first tab's mark: a house, drawn as the other glyphs are. */
+function HomeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block", flex: "none" }}>
+      <path d="M2.5 7.2 8 2.5l5.5 4.7" />
+      <path d="M4 6.2v7h3v-3.6h2v3.6h3v-7" />
+    </svg>
   );
 }

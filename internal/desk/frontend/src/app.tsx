@@ -32,7 +32,7 @@ export function App() {
     const stack = s.stacks.find((x) => x.key === w.key)?.name ?? "";
     switch (w.page) {
       case "library":
-        return "Library · doze";
+        return "Home · doze";
       case "settings":
         return "Settings · doze";
       case "instance":

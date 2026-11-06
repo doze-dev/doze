@@ -7,10 +7,10 @@ test.use({ viewport: { width: 1280, height: 800 } });
 
 test("the Library lists every stack with a switch, as the Library board does", async ({ page }, info) => {
   await page.goto("/");
-  const tab = page.getByRole("tab", { name: "Library" });
+  const tab = page.getByRole("tab", { name: "Home" });
   await expect(tab).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
-  await expect(page.locator(".head .path")).toHaveText("2 stacks · 1 up");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
+  await expect(page.locator(".head .path")).toContainText("2 stacks · 1 up");
   const rows = page.getByRole("table", { name: "Stacks" }).locator(".lrow:not(.h)");
   await expect(rows).toHaveCount(2);
   const shop = rows.nth(0);
@@ -35,8 +35,8 @@ test("the Library lists every stack with a switch, as the Library board does", a
   await page.locator(".machine .btn").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Machine");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
-  await expect(page.locator(".keys")).toContainText("the first tab; it never closes");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
+  await expect(page.locator(".keys")).toContainText("Home is the first tab; it never closes");
   await page.screenshot({ path: `.desk-look/Library-${info.project.name}.png` });
 
   // The ▾ beside the switch: as last time, everything, and Remove.
@@ -151,7 +151,7 @@ test("Settings: the themes, the machine part by part, About", async ({ page }, i
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("About");
   await expect(page.getByRole("button", { name: "doze.dev" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
 });
 
 test("the window reopens on the page it had, unless told not to", async ({ page }) => {
@@ -163,7 +163,7 @@ test("the window reopens on the page it had, unless told not to", async ({ page 
   await page.keyboard.press("ControlOrMeta+,");
   await page.getByRole("switch", { name: /Reopen the page I had/ }).click();
   await page.reload();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
 });
 
 test("a narrow window keeps the sidebars, and the Library scrolls", async ({ page }) => {
@@ -254,7 +254,7 @@ test("a running stack's tab closes and the stack keeps running; opening it bring
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
   await page.getByRole("button", { name: "Close the shop tab" }).click();
   await expect(page.getByRole("tab", { name: /^shop/ })).toHaveCount(0);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
   const shop = page.locator(".lrow", { hasText: "shop" }).first();
   await expect(shop.getByRole("switch")).toHaveAttribute("aria-checked", "true");
   // The strip remembers it (the fixture opens shop on every load, as
@@ -290,7 +290,7 @@ test("rows come compact, cosy or roomy, chosen once for every list", async ({ pa
   }
   expect(roomy).toBeGreaterThan(40);
   // The Library follows the same choice, and it is kept.
-  await page.getByRole("tab", { name: "Library" }).click();
+  await page.getByRole("tab", { name: "Home" }).click();
   await expect(page.getByRole("radiogroup", { name: "Row density" }).getByRole("radio", { name: "Cosy" })).toHaveAttribute("aria-checked", "true");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-density", "cosy");

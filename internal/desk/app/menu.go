@@ -50,7 +50,7 @@ func (d *desk) appMenu() *application.Menu {
 	m.AddRole(application.EditMenu)
 
 	goMenu := m.AddSubmenu("Go")
-	goMenu.Add("Library").SetAccelerator("CmdOrCtrl+0").OnClick(page("library"))
+	goMenu.Add("Home").SetAccelerator("CmdOrCtrl+0").OnClick(page("library"))
 	goMenu.Add("Back").SetAccelerator("CmdOrCtrl+[").OnClick(page("back"))
 	goMenu.Add("Forward").SetAccelerator("CmdOrCtrl+]").OnClick(page("forward"))
 	goMenu.AddSeparator()
