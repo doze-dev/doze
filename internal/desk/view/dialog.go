@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -35,6 +36,9 @@ type Dialog struct {
 	Hint     string `json:"hint,omitempty"`
 	Action   bool   `json:"action,omitempty"`
 	Instance string `json:"instance,omitempty"`
+	// Stack says the buttons run a stack action (down) on the stack, not a
+	// verb on its services.
+	Stack bool `json:"stack,omitempty"`
 	// Setup is the folder the buttons set up (Verb is the way: init, add,
 	// empty; the input is the name to add).
 	Setup string `json:"setup,omitempty"`
@@ -73,6 +77,12 @@ type Button struct {
 // restart the dash asks only when something is using it; a reset always
 // asks, and asks for the name.
 func DialogOf(st hub.StackView, name, verb string, now time.Time) Dialog {
+	if name == "" && verb == "down" {
+		return stopDialog(st)
+	}
+	if name == "" && verb == "forget" {
+		return forgetDialog(st)
+	}
 	snap := snapshot(st)
 	v, ok := display.Find(snap, name)
 	if !ok {
@@ -182,4 +192,52 @@ func resetFact(f display.Fact) Fact {
 		}
 	}
 	return Fact{K: f.Key, Tone: string(f.Tone), Spans: []Span{{Text: f.Text}}}
+}
+
+// stopDialog is the question before a whole stack goes down: asked only
+// when something in it is in use, as sleeping one service is.
+func stopDialog(st hub.StackView) Dialog {
+	name := st.Name
+	if name == "" {
+		name = "the stack"
+	}
+	d := Dialog{Kind: "down", Title: "Stop " + name + "?", Stack: true}
+	t := display.TallyOf(st.Instances)
+	if t.Conns == 0 {
+		return d
+	}
+	d.Needed = true
+	d.Sentence = []Span{
+		{Text: fmt.Sprintf("%d client connection%s", t.Conns, display.Plural(t.Conns)), Strong: true},
+		{Text: " are open to it, and "},
+		{Text: fmt.Sprintf("%d service%s", t.Awake+t.Dozing+t.Waking, display.Plural(t.Awake+t.Dozing+t.Waking)), Strong: true},
+		{Text: " are up."},
+	}
+	d.Rows = []KV{
+		{K: "What happens", V: "Every service stops and every connection drops. Nothing wakes until the stack is up again; Up as last time brings back this set."},
+		{K: "Data", V: "Kept. Nothing is deleted."},
+	}
+	d.Buttons = []Button{{Label: "Stop " + name, Verb: "down", Primary: true}, {Label: "Cancel", Cancel: true}}
+	d.Foot = []string{"From a script: doze down"}
+	return d
+}
+
+// forgetDialog is the question before the Library lets go of a stopped
+// stack. Nothing is deleted, but a stack vanishing from a key press should
+// not happen unseen.
+func forgetDialog(st hub.StackView) Dialog {
+	name := st.Name
+	if name == "" {
+		name = "this stack"
+	}
+	return Dialog{
+		Kind: "forget", Title: "Forget " + name + "?", Stack: true, Needed: true,
+		Rows: []KV{
+			{K: "What happens", V: "doze stops listing it in the Library and the menu bar."},
+			{K: "Data", V: "Kept: the folder, its doze.hcl and its data stay on disk. Opening the folder again brings it back."},
+		},
+		Buttons: []Button{{Label: "Forget " + name, Verb: "forget", Primary: true}, {Label: "Cancel", Cancel: true}},
+		Default: 1,
+		Foot:    []string{"From a script: remove it from ~/.doze/projects"},
+	}
 }

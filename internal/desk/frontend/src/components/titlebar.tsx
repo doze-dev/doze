@@ -1,5 +1,6 @@
 import { transport, type serve } from "../transport";
 import { Bat } from "./bat";
+import { tabStacks } from "../store";
 
 // The title bar, as every board draws it: the Library tab first, then a
 // tab per open stack with its dot and a red count when something needs
@@ -25,7 +26,7 @@ export function Titlebar({
 }) {
   // A tab is a running stack, or the stopped one being looked at; the
   // Library lists the rest.
-  const open = stacks.filter((s) => s.running || s.key === current);
+  const open = tabStacks(stacks, current);
   return (
     <header
       className="tb"

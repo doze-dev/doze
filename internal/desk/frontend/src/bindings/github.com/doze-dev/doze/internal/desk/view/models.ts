@@ -200,7 +200,7 @@ export interface Conns {
     "open": number;
 
     /**
-     * "tasks ✓ 1 done · ▸ 1 ready"
+     * "tasks ✓ 1 done · ▸ 1 not run"
      */
     "tasks": string;
 }
@@ -333,6 +333,12 @@ export interface Dialog {
     "hint"?: string;
     "action"?: boolean;
     "instance"?: string;
+
+    /**
+     * Stack says the buttons run a stack action (down) on the stack, not a
+     * verb on its services.
+     */
+    "stack"?: boolean;
 
     /**
      * Setup is the folder the buttons set up (Verb is the way: init, add,

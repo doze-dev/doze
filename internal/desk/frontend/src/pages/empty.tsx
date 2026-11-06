@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { set } from "../store";
 import { transport, type view } from "../transport";
+import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
 
 // A folder with no doze.hcl yet, as the OpenFolder board draws it: what
@@ -22,9 +23,7 @@ export function EmptyPage({ e }: { e: view.Empty }) {
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-      const tag = (ev.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (!pageKey(ev)) return;
       switch (ev.key) {
         case "ArrowDown":
         case "ArrowRight":

@@ -252,6 +252,21 @@ export async function ask(key: string, name: string, verb: string) {
   }
 }
 
+/** askStack runs a stack action (down, forget), asking first when Go says to: down when something in it is in use, forget always. */
+export async function askStack(key: string, action: "down" | "forget") {
+  const t = await transport();
+  try {
+    const d = await t.dialog(key, "", action);
+    if (!d.needed) return stackAction(key, action);
+    set({ dialog: { key, d }, palette: false });
+  } catch (e) {
+    t.log(`${action} ${key}: no dialog: ${String(e)}`);
+  }
+}
+
+/** askStop stops a stack, asking first when something in it is in use. */
+export const askStop = (key: string) => askStack(key, "down");
+
 /** choose presses a dialog button: its verb on its targets, in order, or a module action with what was typed. */
 export async function choose(b: view.Button, text = "") {
   const s = get();
@@ -260,7 +275,8 @@ export async function choose(b: view.Button, text = "") {
   if (!dialog || !b.verb) return;
   const t = await transport();
   try {
-    if (dialog.d.setup) await t.setup(dialog.d.setup, b.verb, text);
+    if (dialog.d.stack) await t.stack(dialog.key, b.verb, b.targets ?? []);
+    else if (dialog.d.setup) await t.setup(dialog.d.setup, b.verb, text);
     else if (dialog.d.action) await t.admin(dialog.key, dialog.d.instance ?? "", b.verb, b.targets?.[0] ?? "", text);
     else await t.doAll(dialog.key, b.verb, b.targets ?? []);
   } catch (e) {
@@ -500,10 +516,20 @@ export function upFrom(w: Where | null): Where | null {
   return null;
 }
 
-/** up goes one level up, as esc does on every page. */
+/** up goes one level up, as esc does on every page. Settings is not a level but a place visited, so leaving it goes back to where it was opened from. */
 export async function up() {
-  const w = upFrom(get().where);
+  const { where, history } = get();
+  if (where?.page === "settings" && history.length > 0) {
+    await back();
+    return;
+  }
+  const w = upFrom(where);
   if (w) await go(w);
+}
+
+/** tabStacks are the stacks with a tab, in the strip's order: every running stack, and the stopped one being looked at. ⌘1–9 count these. */
+export function tabStacks(stacks: serve.StackSummary[], current: string): serve.StackSummary[] {
+  return stacks.filter((s) => s.running || s.key === current);
 }
 
 /** repair runs the machine setup behind the administrator prompt; what happened is said by Go. */

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { ask, chooseStart, copy, go, repair, run, select, setView, stackAction, useStore } from "../store";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ask, askStop, chooseStart, copy, go, repair, run, select, setView, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
+import { pageKey } from "../keys";
+import { useTrap } from "../components/trap";
 import { StackMenu } from "./library";
 
 // The stack's overview, as the Tiles, List and Map boards lay it out: the
@@ -28,17 +30,20 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
     if (!q) return rows;
     return rows.filter((r) => r.name.toLowerCase().includes(q) || r.because.toLowerCase().includes(q) || (r.address ?? "").toLowerCase().includes(q));
   }, [rows, filter]);
-  const row = rows.find((r) => r.name === selected);
+  // The keys act on the selected row only while it is shown: a row the
+  // filter hides is not acted on unseen.
+  const row = shown.find((r) => r.name === selected);
   const viewName = home.view || "tiles";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
-        if (e.key === "Escape") (e.target as HTMLElement).blur();
+      if ((tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") && e.key === "Escape") {
+        (e.target as HTMLElement).blur();
+        e.preventDefault();
         return;
       }
+      if (!pageKey(e)) return;
       const list = shown;
       const i = list.findIndex((r) => r.name === selected);
       const move = (d: number) => {
@@ -48,16 +53,19 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
       };
       if (stopped) {
         // Down rows: space starts the stack with the selected one, as its
-        // switch does; ⏎ is Up as last time, c the start sheet. The verbs
-        // that need a running stack do nothing.
+        // switch does; u is Up as last time, c the start sheet. ⏎ opens, as
+        // everywhere, so it is not a way to start a whole stack by surprise.
+        // The verbs that need a running stack do nothing.
         if (starting) return;
         switch (e.key) {
           case " ":
             e.preventDefault();
             if (row && startable(row)) void stackAction(stackKey, "up", [row.name]);
             return;
-          case "Enter":
+          case "u":
             if (!stopped.problem) void stackAction(stackKey, "up-last");
+            return;
+          case "Enter":
             return;
           case "c":
             if (!stopped.problem) void chooseStart(stackKey);
@@ -184,7 +192,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             role="switch"
             aria-checked={home.running}
             aria-label={home.running ? `${home.stack} is up` : `${home.stack} is down`}
-            onClick={() => void stackAction(stackKey, home.running ? "down" : "up-last")}
+            onClick={() => void (home.running ? askStop(stackKey) : stackAction(stackKey, "up-last"))}
           />
           <button className={"ib" + (menu ? " on" : "")} aria-label={`More ways to start ${home.stack}`} onClick={() => setMenu((m) => !m)}>
             ▾
@@ -279,7 +287,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             ? [
                 ["↑↓", "move"],
                 ["space", "start with this one"],
-                ["⏎", "up as last time"],
+                ["u", "up as last time"],
                 ["c", "choose what starts"],
                 ["/", "filter"],
                 ["esc", "library"],
@@ -330,7 +338,7 @@ function DownStrip({ s, tight, onUp, onChoose, dir }: { s: view.Stopped; tight?:
         <span className="s">{s.lastLine} Modules wake on their own when something connects.</span>
       </div>
       <button className="btn pri" onClick={onUp}>
-        Up as last time <kbd>⏎</kbd>
+        Up as last time <kbd>u</kbd>
       </button>
       <button className="btn" onClick={onChoose}>
         Choose what starts… <kbd>c</kbd>
@@ -369,6 +377,8 @@ function StartSheet({ stack, rows, lastSet, stackKey }: { stack: string; rows: v
     }
   };
   chosen.forEach(walk);
+  const box = useRef<HTMLElement>(null);
+  useTrap(box);
   const close = () => void chooseStart("");
   const start = () => {
     if (chosen.length === 0) return;
@@ -381,7 +391,11 @@ function StartSheet({ stack, rows, lastSet, stackKey }: { stack: string; rows: v
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Tab") return;
       e.stopPropagation();
+      // Space and ⏎ on a focused button are the button's own.
+      const onButton = (e.target as HTMLElement).closest?.("button");
+      if ((e.key === " " || e.key === "Enter") && onButton && !onButton.classList.contains("pick")) return;
       switch (e.key) {
         case "Escape":
           e.preventDefault();
@@ -411,7 +425,7 @@ function StartSheet({ stack, rows, lastSet, stackKey }: { stack: string; rows: v
   }, [at, ticked]);
   return (
     <div className="scrim" onClick={close}>
-      <section className="dialog start" role="dialog" aria-label={`Start ${stack}`} onClick={(e) => e.stopPropagation()}>
+      <section ref={box} className="dialog start" role="dialog" aria-modal="true" aria-label={`Start ${stack}`} onClick={(e) => e.stopPropagation()}>
         <h2>Start {stack}</h2>
         <p className="dim">Tick what you will work on. doze starts those and what they need, in order; the rest stays down until something connects to it.</p>
         <div className="picks" role="group" aria-label="What starts">
@@ -423,6 +437,7 @@ function StartSheet({ stack, rows, lastSet, stackKey }: { stack: string; rows: v
               aria-label={r.name}
               aria-checked={!!ticked[r.name]}
               onMouseEnter={() => setAt(i)}
+              onFocus={() => setAt(i)}
               onClick={() => setTicked((t) => ({ ...t, [r.name]: !t[r.name] }))}
             >
               <span className={"box" + (ticked[r.name] ? " on" : "")} aria-hidden>
@@ -729,15 +744,17 @@ function Tiles({ groups, shown, selected, stackKey }: { groups: view.Group[]; sh
             </div>
             <div className="tiles">
               {rows.map((r) => (
-                <button
+                <div
                   key={r.name}
+                  role="group"
+                  aria-label={r.name}
                   className={"tile" + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && r.kind !== "task" ? " off" : "")}
                   onClick={() => void select(r.name)}
                   onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
                 >
                   <div className="top">
                     <Dot r={r} />
-                    <b>{r.name}</b>
+                    <Name r={r} stackKey={stackKey} />
                     {r.pinned && (
                       <span className="pin" title="pinned: never sleeps">
                         <PinGlyph />
@@ -757,7 +774,7 @@ function Tiles({ groups, shown, selected, stackKey }: { groups: view.Group[]; sh
                       {r.kind === "task" ? <span className="a">{r.engine === "task" ? "" : r.engine}</span> : <Address r={r} stackKey={stackKey} />}
                     </div>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -778,14 +795,16 @@ function List({ groups, shown, selected, stackKey }: { groups: view.Group[]; sho
               <div key={g.title}>
                 <div className="qh">{g.title.charAt(0) + g.title.slice(1).toLowerCase()}</div>
                 {rows.map((r) => (
-                  <button
+                  <div
                     key={r.name}
+                    role="group"
+                    aria-label={r.name}
                     className={"qr narrow" + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && r.kind !== "task" ? " off" : "")}
                     onClick={() => void select(r.name)}
                     onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
                   >
                     <Dot r={r} />
-                    <b>{r.name}</b>
+                    <Name r={r} stackKey={stackKey} />
                     <span className="why">
                       <span className={"w " + wordTone(r)}>{r.look.word}</span>
                       {r.because && <> · {r.because}</>}
@@ -793,7 +812,7 @@ function List({ groups, shown, selected, stackKey }: { groups: view.Group[]; sho
                     </span>
                     <span className="m">{r.mem ?? ""}</span>
                     <Switch r={r} stackKey={stackKey} />
-                  </button>
+                  </div>
                 ))}
               </div>
             );
@@ -938,7 +957,7 @@ function MapView({ m, rows, selected, stackKey }: { m: view.MapView; rows: view.
     return `M${e.x1} ${e.y1} C${e.x1 + dx} ${e.y1}, ${e.x2 - dx} ${e.y2}, ${e.x2} ${e.y2}`;
   };
   return (
-    <div className="map" role="img" aria-label="The stack as a map: what needs what, and what is keeping what awake" style={{ minHeight: m.h + 60 }}>
+    <div className="map" role="group" aria-label="The stack as a map: what needs what, and what is keeping what awake" style={{ minHeight: m.h + 60 }}>
       <svg className="edges" width={m.w} height={m.h} aria-hidden="true">
         {(m.edges ?? []).map((e) => (
           <path key={e.from + ">" + e.to} d={path(e)} fill="none" strokeWidth="2" className={"edge " + e.tone} />
@@ -957,6 +976,13 @@ function MapView({ m, rows, selected, stackKey }: { m: view.MapView; rows: view.
             key={n.name}
             className={"node" + (n.task ? " task" : "") + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && !n.task ? " off" : "")}
             style={{ left: n.x, top: n.y, width: n.w }}
+            aria-label={`${r.name}, ${r.look.word}${r.because ? ", " + r.because : ""}`}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !r.down) {
+                e.preventDefault();
+                void go({ key: stackKey, page: "instance", instance: r.name });
+              }
+            }}
             onClick={() => void select(r.name)}
             onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
           >
@@ -1056,5 +1082,33 @@ function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
         </p>
       </section>
     </>
+  );
+}
+
+/**
+ * Name is a service's name on a tile or row: the control a keyboard reaches
+ * it by. Focus or a click selects the service; ⏎ opens it (a double click
+ * on the tile does too). It says the state to a screen reader, which the
+ * tile's dot and colour cannot.
+ */
+function Name({ r, stackKey }: { r: view.Row; stackKey: string }) {
+  return (
+    <button
+      className="nm"
+      aria-label={`${r.name}, ${r.look.word}${r.because ? ", " + r.because : ""}`}
+      onFocus={() => void select(r.name)}
+      onClick={(e) => {
+        e.stopPropagation();
+        void select(r.name);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !r.down) {
+          e.preventDefault();
+          void go({ key: stackKey, page: "instance", instance: r.name });
+        }
+      }}
+    >
+      <b>{r.name}</b>
+    </button>
   );
 }

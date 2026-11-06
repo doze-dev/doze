@@ -34,6 +34,8 @@ export function InstancePage({ inst, stackKey }: { inst: view.Instance; stackKey
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!pageKey(e)) return;
+      // A console tab's letters are its own actions; the page's verbs wait.
+      if (current.startsWith("console:") && e.key.length === 1) return;
       switch (e.key) {
         case "r":
           if (task) void run(stackKey, "task", inst.name);

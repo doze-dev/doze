@@ -73,7 +73,7 @@ test("list: rows with the details pane beside them; ⏎ opens the page", async (
 test("map: nodes by group with the edges of what needs what", async ({ page }, info) => {
   await openShop(page);
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Map" }).click();
-  const map = page.getByRole("img", { name: /The stack as a map/ });
+  const map = page.getByRole("group", { name: /The stack as a map/ });
   await expect(map.locator(".node")).toHaveCount(12);
   await expect(map.locator(".node", { hasText: "api" }).first()).toContainText("84 MB");
   await expect(map.locator("svg path")).not.toHaveCount(0);
@@ -150,10 +150,11 @@ test("esc goes up a level on every page; ⌘[ and ⌘] walk the way you came", a
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("api");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  // Settings is a place visited: esc goes back to where it was opened.
   await page.keyboard.press("ControlOrMeta+,");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("General");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
 });
 
 test("the timeline draws each service's last half hour, and esc goes back", async ({ page }, info) => {

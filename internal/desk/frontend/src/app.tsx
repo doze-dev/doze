@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, up, useBoot, useSlice } from "./store";
+import { ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
@@ -22,6 +22,17 @@ import { transport, type view } from "./transport";
 // which page is mounted, and which overlay.
 export function App() {
   useBoot();
+  useEffect(() => {
+    // A click on a button does not take keyboard focus, as on macOS (and in
+    // the app's WebKit): focus stays where the keyboard put it, so the
+    // page's keys keep acting on the selected row after a click on Tiles.
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("button, [role=switch], [role=tab]") && !t.closest("input, textarea, select, .dialog, .pal, [role=dialog]")) e.preventDefault();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
   const { stacks, where, library, home, instance, empty, error, version, dialog, palette, help } = useSlice((s) => ({
     stacks: s.stacks,
     empty: s.empty,
@@ -58,7 +69,8 @@ export function App() {
         e.preventDefault();
         void go({ key: "", page: "library" });
       } else if (mod && e.key >= "1" && e.key <= "9") {
-        const s = stacks[Number(e.key) - 1];
+        // The tabs as the strip shows them, so ⌘3 is the third tab.
+        const s = tabStacks(stacks, where?.key ?? "")[Number(e.key) - 1];
         if (s) {
           e.preventDefault();
           void go({ key: s.key, page: "home" });
@@ -84,9 +96,9 @@ export function App() {
       } else if (mod && e.key === "]") {
         e.preventDefault();
         void forward();
-      } else if ((e.key === "Escape" || (mod && e.key.toLowerCase() === "w")) && !(e.target as HTMLElement).closest("input, textarea, select") && !dialog && !palette && !help) {
-        // The same move on every page: up a level. ⌘W on a pending folder
-        // closes it the same way, without writing anything.
+      } else if (e.key === "Escape" && !e.defaultPrevented && !(e.target as HTMLElement).closest("input, textarea, select") && !dialog && !palette && !help && !document.querySelector(".scrim, .pop[role=menu]")) {
+        // The same move on every page: up a level. Anything open on top
+        // (a menu, a sheet, a dialog) takes esc first.
         e.preventDefault();
         void up();
       }

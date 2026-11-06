@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { copy, go, repair, reopens, setMode, setReopens, setTheme, useStore, type Mode, type Theme } from "../store";
 import { transport, type view } from "../transport";
+import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
 
 // Settings, as the Settings and Doctor boards lay them out: a short list
@@ -37,9 +38,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (!pageKey(e)) return;
       if (e.key === "c" && part === "machine") void copyReport(checks);
     };
     window.addEventListener("keydown", onKey);

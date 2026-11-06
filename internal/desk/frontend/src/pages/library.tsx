@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { chooseFolder, chooseStart, dismissHints, go, repair, say, stackAction, useStore } from "../store";
+import { askStack, askStop, chooseFolder, chooseStart, dismissHints, go, repair, say, stackAction, useStore } from "../store";
 import { transport, type view } from "../transport";
+import { pageKey } from "../keys";
 import { Keys } from "../components/keys";
 
 // The Library, as the Library boards lay it out: the help strip while it
@@ -19,9 +20,12 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "Escape" && menu) {
+        e.preventDefault();
+        setMenu(null);
+        return;
+      }
+      if (!pageKey(e)) return;
       const i = stacks.findIndex((s) => s.key === row?.key);
       switch (e.key) {
         case "ArrowDown":
@@ -36,22 +40,19 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           break;
         case " ":
           e.preventDefault();
-          if (row) void stackAction(row.key, row.running ? "down" : "up-last");
+          if (row) void (row.running ? askStop(row.key) : stackAction(row.key, "up-last"));
           break;
         case "Enter":
           if (row) void go({ key: row.key, page: "home" });
           break;
         case "Backspace":
-          if (row && !row.running) void stackAction(row.key, "forget");
-          break;
-        case "Escape":
-          setMenu(null);
+          if (row && !row.running) void askStack(row.key, "forget");
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stacks, row]);
+  }, [stacks, row, menu]);
 
   return (
     <>
@@ -206,7 +207,7 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
           aria-label={s.running ? `${s.name} is up` : `${s.name} is down`}
           onClick={(e) => {
             e.stopPropagation();
-            void stackAction(s.key, s.running ? "down" : "up-last");
+            void (s.running ? askStop(s.key) : stackAction(s.key, "up-last"));
           }}
         />
         <button
@@ -250,12 +251,46 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [onClose]);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // A menu owns the keyboard while it is open: focus starts on its first
+    // item, the arrows move, esc closes it and nothing else.
+    const items = () => Array.from(ref.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
+    items()[0]?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      const all = items();
+      const i = all.indexOf(document.activeElement as HTMLButtonElement);
+      switch (e.key) {
+        case "Escape":
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          e.stopPropagation();
+          all[(i + 1) % all.length]?.focus();
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          e.stopPropagation();
+          all[(i - 1 + all.length) % all.length]?.focus();
+          break;
+        case "Tab":
+          e.preventDefault();
+          all[(i + (e.shiftKey ? all.length - 1 : 1)) % all.length]?.focus();
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
   const act = (action: string, names: string[] = []) => {
     onClose();
     void stackAction(s.key, action, names);
   };
   return (
-    <div className="pop" role="menu" aria-label={`Ways to start ${s.name}`} style={{ top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
+    <div ref={ref} className="pop" role="menu" aria-label={`Ways to start ${s.name}`} style={{ top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
       <div className="ph">Up</div>
       <button className="pi" role="menuitem" onClick={() => act("up-last")}>
         <div className="t">
@@ -284,7 +319,10 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
       )}
       <div className="msep" />
       {s.running ? (
-        <button className="pi" role="menuitem" onClick={() => act("down")}>
+        <button className="pi" role="menuitem" onClick={() => {
+          onClose();
+          void askStop(s.key);
+        }}>
           <div className="t">
             <b>Down</b>
             <span>stops everything; this set is remembered</span>

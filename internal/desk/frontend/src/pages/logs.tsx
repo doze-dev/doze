@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { transport, type view } from "../transport";
+import { pageKey } from "../keys";
 import { LogList } from "../components/vlist";
 import { Keys } from "../components/keys";
 
@@ -66,10 +67,13 @@ export function LogsPage({
   useEffect(() => {
     if (bare) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
-        if (e.key === "Escape") (e.target as HTMLElement).blur();
+      if ((tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") && e.key === "Escape") {
+        (e.target as HTMLElement).blur();
+        e.preventDefault();
+        return;
+      }
+      if (!pageKey(e)) {
         return;
       }
       switch (e.key) {

@@ -12,8 +12,11 @@ export function pageKey(e: KeyboardEvent): boolean {
   if (t && t !== document.body && t !== document.documentElement) {
     const tag = t.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "IFRAME" || t.isContentEditable) return false;
-    // A focused control keeps space and ⏎; letters still reach the page.
-    if ((e.key === " " || e.key === "Enter") && t.closest("button, a, [role=switch], [role=checkbox], [role=radio], [role=tab], [role=menuitem], summary")) return false;
+    // A control reached by keyboard keeps space and ⏎; letters still reach
+    // the page. One merely clicked (focus without :focus-visible) does not,
+    // so clicking Tiles and then pressing ⏎ still opens the selected row.
+    const control = t.closest("button, a, [role=switch], [role=checkbox], [role=radio], [role=tab], [role=menuitem], summary");
+    if ((e.key === " " || e.key === "Enter") && control && control.matches(":focus-visible")) return false;
   }
   // Something on top owns the keyboard.
   if (document.querySelector(".scrim, .pop[role=menu]")) return false;

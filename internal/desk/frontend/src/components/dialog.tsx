@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { view } from "../transport";
+import { useTrap } from "./trap";
 
 // A confirmation over the dimmed window, as the ConfirmSleep and Reset
 // boards draw it, in Go's words: the question, who is using it, what
@@ -21,10 +22,20 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [armed]);
   const enabled = (b: view.Button) => b.cancel || armed || (!b.danger && !d.input);
+  const box = useRef<HTMLElement>(null);
+  useTrap(box);
+  // The highlighted button is the focused one, so Tab, the arrows and a
+  // screen reader agree; a dialog that asks for text keeps the box.
+  useEffect(() => {
+    if (d.input || d.typeName) return;
+    box.current?.querySelectorAll<HTMLButtonElement>(".acts button")[at]?.focus();
+  }, [at, d.input, d.typeName]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // The dialog owns the keyboard: nothing reaches the page beneath.
+      // The dialog owns the keyboard: nothing reaches the page beneath,
+      // except Tab, which the focus trap moves within the dialog.
+      if (e.key === "Tab") return;
       e.stopPropagation();
       switch (e.key) {
         case "Escape":
@@ -32,9 +43,8 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
           onCancel();
           break;
         case "ArrowRight":
-        case "Tab":
           e.preventDefault();
-          setAt((i) => (i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length);
+          setAt((i) => (i + 1) % buttons.length);
           break;
         case "ArrowLeft":
           e.preventDefault();
@@ -63,7 +73,7 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
 
   return (
     <div className="scrim" onClick={onCancel}>
-      <section className={"dialog " + d.kind + (d.danger ? " danger" : "")} role="dialog" aria-label={d.title} onClick={(e) => e.stopPropagation()}>
+      <section ref={box} className={"dialog " + d.kind + (d.danger ? " danger" : "")} role="dialog" aria-modal="true" aria-label={d.title} onClick={(e) => e.stopPropagation()}>
         <h2>{d.title}</h2>
         {(d.sentence ?? []).length > 0 && <p>{(d.sentence ?? []).map((s, i) => (s.strong ? <b key={i} className="bright">{s.text}</b> : <span key={i}>{s.text}</span>))}</p>}
         {(d.rows ?? []).length > 0 && (
@@ -142,6 +152,7 @@ export function Dialog({ d, onChoose, onCancel }: { d: view.Dialog; onChoose: (b
               disabled={!enabled(b)}
               onClick={() => (b.cancel ? onCancel() : onChoose(b, text))}
               onMouseEnter={() => setAt(i)}
+              onFocus={() => setAt(i)}
             >
               {b.label}
               {b.cancel ? <kbd>esc</kbd> : i === at && <kbd>⏎</kbd>}

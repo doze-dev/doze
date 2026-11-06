@@ -1,10 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useTrap } from "./trap";
 
 // ? as the Help board draws it: the keys that work anywhere, the keys on a
 // row, and what the words mean.
 export function Help({ version, onClose }: { version: string; onClose: () => void }) {
+  const box = useRef<HTMLElement>(null);
+  useTrap(box);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Tab") return;
       e.stopPropagation();
       if (e.key === "Escape" || e.key === "?") {
         e.preventDefault();
@@ -16,7 +20,7 @@ export function Help({ version, onClose }: { version: string; onClose: () => voi
   }, [onClose]);
   return (
     <div className="scrim" onClick={onClose}>
-      <section className="hp" role="dialog" aria-label="Help" onClick={(e) => e.stopPropagation()}>
+      <section ref={box} className="hp" role="dialog" aria-modal="true" aria-label="Help" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="hc">
           <h3>Anywhere</h3>
           {ANYWHERE.map(([k, w]) => (

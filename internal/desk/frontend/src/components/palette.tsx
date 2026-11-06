@@ -77,7 +77,7 @@ export function Palette({ stackKey, onPick, onClose }: { stackKey: string; onPic
   let i = -1;
   return (
     <div className="scrim top" onClick={onClose}>
-      <section className="pal" role="dialog" aria-label={query ? `Search or do: ${query}` : "Search or do"} onClick={(e) => e.stopPropagation()}>
+      <section className="pal" role="dialog" aria-modal="true" aria-label={query ? `Search or do: ${query}` : "Search or do"} onClick={(e) => e.stopPropagation()}>
         <div className="in">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
             <circle cx="7" cy="7" r="4.5" />

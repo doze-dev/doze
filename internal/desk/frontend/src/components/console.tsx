@@ -65,12 +65,15 @@ export function ConsoleTab({ stackKey, inst, tab, title }: { stackKey: string; i
           e.preventDefault();
           if (at > 0) void setConsole(tab, { ...sel, [focused.id]: at - 1 });
           return;
-        case "Tab":
+        case "]":
+        case "[":
+          // The next or the previous table; Tab stays the browser's, for
+          // moving between controls.
           if (tables.length > 1) {
             e.preventDefault();
             e.stopPropagation();
             const i = tables.findIndex((t) => t.id === focused.id);
-            setFocus(tables[(i + 1) % tables.length].id);
+            setFocus(tables[(i + (e.key === "]" ? 1 : tables.length - 1)) % tables.length].id);
           }
           return;
       }

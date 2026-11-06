@@ -49,7 +49,7 @@ export function RecentPage({ stackKey, stack }: { stackKey: string; stack: strin
           </div>
         )}
       </section>
-      <Keys keys={[["esc", "back"]]} />
+      <Keys keys={[["esc", "up to the stack"]]} />
     </>
   );
 }

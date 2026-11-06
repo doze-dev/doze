@@ -21,7 +21,7 @@ process.env.DOZE_E2E_EMPTY_DIR ??= fs.mkdtempSync(path.join(os.tmpdir(), "doze-e
 const emptyDir = process.env.DOZE_E2E_EMPTY_DIR;
 
 const fixtures = [
-  { name: "shop", port, match: /(library|overview|instance|palette)\.spec\.ts/, args: "", fixture: "" },
+  { name: "shop", port, match: /(library|overview|instance|palette|keys)\.spec\.ts/, args: "", fixture: "" },
   { name: "crash", port: port + 1, match: /crash\.spec\.ts/, args: "", fixture: "" },
   { name: "modules", port: port + 2, match: /console\.spec\.ts/, args: "", fixture: "" },
   { name: "empty", port: port + 3, match: /empty\.spec\.ts/, args: " " + emptyDir, fixture: "shop" },

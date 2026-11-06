@@ -529,3 +529,8 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 
 /* paused in doze.hcl: no switch, a lock in its place, the same size */
 .lock { width: 34px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; flex: none; border: 1px dashed var(--line2); border-radius: 9px; }
+
+/* a service's name on a tile or row: a button that looks like the name */
+.nm { display: inline-flex; min-width: 0; flex: 0 1 auto; overflow: hidden; padding: 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; border-radius: 4px; }
+.nm b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
