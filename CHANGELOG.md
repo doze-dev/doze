@@ -53,6 +53,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Services doze after 2 minutes, not 5.** The default `idle_timeout` is now
+  `2m`, and `doze init` writes `2m`. A stack that sets its own keeps it.
 - **Modules download engine binaries through doze** (doze-sdk v0.10.0): the
   mirror, the cache and their checks live in doze alone, so changing them
   rebuilds no module. Modules built with an older SDK keep downloading for

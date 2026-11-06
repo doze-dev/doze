@@ -10,7 +10,7 @@ kinds of block:
 
 ```hcl
 stack = "shop"                            # root settings
-defaults { idle_timeout = "5m" }
+defaults { idle_timeout = "2m" }
 
 module postgres "app"   { version = 16 }  # an engine from the doze registry
 module valkey   "cache" { version = 9 }
@@ -40,7 +40,7 @@ generated from the module itself, so it can't be stale.
 | `listen` | string | `127.0.0.1:6432` | Base client address. Each instance gets the next port; override per instance with `listen`, or use a `unix:/path`. |
 | `home` | string | `$DOZE_HOME` or `~/.doze` | Shared toolchain store + cache (deduplicated across projects). |
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |
-| `defaults { idle_timeout }` | duration | `5m` | Reap an instance after this long at **zero connections**. |
+| `defaults { idle_timeout }` | duration | `2m` | Reap an instance after this long at **zero connections**. |
 | `defaults { log_runs }` | number | `5` | How many runs of each service's log are kept. A run is one start. |
 | `defaults { log_size }` | size | `"10MB"` | The most log kept per service, across its runs. |
 | `tls { … }` | block | off | Terminate client TLS for Postgres — see [TLS](#tls). |

@@ -119,7 +119,7 @@ psql "postgresql://app:app@127.0.0.1:6432/app" -c "select 1"
 ```
 
 While that query runs, `doze status` shows the instance **active** with a live
-connection. Close the client, wait for the idle timeout (5 minutes by default),
+connection. Close the client, wait for the idle timeout (2 minutes by default),
 and it **reaps** back to zero — the process exits, RAM goes back to your laptop,
 and the next connection boots it again. The reap keeps the data directory, so
 waking back up is **sub-second** (only the very first boot of an instance takes a

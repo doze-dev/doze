@@ -48,7 +48,7 @@ internals).
 ## Idle reap
 
 doze reaps an instance when it has had **zero live connections** for the
-`idle_timeout` (5 minutes by default). The key word is *connections*, not
+`idle_timeout` (2 minutes by default). The key word is *connections*, not
 *queries*:
 
 > doze reaps on connection count, **never** on query inactivity. A connection

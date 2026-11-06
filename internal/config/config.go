@@ -19,7 +19,7 @@ import (
 // Defaults for fields the user did not specify.
 const (
 	DefaultListen      = "127.0.0.1:6432"
-	DefaultIdleTimeout = 5 * time.Minute
+	DefaultIdleTimeout = 2 * time.Minute
 )
 
 // Config is the validated, typed view of a doze.hcl file.
