@@ -126,6 +126,19 @@ func StackItems(st hub.StackView, f StackFacts, now time.Time) []Item {
 		it.Fixes = append(it.Fixes, Fix{Label: "Dismiss", Kind: "dismiss"})
 		out = append(out, it)
 	}
+	if !st.Running && !st.LastUp.IsZero() && st.LastUp.After(st.LastDown) && now.Sub(st.LastUp) > 30*time.Second {
+		// Up was the last thing asked of it, and nothing runs: its daemon
+		// ended without doze down (a crash, a kill, a restart of the Mac).
+		// The 30 s are a start's own moment before the daemon is seen.
+		out = append(out, Item{
+			ID: "ended:" + st.Key, Print: st.LastUp.String(), Red: true, Kind: "ended", Key: st.Key, Stack: name,
+			Title:  name + " stopped without being asked",
+			Detail: "it was up " + display.Ago(now.Sub(st.LastUp)) + " ago and nothing ran doze down; its daemon ended (a crash, a kill, or a restart of this Mac)",
+			Since:  st.LastUp,
+			Fixes:  []Fix{{Label: "Up as last time", Kind: "stack", Verb: "up-last", Primary: true}},
+			Show:   home,
+		})
+	}
 	if st.Running && st.Conn == hub.ConnDown {
 		out = append(out, Item{
 			ID: "daemon:" + st.Key, Print: "down", Red: true, Kind: "daemon", Key: st.Key, Stack: name,

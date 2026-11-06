@@ -155,3 +155,19 @@ func TestStuckWaking(t *testing.T) {
 		t.Errorf("busy wake reported stuck: %+v", items)
 	}
 }
+
+func TestStackEndedUnasked(t *testing.T) {
+	st := hub.StackView{Key: "k", Name: "shop", Dir: "/code/shop", LastUp: t0.Add(-13 * time.Minute), LastDown: t0.Add(-10 * time.Hour)}
+	items := StackItems(st, StackFacts{}, t0)
+	if len(items) != 1 || !items[0].Red || items[0].Title != "shop stopped without being asked" || items[0].Fixes[0].Verb != "up-last" {
+		t.Fatalf("items = %+v", items)
+	}
+	st.LastDown = t0.Add(-time.Minute) // doze down ran after it was up
+	if items := StackItems(st, StackFacts{}, t0); len(items) != 0 {
+		t.Errorf("stopped on purpose, yet: %+v", items)
+	}
+	st.LastDown, st.LastUp = time.Time{}, t0.Add(-10*time.Second) // a start in its first moment
+	if items := StackItems(st, StackFacts{}, t0); len(items) != 0 {
+		t.Errorf("a start in its first seconds, yet: %+v", items)
+	}
+}

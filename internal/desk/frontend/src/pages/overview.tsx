@@ -323,7 +323,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
                 ["u", "up as last time"],
                 ["c", "choose what starts"],
                 ["/", "filter"],
-                ["esc", "library"],
+                ["esc", "home"],
               ]
             : [
                 ["↑↓", "move"],
@@ -333,7 +333,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
                 ["l", "logs"],
                 ["y", "copy address"],
                 ["/", "filter"],
-                ["esc", "library"],
+                ["esc", "home"],
               ]
         }
         note={stopped ? "nothing runs while the stack is down" : "from Home: click a stack"}
