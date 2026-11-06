@@ -6,7 +6,7 @@ test.use({ viewport: { width: 1280, height: 800 } });
 
 const box = (page: import("@playwright/test").Page) => page.getByRole("textbox", { name: "A service, a stack, or what to do" });
 
-test("nothing typed: Recent, then Do, with a verb's command at the right", async ({ page }, info) => {
+test("nothing typed: commands for the page on screen, what you did, every stack", async ({ page }, info) => {
   await page.goto("/");
   // A failed start another spec left (the fixture's acme cannot start) is
   // rightly in Needs you; put away, so this checks the rest.
@@ -15,66 +15,82 @@ test("nothing typed: Recent, then Do, with a verb's command at the right", async
   for (const st of stacks) await page.request.post("/api/dismiss", { data: { key: st.key } });
   await page.getByRole("tab", { name: /^shop/ }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
-  // Opening a service's page puts it in Recent.
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
   await page.locator(".ql .qr", { has: page.locator("b", { hasText: /^db$/ }) }).first().dblclick();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("db");
   await page.keyboard.press("ControlOrMeta+k");
   const pal = page.getByRole("dialog", { name: "Search or do" });
-  await expect(pal.locator(".ph")).toHaveText(["Recent", "Do"]);
-  const recent = pal.getByRole("group", { name: "Recent" });
-  await expect(recent.locator(".it").first()).toContainText("db");
-  await expect(recent.locator(".it").first()).toContainText("in shop · copy URL, sleep, restart");
-  const doRows = pal.getByRole("group", { name: "Do" }).locator(".it");
-  await expect(doRows.nth(0)).toContainText("Sleep everything in shop");
-  await expect(doRows.nth(0)).toContainText("wakes on connect; nothing is lost");
-  await expect(doRows.nth(0).locator(".k")).toHaveText("sleep all");
-  await expect(doRows.nth(1)).toContainText("Up acme");
-  await expect(doRows.nth(1)).toContainText("stopped · as last time: api, web, db");
-  await expect(doRows.nth(2)).toContainText("Open folder…");
-  await expect(pal.locator(".foot")).toContainText("type a name, or a verb then a name: sleep db · logs api · copy web");
+  // On db's page, db's commands come first.
+  await expect(pal.locator(".ph").first()).toHaveText("Suggested");
+  const suggested = pal.getByRole("group", { name: "Suggested" }).locator(".it");
+  await expect(suggested.first()).toContainText(/Sleep db|Wake db/);
+  // The selected row shows its CLI form.
+  await expect(suggested.first().locator(".k")).toContainText(/doze |asks first/);
+  await expect(pal.getByRole("group", { name: "Stacks" })).toContainText("shop");
+  await expect(pal.getByRole("group", { name: "Stacks" })).toContainText("acme");
   await page.screenshot({ path: `.desk-look/Palette-${info.project.name}.png` });
-
-  // Tab shows the row's actions; esc hides them, then closes.
-  await page.keyboard.press("Tab");
-  await expect(pal.locator(".it.on .acts kbd").first()).toHaveText("copy URL");
-  await page.keyboard.press("Escape");
-  await expect(pal.locator(".acts")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(pal).toBeHidden();
 });
 
-test("a verb then a name: what it applies to, whether it asks, Did you mean", async ({ page }, info) => {
+test("tab goes into a stack, then a service; a copy says so in place; ⌫ steps out", async ({ page }, info) => {
   await page.goto("/");
   await page.getByRole("tab", { name: /^shop/ }).click();
   await page.keyboard.press("ControlOrMeta+k");
   const pal = page.getByRole("dialog", { name: /Search or do/ });
-  await box(page).fill("sleep ca");
-  await expect(pal.locator(".ph")).toHaveText(["Sleep", "Did you mean"]);
-  const cache = pal.locator(".it.on");
-  await expect(cache).toContainText("cache");
-  await expect(cache).toContainText(/in shop · (dozing, 11 MB · quiet; sleeps soon|awake)/);
-  await expect(cache.locator(".k")).toHaveText("⏎ sleep now");
-  await expect(cache.locator(".hl2").first()).toHaveText("ca");
-  await expect(pal.getByRole("group", { name: "Did you mean" })).toContainText("Sleep everything in shop");
-  await expect(pal.locator(".foot")).toContainText("verbs: up · down · sleep · wake · restart · pin · logs · copy · open · run");
-  await page.screenshot({ path: `.desk-look/PaletteTyped-${info.project.name}.png` });
+  await box(page).fill("shop");
+  await expect(pal.locator(".it.on")).toContainText("shop");
+  await page.keyboard.press("Tab");
+  await expect(pal.locator(".crumb")).toHaveText(["shop ›"]);
+  await expect(pal.locator(".ph")).toHaveText(["shop", "Services"]);
+  await box(page).fill("db");
+  await expect(pal.getByRole("group", { name: "Services" }).locator(".it").first()).toContainText("db");
+  await pal.getByRole("group", { name: "Services" }).locator(".it").first().hover();
+  await page.keyboard.press("Tab");
+  await expect(pal.locator(".crumb")).toHaveText(["shop ›", "db ›"]);
+  await box(page).fill("psql");
+  const row = pal.locator(".it.on");
+  await expect(row).toContainText("Copy the psql line");
+  await page.keyboard.press("Enter");
+  await expect(row.locator(".k")).toHaveText("Copied ✓");
+  await expect(pal).toBeVisible();
+  await page.screenshot({ path: `.desk-look/PaletteScoped-${info.project.name}.png` });
+  await box(page).fill("");
+  await page.keyboard.press("Backspace");
+  await expect(pal.locator(".crumb")).toHaveText(["shop ›"]);
+  await page.keyboard.press("Backspace");
+  await expect(pal.locator(".crumb")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
 
-  // A service that something else needs asks first.
+test("a name then words: a command for it, or its logs searched; a verb still works", async ({ page }, info) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await page.keyboard.press("ControlOrMeta+k");
+  const pal = page.getByRole("dialog", { name: /Search or do/ });
+  await box(page).fill("db restart");
+  await expect(pal.locator(".it.on")).toContainText("Restart db");
+  await box(page).fill("api timeout");
+  await expect(pal.locator(".it.on")).toContainText("Search api's logs for “timeout”");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("textbox", { name: "Filter the lines" })).toHaveValue("timeout");
+  // api alone is ticked.
+  await expect(page.getByRole("checkbox", { name: "api", exact: true })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "web", exact: true })).not.toBeChecked();
+  // A verb, and an alias for one.
+  await page.keyboard.press("ControlOrMeta+k");
+  await box(page).fill("stop ca");
+  await expect(pal.locator(".ph").first()).toHaveText("Sleep");
   await box(page).fill("sleep db");
   await expect(pal.locator(".it.on .k")).toHaveText("⏎ asks first");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "Sleep db?" })).toBeVisible();
   await page.keyboard.press("Escape");
-
-  // A name alone finds services and stacks; ⏎ opens.
+  // App commands are found by name.
   await page.keyboard.press("ControlOrMeta+k");
-  await box(page).fill("sho");
-  await expect(pal.locator(".ph")).toHaveText(["Open"]);
-  await expect(pal.locator(".it.on")).toContainText("shop");
-  await expect(pal.locator(".it.on")).toContainText("~/code/shop");
-  await box(page).fill("mig");
-  await expect(pal.locator(".it.on")).toContainText("Run migrate");
+  await box(page).fill("theme te");
+  await expect(pal.getByRole("group", { name: "Commands" })).toContainText("Theme: teal");
+  await page.screenshot({ path: `.desk-look/PaletteTyped-${info.project.name}.png` });
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
 });
@@ -87,8 +103,6 @@ test("nothing called that: the closest name, with the verb carried over", async 
   await box(page).fill("restart kafkaa");
   await expect(pal).toContainText("Nothing called kafkaa in shop or acme.");
   await expect(pal).toContainText("Closest: events (kafka, in shop).");
-  await expect(pal.locator(".k")).toHaveText("⏎ use events");
-  await expect(pal.locator(".foot")).toContainText("a verb alone lists what it can apply to; a name alone opens it with its actions");
   await page.screenshot({ path: `.desk-look/PaletteNothing-${info.project.name}.png` });
   // ⏎ puts the corrected command in the box to be read; it runs nothing.
   await page.keyboard.press("Enter");

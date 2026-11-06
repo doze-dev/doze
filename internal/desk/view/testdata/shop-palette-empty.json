@@ -2,6 +2,45 @@
   "query": "",
   "sections": [
     {
+      "title": "Suggested",
+      "rows": [
+        {
+          "glyph": "↓",
+          "tone": "dim",
+          "label": "Sleep everything in shop",
+          "note": "frees memory; the next connection wakes each",
+          "cli": "doze sleep",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "sleep"
+          }
+        },
+        {
+          "glyph": "≡",
+          "tone": "dim",
+          "label": "All logs of shop",
+          "cli": "doze logs",
+          "do": {
+            "kind": "page",
+            "stackKey": "shop-1",
+            "page": "logs"
+          }
+        },
+        {
+          "glyph": "↻",
+          "tone": "dim",
+          "label": "Restart shop",
+          "cli": "doze down \u0026\u0026 doze up --last",
+          "do": {
+            "kind": "stack",
+            "stackKey": "shop-1",
+            "verb": "restart"
+          }
+        }
+      ]
+    },
+    {
       "title": "Recent",
       "rows": [
         {
@@ -55,7 +94,8 @@
                 "page": "logs"
               }
             }
-          ]
+          ],
+          "enter": "shop-1#db"
         },
         {
           "glyph": "▸",
@@ -88,38 +128,39 @@
                 "page": "logs"
               }
             }
-          ]
+          ],
+          "enter": "shop-1#migrate"
         }
       ]
     },
     {
-      "title": "Do",
+      "title": "Stacks",
       "rows": [
         {
-          "glyph": "↓",
-          "tone": "dim",
-          "label": "Sleep everything in shop",
-          "note": "wakes on connect; nothing is lost",
-          "key": "sleep all",
-          "cli": "doze sleep",
+          "glyph": "dot",
+          "tone": "g",
+          "label": "shop",
+          "note": "5 awake",
+          "key": "tab ›",
           "do": {
-            "kind": "verb",
+            "kind": "page",
             "stackKey": "shop-1",
-            "verb": "sleep"
-          }
+            "page": "home"
+          },
+          "enter": "shop-1"
         },
         {
-          "glyph": "↑",
+          "glyph": "dot",
           "tone": "dim",
-          "label": "Up acme",
-          "note": "stopped · as last time: api, web",
-          "key": "up acme",
-          "cli": "doze up --last",
+          "label": "acme",
+          "note": "stopped",
+          "key": "tab ›",
           "do": {
-            "kind": "stack",
+            "kind": "page",
             "stackKey": "acme",
-            "verb": "up-last"
-          }
+            "page": "home"
+          },
+          "enter": "acme"
         },
         {
           "glyph": "⌘O",

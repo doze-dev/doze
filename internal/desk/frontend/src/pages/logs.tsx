@@ -18,9 +18,12 @@ export function LogsPage({
   embedded,
   bare,
   run: fixedRun,
+  q,
 }: {
   stackKey: string;
   instance: string;
+  /** q is the words the search starts with. */
+  q?: string;
   embedded?: boolean;
   /** bare is the lines only, inside another dock (a task's output). */
   bare?: boolean;
@@ -31,7 +34,7 @@ export function LogsPage({
   const logsVersion = useStore((s) => s.logsVersion);
   const show = useStore((s) => s.show);
   const [level, setLevel] = useState(1);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(q ?? "");
   const [runIdx, setRunIdx] = useState(0); // 0 = every run; otherwise an index into logs.runs from the newest
   const [clock, setClock] = useState(false);
   const [logs, setLogs] = useState<view.Logs | null>(null);

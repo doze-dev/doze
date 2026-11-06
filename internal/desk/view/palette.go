@@ -1,6 +1,7 @@
 package view
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -18,7 +19,10 @@ import (
 // what the verb can apply to, with "Did you mean" under it; nothing found
 // says so and offers the closest name.
 type Palette struct {
-	Query    string           `json:"query"`
+	Query string `json:"query"`
+	// Crumbs is where the palette is narrowed to, by name: ["shop"] inside
+	// a stack, ["shop", "api"] inside a service; empty at the top.
+	Crumbs   []string         `json:"crumbs,omitempty"`
 	Sections []PaletteSection `json:"sections"`
 	// Nothing is set when the query matched nothing.
 	Nothing *PaletteNothing `json:"nothing,omitempty"`
@@ -45,6 +49,12 @@ type PaletteRow struct {
 	Bad   bool   `json:"bad,omitempty"`
 	Do    Doing  `json:"do"`
 	Acts  []Act  `json:"acts,omitempty"`
+	// Enter is what tab narrows the palette to: a stack's key, or a
+	// stack's key and a service's name ("key#api": a key is a folder, so
+	// never "/"); empty when the row is a command.
+	Enter string `json:"enter,omitempty"`
+	// Also is the words a row is found by besides its label (aliases).
+	Also string `json:"-"`
 }
 
 // Act is one of a row's actions: the word on the chip and what it does.
@@ -85,10 +95,28 @@ type Doing struct {
 var verbs = []string{"sleep", "wake", "restart", "pin", "unpin", "reset", "off", "on", "logs", "copy", "open", "run", "up", "down"}
 
 // PaletteOf lists the palette for a query across every stack. current is
-// the stack on screen, whose rows come first; recent is from prefs.
-func PaletteOf(stacks []hub.StackView, current string, recent []prefs.Recent, query string, now time.Time) Palette {
+// the stack on screen and inst the service on screen, whose commands come
+// first; scope is what tab narrowed to ("key" or "key/name"); recent and
+// cmds are from prefs.
+func PaletteOf(stacks []hub.StackView, current, inst, scope string, recent []prefs.Recent, cmds []json.RawMessage, query string, now time.Time) Palette {
 	query = strings.TrimSpace(query)
 	p := Palette{Query: query, Sections: []PaletteSection{}}
+	if scope != "" {
+		key, name, _ := strings.Cut(scope, "#")
+		for _, st := range stacks {
+			if st.Key != key {
+				continue
+			}
+			p.Sections, p.Crumbs = scoped(st, name, query, now)
+			if p.Sections == nil {
+				p.Sections = []PaletteSection{}
+				if query != "" {
+					p.Nothing = &PaletteNothing{Name: query, Where: strings.Join(p.Crumbs, " › ")}
+				}
+			}
+			return p
+		}
+	}
 	// The current stack first, then the rest as the Library orders them.
 	sort.SliceStable(stacks, func(i, j int) bool {
 		if (stacks[i].Key == current) != (stacks[j].Key == current) {
@@ -97,10 +125,17 @@ func PaletteOf(stacks []hub.StackView, current string, recent []prefs.Recent, qu
 		return false
 	})
 	if query == "" {
-		p.Sections = atHand(stacks, recent, now)
+		p.Sections = atHand(stacks, current, inst, recent, cmds, now)
 		return p
 	}
 	verb, rest, _ := strings.Cut(strings.ToLower(query), " ")
+	if a, ok := aliases[verb]; ok {
+		verb = a
+	}
+	if s := byObject(stacks, current, verb, strings.TrimSpace(rest), now); s != nil {
+		p.Sections = s
+		return p
+	}
 	if isVerb(verb) {
 		p.Sections = forVerb(stacks, verb, strings.TrimSpace(rest), now)
 		if len(p.Sections) == 0 {
@@ -109,14 +144,84 @@ func PaletteOf(stacks []hub.StackView, current string, recent []prefs.Recent, qu
 		return p
 	}
 	p.Sections = byName(stacks, query, now)
+	// Commands for where you are, and the app's, after the names.
+	var cmds2 []PaletteRow
+	for _, st := range stacks {
+		if st.Key != current {
+			continue
+		}
+		if inst != "" {
+			if v, ok := display.Find(snapshot(st), inst); ok {
+				cmds2 = append(cmds2, instanceCommands(st, v, now)...)
+			}
+		}
+		cmds2 = append(cmds2, stackCommands(st)...)
+	}
+	cmds2 = append(cmds2, appCommands()...)
+	if rows := filterRows(cmds2, query); len(rows) > 0 {
+		p.Sections = append(p.Sections, PaletteSection{Title: "Commands", Rows: headOf(rows, 8)})
+	}
 	if len(p.Sections) == 0 {
 		p.Nothing = nothing(stacks, "", query)
 	}
 	return p
 }
 
-// atHand is the empty palette: Needs you, Recent, Do.
-func atHand(stacks []hub.StackView, recent []prefs.Recent, now time.Time) []PaletteSection {
+// byObject reads "<service or stack> <what>": a name first, then a
+// command for it ("api restart"), or words to look for in its logs ("api
+// timeout"). The current stack's services are looked at first. Nil when
+// the first word names nothing, or nothing follows it.
+func byObject(stacks []hub.StackView, current, first, rest string, now time.Time) []PaletteSection {
+	if rest == "" {
+		return nil
+	}
+	ordered := append([]hub.StackView{}, stacks...)
+	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Key == current && ordered[j].Key != current })
+	for _, st := range ordered {
+		if strings.EqualFold(st.Name, first) {
+			if rows := filterRows(stackCommands(st), rest); len(rows) > 0 {
+				return []PaletteSection{{Title: st.Name, Rows: rows}}
+			}
+			return []PaletteSection{{Title: st.Name, Rows: []PaletteRow{logSearch(st, "", rest)}}}
+		}
+		if !st.Running {
+			continue
+		}
+		snap := snapshot(st)
+		if v, ok := display.Find(snap, first); ok && strings.EqualFold(v.Name, first) {
+			q := rest
+			if a, ok := aliases[strings.ToLower(q)]; ok {
+				q = a
+			}
+			if rows := filterRows(instanceCommands(st, v, now), q); len(rows) > 0 {
+				return []PaletteSection{{Title: v.Name + " in " + st.Name, Rows: rows}}
+			}
+			return []PaletteSection{{Title: v.Name + " in " + st.Name, Rows: []PaletteRow{logSearch(st, v.Name, rest)}}}
+		}
+	}
+	if first == "logs" {
+		for _, st := range ordered {
+			if st.Running {
+				return []PaletteSection{{Title: "Logs", Rows: []PaletteRow{logSearch(st, "", rest)}}}
+			}
+		}
+	}
+	return nil
+}
+
+// logSearch is a row that opens logs filtered to words: a service's, or
+// all of a stack's.
+func logSearch(st hub.StackView, inst, words string) PaletteRow {
+	label := "Search " + st.Name + "'s logs for “" + words + "”"
+	if inst != "" {
+		label = "Search " + inst + "'s logs for “" + words + "”"
+	}
+	return PaletteRow{Glyph: "⌕", Tone: "dim", Label: label, Key: "⏎ search", Do: Doing{Kind: "page", StackKey: st.Key, Page: "logs", Target: inst, Text: words}}
+}
+
+// atHand is the empty palette: what is broken, what suits where you are,
+// what you did lately, and every stack to tab into.
+func atHand(stacks []hub.StackView, current, inst string, recent []prefs.Recent, cmds []json.RawMessage, now time.Time) []PaletteSection {
 	var out []PaletteSection
 	var needs []PaletteRow
 	for _, st := range stacks {
@@ -126,43 +231,52 @@ func atHand(stacks []hub.StackView, recent []prefs.Recent, now time.Time) []Pale
 		snap := snapshot(st)
 		for _, v := range st.Instances {
 			if display.Troubled(v) {
-				needs = append(needs, instanceRow(st, snap, v, now, "⏎ open"))
+				row := instanceRow(st, snap, v, now, "⏎ open")
+				row.Enter = st.Key + "#" + v.Name
+				needs = append(needs, row)
 			}
 		}
 	}
 	if len(needs) > 0 {
 		out = append(out, PaletteSection{Title: "Needs you", Rows: needs})
 	}
-	var rec []PaletteRow
-	for _, r := range recent {
-		for _, st := range stacks {
-			if st.Key != r.Key || !st.Running {
-				continue
+	if rows := suggested(stacks, current, inst, now); len(rows) > 0 {
+		out = append(out, PaletteSection{Title: "Suggested", Rows: rows})
+	}
+	if rows := recentCommands(stacks, cmds); len(rows) > 0 {
+		out = append(out, PaletteSection{Title: "Recent", Rows: rows})
+	} else {
+		var rec []PaletteRow
+		for _, r := range recent {
+			for _, st := range stacks {
+				if st.Key != r.Key || !st.Running {
+					continue
+				}
+				snap := snapshot(st)
+				if v, ok := display.Find(snap, r.Name); ok {
+					row := recentRow(st, snap, v, now)
+					row.Enter = st.Key + "#" + v.Name
+					rec = append(rec, row)
+				}
 			}
-			snap := snapshot(st)
-			if v, ok := display.Find(snap, r.Name); ok {
-				rec = append(rec, recentRow(st, snap, v, now))
+			if len(rec) == 4 {
+				break
 			}
 		}
-		if len(rec) == 4 {
-			break
+		if len(rec) > 0 {
+			out = append(out, PaletteSection{Title: "Recent", Rows: rec})
 		}
 	}
-	if len(rec) > 0 {
-		out = append(out, PaletteSection{Title: "Recent", Rows: rec})
-	}
-	var do []PaletteRow
+	var sts []PaletteRow
 	for _, st := range stacks {
+		row := PaletteRow{Glyph: "dot", Tone: "dim", Label: st.Name, Note: "stopped", Key: "tab ›", Enter: st.Key, Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}}
 		if st.Running {
-			if n := awakeCount(st); n > 0 {
-				do = append(do, sleepAllRow(st, "wakes on connect; nothing is lost"))
-			}
-		} else {
-			do = append(do, upRow(st))
+			row.Tone, row.Note = "g", stackFigure(st)
 		}
+		sts = append(sts, row)
 	}
-	do = append(do, PaletteRow{Glyph: "⌘O", Tone: "dim", Label: "Open folder…", Note: "add a project to Home", Key: "open", Do: Doing{Kind: "folder"}})
-	out = append(out, PaletteSection{Title: "Do", Rows: do})
+	sts = append(sts, PaletteRow{Glyph: "⌘O", Tone: "dim", Label: "Open folder…", Note: "add a project to Home", Key: "open", Do: Doing{Kind: "folder"}})
+	out = append(out, PaletteSection{Title: "Stacks", Rows: sts})
 	return out
 }
 
@@ -187,14 +301,16 @@ func byName(stacks []hub.StackView, query string, now time.Time) []PaletteSectio
 		if !st.Running {
 			// A name under Open opens: a stopped stack's page, where Up is.
 			// Starting it is "up acme", said as a verb.
-			add(PaletteRow{Glyph: "dot", Tone: "dim", Label: st.Name, Note: display.Tilde(st.Dir) + " · stopped", Key: "⏎ open", Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
+			add(PaletteRow{Glyph: "dot", Tone: "dim", Label: st.Name, Note: display.Tilde(st.Dir) + " · stopped", Key: "⏎ open", Enter: st.Key, Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
 			continue
 		}
 		snap := snapshot(st)
 		for _, r := range display.Rows(snap) {
-			add(instanceRow(st, snap, r.V, now, "⏎ open"))
+			row := instanceRow(st, snap, r.V, now, "⏎ open")
+			row.Enter = st.Key + "#" + r.V.Name
+			add(row)
 		}
-		add(PaletteRow{Glyph: "dot", Tone: "g", Label: st.Name, Note: display.Tilde(st.Dir) + " · " + stackFigure(st), Key: "⏎ open", Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
+		add(PaletteRow{Glyph: "dot", Tone: "g", Label: st.Name, Note: display.Tilde(st.Dir) + " · " + stackFigure(st), Key: "⏎ open", Enter: st.Key, Do: Doing{Kind: "page", StackKey: st.Key, Page: "home"}})
 		if awakeCount(st) > 0 {
 			add(sleepAllRow(st, "wakes on connect; nothing is lost"))
 		}

@@ -36,6 +36,9 @@ type Prefs struct {
 	// NotNow is the Needs you items put aside, by ID, with what each said
 	// then: one that says something new shows again.
 	NotNow map[string]string `json:"notNow,omitempty"`
+	// Commands are the commands done from ⌘K lately, newest first, as the
+	// page described them (view.RecentCommand), for its Recent section.
+	Commands []json.RawMessage `json:"commands,omitempty"`
 	// WindowClosed is when the window last closed, for "while the window
 	// was closed".
 	WindowClosed time.Time `json:"windowClosed,omitzero"`

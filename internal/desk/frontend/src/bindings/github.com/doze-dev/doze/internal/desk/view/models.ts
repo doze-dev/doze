@@ -1198,6 +1198,12 @@ export interface Other {
  */
 export interface Palette {
     "query": string;
+
+    /**
+     * Crumbs is where the palette is narrowed to, by name: ["shop"] inside
+     * a stack, ["shop", "api"] inside a service; empty at the top.
+     */
+    "crumbs"?: string[] | null;
     "sections": PaletteSection[] | null;
 
     /**
@@ -1255,6 +1261,13 @@ export interface PaletteRow {
     "bad"?: boolean;
     "do": Doing;
     "acts"?: Act[] | null;
+
+    /**
+     * Enter is what tab narrows the palette to: a stack's key, or a
+     * stack's key and a service's name ("key/api"); empty when the row is
+     * a command.
+     */
+    "enter"?: string;
 }
 
 /**
@@ -1361,6 +1374,17 @@ export interface Recent {
      */
     "text": string;
     "tone": string;
+}
+
+/**
+ * RecentCommand is a command done from the palette, kept in prefs so
+ * Recent is what you did, not where you went.
+ */
+export interface RecentCommand {
+    "glyph": string;
+    "label": string;
+    "note"?: string;
+    "do": Doing;
 }
 
 /**

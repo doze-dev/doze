@@ -14,7 +14,9 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -661,10 +663,10 @@ func (s *Service) Dialog(key, name, verb string) view.Dialog {
 
 // Palette is the ⌘K list for a query, across every stack; key is the
 // stack on screen, whose rows come first.
-func (s *Service) Palette(key, _, query string) view.Palette {
-	recent := prefs.Load(s.hub.Home()).Recent
+func (s *Service) Palette(key, instance, scope, query string) view.Palette {
+	pr := prefs.Load(s.hub.Home())
 	stacks := s.hub.Stacks()
-	p := view.PaletteOf(stacks, key, recent, query, s.now())
+	p := view.PaletteOf(stacks, key, instance, scope, pr.Recent, pr.Commands, query, s.now())
 	// A stack whose doze.hcl does not load cannot start: its Up row says
 	// so and opens its page, where the error is.
 	broken := map[string]bool{}
@@ -681,10 +683,47 @@ func (s *Service) Palette(key, _, query string) view.Palette {
 			}
 		}
 	}
-	if strings.TrimSpace(query) == "" {
+	if strings.TrimSpace(query) == "" && scope == "" {
 		s.paletteNeeds(&p)
 	}
 	return p
+}
+
+// RememberCommand keeps a command done from ⌘K for its Recent section:
+// the newest first, the same one once, six at most.
+func (s *Service) RememberCommand(c view.RecentCommand) {
+	b, err := json.Marshal(c)
+	if err != nil || c.Label == "" {
+		return
+	}
+	home := s.hub.Home()
+	p := prefs.Load(home)
+	out := []json.RawMessage{b}
+	for _, old := range p.Commands {
+		var o view.RecentCommand
+		if json.Unmarshal(old, &o) == nil && o.Label == c.Label {
+			continue
+		}
+		if out = append(out, old); len(out) == 6 {
+			break
+		}
+	}
+	p.Commands = out
+	_ = prefs.Save(home, p)
+}
+
+// OpenTerminal opens a terminal in a stack's folder (⌘K's "Open a
+// terminal in"): Terminal on macOS, the desktop's own elsewhere.
+func (s *Service) OpenTerminal(dir string) error {
+	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+		return fmt.Errorf("%s is not a folder", dir)
+	}
+	if runtime.GOOS == "darwin" {
+		return exec.Command("open", "-a", "Terminal", dir).Start()
+	}
+	cmd := exec.Command("x-terminal-emulator")
+	cmd.Dir = dir
+	return cmd.Start()
 }
 
 // paletteNeeds puts the rest of what is broken (D19) in ⌘K's first

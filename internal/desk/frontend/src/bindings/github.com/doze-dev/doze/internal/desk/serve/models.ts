@@ -40,6 +40,12 @@ export interface Nav {
      * Bell says Needs you was asked for as the window opened.
      */
     "bell"?: boolean;
+
+    /**
+     * Act is a stack action the page makes on arrival: "up-last" or
+     * "up-all" from the menu bar, on Key.
+     */
+    "act"?: string;
 }
 
 /**

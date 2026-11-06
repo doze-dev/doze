@@ -61,6 +61,7 @@ export type {
     Preflight,
     Proc,
     Recent,
+    RecentCommand,
     Row,
     Run,
     Setup,

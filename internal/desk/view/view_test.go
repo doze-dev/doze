@@ -208,9 +208,9 @@ func TestPaletteListsWhatIsAtHandThenAVerbThenNothing(t *testing.T) {
 	stacks := []hub.StackView{st, {Key: "acme", Name: "acme", Dir: "/w/acme", LastSet: []string{"api", "web"}}}
 	recent := []prefs.Recent{{Key: "shop-1", Name: "db"}, {Key: "shop-1", Name: "migrate"}}
 
-	// Nothing typed: Recent from prefs, Do with the running stack's sleep
-	// and the stopped stack's up.
-	p := PaletteOf(stacks, "shop-1", recent, "", epoch)
+	// Nothing typed: three commands for the stack on screen, Recent from
+	// prefs, then every stack to tab into.
+	p := PaletteOf(stacks, "shop-1", "", "", recent, nil, "", epoch)
 	golden(t, "shop-palette-empty", p)
 	titles := func(p Palette) []string {
 		var out []string
@@ -219,19 +219,46 @@ func TestPaletteListsWhatIsAtHandThenAVerbThenNothing(t *testing.T) {
 		}
 		return out
 	}
-	if got := titles(p); strings.Join(got, ",") != "Recent,Do" {
+	if got := titles(p); strings.Join(got, ",") != "Suggested,Recent,Stacks" {
 		t.Errorf("sections = %v", got)
 	}
-	if r := p.Sections[0].Rows; r[0].Label != "db" || !strings.HasPrefix(r[0].Note, "in shop · copy URL") || r[1].Label != "Run migrate" {
+	if r := p.Sections[0].Rows; len(r) != 3 || r[0].Label != "Sleep everything in shop" || r[1].Label != "All logs of shop" || r[2].Label != "Restart shop" {
+		t.Errorf("suggested rows = %+v", r)
+	}
+	if r := p.Sections[1].Rows; r[0].Label != "db" || !strings.HasPrefix(r[0].Note, "in shop · copy URL") || r[1].Label != "Run migrate" || r[0].Enter != "shop-1#db" {
 		t.Errorf("recent rows = %+v", r)
 	}
-	if r := p.Sections[1].Rows; r[0].Label != "Sleep everything in shop" || r[1].Label != "Up acme" || r[1].Note != "stopped · as last time: api, web" || r[2].Do.Kind != "folder" {
-		t.Errorf("do rows = %+v", r)
+	if r := p.Sections[2].Rows; r[0].Label != "shop" || r[0].Enter != "shop-1" || r[1].Label != "acme" || r[1].Note != "stopped" || r[2].Do.Kind != "folder" {
+		t.Errorf("stack rows = %+v", r)
+	}
+
+	// Inside a service (tab): its commands only, the breadcrumb saying where.
+	p = PaletteOf(stacks, "shop-1", "", "shop-1#db", nil, nil, "", epoch)
+	if strings.Join(p.Crumbs, "›") != "shop›db" || p.Sections[0].Rows[0].Label != "Sleep db" {
+		t.Errorf("scoped = %v %+v", p.Crumbs, p.Sections)
+	}
+	p = PaletteOf(stacks, "shop-1", "", "shop-1#db", nil, nil, "psql", epoch)
+	if len(p.Sections) != 1 || !strings.HasPrefix(p.Sections[0].Rows[0].Note, "psql ") {
+		t.Errorf("scoped psql = %+v", p.Sections)
+	}
+	// A name, then a command for it; a name, then words for its logs.
+	p = PaletteOf(stacks, "shop-1", "", "", nil, nil, "db restart", epoch)
+	if p.Sections[0].Rows[0].Label != "Restart db" {
+		t.Errorf("db restart = %+v", p.Sections)
+	}
+	p = PaletteOf(stacks, "shop-1", "", "", nil, nil, "api timeout", epoch)
+	if r := p.Sections[0].Rows[0]; r.Do.Page != "logs" || r.Do.Text != "timeout" || r.Do.Target != "api" {
+		t.Errorf("api timeout = %+v", r)
+	}
+	// An alias is the verb it means.
+	p = PaletteOf(stacks, "shop-1", "", "", nil, nil, "stop ca", epoch)
+	if p.Sections[0].Title != "Sleep" {
+		t.Errorf("stop = %+v", p.Sections)
 	}
 
 	// A verb and a name: the services it applies to, best match first, with
 	// whether it asks, then Did you mean.
-	p = PaletteOf(stacks, "shop-1", nil, "sleep ca", epoch)
+	p = PaletteOf(stacks, "shop-1", "", "", nil, nil, "sleep ca", epoch)
 	golden(t, "shop-palette-sleep-ca", p)
 	if got := titles(p); strings.Join(got, ",") != "Sleep,Did you mean" {
 		t.Errorf("sections = %v", got)
@@ -241,14 +268,14 @@ func TestPaletteListsWhatIsAtHandThenAVerbThenNothing(t *testing.T) {
 	}
 
 	// A name alone opens it; a stack's name too.
-	p = PaletteOf(stacks, "shop-1", nil, "sho", epoch)
-	if len(p.Sections) != 1 || p.Sections[0].Rows[0].Label != "shop" || p.Sections[0].Rows[0].Do.Page != "home" {
+	p = PaletteOf(stacks, "shop-1", "", "", nil, nil, "sho", epoch)
+	if p.Sections[0].Rows[0].Label != "shop" || p.Sections[0].Rows[0].Do.Page != "home" {
 		t.Errorf("by name = %+v", p.Sections)
 	}
 
 	// Nothing called that: the closest name, the verb carried over into the
 	// box to be read, never run on the guess.
-	p = PaletteOf(stacks, "shop-1", nil, "restart cachee", epoch)
+	p = PaletteOf(stacks, "shop-1", "", "", nil, nil, "restart cachee", epoch)
 	if p.Nothing == nil || p.Nothing.Closest != "cache" || p.Nothing.Where != "shop or acme" || p.Nothing.Do != nil || p.Nothing.Fill != "restart cache" {
 		t.Errorf("nothing = %+v", p.Nothing)
 	}

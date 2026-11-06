@@ -203,11 +203,26 @@ func Handler(s *Service) http.Handler {
 	})
 	call("repairplan", func(json.RawMessage) (any, error) { return s.RepairPlan(), nil })
 	call("palette", func(b json.RawMessage) (any, error) {
-		var a struct{ Key, Selected, Query string }
+		var a struct{ Key, Selected, Scope, Query string }
 		if err := json.Unmarshal(b, &a); err != nil {
 			return nil, err
 		}
-		return s.Palette(a.Key, a.Selected, a.Query), nil
+		return s.Palette(a.Key, a.Selected, a.Scope, a.Query), nil
+	})
+	call("remembercommand", func(b json.RawMessage) (any, error) {
+		var c view.RecentCommand
+		if err := json.Unmarshal(b, &c); err != nil {
+			return nil, err
+		}
+		s.RememberCommand(c)
+		return map[string]bool{"ok": true}, nil
+	})
+	call("terminal", func(b json.RawMessage) (any, error) {
+		var a struct{ Dir string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, s.OpenTerminal(a.Dir)
 	})
 	call("recent", func(json.RawMessage) (any, error) { return s.Recent(), nil })
 	call("say", func(b json.RawMessage) (any, error) {

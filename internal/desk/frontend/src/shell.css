@@ -450,6 +450,10 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .pal .it b { color: var(--bright); font-weight: 600; }
 .pal .it .m { color: var(--dim); font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal .it .k { margin-left: auto; font: 500 var(--text-xs) var(--font-mono); color: var(--dim); flex: none; }
+.pal .pbody { max-height: min(520px, calc(100vh - 260px)); overflow-y: auto; }
+.pal .crumb { flex: none; height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--line2); background: var(--sel); color: var(--bright); font: 600 12.5px var(--font-ui); }
+.pal .it .k.ok { color: var(--good); font-family: var(--font-ui); font-weight: 600; }
+.pal .it .k kbd { font: 600 10px var(--font-mono); color: var(--bright); background: var(--sel); border-radius: 4px; padding: 1px 5px; margin-right: 4px; }
 .pal .it .acts { margin-left: auto; display: inline-flex; gap: 4px; flex: none; }
 .pal .it .acts kbd { font: 500 var(--text-xs) var(--font-ui); color: var(--bright); background: var(--sel); border: 1px solid var(--line2); border-radius: 4px; padding: 2px 7px; cursor: pointer; }
 .pal .it .acts kbd:first-child { border-color: var(--accent); }

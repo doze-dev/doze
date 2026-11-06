@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { store, ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice, useStore } from "./store";
+import { store, appCommand, ask, askStack, back, chooseFolder, chooseStart, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice, useStore } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
@@ -154,7 +154,22 @@ export function App() {
         break;
       case "page":
         if (d.page === "home") void go({ key, page: "home" });
-        else void go({ key, page: (d.page as "logs" | "instance") || "instance", instance: d.target });
+        else if (d.page === "logs") {
+          // The logs page is every service merged; one service is that
+          // service ticked alone in its sidebar.
+          const only = d.target;
+          void go({ key, page: "logs", q: d.text || undefined }).then(() => only && set({ show: [only] }));
+        }
+        else void go({ key, page: (d.page as "timeline" | "instance") || "instance", instance: d.target });
+        break;
+      case "choose":
+        void chooseStart(key);
+        break;
+      case "terminal":
+        transport().then((t) => t.openTerminal(d.text ?? "")).catch((e) => void say(String(e).replace(/^Error: /, ""), true));
+        break;
+      case "app":
+        appCommand(d.text ?? "");
         break;
       case "copy":
         void copy(d.text ?? "", `the connect line of ${d.target}`);
@@ -166,7 +181,8 @@ export function App() {
         });
         break;
       case "stack":
-        void stackAction(key, d.verb ?? "up-last");
+        if (d.verb === "remove" || d.verb === "down") void askStack(key, d.verb);
+        else void stackAction(key, d.verb ?? "up-last");
         break;
       case "folder":
         void chooseFolder();
@@ -212,7 +228,7 @@ export function App() {
           {where?.page === "library" && library && <LibraryPage lib={library} />}
           {where?.page === "home" && home && <OverviewPage home={home} stackKey={where.key} />}
           {where?.page === "instance" && instance && <InstancePage inst={instance} stackKey={where.key} />}
-          {where?.page === "logs" && <LogsPage stackKey={where.key} instance={where.instance ?? ""} />}
+          {where?.page === "logs" && <LogsPage key={where.q ?? ""} stackKey={where.key} instance={where.instance ?? ""} q={where.q} />}
           {where?.page === "empty" && empty && <EmptyPage e={empty} />}
           {where?.page === "timeline" && <TimelinePage stackKey={where.key} />}
           {where?.page === "recent" && <RecentPage stackKey={where.key} stack={stacks.find((s) => s.key === where.key)?.name ?? ""} />}
@@ -220,7 +236,7 @@ export function App() {
         </main>
       </div>
       {dialog && <Dialog d={dialog.d} onChoose={(b, text) => void choose(b, text)} onCancel={() => set({ dialog: null })} />}
-      {palette && where && <Palette stackKey={where.key} onPick={pick} onClose={() => set({ palette: false })} />}
+      {palette && where && <Palette stackKey={where.key} instance={where.page === "instance" ? (where.instance ?? "") : ""} onPick={pick} onClose={() => set({ palette: false })} />}
       {help && <Help version={version} onClose={() => set({ help: false })} />}
       <PreflightSheet />
       <Toasts />

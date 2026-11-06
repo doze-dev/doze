@@ -17,6 +17,8 @@ export interface Where {
   dir?: string;
   /** section is the part of Settings shown: general, machine, about. */
   section?: string;
+  /** q is words a logs page starts filtered to (⌘K's "api timeout"). */
+  q?: string;
 }
 
 /** Density is how much room a list's rows get, as Gmail offers it. */
@@ -798,5 +800,48 @@ export async function repair() {
     await t.repair();
   } catch (e) {
     await say(String(e).replace(/^Error: /, ""), true);
+  }
+}
+
+/** appCommand does one of ⌘K's app commands, by the id Go gave it. */
+export function appCommand(id: string) {
+  const [what, arg] = id.split(":");
+  switch (what) {
+    case "home":
+      void go({ key: "", page: "library" });
+      break;
+    case "bell":
+      set({ bell: true, alerts: [], away: null });
+      break;
+    case "settings":
+      void go({ key: "", page: "settings", section: arg || undefined });
+      break;
+    case "new":
+      void chooseFolder();
+      break;
+    case "repair":
+      void repair();
+      break;
+    case "cleanup":
+      void go({ key: "", page: "settings", section: "machine" });
+      break;
+    case "help":
+      set({ help: true });
+      break;
+    case "version":
+      void copy(get().version, "doze's version");
+      break;
+    case "mode":
+      void setMode(arg as Mode);
+      break;
+    case "theme":
+      void setTheme(arg as Theme);
+      break;
+    case "density":
+      setDensity(arg as Density);
+      break;
+    case "login":
+      void transport().then((t) => t.openAtLogin(arg === "on"));
+      break;
   }
 }

@@ -41,7 +41,12 @@ export interface Transport {
   doAll(key: string, verb: string, targets: string[]): Promise<void>;
   /** dialog is the confirmation for a verb on an instance; needed is false when it should just be done. */
   dialog(key: string, name: string, verb: string): Promise<view.Dialog>;
-  palette(key: string, selected: string, query: string): Promise<view.Palette>;
+  /** palette is ⌘K for a query: selected is the service on screen, scope what tab narrowed to ("key" or "key/name"). */
+  palette(key: string, selected: string, scope: string, query: string): Promise<view.Palette>;
+  /** rememberCommand keeps a command done from ⌘K for its Recent section. */
+  rememberCommand(c: view.RecentCommand): Promise<void>;
+  /** openTerminal opens a terminal in a folder. */
+  openTerminal(dir: string): Promise<void>;
   /** console is an instance's console tab, resolved for the selected rows. */
   console(key: string, name: string, tab: string, sel: Record<string, number>): Promise<view.Console>;
   /** action is the confirmation for a module action; needed is false when it just runs. */
@@ -128,7 +133,9 @@ async function wails(): Promise<Transport> {
     do: (key, verb, target) => api.Do(key, verb, target),
     doAll: (key, verb, targets) => api.DoAll(key, verb, targets),
     dialog: (key, name, verb) => api.Dialog(key, name, verb),
-    palette: (key, selected, query) => api.Palette(key, selected, query),
+    palette: (key, selected, scope, query) => api.Palette(key, selected, scope, query),
+    rememberCommand: (c) => api.RememberCommand(c),
+    openTerminal: (dir) => api.OpenTerminal(dir),
     console: (key, name, tab, sel) => api.Console(key, name, tab, sel),
     action: (key, name, a) => api.Action(key, name, a),
     admin: (key, name, action, resource, input) => api.Admin(key, name, action, resource, input),
@@ -206,7 +213,9 @@ function http(): Transport {
     do: (key, verb, target) => call("do", { key, verb, target }),
     doAll: (key, verb, targets) => call("doall", { key, verb, targets }),
     dialog: (key, name, verb) => call("dialog", { key, name, verb }),
-    palette: (key, selected, query) => call("palette", { key, selected, query }),
+    palette: (key, selected, scope, query) => call("palette", { key, selected, scope, query }),
+    rememberCommand: (c) => call("remembercommand", c),
+    openTerminal: (dir) => call("terminal", { dir }),
     console: (key, name, tab, sel) => call("console", { key, name, tab, sel }),
     action: (key, name, a) => call("action", { key, name, action: a }),
     admin: (key, name, action, resource, input) => call("admin", { key, name, action, resource, input }),

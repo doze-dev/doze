@@ -58,8 +58,16 @@ func (a *API) DoAll(key, verb string, targets []string) error { return a.s.DoAll
 func (a *API) Dialog(key, name, verb string) view.Dialog { return a.s.Dialog(key, name, verb) }
 
 // Palette is the ⌘K list for a query.
-func (a *API) Palette(key, selected, query string) view.Palette {
-	return a.s.Palette(key, selected, query)
+func (a *API) Palette(key, selected, scope, query string) view.Palette {
+	return a.s.Palette(key, selected, scope, query)
+}
+
+// RememberCommand keeps a command done from ⌘K for its Recent section.
+func (a *API) RememberCommand(c view.RecentCommand) { a.s.RememberCommand(c) }
+
+// OpenTerminal opens a terminal in a stack's folder.
+func (a *API) OpenTerminal(dir string) error {
+	return a.s.OpenTerminal(dir)
 }
 
 // Recent is the last twenty things said, newest first.

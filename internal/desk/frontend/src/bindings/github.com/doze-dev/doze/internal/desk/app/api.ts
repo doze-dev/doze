@@ -204,6 +204,13 @@ export function Open(url: string): $CancellablePromise<void> {
 }
 
 /**
+ * OpenTerminal opens a terminal in a stack's folder.
+ */
+export function OpenTerminal(dir: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.OpenTerminal", dir);
+}
+
+/**
  * Painted reports the page's first paint, for the desk bench.
  */
 export function Painted(ms: number): $CancellablePromise<void> {
@@ -213,8 +220,8 @@ export function Painted(ms: number): $CancellablePromise<void> {
 /**
  * Palette is the ⌘K list for a query.
  */
-export function Palette(key: string, selected: string, query: string): $CancellablePromise<view$0.Palette> {
-    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Palette", key, selected, query);
+export function Palette(key: string, selected: string, scope: string, query: string): $CancellablePromise<view$0.Palette> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Palette", key, selected, scope, query);
 }
 
 /**
@@ -258,6 +265,13 @@ export function PreflightInstanceFix(key: string, name: string, verb: string, ki
  */
 export function Recent(): $CancellablePromise<serve$0.Notice[] | null> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Recent");
+}
+
+/**
+ * RememberCommand keeps a command done from ⌘K for its Recent section.
+ */
+export function RememberCommand(c: view$0.RecentCommand): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.RememberCommand", c);
 }
 
 /**

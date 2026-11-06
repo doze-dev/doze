@@ -39,7 +39,7 @@ test("⌘K puts what needs you first", async ({ page }) => {
   const row = pal.getByRole("group", { name: "Needs you" }).locator(".it").first();
   await expect(row).toContainText("api");
   await expect(row).toContainText("in shop · crashing · try 3 of 5");
-  await expect(row.locator(".k")).toHaveText("⏎ open");
+  await expect(row.locator(".k")).toHaveText("tab its commands");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("api");
 });
