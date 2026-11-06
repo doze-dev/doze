@@ -497,6 +497,14 @@ export interface Home {
     "up"?: string;
 
     /**
+     * Busy is the stack action in flight ("starting", "stopping",
+     * "restarting"); the page shows it at once and takes no second one.
+     * Failed is the last action that did not work, with what it said.
+     */
+    "busy"?: string;
+    "failed"?: StackFailure | null;
+
+    /**
      * Stopped is set for a stack that is not running: when it was up, and
      * the banner in place of the figures. Its rows are down (Row.Down).
      */
@@ -611,6 +619,10 @@ export interface KV {
  * LibStack is one row of the library.
  */
 export interface LibStack {
+    /**
+     * Busy is the stack action in flight, as on its page.
+     */
+    "busy"?: string;
     "key": string;
     "name": string;
     "dir": string;
@@ -1275,6 +1287,18 @@ export interface SrcLine {
     "n": number;
     "text": string;
     "bad"?: boolean;
+}
+
+/**
+ * StackFailure is a stack action that did not work: what was tried, and
+ * the last lines it printed, kept on the page until dismissed.
+ */
+export interface StackFailure {
+    /**
+     * "Starting shop failed"
+     */
+    "what": string;
+    "lines": string[] | null;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ask, copy, go, run, useStore } from "../store";
+import { ask, copy, go, run, say, useStore } from "../store";
 import { transport, type view } from "../transport";
 import { ChartCard } from "../components/chart";
 import { KVRows } from "../components/card";
@@ -642,7 +642,7 @@ function PortClash({ inst, stackKey }: { inst: view.Instance; stackKey: string }
               <b>Stop pid {h.pid} and start {inst.name}</b>
               <span>doze sends it a polite TERM. It is not one of doze's; doze looks again that it still holds the port first.</span>
             </div>
-            <button className="btn" onClick={() => transport().then((t) => t.stopHolder(stackKey, inst.name, h.pid))}>
+            <button className="btn" onClick={() => transport().then((t) => t.stopHolder(stackKey, inst.name, h.pid)).catch((e) => void say(String(e).replace(/^Error: /, ""), true))}>
               Stop {h.command || "it"}
             </button>
           </div>

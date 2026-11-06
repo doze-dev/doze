@@ -61,6 +61,13 @@ func Run(ctx context.Context, o Options) error {
 	}
 	defer cleanup()
 	svc := serve.New(h, nil)
+	// Stack actions are acted out, never run: a fixture has no real stacks,
+	// and a test must not leave a daemon behind. Starting one fails, after
+	// a moment, saying so, which is how the page's failure is tested.
+	svc.FakeStack = func(st hub.StackView, action string) ([]byte, error) {
+		time.Sleep(1500 * time.Millisecond)
+		return []byte("doze: this is a fixture; " + st.Name + " cannot really " + map[string]string{"up-last": "start", "up-all": "start", "up": "start", "down": "stop", "restart": "restart"}[action] + " here"), errors.New("exit status 1")
+	}
 	svc.SetVersion(o.Version)
 	setup := o.Setup
 	if setup == nil && o.Fixture != "" {

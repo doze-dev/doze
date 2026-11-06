@@ -43,6 +43,8 @@ type Library struct {
 
 // LibStack is one row of the library.
 type LibStack struct {
+	// Busy is the stack action in flight, as on its page.
+	Busy    string `json:"busy,omitempty"`
 	Key     string `json:"key"`
 	Name    string `json:"name"`
 	Dir     string `json:"dir"`

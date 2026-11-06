@@ -72,6 +72,13 @@ export function Dialog(key: string, name: string, verb: string): $CancellablePro
 }
 
 /**
+ * Dismiss puts away a stack action's failure.
+ */
+export function Dismiss(key: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Dismiss", key);
+}
+
+/**
  * DismissHints hides the Library's help strip for good.
  */
 export function DismissHints(): $CancellablePromise<void> {

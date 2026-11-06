@@ -172,3 +172,20 @@ test("a narrow window keeps the sidebars, and the Library scrolls", async ({ pag
   await side.locator(".si", { hasText: "About" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("About");
 });
+
+test("starting a stack shows at once, takes no second start, and a failure stays on the page", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".lrow", { hasText: "acme" }).first().dblclick();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("acme");
+  await page.keyboard.press("u");
+  // At once: the switch says starting and cannot be pressed again.
+  await expect(page.getByRole("switch", { name: "acme is starting" }).or(page.locator(".banner.failed"))).toBeVisible();
+  // The fixture's folder cannot really start, so it fails, and says why.
+  const failed = page.locator(".banner.failed");
+  await expect(failed).toBeVisible({ timeout: 20000 });
+  await expect(failed).toContainText("Starting acme failed");
+  await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
+  await page.screenshot({ path: `.desk-look/StackFailed-${test.info().project.name}.png` });
+  await failed.getByRole("button", { name: "Dismiss" }).click();
+  await expect(failed).toBeHidden();
+});

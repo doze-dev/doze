@@ -200,13 +200,17 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
           </span>
         )}
       </div>
-      <span className="when">{s.when}</span>
+      <span className="when">{s.busy ? <span className="cool">{s.busy}…</span> : s.when}</span>
       <div className="act">
         <button
-          className={"sw big" + (s.running ? " on" : "")}
+          className={"sw big" + ((s.busy ? s.busy !== "stopping" : s.running) ? " on" : "") + (s.busy ? " dis" : "")}
           role="switch"
-          aria-checked={s.running}
-          aria-label={s.running ? `${s.name} is up` : `${s.name} is down`}
+          aria-checked={s.busy ? s.busy !== "stopping" : s.running}
+          aria-busy={!!s.busy}
+          disabled={!!s.busy}
+          title={s.busy ? `${s.busy}…` : undefined}
+          aria-label={s.busy ? `${s.name} is ${s.busy}` : s.running ? `${s.name} is up` : `${s.name} is stopped`}
+          onDoubleClick={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             void (s.running ? askStop(s.key) : stackAction(s.key, "up-last"));

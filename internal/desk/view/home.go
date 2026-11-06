@@ -41,6 +41,11 @@ type Home struct {
 	Map MapView `json:"map"`
 	// Up is how long the daemon has been up: "14m".
 	Up string `json:"up,omitempty"`
+	// Busy is the stack action in flight ("starting", "stopping",
+	// "restarting"); the page shows it at once and takes no second one.
+	// Failed is the last action that did not work, with what it said.
+	Busy   string        `json:"busy,omitempty"`
+	Failed *StackFailure `json:"failed,omitempty"`
 	// Stopped is set for a stack that is not running: when it was up, and
 	// the banner in place of the figures. Its rows are down (Row.Down).
 	Stopped *Stopped `json:"stopped,omitempty"`
@@ -397,4 +402,11 @@ func Domains(st hub.StackView) []string {
 		out = append(out, v.Domains...)
 	}
 	return out
+}
+
+// StackFailure is a stack action that did not work: what was tried, and
+// the last lines it printed, kept on the page until dismissed.
+type StackFailure struct {
+	What  string   `json:"what"` // "Starting shop failed"
+	Lines []string `json:"lines"`
 }

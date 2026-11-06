@@ -74,6 +74,9 @@ func (a *API) Theme(theme string) { a.s.SetTheme(theme) }
 // Mode tells Go the mode the page uses: dark, light or system.
 func (a *API) Mode(mode string) { a.s.SetMode(mode) }
 
+// Dismiss puts away a stack action's failure.
+func (a *API) Dismiss(key string) { a.s.Dismiss(key) }
+
 // Painted reports the page's first paint, for the desk bench.
 func (a *API) Painted(ms int) {
 	if a.painted != nil {

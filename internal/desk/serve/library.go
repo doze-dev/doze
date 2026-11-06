@@ -64,6 +64,9 @@ func (s *Service) Library() view.Library {
 	lib.Machine = machine(lib.Doctor, stacks)
 	s.mu.Lock()
 	lib.Repairing = s.repairing
+	for i := range lib.Stacks {
+		lib.Stacks[i].Busy = s.busy[lib.Stacks[i].Key]
+	}
 	lib.Repairable = s.admin != nil && fixable(lib.Doctor)
 	lib.OpenAtLogin = autostart.Enabled()
 	lib.Others = others(home)
@@ -260,8 +263,34 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 	default:
 		return fmt.Errorf("no such action %q", action)
 	}
+	// One action at a time per stack: a second click while the first runs
+	// would start a second up or down.
+	busyWord := map[string]string{"up-last": "starting", "up-all": "starting", "up": "starting", "down": "stopping", "restart": "restarting"}[action]
+	s.mu.Lock()
+	if w := s.busy[key]; w != "" {
+		s.mu.Unlock()
+		return fmt.Errorf("%s is already %s", st.Name, w)
+	}
+	if s.busy == nil {
+		s.busy, s.failed = map[string]string{}, map[string]*view.StackFailure{}
+	}
+	s.busy[key] = busyWord
+	delete(s.failed, key)
+	s.mu.Unlock()
+	done := func(failure *view.StackFailure) {
+		s.mu.Lock()
+		delete(s.busy, key)
+		if failure != nil {
+			s.failed[key] = failure
+		}
+		s.mu.Unlock()
+		s.hub.Refresh()
+		s.changed()
+	}
+	s.changed()
 	self, err := os.Executable()
 	if err != nil {
+		done(nil)
 		return err
 	}
 	args := []string{"-y"}
@@ -273,6 +302,7 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 		args, what = append(args, "up", "--all"), "bringing all of "+st.Name+" up…"
 	case "up":
 		if len(chosen) == 0 {
+			done(nil)
 			return errors.New("choose at least one")
 		}
 		args, what = append(append(args, "up"), chosen...), "bringing up "+strings.Join(chosen, ", ")+"…"
@@ -286,26 +316,38 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 	s.Say(what, false)
 	cmd := exec.Command(self, args...)
 	cmd.Dir = st.Dir
-	cmd.Env = append(childEnv(), "NO_COLOR=1")
+	// The CLI works in the doze home this app shows: a fixture's own home
+	// under --serve --fixture, never the person's real one by accident.
+	cmd.Env = append(childEnv(), "NO_COLOR=1", "DOZE_HOME="+s.hub.Home())
 	go func() {
-		out, err := cmd.CombinedOutput()
-		if err == nil && action == "restart" {
-			up := exec.Command(self, "-y", "up", "--last")
-			up.Dir, up.Env = st.Dir, cmd.Env
-			out, err = up.CombinedOutput()
-		}
-		if err != nil {
-			last := strings.TrimSpace(string(out))
-			if i := strings.LastIndex(last, "\n"); i >= 0 {
-				last = strings.TrimSpace(last[i+1:])
+		var out []byte
+		var err error
+		if s.FakeStack != nil {
+			out, err = s.FakeStack(st, action)
+		} else {
+			out, err = cmd.CombinedOutput()
+			if err == nil && action == "restart" {
+				up := exec.Command(self, "-y", "up", "--last")
+				up.Dir, up.Env = st.Dir, cmd.Env
+				out, err = up.CombinedOutput()
 			}
-			if last == "" {
-				last = err.Error()
-			}
-			s.Say(action+" "+st.Name+" failed: "+last, true)
 		}
-		s.hub.Refresh()
-		s.changed()
+		if err == nil {
+			done(nil)
+			return
+		}
+		// The failure stays on the stack's page with what it said; the
+		// toast only points at it.
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) == 1 && lines[0] == "" {
+			lines = []string{err.Error()}
+		}
+		if len(lines) > 14 {
+			lines = lines[len(lines)-14:]
+		}
+		title := map[string]string{"starting": "Starting", "stopping": "Stopping", "restarting": "Restarting"}[busyWord] + " " + st.Name + " failed"
+		s.Say(title+": "+lines[len(lines)-1], true)
+		done(&view.StackFailure{What: title, Lines: lines})
 	}()
 	return nil
 }
@@ -438,9 +480,17 @@ func others(home string) []view.Other {
 func childEnv() []string {
 	var out []string
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "DOZE_APP_CHILD=") {
+		if !strings.HasPrefix(kv, "DOZE_APP_CHILD=") && !strings.HasPrefix(kv, "DOZE_HOME=") {
 			out = append(out, kv)
 		}
 	}
 	return out
+}
+
+// Dismiss puts away a stack action's failure once it has been read.
+func (s *Service) Dismiss(key string) {
+	s.mu.Lock()
+	delete(s.failed, key)
+	s.mu.Unlock()
+	s.changed()
 }

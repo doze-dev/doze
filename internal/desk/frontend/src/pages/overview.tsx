@@ -186,12 +186,14 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           All logs <kbd>L</kbd>
         </button>
         <span className="swl">
-          <b>Up</b>
+          {home.busy ? <span className="cool">{home.busy}…</span> : <b>Up</b>}
           <button
-            className={"sw big" + (home.running ? " on" : "")}
+            className={"sw big" + ((home.busy ? home.busy !== "stopping" : home.running) ? " on" : "") + (home.busy ? " dis" : "")}
             role="switch"
-            aria-checked={home.running}
-            aria-label={home.running ? `${home.stack} is up` : `${home.stack} is down`}
+            aria-checked={home.busy ? home.busy !== "stopping" : home.running}
+            aria-busy={!!home.busy}
+            disabled={!!home.busy}
+            aria-label={home.busy ? `${home.stack} is ${home.busy}` : home.running ? `${home.stack} is up` : `${home.stack} is stopped`}
             onClick={() => void (home.running ? askStop(stackKey) : stackAction(stackKey, "up-last"))}
           />
           <button className={"ib" + (menu ? " on" : "")} aria-label={`More ways to start ${home.stack}`} onClick={() => setMenu((m) => !m)}>
@@ -206,6 +208,16 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           />
         )}
       </div>
+      {home.busy && (
+        <div className="banner cool" role="status">
+          <span className="ring" aria-hidden />
+          <div className="t">
+            <b>{home.busy.charAt(0).toUpperCase() + home.busy.slice(1)} {home.stack}…</b>
+            <span>{home.busy === "stopping" ? "Every service stops; data stays." : "Services start in the order they need each other; this page follows as they come up."}</span>
+          </div>
+        </div>
+      )}
+      {home.failed && !home.busy && <FailedBanner f={home.failed} stackKey={stackKey} running={home.running} />}
       {home.config && <ConfigBanner c={home.config} dir={home.dir} />}
       {home.changed && (
         <div className="banner cool" role="status">
@@ -235,7 +247,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         </div>
       )}
       {stopped ? (
-        <DownStrip s={stopped} tight={viewName === "list"} onUp={() => void stackAction(stackKey, "up-last")} onChoose={() => void chooseStart(stackKey)} dir={home.dir} />
+        <DownStrip s={stopped} tight={viewName === "list"} busy={home.busy} onUp={() => void stackAction(stackKey, "up-last")} onChoose={() => void chooseStart(stackKey)} dir={home.dir} />
       ) : (
         <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} />
       )}
@@ -311,7 +323,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
 }
 
 /** DownStrip stands where the figures do while the stack is stopped: that it is down, what Up as last time starts, and the two ways up. */
-function DownStrip({ s, tight, onUp, onChoose, dir }: { s: view.Stopped; tight?: boolean; onUp: () => void; onChoose: () => void; dir: string }) {
+function DownStrip({ s, tight, onUp, onChoose, dir, busy }: { s: view.Stopped; tight?: boolean; onUp: () => void; onChoose: () => void; dir: string; busy?: string }) {
   if (s.problem) {
     return (
       <div className={"strip" + (tight ? " tight" : "")} role="alert">
@@ -337,10 +349,10 @@ function DownStrip({ s, tight, onUp, onChoose, dir }: { s: view.Stopped; tight?:
         </span>
         <span className="s">{s.lastLine} Modules wake on their own when something connects.</span>
       </div>
-      <button className="btn pri" onClick={onUp}>
+      <button className="btn pri" onClick={onUp} disabled={!!busy}>
         Up as last time <kbd>u</kbd>
       </button>
-      <button className="btn" onClick={onChoose}>
+      <button className="btn" onClick={onChoose} disabled={!!busy}>
         Choose what starts… <kbd>c</kbd>
       </button>
     </div>
@@ -1110,5 +1122,36 @@ function Name({ r, stackKey }: { r: view.Row; stackKey: string }) {
     >
       <b>{r.name}</b>
     </button>
+  );
+}
+
+/** FailedBanner keeps a stack action that did not work on the page, with what it said, until it is dismissed or tried again. */
+function FailedBanner({ f, stackKey, running }: { f: view.StackFailure; stackKey: string; running: boolean }) {
+  const lines = f.lines ?? [];
+  return (
+    <div className="banner bad failed" role="alert">
+      <span className="dot r" aria-hidden />
+      <div className="t">
+        <b>{f.what}</b>
+        <div className="code" style={{ marginTop: 6, maxHeight: 160, overflow: "auto" }}>
+          {lines.map((l, i) => (
+            <div key={i}>{l}</div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignSelf: "flex-start" }}>
+        {!running && (
+          <button className="btn pri" onClick={() => void stackAction(stackKey, "up-last")}>
+            Try again
+          </button>
+        )}
+        <button className="btn" onClick={() => void copy(lines.join("\n"), "what it said")}>
+          Copy
+        </button>
+        <button className="btn quiet" onClick={() => transport().then((t) => t.dismiss(stackKey))}>
+          Dismiss
+        </button>
+      </div>
+    </div>
   );
 }

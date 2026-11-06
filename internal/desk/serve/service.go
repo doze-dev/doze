@@ -115,10 +115,14 @@ type Emitter func(name string, data any)
 
 // Service is the API.
 type Service struct {
-	hub     *hub.Hub
-	now     func() time.Time
-	emit    Emitter
-	version string
+	hub *hub.Hub
+	// FakeStack, when set, stands in for the CLI behind a stack action (up,
+	// down, restart): the fixture server sets it so a test never starts a
+	// real daemon. It returns what the CLI would print, and its error.
+	FakeStack func(st hub.StackView, action string) ([]byte, error)
+	now       func() time.Time
+	emit      Emitter
+	version   string
 
 	mu         sync.Mutex
 	focus      Focus
@@ -161,10 +165,15 @@ type Service struct {
 	pendingInstance string
 	// pendingPage is a page the menu bar asked for with no stack: "settings".
 	pendingPage string
-	theme       string
-	sent        map[string]uint64 // event name → hash of what was last sent
-	dirty       bool
-	wake        chan struct{}
+	// busy is each stack's action in flight (starting, stopping,
+	// restarting), failed the last one that did not work, with its output,
+	// kept until it is dismissed or tried again.
+	busy   map[string]string
+	failed map[string]*view.StackFailure
+	theme  string
+	sent   map[string]uint64 // event name → hash of what was last sent
+	dirty  bool
+	wake   chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
@@ -355,6 +364,9 @@ func (s *Service) Home(key string) view.Home {
 	if !st.Running && st.Dir != "" {
 		view.StoppedHome(&h, st, s.now())
 	}
+	s.mu.Lock()
+	h.Busy, h.Failed = s.busy[key], s.failed[key]
+	s.mu.Unlock()
 	return h
 }
 

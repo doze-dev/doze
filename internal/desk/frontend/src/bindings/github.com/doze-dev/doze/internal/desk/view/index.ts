@@ -59,6 +59,7 @@ export type {
     Side,
     Span,
     SrcLine,
+    StackFailure,
     Stat,
     States,
     Step,
