@@ -64,11 +64,15 @@ func (h *Hooks) engineNames() []string {
 
 // remoteDecodeErrSuffix renders the hook's hint as an error suffix.
 func (h *Hooks) remoteDecodeErrSuffix(engineType string) string {
-	if h == nil || h.RemoteDecodeHint == nil {
-		return ""
-	}
-	if hint := h.RemoteDecodeHint(engineType); hint != "" {
+	if hint := h.remoteDecodeHint(engineType); hint != "" {
 		return "\n  " + hint
 	}
 	return ""
+}
+
+func (h *Hooks) remoteDecodeHint(engineType string) string {
+	if h == nil || h.RemoteDecodeHint == nil {
+		return ""
+	}
+	return h.RemoteDecodeHint(engineType)
 }

@@ -125,7 +125,9 @@ var removed = []struct {
 	{name: "logs", now: "it was never acted on; delete it", gone: true},
 }
 
-func checkRemoved(body hcl.Body) error {
+// checkRemoved returns a positioned diagnostic for the first argument or block
+// of the old form, so the host renders it with its line and snippet.
+func checkRemoved(body hcl.Body) hcl.Diagnostics {
 	schema := &hcl.BodySchema{}
 	for _, r := range removed {
 		if r.block {
@@ -138,16 +140,19 @@ func checkRemoved(body hcl.Body) error {
 	if content == nil {
 		return nil
 	}
+	at := func(rng hcl.Range, summary string) hcl.Diagnostics {
+		return hcl.Diagnostics{{Severity: hcl.DiagError, Summary: summary, Subject: rng.Ptr()}}
+	}
 	for _, r := range removed {
 		if attr, ok := content.Attributes[r.name]; ok && r.gone {
-			return fmt.Errorf("%s: `%s` is no longer an argument: %s", attr.NameRange, r.name, r.now)
+			return at(attr.NameRange, fmt.Sprintf("`%s` is no longer an argument: %s", r.name, r.now))
 		}
 		if attr, ok := content.Attributes[r.name]; ok {
-			return fmt.Errorf("%s: `%s` is no longer an argument; use %s", attr.NameRange, r.name, r.now)
+			return at(attr.NameRange, fmt.Sprintf("`%s` is no longer an argument; use %s", r.name, r.now))
 		}
 		for _, blk := range content.Blocks {
 			if blk.Type == r.name {
-				return fmt.Errorf("%s: the `%s` block is gone; use %s", blk.DefRange, r.name, r.now)
+				return at(blk.DefRange, fmt.Sprintf("the `%s` block is gone; use %s", r.name, r.now))
 			}
 		}
 	}
@@ -156,9 +161,13 @@ func checkRemoved(body hcl.Body) error {
 
 // DecodeConfig implements engine.ConfigDecoder. baseDir is the directory of the
 // file that declared the block; dir and env_file are resolved against it.
+//
+// A mistake HCL can place comes back as hcl.Diagnostics (the error value
+// itself), so the host renders it with file, line and snippet; the rest are
+// plain errors, which the host anchors at the block.
 func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, _ engine.VersionSpec) (engine.EngineConfig, error) {
-	if err := checkRemoved(body); err != nil {
-		return nil, err
+	if d := checkRemoved(body); d.HasErrors() {
+		return nil, d
 	}
 	// The probe constructors (tcp, http, log, exec) exist only while an app
 	// block decodes, so they cannot shadow anything elsewhere in a config.
@@ -170,7 +179,7 @@ func (Driver) DecodeConfig(body hcl.Body, ctx *hcl.EvalContext, baseDir string, 
 
 	var raw hclConfig
 	if d := gohcl.DecodeBody(body, ectx, &raw); d.HasErrors() {
-		return nil, fmt.Errorf("%s", d.Error())
+		return nil, d
 	}
 	if strings.TrimSpace(raw.Run) == "" {
 		return nil, fmt.Errorf("an app needs a non-empty `run`")
