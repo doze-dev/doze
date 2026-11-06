@@ -631,6 +631,11 @@ export interface KV {
     "copy"?: string;
     "mono": boolean;
     "dim"?: boolean;
+
+    /**
+     * Note is a line under the value: why it reads as it does.
+     */
+    "note"?: string;
 }
 
 /**

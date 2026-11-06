@@ -77,6 +77,8 @@ type KV struct {
 	Copy string `json:"copy,omitempty"`
 	Mono bool   `json:"mono"`
 	Dim  bool   `json:"dim,omitempty"`
+	// Note is a line under the value: why it reads as it does.
+	Note string `json:"note,omitempty"`
 }
 
 // Pill is one reason it is awake, and a word on it.

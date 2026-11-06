@@ -50,7 +50,9 @@ test("list: rows with the details pane beside them; ⏎ opens the page", async (
   await expect(rows.first()).toContainText("api");
   await expect(rows.first()).toHaveClass(/sel/);
   const pane = page.getByRole("complementary", { name: "api, in full" });
-  await expect(pane).toContainText("process · go run ./cmd/api · awake 14m");
+  await expect(pane.locator(".ih .sub")).toHaveText("process · go run ./cmd/api");
+  await expect(pane.locator(".ih .state")).toContainText("awake · no connection right now");
+  await expect(pane).toContainText("IP and port");
   await expect(pane).toContainText("api.shop.doze:8080");
   await expect(pane).toContainText("go run ./cmd/api");
   await expect(pane.locator(".chip")).toContainText(["db", "mongo", "cache", "migrate"]);

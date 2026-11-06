@@ -12,6 +12,7 @@ export function KVRows({ rows }: { rows: view.KV[] }) {
           <span className="k">{r.k}</span>
           <span className={"v" + (r.mono ? " mono" : "") + (r.dim ? " dim" : " bright")}>{r.v}</span>
           {r.copy ? <Copy text={r.copy} label={r.k === "Env var" ? "Copy export" : "Copy"} /> : <span />}
+          {r.note && <span className="note">{r.note}</span>}
         </div>
       ))}
     </>

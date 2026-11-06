@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -170,6 +172,8 @@ type Service struct {
 	pendingInstance string
 	// pendingPage is a page the menu bar asked for with no stack: "settings".
 	pendingPage string
+	// urls are the registry's URLs for names, kept a moment (urlFor).
+	urls map[string]urlSeen
 	// emptyShown is the folder with no doze.hcl the page was last sent to,
 	// so each push does not send it there again.
 	emptyShown string
@@ -379,6 +383,9 @@ func (s *Service) stack(key string) (hub.StackView, bool) {
 func (s *Service) Home(key string) view.Home {
 	st, _ := s.stack(key)
 	h := view.HomeOf(st, s.now())
+	if st.Running {
+		s.fronted(&h, st)
+	}
 	h.Setup = s.setupFor(st)
 	if h.Setup != nil {
 		s.mu.Lock()
@@ -443,6 +450,9 @@ func (s *Service) setupFor(st hub.StackView) *view.Setup {
 func (s *Service) Instance(key, name string) view.Instance {
 	st, _ := s.stack(key)
 	out := view.InstanceOf(st, name, s.now())
+	if v, ok := display.Find(view.Snapshot(st), name); ok {
+		out.Connect = s.reach(v, out.Connect)
+	}
 	if n := len(out.Runs); n > 0 {
 		// Each run kept, matched to its run in the logs from the newest: the
 		// two count differently, and older lines may be gone.
@@ -1028,4 +1038,121 @@ func (s *Service) Menu(item string) {
 	if emit != nil {
 		emit(EventMenu, item)
 	}
+}
+
+// reach is how to reach an instance, as people should: for an app or a
+// service with a name, the URL the front door serves (port-less when a doze
+// process holds port 80, which only the registry can tell; with the port
+// otherwise), then the name and port, then the IP and port the process
+// itself listens on.
+func (s *Service) reach(v control.InstanceView, rows []view.KV) []view.KV {
+	if v.Endpoint == "" && v.URL != "" {
+		// The live feed leaves a module's endpoint and name out; its
+		// connection string has both: the name, whose address the registry
+		// knows, and the port.
+		if u, err := url.Parse(v.URL); err == nil && u.Port() != "" && strings.HasSuffix(u.Hostname(), ".doze") {
+			if v.Domain == "" {
+				v.Domain = u.Hostname()
+			}
+			if ip := names.Open(s.hub.Home(), "doze").Resolve(u.Hostname()); ip != nil {
+				v.Endpoint = net.JoinHostPort(ip.String(), u.Port())
+			}
+			if len(rows) > 0 && !hasRow(rows, "Address") {
+				addr := u.Hostname() + ":" + u.Port()
+				rows = append([]view.KV{rows[0]}, append([]view.KV{{K: "Address", V: addr, Copy: addr, Mono: true}}, rows[1:]...)...)
+			}
+		}
+	}
+	if v.Endpoint == "" || strings.HasPrefix(v.Endpoint, "unix:") {
+		return rows
+	}
+	_, port, _ := net.SplitHostPort(v.Endpoint)
+	direct := v.Endpoint
+	if h, _, err := net.SplitHostPort(v.Bind); err == nil && net.ParseIP(h) != nil && net.ParseIP(strings.Split(v.Endpoint, ":")[0]) == nil {
+		direct = v.Bind
+	}
+	var out []view.KV
+	if v.Kind != "module" && v.Domain != "" && v.HTTPS == "" {
+		if url := s.urlFor(v.Domain); url != "" {
+			kv := view.KV{K: "URL", V: url, Copy: url, Mono: true}
+			if strings.HasSuffix(url, ":"+port) {
+				kv.Note = "With the front door up, " + v.Domain + " works without the port: Settings › Machine."
+			} else {
+				kv.Note = "The front door serves it on port 80; no port needed."
+			}
+			out = append(out, kv)
+		}
+	}
+	// The way to use it first, the bare address under it, then the rest
+	// (the connection string of a module, its variable, the data folder).
+	fronted := len(out) > 0 // a front-door URL leads; it replaces the name and port
+	if direct != "" && fronted {
+		out = append(out, view.KV{K: "IP and port", V: direct, Copy: direct, Mono: true, Dim: true, Note: "the process itself, without a name"})
+	}
+	for _, r := range rows {
+		if r.K == "Address" && fronted {
+			continue // the URL above says it, the way to use it
+		}
+		out = append(out, r)
+		if r.K == "Address" && direct != "" {
+			// A module: its name and port, then the IP and port under it.
+			out = append(out, view.KV{K: "IP and port", V: direct, Copy: direct, Mono: true, Dim: true, Note: "the process itself, without a name"})
+		}
+	}
+	return out
+}
+
+// urlFor is the registry's URL for a name (port-less while a doze process
+// holds the front door), kept for configLook: pages ask for every row on
+// every push, and the answer is a file read.
+func (s *Service) urlFor(host string) string {
+	s.mu.Lock()
+	if c, ok := s.urls[host]; ok && s.now().Sub(c.at) < configLook {
+		s.mu.Unlock()
+		return c.url
+	}
+	s.mu.Unlock()
+	url := names.Open(s.hub.Home(), "doze").URLFor(host)
+	s.mu.Lock()
+	if s.urls == nil {
+		s.urls = map[string]urlSeen{}
+	}
+	s.urls[host] = urlSeen{url: url, at: s.now()}
+	s.mu.Unlock()
+	return url
+}
+
+type urlSeen struct {
+	url string
+	at  time.Time
+}
+
+// fronted gives every app and service row of a home the address that
+// works, as the registry says: port-less while the front door is up.
+func (s *Service) fronted(h *view.Home, st hub.StackView) {
+	byName := map[string]control.InstanceView{}
+	for _, v := range st.Instances {
+		byName[v.Name] = v
+	}
+	for gi := range h.Groups {
+		for ri := range h.Groups[gi].Rows {
+			r := &h.Groups[gi].Rows[ri]
+			v, ok := byName[r.Name]
+			if !ok || v.Kind == "module" || v.Kind == "task" || v.Domain == "" || v.HTTPS != "" {
+				continue
+			}
+			if url := s.urlFor(v.Domain); url != "" {
+				r.Address, r.URL = strings.TrimPrefix(url, "http://"), url
+			}
+		}
+	}
+}
+
+func hasRow(rows []view.KV, k string) bool {
+	for _, r := range rows {
+		if r.K == k {
+			return true
+		}
+	}
+	return false
 }

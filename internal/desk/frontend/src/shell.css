@@ -570,3 +570,14 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 /* Items inside scrolling lists draw their focus ring inside, where the
    list cannot clip it. */
 :is(.si, .pi, .pal .it, .stab, .ptab, .dialog .pick, .lrow):focus-visible { outline-offset: -2px; }
+
+/* The details pane's head: the name on its own line, what it runs under
+   it, then its state and why; nothing has to share a line with the name. */
+.insp .ih.stack { flex-direction: column; align-items: stretch; gap: 3px; }
+.insp .ih .nmrow { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.insp .ih .state { color: var(--dim); font-size: var(--text-sm); line-height: 18px; }
+/* A row's value that is a sentence wraps; a note sits under the value. */
+.kv .v.wrap { white-space: normal; line-height: 18px; padding: 3px 0; font-family: var(--font-ui); }
+.kv .note { grid-column: 2 / -1; color: var(--dim); font-size: var(--text-xs); line-height: 15px; margin: -2px 0 4px; }
+/* The pane's buttons stay in reach while its sections scroll. */
+.insp .acts { position: sticky; bottom: 0; background: var(--side); margin-top: auto; }

@@ -862,10 +862,19 @@ function Pane({ inst, row, stackKey }: { inst: view.Instance | null; row?: view.
   const holders = inst.holders ?? [];
   return (
     <aside className="insp" aria-label={`${inst.name}, in full`}>
-      <div className="ih">
-        <Dot r={row} />
-        <h2>{inst.name}</h2>
-        <span className="sub">{inst.path}</span>
+      <div className="ih stack">
+        <div className="nmrow">
+          <Dot r={row} />
+          <h2 title={inst.name}>{inst.name}</h2>
+        </div>
+        <span className="sub" title={inst.run}>
+          {row.engine}
+          {inst.run && row.engine !== inst.run ? ` · ${inst.run}` : ""}
+        </span>
+        <span className="state">
+          <b className={wordTone(row)}>{row.look.word}</b>
+          {inst.because ? ` · ${inst.because}` : ""}
+        </span>
       </div>
       {(inst.connect ?? []).length > 0 && (
         <div className="sec">
@@ -877,12 +886,13 @@ function Pane({ inst, row, stackKey }: { inst: view.Instance | null; row?: view.
                 {kv.v}
               </span>
               {kv.copy ? (
-                <button className="copy" onClick={() => void copy(kv.copy ?? "", kv.k)}>
+                <button className="copy" onClick={() => void copy(kv.copy ?? "", kv.k === "URL" ? "the URL" : `the ${kv.k.toLowerCase()}`)}>
                   Copy
                 </button>
               ) : (
                 <span />
               )}
+              {kv.note && <span className="note">{kv.note}</span>}
             </div>
           ))}
         </div>
@@ -914,15 +924,15 @@ function Pane({ inst, row, stackKey }: { inst: view.Instance | null; row?: view.
             <span />
           </div>
         ) : null}
-        <div className="kv">
-          <span className="k">sleep</span>
-          <span className="v">{row.pinned ? "never · pinned" : inst.sleeps || "when nothing holds it"}</span>
-          {row.kind !== "task" && (
+        {row.kind !== "task" && (
+          <div className="kv">
+            <span className="k">sleeps</span>
+            <span className="v wrap">{row.pinned ? "never: pinned awake" : inst.sleeps || "when nothing holds it"}</span>
             <button className="copy" onClick={() => void run(stackKey, "pin", row.name)}>
               {row.pinned ? "Unpin" : "Pin"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       {(needs.length > 0 || holders.length > 0) && (
         <div className="sec">
