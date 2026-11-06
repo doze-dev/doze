@@ -55,6 +55,7 @@ type ServiceDecl struct {
 
 	block *hcl.Block
 	waits map[string]engine.Condition // after entries that are not bare references
+	run   runnableStamp
 }
 
 // TaskDecl is one `task "<name>" { … }` block: a command that runs to
@@ -72,6 +73,7 @@ type TaskDecl struct {
 
 	block *hcl.Block
 	waits map[string]engine.Condition
+	run   runnableStamp
 }
 
 // RestartDecl is a `restart { … }` block as written; empty fields take the
@@ -137,33 +139,86 @@ func (c *Config) Task(name string) *TaskDecl {
 	return nil
 }
 
-// declareRunnable registers a service or task by name and, for a service,
-// reads the one argument other blocks' references need before anything else is
-// decoded: its port.
+// runnableStamp is what one expansion of a service or task block carries
+// into its decode: the body without the shared meta-arguments, the each/count
+// variables, and whether it is enabled.
+type runnableStamp struct {
+	body    hcl.Body
+	vars    map[string]cty.Value
+	enabled bool
+}
+
+// ctx is the decode context for this expansion.
+func (r runnableStamp) ctx(parent *hcl.EvalContext) *hcl.EvalContext {
+	if r.vars == nil {
+		return parent
+	}
+	c := parent.NewChild()
+	c.Variables = r.vars
+	return c
+}
+
+// declareRunnable registers a service or task by name, once per count or
+// for_each expansion, and, for a service, reads the one argument other blocks'
+// references need before anything else is decoded: its port. A service and a
+// task take the same meta-arguments a module and an app do: count, for_each
+// and enabled.
 func (l *loader) declareRunnable(cfg *Config, block *hcl.Block, declRanges map[string]hcl.Range, ctx *hcl.EvalContext) error {
-	name := block.Labels[0]
-	if first, dup := declRanges[name]; dup {
-		return posErr(l.parser, block.DefRange,
-			fmt.Sprintf("%s: the name %q is already taken", title(block.Type, "", name), name),
-			"first declared at "+first.String()+" — names are unique across a stack, whatever the kind")
+	label := block.Labels[0]
+	meta, body, diags := block.Body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "enabled"}, {Name: "depends_on"}}})
+	if diags.HasErrors() {
+		return diagError(l.parser, diags)
 	}
-	declRanges[name] = block.DefRange
-	if block.Type == KindTask {
-		cfg.Tasks = append(cfg.Tasks, &TaskDecl{Name: name, block: block})
-		return nil
+	if attr, ok := meta.Attributes["depends_on"]; ok {
+		return posErr(l.parser, attr.NameRange, "`depends_on` is now `after`",
+			"write: after = [module.db, started(app.api)]: a bare reference waits until it is ready; started(…) until it runs")
 	}
-	svc := &ServiceDecl{Name: name, block: block}
-	head, _, _ := block.Body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "port"}}})
-	if attr, ok := head.Attributes["port"]; ok {
-		if diags := gohcl.DecodeExpression(attr.Expr, ctx, &svc.Port); diags.HasErrors() {
-			return diagError(l.parser, diags)
+	countAttr, hasCount := meta.Attributes["count"]
+	forEachAttr, hasForEach := meta.Attributes["for_each"]
+	if hasCount && hasForEach {
+		return posErr(l.parser, block.DefRange, fmt.Sprintf("%s: set either count or for_each, not both", title(block.Type, "", label)), "")
+	}
+	enabled := true
+	if en, ok := meta.Attributes["enabled"]; ok {
+		v, ediags := en.Expr.Value(ctx)
+		if ediags.HasErrors() {
+			return diagError(l.parser, ediags)
 		}
-		if svc.Port < 1 || svc.Port > 65535 {
-			return posErr(l.parser, attr.Range, fmt.Sprintf("%s: port %d is out of range", title(KindService, "", name), svc.Port),
-				"a port must be between 1 and 65535")
+		if v.IsNull() || v.Type() != cty.Bool {
+			return posErr(l.parser, en.Range, fmt.Sprintf("%s: enabled must be a boolean", title(block.Type, "", label)), "")
 		}
+		enabled = v.True()
 	}
-	cfg.Services = append(cfg.Services, svc)
+	stamps, err := cfg.instanceStamps(l.parser, block, countAttr, forEachAttr, hasCount, hasForEach, ctx)
+	if err != nil {
+		return err
+	}
+	for _, st := range stamps {
+		name := st.name(label)
+		if first, dup := declRanges[name]; dup {
+			return posErr(l.parser, block.DefRange,
+				fmt.Sprintf("%s: the name %q is already taken", title(block.Type, "", name), name),
+				"first declared at "+first.String()+" — names are unique across a stack, whatever the kind")
+		}
+		declRanges[name] = block.DefRange
+		run := runnableStamp{body: body, vars: st.vars, enabled: enabled}
+		if block.Type == KindTask {
+			cfg.Tasks = append(cfg.Tasks, &TaskDecl{Name: name, block: block, run: run})
+			continue
+		}
+		svc := &ServiceDecl{Name: name, block: block, run: run}
+		head, _, _ := body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "port"}}})
+		if attr, ok := head.Attributes["port"]; ok {
+			if diags := gohcl.DecodeExpression(attr.Expr, run.ctx(ctx), &svc.Port); diags.HasErrors() {
+				return diagError(l.parser, diags)
+			}
+			if svc.Port < 1 || svc.Port > 65535 {
+				return posErr(l.parser, attr.Range, fmt.Sprintf("%s: port %d is out of range", title(KindService, "", name), svc.Port),
+					"a port must be between 1 and 65535")
+			}
+		}
+		cfg.Services = append(cfg.Services, svc)
+	}
 	return nil
 }
 
@@ -217,8 +272,8 @@ func (l *loader) decodeRunnables(cfg *Config, ctx *hcl.EvalContext, known *decla
 
 // splitAfter strips `after` off a body (it holds references, not a value) and
 // resolves it and the body's own references.
-func (l *loader) splitAfter(block *hcl.Block, self string, known *declared) (rest hcl.Body, after, refs []Ref, waits map[string]engine.Condition, err error) {
-	meta, rest, diags := block.Body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "after"}}})
+func (l *loader) splitAfter(body hcl.Body, self string, known *declared) (rest hcl.Body, after, refs []Ref, waits map[string]engine.Condition, err error) {
+	meta, rest, diags := body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "after"}}})
 	if diags.HasErrors() {
 		return nil, nil, nil, nil, diagError(l.parser, diags)
 	}
@@ -240,7 +295,8 @@ func (l *loader) splitAfter(block *hcl.Block, self string, known *declared) (res
 }
 
 func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext, known *declared) error {
-	rest, after, refs, waits, err := l.splitAfter(s.block, s.Name, known)
+	ctx = s.run.ctx(ctx)
+	rest, after, refs, waits, err := l.splitAfter(s.run.body, s.Name, known)
 	if err != nil {
 		return err
 	}
@@ -329,14 +385,15 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 	}
 	cfg.Add(&InstanceDecl{
 		Kind: KindService, Type: AppEngine, Name: s.Name, Version: "builtin",
-		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(s.Name, s.Refs, s.After, s.waits), Enabled: true,
+		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(s.Name, s.Refs, s.After, s.waits), Enabled: s.run.enabled,
 		After: s.After, Refs: s.Refs,
 	})
 	return nil
 }
 
 func (l *loader) decodeTask(cfg *Config, t *TaskDecl, ctx *hcl.EvalContext, known *declared) error {
-	rest, after, refs, waits, err := l.splitAfter(t.block, t.Name, known)
+	ctx = t.run.ctx(ctx)
+	rest, after, refs, waits, err := l.splitAfter(t.run.body, t.Name, known)
 	if err != nil {
 		return err
 	}
@@ -381,7 +438,7 @@ func (cfg *Config) addTask(t *TaskDecl) error {
 	}
 	cfg.Add(&InstanceDecl{
 		Kind: KindTask, Type: AppEngine, Name: t.Name, Version: "builtin",
-		Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(t.Name, t.Refs, t.After, t.waits), Enabled: true,
+		Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(t.Name, t.Refs, t.After, t.waits), Enabled: t.run.enabled,
 		After: t.After, Refs: t.Refs,
 	})
 	return nil

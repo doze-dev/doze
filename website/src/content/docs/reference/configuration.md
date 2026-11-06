@@ -195,6 +195,16 @@ module valkey "shard" {
 | `count` | a non-negative number | `count.index` (0-based) | `<label>_<index>` |
 
 `count = 0` (or an empty `for_each`) produces no instances. A block can't set both.
+
+Every kind takes them: `module`, `app`, `service` and `task`, along with
+`enabled` and `after`. A service run once per shard reads the same way:
+
+```hcl
+service "worker" {
+  count = 2                            # → worker_0, worker_1
+  run   = "bin/worker --shard ${count.index}"
+}
+```
 Keys are sanitized for use in names/paths (`orders.fifo` → `orders_fifo`).
 
 ### Explicit ordering: `after`

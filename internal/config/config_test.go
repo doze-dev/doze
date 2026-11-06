@@ -822,3 +822,35 @@ func TestDefaultsOldSpellingsPointAtNew(t *testing.T) {
 		t.Errorf(`sleep = "never" should turn the stack's timer off: %v %v`, cfg, err)
 	}
 }
+
+func TestServicesAndTasksTakeMetaArguments(t *testing.T) {
+	cfg, err := Parse([]byte(`
+service "worker" {
+  count = 2
+  run   = "work --shard ${count.index}"
+}
+task "seed" {
+  for_each = toset(["a", "b"])
+  run      = "seed ${each.key}"
+}
+service "mail" {
+  enabled = false
+  run     = "mailpit"
+}
+`), "doze.hcl", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"worker_0", "worker_1", "seed_a", "seed_b"} {
+		d := cfg.Lookup(n)
+		if d == nil || !d.Enabled {
+			t.Errorf("%s: want an enabled expansion, got %+v", n, d)
+		}
+	}
+	if d := cfg.Lookup("mail"); d == nil || d.Enabled {
+		t.Errorf("mail: want declared and off, got %+v", d)
+	}
+	if s := cfg.Service("worker_1"); s == nil || !strings.Contains(s.Run, "--shard 1") {
+		t.Errorf("worker_1 should see count.index = 1: %+v", s)
+	}
+}
