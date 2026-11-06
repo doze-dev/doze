@@ -65,6 +65,8 @@ export interface Transport {
   stopHolder(key: string, name: string, pid: number): Promise<void>;
   /** activity is a stack's last hour, day or week from its journal, for one service or all. */
   activity(key: string, span: string, inst: string): Promise<view.Activity>;
+  /** update says whether a newer doze is out; force asks again now. */
+  update(force: boolean): Promise<view.Update>;
   theme(theme: string): Promise<void>;
   mode(mode: string): Promise<void>;
   dismiss(key: string): Promise<void>;
@@ -146,6 +148,7 @@ async function wails(): Promise<Transport> {
     openAtLogin: (on) => api.SetOpenAtLogin(on),
     stopHolder: (key, name, pid) => api.StopHolder(key, name, pid),
     activity: (key, span, inst) => api.Activity(key, span, inst),
+    update: (force) => api.Update(force),
     theme: (theme) => api.Theme(theme),
     mode: (mode) => api.Mode(mode),
     dismiss: (key) => api.Dismiss(key),
@@ -226,6 +229,7 @@ function http(): Transport {
     openAtLogin: (on) => call("openatlogin", { on }),
     stopHolder: (key, name, pid) => call("stopholder", { key, name, pid }),
     activity: (key, span, inst) => call("activity", { key, span, inst }),
+    update: (force) => call("update", { force }),
     theme: (theme) => call("theme", { theme }),
     mode: (mode) => call("mode", { mode }),
     dismiss: (key) => call("dismiss", { key }),

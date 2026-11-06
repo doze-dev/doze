@@ -192,6 +192,9 @@ func (a *API) Stack(key, action string, names []string) error { return a.s.Stack
 // Timeline is a stack's last half hour: lanes of awake spans and crashes.
 func (a *API) Activity(key, span, inst string) view.Activity { return a.s.Activity(key, span, inst) }
 
+// Update says whether a newer doze is out; force asks again now.
+func (a *API) Update(force bool) view.Update { return a.s.Update(force) }
+
 // StopHolder stops the process holding a crashed service's port, then restarts it.
 func (a *API) StopHolder(key, name string, pid int) error { return a.s.StopHolder(key, name, pid) }
 

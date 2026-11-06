@@ -177,6 +177,11 @@ func Handler(s *Service) http.Handler {
 		}
 		return map[string]bool{"ok": true}, nil
 	})
+	call("update", func(b json.RawMessage) (any, error) {
+		var a struct{ Force bool }
+		_ = json.Unmarshal(b, &a)
+		return s.Update(a.Force), nil
+	})
 	call("activity", func(b json.RawMessage) (any, error) {
 		var a struct{ Key, Span, Inst string }
 		if err := json.Unmarshal(b, &a); err != nil {

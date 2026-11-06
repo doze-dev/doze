@@ -184,6 +184,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
               </div>
               <div className="v">
                 <span className="mono">{version}</span>
+                <UpdateLine />
                 <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => transport().then((t) => t.open("https://doze.dev"))}>
                   doze.dev
                 </button>
@@ -345,5 +346,51 @@ function ReopenSwitch() {
       <span className={"sw" + (on ? " on" : "")} aria-hidden />
       Reopen the page I had, when the window opens
     </button>
+  );
+}
+
+/** UpdateLine says whether a newer doze is out. It asks GitHub when About opens, or on Check now; never in the background. */
+function UpdateLine() {
+  const [u, setU] = useState<view.Update | null>(null);
+  const [busy, setBusy] = useState(false);
+  const check = (force: boolean) => {
+    setBusy(true);
+    void transport()
+      .then((t) => t.update(force))
+      .then((got) => setU(got))
+      .finally(() => setBusy(false));
+  };
+  useEffect(() => check(false), []);
+  if (!u) return <span className="dim">checking for a newer doze…</span>;
+  return (
+    <div className="update">
+      {u.newer ? (
+        <>
+          <b className="ok">
+            doze {u.latest} is out{u.published ? ` (${u.published})` : ""}
+          </b>
+          <span className="dim">
+            To update: <span className="mono">brew upgrade doze</span>, or download it from the release page. Running stacks keep running.
+          </span>
+          <span className="acts">
+            <button className="btn pri sm" onClick={() => transport().then((t) => t.open(u.url ?? ""))}>
+              What&apos;s new
+            </button>
+            <button className="btn sm" onClick={() => void copy("brew upgrade doze", "the command")}>
+              Copy the command
+            </button>
+          </span>
+        </>
+      ) : u.error ? (
+        <span className="dim">{u.error}</span>
+      ) : u.dev ? (
+        <span className="dim">A development build{u.latest ? `; the newest release is ${u.latest}` : ""}.</span>
+      ) : u.latest ? (
+        <span className="dim">This is the newest doze{u.checked ? ` (checked ${u.checked})` : ""}.</span>
+      ) : null}
+      <button className="btn quiet sm" disabled={busy} onClick={() => check(true)} style={{ alignSelf: "flex-start" }}>
+        {busy ? "Checking…" : "Check now"}
+      </button>
+    </div>
   );
 }

@@ -422,3 +422,16 @@ type Leftover struct {
 	// Admin says removing it asks for the administrator's password.
 	Admin bool `json:"admin,omitempty"`
 }
+
+// Update is what Settings › About says about doze's own version: this one,
+// the newest release, and whether to update.
+type Update struct {
+	Current   string `json:"current"`
+	Dev       bool   `json:"dev,omitempty"` // a development build: no release to compare
+	Latest    string `json:"latest,omitempty"`
+	Published string `json:"published,omitempty"`
+	URL       string `json:"url,omitempty"`
+	Newer     bool   `json:"newer,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Checked   string `json:"checked,omitempty"`
+}

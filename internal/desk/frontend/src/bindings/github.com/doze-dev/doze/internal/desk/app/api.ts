@@ -353,6 +353,13 @@ export function Theme(theme: string): $CancellablePromise<void> {
 }
 
 /**
+ * Update says whether a newer doze is out; force asks again now.
+ */
+export function Update(force: boolean): $CancellablePromise<view$0.Update> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Update", force);
+}
+
+/**
  * Version is the doze this app is, for the sidebar's foot.
  */
 export function Version(): $CancellablePromise<string> {

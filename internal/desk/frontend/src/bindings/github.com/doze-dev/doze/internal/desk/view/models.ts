@@ -1814,6 +1814,25 @@ export interface TimelineTick {
 }
 
 /**
+ * Update is what Settings › About says about doze's own version: this one,
+ * the newest release, and whether to update.
+ */
+export interface Update {
+    "current": string;
+
+    /**
+     * a development build: no release to compare
+     */
+    "dev"?: boolean;
+    "latest"?: string;
+    "published"?: string;
+    "url"?: string;
+    "newer"?: boolean;
+    "error"?: string;
+    "checked"?: string;
+}
+
+/**
  * Vitals are the overview's charts, from the instance's series, with the
  * latest reading as the figure.
  */

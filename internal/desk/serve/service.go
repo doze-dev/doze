@@ -213,8 +213,11 @@ type Service struct {
 	notNowSet bool
 	attnTimer bool
 	// ram is each service's memory when last seen awake, by key#name.
-	ram    map[string]int64
-	bellAt time.Time
+	ram map[string]int64
+	// update is the last look at doze's newest release, at updateAt.
+	update   *view.Update
+	updateAt time.Time
+	bellAt   time.Time
 	// upKey and upAction are an Up the menu bar asked the page to make,
 	// at upAt, so the checks' sheet can ask (AskUp).
 	upKey, upAction string

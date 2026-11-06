@@ -81,6 +81,7 @@ export type {
     TimelineMark,
     TimelineSpanBar,
     TimelineTick,
+    Update,
     Vitals,
     Vitals4
 } from "./models.js";

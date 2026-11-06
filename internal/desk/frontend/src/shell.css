@@ -303,6 +303,8 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 :root[data-density="compact"] .lrow .fig, :root[data-density="compact"] .lrow .name { gap: 0; }
 :root[data-density="compact"] .qr { border-radius: 6px; }
 .seg.icons button { padding: 0 8px; }
+.set .update { display: flex; flex-direction: column; gap: 6px; }
+.set .update .acts { display: flex; gap: 8px; }
 /* Home's head: the mark and the name, large. */
 .head.brandhead { gap: 18px; padding-top: 26px; padding-bottom: 24px; }
 .brandhead .brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
