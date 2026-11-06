@@ -493,3 +493,26 @@ func TestOneRegistryOneNamespace(t *testing.T) {
 		t.Fatalf("a module outside the doze namespace must be refused, got %v", err)
 	}
 }
+
+// With no pin and no registry, a module already in the cache is used, the
+// newest, and nothing is pinned.
+func TestOfflineUsesTheCache(t *testing.T) {
+	_, priv, _ := ed25519.GenerateKey(nil)
+	base, _ := signedRegistry(t, "doze", "postgres", priv,
+		release{version: "0.2.4", protocol: dozeplugin.ProtocolVersion, engines: []string{"17"}})
+	m := newTestManager(t, base)
+	if _, err := m.Resolve(context.Background(), "postgres"); err != nil {
+		t.Fatalf("online: %v", err)
+	}
+	home := m.home
+	// A new project on the same machine, with the registry gone.
+	off := newTestManager(t, "file:///nowhere/registry")
+	off.home = home
+	exe, err := off.Resolve(context.Background(), "postgres")
+	if err != nil || !strings.Contains(exe, "0.2.4") {
+		t.Fatalf("offline: %q %v", exe, err)
+	}
+	if _, _, ok := off.Pinned("postgres"); ok {
+		t.Error("an offline pick was pinned")
+	}
+}

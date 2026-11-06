@@ -246,6 +246,13 @@ func (m *Manager) Resolve(ctx context.Context, engineType string) (string, error
 	}
 	idx, err := m.fetchIndex(bm, ns, name)
 	if err != nil {
+		// Offline, or the registry is down: a module this machine already
+		// has will do, the newest of them, without a pin (there is no index
+		// to pin from). The plugin's own handshake still checks its protocol.
+		if v, binDir, ok := m.newestCached(ns, name); ok {
+			m.logf("the registry can't be reached (%v); using %s %s from this machine's cache, not pinned", err, source, v)
+			return pluginExe(binDir, name, v)
+		}
 		return "", err
 	}
 	version, rel, err := m.selectRelease(idx, ns, majors)
@@ -354,6 +361,31 @@ func (m *Manager) fetchIndex(bm *binaries.Manager, ns, name string) (*modindex.I
 		return nil, fmt.Errorf("module index for %s/%s: %w", ns, name, err)
 	}
 	return idx, nil
+}
+
+// newestCached is the newest version of a module in this machine's cache
+// for this platform, with its bin dir.
+func (m *Manager) newestCached(ns, name string) (string, string, bool) {
+	entries, err := os.ReadDir(filepath.Join(m.home, "modules", ns, name))
+	if err != nil {
+		return "", "", false
+	}
+	best, bestDir := "", ""
+	suffix := "-" + m.plat.Triple
+	for _, e := range entries {
+		v, ok := strings.CutSuffix(e.Name(), suffix)
+		if !ok || !e.IsDir() {
+			continue
+		}
+		dir, ok := m.cachedBinDir(ns, name, v)
+		if !ok {
+			continue
+		}
+		if best == "" || modindex.CompareVersions(v, best) > 0 {
+			best, bestDir = v, dir
+		}
+	}
+	return best, bestDir, best != ""
 }
 
 // cachedBinDir reports the content-addressed cache dir for (source, version) on
