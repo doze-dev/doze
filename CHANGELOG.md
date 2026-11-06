@@ -8,6 +8,25 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The config language, tidied.** One word for ordering: `after = [module.db,
+  started(app.cloud), lazy(module.aws)]`. Services and tasks take `count`,
+  `for_each` and `enabled`. `defaults` takes `ready_timeout`, `restart` and a
+  shared `env`. A module publishes `env` (`{ DATABASE_URL = … }`), and
+  `env_of(module.db, module.cache)` joins them, refusing two that set the same
+  variable. A gitignored `*.override.doze.hcl` changes `port`, `enabled`,
+  `sleep` or `version` of a block for one developer. `doze fmt` (and `--check`
+  for CI), and an editor schema at `/schema/doze-hcl.json`.
+- **Mistakes say what to do.** A typo in a reference names the nearest
+  attribute; an app's and a module's errors show the file, the line and the
+  snippet like every other; an app that ignores `$PORT` is named on its ready
+  timeout with the port it listens on; `doze lint` warns about a variable
+  nothing reads and a task nothing waits for. In the app, a failed start says
+  what went wrong and how to fix it, with Edit doze.hcl.
+- **Compatibility.** `doze = ">= 0.2"` at the top of doze.hcl says the oldest
+  doze a stack needs; doze skips module releases it cannot run and says to
+  update; `doze migrate db` moves Postgres data to a new major; Check for
+  Updates… in the app.
+
 - **The app installs and explains itself.** A disk image and a Homebrew cask
   for the Mac (`brew install --cask doze-dev/tap/doze`, once a signed release is
   out); deb and rpm packages for Linux are built and wait for their by-eye pass.
@@ -52,6 +71,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   once more, and doctor says so. See the "Your own domain" page.
 
 ### Changed
+
+- **Renamed, with the old spelling an error that prints the new line:**
+  `depends_on` is `after`; in `defaults`, `idle_timeout` is `sleep` (`"0s"`
+  is `"never"`) and `domains = true` is `names = true`. A root `listen` is gone.
+  A `--var` for an undeclared variable, and an `env_file` that is not there,
+  are errors now. A version written as a number must be quoted when it has a
+  trailing zero (`"10.10"`).
+- A service with no port no longer sleeps by default: nothing could wake it.
 
 - **Services doze after 2 minutes, not 5.** The default `idle_timeout` is now
   `2m`, and `doze init` writes `2m`. A stack that sets its own keeps it.

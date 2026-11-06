@@ -143,7 +143,7 @@ Vocabulary
 - [x] L10 shared meta-arguments on every kind
 
 Kindness
-- [ ] L5 one error rendering, with positions, across the plugin wire
+- [x] L5 one error rendering, with positions, across the plugin wire
 - [x] L6 reference typos get did-you-mean and the list; portless `url` refused
 - [x] L4 silent mistakes become errors; lint warns
 - [x] L11 the `$PORT` trap is named on a ready timeout
@@ -151,9 +151,9 @@ Kindness
 Later items
 - [x] L3 override files for core arguments
 - [x] L12 richer `defaults`
-- [ ] L14 ports from the module's Describe
+- [x] L14 ports from the module's Describe
 - [x] L15 `module.<x>.env`
-- [ ] L16 outputs render, portless service sleep, `doze fmt`, editor schema
+- [x] L16 outputs render, portless service sleep, `doze fmt`, editor schema
 
 Not done by me, for the owner (publishing): tag and push doze-sdk (v0.11.0:
 MinHost, the release field, SelectFor, VersionedPlugins), bump doze-modules and
