@@ -9,7 +9,7 @@ require (
 	github.com/agext/levenshtein v1.2.1
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/charmbracelet/x/ansi v0.11.9
-	github.com/doze-dev/doze-names v0.2.0
+	github.com/doze-dev/doze-names v0.4.0
 	github.com/doze-dev/doze-sdk v0.10.0
 	github.com/ebitengine/purego v0.11.1
 	github.com/hashicorp/hcl/v2 v2.24.0
@@ -67,5 +67,3 @@ require (
 )
 
 replace github.com/wailsapp/wails/v3 => github.com/doze-dev/wails/v3 v3.1.0-doze.1
-
-replace github.com/doze-dev/doze-names => ../doze-names

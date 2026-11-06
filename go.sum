@@ -48,6 +48,8 @@ github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6N
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/doze-dev/doze-names v0.4.0 h1:pmYWmwVWY/YxcDd7QaJvXyfDSRQynLWQRMSuL0GaWxI=
+github.com/doze-dev/doze-names v0.4.0/go.mod h1:+wjfifUPHJcARB/L7HqSsk5YW1W3SItvGB14XbS7CO0=
 github.com/doze-dev/doze-sdk v0.10.0 h1:IXr9BJ++qsOFFQpIKALi8uUZhpZId/AMiMTHHsA77kI=
 github.com/doze-dev/doze-sdk v0.10.0/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
 github.com/doze-dev/wails/v3 v3.1.0-doze.1 h1:Fq9LeZ4wH34UUuvjT8sk6mGdJ0TtpnfER1CUce4/d/E=
