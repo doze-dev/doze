@@ -165,3 +165,75 @@ axe-core in `test/desk-e2e` as a spec over every page.
 
 Roughly 8 days in all, each step with its own Playwright specs and a look at
 every changed page.
+
+## Status, same day: what was fixed
+
+All eight root causes were worked through in the suggested order, one
+commit each (875eb53..75f1dd6), with the end-to-end suite grown from 62 to
+84 checks in WebKit and Chromium and the desk bench run after.
+
+1. **The switch and the words** (875eb53). One deliberate departure from
+   the audit: the owner had decided on 2026-11-05 that the switch *is*
+   sleep/wake, so it stays the live state rather than "in this session";
+   the contradictions inside that model are what was fixed. One rule in Go
+   (`display.SwitchOn`) for every surface: on while up or on its way,
+   crashing included; off when asleep, failed, off or stopped. `paused`
+   (enabled = false, a lock, no switch) and `off` (doze off) replace
+   `disabled`; `not run` replaces `ready`. One tally (`display.TallyOf`)
+   counts for the strip, the Library and the menu bar; connections are
+   clients everywhere; the menu bar shows its dot. A crashing service says
+   crashing and shows no stale figures. The https pill is not a link until
+   the domain is set up. Docs: `doze shell` is gone, D18 and the legend match.
+2. **Keys and focus** (9213c41, 11af14c). One rule for page keys
+   (`keys.ts`); a click does not take focus, as on macOS; keys act only on
+   a shown row; dialogs, the start sheet and help trap focus and are modal;
+   the ▾ menu owns its keys; stopping a stack asks when something is in
+   use, forgetting always asks, off asks when something uses the service;
+   ⌘1–9 count the tabs shown; esc from Settings goes back. Tiles and rows
+   are containers with the name as their button; the map is a group of
+   labelled nodes; Library rows and the window title speak.
+3. **The frame** (3ab0fe1). A doze menu; the Library scrolls; the ▾ menu is
+   not clipped; narrow windows keep their sidebars; help and the map scroll;
+   Machine… opens Machine; Settings remembers its part.
+4. **Pending states** (cfca124). Busy per stack, pushed at once; no second
+   action; a failure stays on the page with its output.
+5. **Promised features** (7c4dc59). ⌘O and drop work at any time; a
+   never-run doze.hcl appears stopped; `doze open` never starts a stack;
+   setting a folder up records it instead of starting a daemon.
+6. **Config and daemon states** (295d6f3, 75f1dd6). A broken doze.hcl on the
+   tab, the Library, every page and ⌘K; a silent daemon fades and freezes;
+   new `changed` and `stale` fixtures; a saved doze.hcl is noticed on every
+   page.
+7. **Visual system and the rest** (7ff3f96). `--lh`; every theme in both
+   modes contrast-tested, text and controls; announcements; and the other
+   reports' items: copy names what it copied, toasts wrap, the sleep dialog
+   spares pinned services and offers Turn off, ⌘K's near miss fills the box,
+   the timeline draws waking, task runs show their own output, logs copy,
+   snippets wrap, config errors say what to write, the narrow Library fits.
+
+Found on the way, beyond the audit: Doze.app opened from the Finder never
+showed a window (fixed earlier the same day); the fixture server ran real
+`doze up` against the person's own `~/.doze` (fixed in cfca124); a Library
+change that returned the list to an older pushed state was never sent
+(7c4dc59); a lock taken twice hung the Library (fixed before commit).
+
+### Left, and why
+
+- **CLI meanings the app inherits**: "as last time" grows with services
+  woken by connections before `doze down` (`cmd/doze/remember.go`); tasks
+  have two rules for when they run on Up (journeys M12); `doze run` and
+  `doze env` start a stopped stack. These are CLI decisions, for the owner.
+- **The words "run" and "idle"** still mean both a process start and the
+  session, and the timeout and the state, in CLI help and docs.
+- **Visual polish**: six eyebrow styles, several kbd looks, three switch
+  sizes, very wide windows, long-name truncation rules (visual m2–m6,
+  m11, m12).
+- **The daemon-down banner** has no action of its own (the switches are
+  frozen and say why; a "restart the daemon" verb does not exist yet).
+- **Boards** for screens that changed today (Settings' mode and theme, the
+  start sheet, the failure banner, the stale and changed states) are not
+  redrawn yet.
+- **Desk bench, CPU at rest**: 0.10–0.13% against a 0.10% budget on the
+  owner's Mac this afternoon, the same range as the code before the audit
+  fixes under the same conditions (measured side by side); the budget is
+  marginal on this machine, not newly broken.
