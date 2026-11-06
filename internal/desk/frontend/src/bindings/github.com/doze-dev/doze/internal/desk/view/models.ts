@@ -1687,10 +1687,17 @@ export interface SrcLine {
  */
 export interface StackFailure {
     /**
-     * "Starting shop failed"
+     * "Couldn't start shop"
      */
     "what": string;
     "lines": string[] | null;
+
+    /**
+     * Problem is what went wrong, in one sentence; Config is set when it is
+     * a mistake in doze.hcl, with the file, the line and what to write.
+     */
+    "problem"?: string;
+    "config"?: ConfigError | null;
 }
 
 /**
@@ -1765,6 +1772,11 @@ export interface Stopped {
      * doze.hcl did not load
      */
     "problem"?: string;
+
+    /**
+     * Config is that mistake read out: the file, the line, what to write.
+     */
+    "config"?: ConfigError | null;
 }
 
 /**

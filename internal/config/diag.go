@@ -51,7 +51,7 @@ func diagError(parser *hclparse.Parser, diags hcl.Diagnostics) error {
 	var buf bytes.Buffer
 	wr := hcl.NewDiagnosticTextWriter(&buf, parser.Files(), 0, false)
 	_ = wr.WriteDiagnostics(diags)
-	return fault.With(fault.Invalid, fmt.Errorf("invalid config —\n\n%s", strings.TrimRight(buf.String(), "\n \t")))
+	return fault.With(fault.Invalid, fmt.Errorf("the stack's config has a mistake —\n\n%s", strings.TrimRight(buf.String(), "\n \t")))
 }
 
 // dedupeDiags drops diagnostics that repeat the same summary, detail, and source

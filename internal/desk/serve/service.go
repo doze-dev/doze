@@ -807,6 +807,17 @@ func (s *Service) Say(text string, bad bool) {
 	}
 }
 
+// remember keeps a bad line in recent messages without a toast: for what
+// Needs you already raises.
+func (s *Service) remember(text string) {
+	s.mu.Lock()
+	s.notices = append(s.notices, Notice{At: s.now(), Text: text, Bad: true})
+	if len(s.notices) > noticesKept {
+		s.notices = s.notices[len(s.notices)-noticesKept:]
+	}
+	s.mu.Unlock()
+}
+
 // Recent is the last twenty things said, newest first.
 func (s *Service) Recent() []Notice {
 	s.mu.Lock()

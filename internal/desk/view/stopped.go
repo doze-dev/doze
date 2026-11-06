@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,16 @@ type Stopped struct {
 	// LastSet is what was started last time; empty means everything.
 	LastSet []string `json:"lastSet,omitempty"`
 	Problem string   `json:"problem,omitempty"` // doze.hcl did not load
+	// Config is that mistake read out: the file, the line, what to write.
+	Config *ConfigError `json:"config,omitempty"`
+}
+
+// ConfigProblem is a load error said in one line: where, and what is wrong.
+func ConfigProblem(c *ConfigError) string {
+	if c.Line > 0 {
+		return filepath.Base(c.File) + " line " + strconv.Itoa(c.Line) + ": " + c.Summary
+	}
+	return c.Summary
 }
 
 // StoppedHome fills h for a stack that is not running, from its doze.hcl
@@ -48,7 +59,9 @@ func StoppedHome(h *Home, st hub.StackView, now time.Time) {
 	h.Map = MapView{Columns: []MapColumn{}, Nodes: []MapNode{}, Edges: []MapEdge{}, W: mapLeft + 3*mapColW, H: 580}
 	cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
 	if err != nil {
-		out.Problem = display.Humanise(err)
+		out.Config = ConfigErrorOf(filepath.Join(st.Dir, "doze.hcl"), err, time.Time{}, now)
+		out.Config.Text = ""
+		out.Problem = ConfigProblem(out.Config)
 		return
 	}
 	stack := cfg.Stack()

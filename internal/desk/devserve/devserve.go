@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/control/fakedaemon"
 	"github.com/doze-dev/doze/internal/control/fixture"
@@ -68,6 +69,13 @@ func Run(ctx context.Context, o Options) error {
 	// a moment, saying so, which is how the page's failure is tested.
 	svc.FakeStack = func(st hub.StackView, action string) ([]byte, error) {
 		time.Sleep(1500 * time.Millisecond)
+		// A doze.hcl that does not load fails as doze up would, so the page's
+		// reading of a config mistake can be seen.
+		if _, err := os.Stat(filepath.Join(st.Dir, "doze.hcl")); err == nil && action != "down" {
+			if _, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil); err != nil {
+				return []byte("Error: " + err.Error()), errors.New("exit status 1")
+			}
+		}
 		return []byte("doze: this is a fixture; " + st.Name + " cannot really " + map[string]string{"up-last": "start", "up-all": "start", "up": "start", "down": "stop", "restart": "restart"}[action] + " here"), errors.New("exit status 1")
 	}
 	svc.SetVersion(o.Version)

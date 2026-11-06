@@ -189,7 +189,7 @@ test("starting a stack shows at once, takes no second start, and a failure stays
   // The fixture's folder cannot really start, so it fails, and says why.
   const failed = page.locator(".banner.failed");
   await expect(failed).toBeVisible({ timeout: 20000 });
-  await expect(failed).toContainText("Starting acme failed");
+  await expect(failed).toContainText("Couldn't start acme");
   await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
   await page.screenshot({ path: `.desk-look/StackFailed-${test.info().project.name}.png` });
   await failed.getByRole("button", { name: "Dismiss" }).click();

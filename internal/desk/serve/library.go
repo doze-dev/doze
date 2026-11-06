@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -376,18 +377,21 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 			done(nil)
 			return
 		}
-		// The failure stays on the stack's page with what it said; the
-		// toast only points at it.
-		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-		if len(lines) == 1 && lines[0] == "" {
-			lines = []string{err.Error()}
+		// The failure stays on the stack's page, read into what went wrong
+		// and how to fix it; the toast says the same in a line.
+		title := "Couldn't " + map[string]string{"starting": "start", "stopping": "stop", "restarting": "restart"}[busyWord] + " " + st.Name
+		f := view.FailureOf(title, st.Dir, string(out), err)
+		if len(f.Lines) > 40 {
+			f.Lines = f.Lines[len(f.Lines)-40:]
 		}
-		if len(lines) > 14 {
-			lines = lines[len(lines)-14:]
+		// Needs you raises it as an alert with Try again, so no second
+		// toast; recent messages keep the line.
+		said := title + ": " + f.Problem
+		if f.Config != nil {
+			said = title + ": doze.hcl line " + strconv.Itoa(f.Config.Line) + ", " + f.Problem
 		}
-		title := map[string]string{"starting": "Starting", "stopping": "Stopping", "restarting": "Restarting"}[busyWord] + " " + st.Name + " failed"
-		s.Say(title+": "+lines[len(lines)-1], true)
-		done(&view.StackFailure{What: title, Lines: lines})
+		s.remember(said)
+		done(f)
 	}()
 	return nil
 }

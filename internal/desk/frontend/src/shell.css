@@ -706,3 +706,30 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible { outline: none; 
 .kv .note { grid-column: 2 / -1; color: var(--dim); font-size: var(--text-xs); line-height: 15px; margin: -2px 0 4px; }
 /* The pane's buttons stay in reach while its sections scroll. */
 .insp .acts { position: sticky; bottom: 0; background: var(--side); margin-top: auto; }
+
+/* A failed stack action: what went wrong, how to fix it, what doze printed. */
+.banner.failed { align-items: flex-start; }
+.banner .acts { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; flex: none; }
+.banner .t .bright { color: var(--bright); }
+.printed { margin-top: 8px; color: var(--dim); font-size: var(--text-sm); }
+.printed summary { cursor: default; user-select: none; }
+.printed summary:hover { color: var(--bright); }
+.printed .code { margin-top: 6px; max-height: 200px; overflow: auto; }
+.fixline { padding: 8px 10px; border-radius: var(--radius); background: color-mix(in srgb, var(--good) 9%, var(--panel)); color: var(--bright); }
+.fixline .dim { margin-right: 6px; }
+
+/* Arrivals are gentle: what comes from above settles down into place, a
+   toast rises from below, a sheet fades in. Once each, never looping. */
+@keyframes settle { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes grow { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: none; } }
+.banner, .away, .srccard { animation: settle 240ms cubic-bezier(.2, .7, .3, 1) both; }
+.np, .pop { animation: settle 160ms cubic-bezier(.2, .7, .3, 1) both; }
+.toast { animation: rise 220ms cubic-bezier(.2, .7, .3, 1) both; }
+.scrim { animation: fade 160ms ease-out both; }
+.pal, .dialog, .hp { animation: grow 180ms cubic-bezier(.2, .7, .3, 1) both; }
+.btn, .tile, .node, .lrow, .si, .bell, .stab { transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .banner, .away, .srccard, .np, .pop, .toast, .scrim, .pal, .dialog, .hp { animation: none; }
+}

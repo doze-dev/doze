@@ -237,7 +237,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           </div>
         </div>
       )}
-      {home.failed && !home.busy && <FailedBanner f={home.failed} stackKey={stackKey} running={home.running} />}
+      {home.failed && !home.busy && <FailedBanner f={home.failed} stackKey={stackKey} running={home.running} dir={home.dir} />}
       {home.config && <ConfigBanner c={home.config} dir={home.dir} />}
       {home.changed && (
         <div className="banner cool" role="status">
@@ -269,7 +269,10 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         </div>
       )}
       {stopped ? (
-        <DownStrip s={stopped} tight={viewName === "list"} dir={home.dir} />
+        <>
+          <DownStrip s={stopped} tight={viewName === "list"} dir={home.dir} />
+          {stopped.config && <SourceCard c={stopped.config} />}
+        </>
       ) : (
         <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} stale={!home.banner.ok} />
       )}
@@ -354,13 +357,13 @@ function DownStrip({ s, tight, dir }: { s: view.Stopped; tight?: boolean; dir: s
       <div className={"strip" + (tight ? " tight" : "")} role="alert">
         <div className="stat wide">
           <span className="v bad">
-            doze.hcl does not load<small>nothing can start until it does</small>
+            doze.hcl has a mistake<small>nothing can start until it is fixed</small>
           </span>
           <span className="s" title={s.problem}>
             {s.problem}
           </span>
         </div>
-        <button className="btn" onClick={() => transport().then((t) => t.open("file://" + dir + "/doze.hcl"))}>
+        <button className="btn pri" onClick={() => transport().then((t) => t.open("file://" + (s.config?.file || dir + "/doze.hcl")))}>
           Edit doze.hcl <kbd>⌘E</kbd>
         </button>
       </div>
@@ -1105,30 +1108,43 @@ function ConfigBanner({ c, dir }: { c: view.ConfigError; dir: string }) {
           Edit {name} <kbd>⌘E</kbd>
         </button>
       </div>
-      <section className="card srccard">
-        <h3>
-          {name}{c.line ? <span className="dim"> · line {c.line}</span> : null}
-        </h3>
-        {(c.excerpt ?? []).length > 0 && (
-          <div className="src" role="figure" aria-label={`${name} around line ${c.line}`}>
-            {(c.excerpt ?? []).map((l) => (
-              <div key={l.n} style={{ display: "contents" }}>
-                <span className="n">{l.n}</span>
-                <span className={l.bad ? "bad-l" : ""}>{l.text || " "}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        <div>
-          <b className="bright">{c.summary}</b>
-          {c.detail && <span className="dim"> · {c.detail}</span>}
-          {c.hint && <div style={{ marginTop: 4 }}>{c.hint}</div>}
-        </div>
-        <p className="dim" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
-          The same message as <span className="mono">doze lint</span>.
-        </p>
-      </section>
+      <SourceCard c={c} />
     </>
+  );
+}
+
+/** SourceCard shows a doze.hcl mistake where it is: the lines around it, what is wrong, and what to write. */
+function SourceCard({ c }: { c: view.ConfigError }) {
+  const name = (c.file || "doze.hcl").split("/").pop() || "doze.hcl";
+  return (
+    <section className="card srccard">
+      <h3>
+        {name}
+        {c.line ? <span className="dim"> · line {c.line}</span> : null}
+      </h3>
+      {(c.excerpt ?? []).length > 0 && (
+        <div className="src" role="figure" aria-label={`${name} around line ${c.line}`}>
+          {(c.excerpt ?? []).map((l) => (
+            <div key={l.n} style={{ display: "contents" }}>
+              <span className="n">{l.n}</span>
+              <span className={l.bad ? "bad-l" : ""}>{l.text || " "}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div>
+        <b className="bright">{c.summary}</b>
+        {c.detail && <span className="dim"> · {c.detail}</span>}
+      </div>
+      {c.hint && (
+        <div className="fixline">
+          <span className="dim">To fix it</span> {c.hint}
+        </div>
+      )}
+      <p className="dim" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+        The same message as <span className="mono">doze lint</span>.
+      </p>
+    </section>
   );
 }
 
@@ -1160,33 +1176,56 @@ function Name({ r, stackKey }: { r: view.Row; stackKey: string }) {
   );
 }
 
-/** FailedBanner keeps a stack action that did not work on the page, with what it said, until it is dismissed or tried again. */
-function FailedBanner({ f, stackKey, running }: { f: view.StackFailure; stackKey: string; running: boolean }) {
+/** FailedBanner keeps a stack action that did not work on the page until it is dismissed or tried again: what went wrong, where, and how to fix it, with what doze printed folded away. */
+function FailedBanner({ f, stackKey, running, dir }: { f: view.StackFailure; stackKey: string; running: boolean; dir: string }) {
   const lines = f.lines ?? [];
+  const c = f.config;
+  const file = c?.file || dir + "/doze.hcl";
+  const name = file.split("/").pop() || "doze.hcl";
   return (
-    <div className="banner bad failed" role="alert">
-      <span className="dot r" aria-hidden />
-      <div className="t">
-        <b>{f.what}</b>
-        <div className="code" style={{ marginTop: 6, maxHeight: 160, overflow: "auto" }}>
-          {lines.map((l, i) => (
-            <div key={i}>{l}</div>
-          ))}
+    <>
+      <div className="banner bad failed" role="alert">
+        <span className="dot r" aria-hidden />
+        <div className="t">
+          <b>{f.what}</b>
+          {c ? (
+            <span>
+              {name} has a mistake{c.line ? ` on line ${c.line}` : ""}. Fix it in your editor, then try again; nothing was started.
+            </span>
+          ) : (
+            f.problem && <span className="bright">{f.problem}</span>
+          )}
+          {lines.length > 0 && (
+            <details className="printed">
+              <summary>What doze printed</summary>
+              <div className="code">
+                {lines.map((l, i) => (
+                  <div key={i}>{l || " "}</div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+        <div className="acts">
+          {c && (
+            <button className="btn pri" onClick={() => transport().then((t) => t.open("file://" + file))}>
+              Edit {name}
+            </button>
+          )}
+          {!running && (
+            <button className={"btn" + (c ? "" : " pri")} onClick={() => void stackAction(stackKey, "up-last")}>
+              Try again
+            </button>
+          )}
+          <button className="btn quiet" onClick={() => void copy(lines.join("\n"), "what it said")}>
+            Copy
+          </button>
+          <button className="btn quiet" onClick={() => transport().then((t) => t.dismiss(stackKey))}>
+            Dismiss
+          </button>
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignSelf: "flex-start" }}>
-        {!running && (
-          <button className="btn pri" onClick={() => void stackAction(stackKey, "up-last")}>
-            Try again
-          </button>
-        )}
-        <button className="btn" onClick={() => void copy(lines.join("\n"), "what it said")}>
-          Copy
-        </button>
-        <button className="btn quiet" onClick={() => transport().then((t) => t.dismiss(stackKey))}>
-          Dismiss
-        </button>
-      </div>
-    </div>
+      {c && <SourceCard c={c} />}
+    </>
   );
 }

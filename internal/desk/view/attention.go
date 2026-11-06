@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -115,13 +116,20 @@ func StackItems(st hub.StackView, f StackFacts, now time.Time) []Item {
 		}}
 	}
 	if f.Failed != nil {
-		it := Item{ID: "failed:" + st.Key, Red: true, Kind: "failed", Key: st.Key, Stack: name, Title: f.Failed.What, Show: home, Mono: true}
-		if len(f.Failed.Lines) > 0 {
-			it.Detail = f.Failed.Lines[len(f.Failed.Lines)-1]
+		it := Item{ID: "failed:" + st.Key, Red: true, Kind: "failed", Key: st.Key, Stack: name, Title: f.Failed.What, Show: home, Detail: f.Failed.Problem}
+		if c := f.Failed.Config; c != nil {
+			file := filepath.Base(c.File)
+			if c.Line > 0 {
+				it.Detail = fmt.Sprintf("%s line %d: %s", file, c.Line, c.Summary)
+			}
+			it.Fixes = append(it.Fixes, Fix{Label: "Edit " + file, Kind: "edit", Path: c.File, Primary: true})
+		}
+		if it.Detail == "" && len(f.Failed.Lines) > 0 {
+			it.Detail, it.Mono = f.Failed.Lines[len(f.Failed.Lines)-1], true
 		}
 		it.Print = it.Title + "|" + it.Detail
 		if !st.Running {
-			it.Fixes = append(it.Fixes, Fix{Label: "Try again", Kind: "stack", Verb: "up-last", Primary: true})
+			it.Fixes = append(it.Fixes, Fix{Label: "Try again", Kind: "stack", Verb: "up-last", Primary: f.Failed.Config == nil})
 		}
 		it.Fixes = append(it.Fixes, Fix{Label: "Dismiss", Kind: "dismiss"})
 		out = append(out, it)

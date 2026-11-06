@@ -82,6 +82,10 @@ func ConfigErrorOf(path string, err error, changed, now time.Time) *ConfigError 
 		ce.Line, _ = strconv.Atoi(m[1])
 	}
 	ce.Hint = configHint(msg)
+	// doze's own fixes read "write: …" or "did you mean …": that is the hint.
+	if d := ce.Detail; strings.HasPrefix(d, "write: ") || strings.HasPrefix(d, "did you mean") || strings.HasPrefix(d, "delete it") {
+		ce.Hint, ce.Detail = strings.ToUpper(d[:1])+d[1:], ""
+	}
 	if ce.Line > 0 {
 		if b, err := os.ReadFile(ce.File); err == nil {
 			src := strings.Split(string(b), "\n")

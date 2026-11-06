@@ -1,7 +1,9 @@
 package view
 
 import (
+	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -422,6 +424,45 @@ func Domains(st hub.StackView) []string {
 // StackFailure is a stack action that did not work: what was tried, and
 // the last lines it printed, kept on the page until dismissed.
 type StackFailure struct {
-	What  string   `json:"what"` // "Starting shop failed"
+	What  string   `json:"what"` // "Couldn't start shop"
 	Lines []string `json:"lines"`
+	// Problem is what went wrong, in one sentence; Config is set when it is
+	// a mistake in doze.hcl, with the file, the line and what to write.
+	Problem string       `json:"problem,omitempty"`
+	Config  *ConfigError `json:"config,omitempty"`
+}
+
+// FailureOf reads what a stack action printed when it failed: a mistake in
+// doze.hcl becomes the file, the line and the fix; anything else, its most
+// telling line.
+func FailureOf(what, dir, out string, err error) *StackFailure {
+	out = strings.TrimSpace(out)
+	if out == "" && err != nil {
+		out = err.Error()
+	}
+	lines := strings.Split(out, "\n")
+	f := &StackFailure{What: what, Lines: lines}
+	if reOnFile.MatchString(out) || strings.Contains(out, "config has a mistake") {
+		f.Config = ConfigErrorOf(filepath.Join(dir, "doze.hcl"), errors.New(out), time.Time{}, time.Now())
+		f.Config.Text = ""
+		f.Problem = f.Config.Summary
+		return f
+	}
+	// The telling line: the first that says error, else the last with words.
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if low := strings.ToLower(l); strings.HasPrefix(low, "error") || strings.Contains(low, "failed") {
+			f.Problem = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(l, "Error:"), "error:"))
+			break
+		}
+	}
+	if f.Problem == "" {
+		for i := len(lines) - 1; i >= 0; i-- {
+			if l := strings.TrimSpace(lines[i]); l != "" {
+				f.Problem = l
+				break
+			}
+		}
+	}
+	return f
 }

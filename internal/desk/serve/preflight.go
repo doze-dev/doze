@@ -45,8 +45,9 @@ func (s *Service) Preflight(key, action string, chosen []string) view.Preflight 
 	cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
 	if err != nil {
 		p.Blocked = true
-		p.Checks = append(p.Checks, view.PreCheck{Tone: "bad", Title: "doze.hcl does not load", Detail: display.Humanise(err), Mono: true,
-			Fixes: []view.Fix{{Label: "Edit doze.hcl", Kind: "edit", Path: filepath.Join(st.Dir, "doze.hcl")}}})
+		c := view.ConfigErrorOf(filepath.Join(st.Dir, "doze.hcl"), err, time.Time{}, time.Now())
+		p.Checks = append(p.Checks, view.PreCheck{Tone: "bad", Title: "doze.hcl has a mistake", Detail: view.ConfigProblem(c), Note: c.Hint,
+			Fixes: []view.Fix{{Label: "Edit " + filepath.Base(c.File), Kind: "edit", Path: c.File}}})
 		return p
 	}
 	set := startingSet(cfg.Decls(), st.LastSet, action, chosen)
