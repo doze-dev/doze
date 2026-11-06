@@ -23,8 +23,10 @@ type Prefs struct {
 	// whether a connection to a service was ever seen, which is its third
 	// step.
 	Hints Hints `json:"hints,omitzero"`
-	// Theme is the theme chosen in Settings; empty follows the system.
+	// Theme is the colour theme chosen in Settings (violet, teal, …);
+	// empty is violet. Mode is dark, light, or empty to follow the system.
 	Theme string `json:"theme,omitempty"`
+	Mode  string `json:"mode,omitempty"`
 	// Views is each stack's overview view (tiles, list, map), by key.
 	Views map[string]string `json:"views,omitempty"`
 	// Recent is the services whose pages were opened last, newest first,

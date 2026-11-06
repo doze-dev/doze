@@ -71,6 +71,9 @@ func (a *API) Say(text string, bad bool) { a.s.Say(text, bad) }
 // Theme tells Go which theme the page uses.
 func (a *API) Theme(theme string) { a.s.SetTheme(theme) }
 
+// Mode tells Go the mode the page uses: dark, light or system.
+func (a *API) Mode(mode string) { a.s.SetMode(mode) }
+
 // Painted reports the page's first paint, for the desk bench.
 func (a *API) Painted(ms int) {
 	if a.painted != nil {

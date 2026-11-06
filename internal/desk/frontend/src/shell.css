@@ -17,8 +17,8 @@
   src: url("./fonts/jetbrains-mono-latin.woff2") format("woff2");
 }
 :root { color-scheme: dark light; }
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme]:not([data-theme="light"]) { color-scheme: dark; }
+:root[data-mode="light"] { color-scheme: light; }
+:root[data-mode="dark"] { color-scheme: dark; }
 html, body, #root { height: 100%; margin: 0; }
 body {
   background: var(--bg);

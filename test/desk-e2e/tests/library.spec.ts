@@ -97,19 +97,28 @@ test("Settings: the themes, the machine part by part, About", async ({ page }, i
   await expect(side).toContainText("Machine");
   await expect(side).toContainText("About");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("General");
-  const themes = page.getByRole("radiogroup", { name: "Theme" });
-  await expect(themes.getByRole("radio")).toHaveCount(6);
+  const themes = page.getByRole("radiogroup", { name: "Colour theme" });
+  await expect(themes.getByRole("radio")).toHaveCount(5);
   await expect(themes).toContainText("violet");
-  await expect(themes).toContainText("light");
+  await expect(themes).not.toContainText("light");
+  const modes = page.getByRole("radiogroup", { name: "Mode" });
+  await expect(modes.getByRole("radio")).toHaveText(["System", "Light", "Dark"]);
   await page.screenshot({ path: `.desk-look/Settings-${info.project.name}.png` });
 
-  // A theme is set at once and kept across a reload.
+  // A colour theme and a mode are set apart, at once, and kept across a reload.
   await themes.getByRole("radio", { name: /teal/ }).click();
+  await modes.getByRole("radio", { name: "Light" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "teal");
+  await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
+  await page.screenshot({ path: `.desk-look/Settings-teal-light-${info.project.name}.png` });
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "teal");
+  await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
   await page.keyboard.press("ControlOrMeta+,");
-  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: /violet/ }).click();
+  await page.getByRole("radiogroup", { name: "Mode" }).getByRole("radio", { name: "Dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-mode", "dark");
+  await page.getByRole("radiogroup", { name: "Colour theme" }).getByRole("radio", { name: /violet/ }).click();
+  await page.getByRole("radiogroup", { name: "Mode" }).getByRole("radio", { name: "System" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "violet");
 
   // Machine: the same report as doze doctor, in sections, with a fix on

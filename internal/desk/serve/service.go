@@ -539,19 +539,32 @@ func (s *Service) Palette(key, _, query string) view.Palette {
 	return view.PaletteOf(s.hub.Stacks(), key, recent, query, s.now())
 }
 
-// SetTheme remembers the theme chosen in Settings, in prefs, so the next
-// launch opens in it.
+// SetTheme remembers the colour theme chosen in Settings, in prefs, so the
+// next launch opens in it.
 func (s *Service) SetTheme(theme string) {
 	s.mu.Lock()
 	s.theme = theme
 	s.mu.Unlock()
 	home := s.hub.Home()
 	p := prefs.Load(home)
-	if theme == "system" {
+	if theme == "violet" {
 		theme = ""
 	}
 	if p.Theme != theme {
 		p.Theme = theme
+		_ = prefs.Save(home, p)
+	}
+}
+
+// SetMode remembers the mode chosen in Settings: dark, light, or system.
+func (s *Service) SetMode(mode string) {
+	home := s.hub.Home()
+	p := prefs.Load(home)
+	if mode == "system" {
+		mode = ""
+	}
+	if p.Mode != mode {
+		p.Mode = mode
 		_ = prefs.Save(home, p)
 	}
 }

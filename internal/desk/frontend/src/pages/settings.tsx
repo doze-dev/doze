@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { copy, go, repair, reopens, setReopens, setTheme, useStore, type Theme } from "../store";
+import { copy, go, repair, reopens, setMode, setReopens, setTheme, useStore, type Mode, type Theme } from "../store";
 import { transport, type view } from "../transport";
 import { Keys } from "../components/keys";
 
@@ -8,13 +8,14 @@ import { Keys } from "../components/keys";
 // what the app honours today is here: the theme, the machine's setup part
 // by part with the command that fixes each, and the version. Startup,
 // consoles in the tab and the editor arrive with the install flow (P3).
-const THEMES: { name: string; bg: string; swatches: string[] }[] = [
-  { name: "violet", bg: "#15131d", swatches: ["#BD93F9", "#7EE787", "#82AAFF"] },
-  { name: "teal", bg: "#0e1816", swatches: ["#4FD6C4", "#86E08A", "#8FBDFF"] },
-  { name: "burgundy", bg: "#1a0f13", swatches: ["#F08FA6", "#8FE0A0", "#8DB4F5"] },
-  { name: "amber", bg: "#16140b", swatches: ["#F2E04A", "#9BE07A", "#7FC4F5"] },
-  { name: "slate", bg: "#12161b", swatches: ["#9DB7D5", "#8FD694", "#5FD0E0"] },
-  { name: "light", bg: "#fbfaff", swatches: ["#7a4fe0", "#1d8a4a", "#2f62d9"] },
+// The swatches draw each colour theme in the mode on screen: its ground and
+// its accent, good and cool, as tokens.css has them.
+const THEMES: { name: Theme; dark: { bg: string; swatches: string[] }; light: { bg: string; swatches: string[] } }[] = [
+  { name: "violet", dark: { bg: "#15131d", swatches: ["#BD93F9", "#7EE787", "#82AAFF"] }, light: { bg: "#fbfaff", swatches: ["#7a4fe0", "#1d8a4a", "#2f62d9"] } },
+  { name: "teal", dark: { bg: "#0e1816", swatches: ["#4FD6C4", "#86E08A", "#8FBDFF"] }, light: { bg: "#f6fbfa", swatches: ["#0f7f73", "#1d8a4a", "#2f62d9"] } },
+  { name: "burgundy", dark: { bg: "#1a0f13", swatches: ["#F08FA6", "#8FE0A0", "#8DB4F5"] }, light: { bg: "#fdf8f9", swatches: ["#b5345a", "#1d8a4a", "#2f62d9"] } },
+  { name: "amber", dark: { bg: "#16140b", swatches: ["#F2E04A", "#9BE07A", "#7FC4F5"] }, light: { bg: "#fcfbf3", swatches: ["#836700", "#3f7d1f", "#2563a8"] } },
+  { name: "slate", dark: { bg: "#12161b", swatches: ["#9DB7D5", "#8FD694", "#5FD0E0"] }, light: { bg: "#f8fafc", swatches: ["#3d6a99", "#237a3b", "#0e7490"] } },
 ];
 
 const SECTIONS: Record<string, string> = { names: "names", domains: "domains", app: "the app" };
@@ -22,6 +23,8 @@ const SECTION_NOTES: Record<string, string> = { names: "shared with doze-aws and
 
 export function SettingsPage({ library, version, section }: { library: view.Library | null; version: string; section?: string }) {
   const theme = useStore((s) => s.theme);
+  const mode = useStore((s) => s.mode);
+  const dark = useStore((s) => s.dark);
   const [part, setPart] = useState(section ?? "general");
   useEffect(() => {
     if (!library) void go({ key: "", page: "settings" });
@@ -69,30 +72,38 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
             </div>
             <div className="set">
               <div className="k">
-                Theme
-                <small>the five from the terminal, and a light one</small>
+                Mode
+                <small>{mode === "system" ? `following macOS: ${dark ? "dark" : "light"} now` : "the same whatever macOS does"}</small>
               </div>
               <div className="v">
-                <div className="swatches" role="radiogroup" aria-label="Theme">
-                  {THEMES.map((t) => (
-                    <button key={t.name} role="radio" aria-checked={theme === t.name} className={"swatch" + (theme === t.name ? " on" : "")} onClick={() => void setTheme(t.name as Theme)}>
-                      <div className="pv" style={{ background: t.bg }}>
-                        {t.swatches.map((c, i) => (
-                          <i key={c} style={{ background: c, width: ["70%", "40%", "55%"][i] }} />
-                        ))}
-                      </div>
-                      <div className="nm">{t.name}</div>
+                <div className="seg" role="radiogroup" aria-label="Mode" style={{ alignSelf: "flex-start" }}>
+                  {(["system", "light", "dark"] as Mode[]).map((m) => (
+                    <button key={m} role="radio" aria-checked={mode === m} className={mode === m ? "on" : ""} onClick={() => void setMode(m)}>
+                      {m === "system" ? "System" : m === "light" ? "Light" : "Dark"}
                     </button>
                   ))}
                 </div>
-                <button className="radio" onClick={() => void setTheme("system")}>
-                  <span className={"o" + (theme === "system" ? " on" : "")} />
-                  Follow the system: light when macOS is light, violet otherwise
-                </button>
-                <button className="radio" onClick={() => void setTheme(theme === "system" ? "violet" : theme)}>
-                  <span className={"o" + (theme !== "system" ? " on" : "")} />
-                  Always this one
-                </button>
+              </div>
+              <div className="k">
+                Colour theme
+                <small>the terminal&apos;s five, each in light and dark</small>
+              </div>
+              <div className="v">
+                <div className="swatches" role="radiogroup" aria-label="Colour theme">
+                  {THEMES.map((t) => {
+                    const look = dark ? t.dark : t.light;
+                    return (
+                      <button key={t.name} role="radio" aria-checked={theme === t.name} className={"swatch" + (theme === t.name ? " on" : "")} onClick={() => void setTheme(t.name)}>
+                        <div className="pv" style={{ background: look.bg }}>
+                          {look.swatches.map((c, i) => (
+                            <i key={c} style={{ background: c, width: ["70%", "40%", "55%"][i] }} />
+                          ))}
+                        </div>
+                        <div className="nm">{t.name}</div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="k">
                 Startup

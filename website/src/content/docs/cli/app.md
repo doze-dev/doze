@@ -20,9 +20,9 @@ first, each with a switch: on brings it up as last time, off brings it down,
 and the ▾ beside it offers everything or a chosen set. A stopped stack keeps
 its page: the same view, every service down and every switch off. **Up as last
 time** starts it again; **Choose what starts…** (`c`) opens a sheet to tick the
-apps you will work on, showing what starts with them because they need it; and
-turning one service on starts the stack with just that one and what it needs. The Machine line at the
-bottom says whether the names, the network daemon and any declared domains are
+apps you will work on, showing what starts with them because they need it;
+and turning one service on starts the stack with just that one and what it
+needs. The Machine line at the bottom says whether the names, the network daemon and any declared domains are
 in place; when one is not, **Repair** in Settings puts it there behind the
 system's password prompt.
 
@@ -83,7 +83,9 @@ Every key is a command too: what the app does, `doze sleep db` or
 
 ## Settings
 
-Six themes (the terminal's five and a light one), **Open at login, in the
+**Mode** (System, Light or Dark; System follows macOS as it changes) and a
+**Colour theme** (the terminal's five: violet, teal, burgundy, amber, slate,
+each drawn light or dark as the mode says), **Open at login, in the
 menu bar only**, the machine's setup part by part with the command that fixes
 each and **Repair**, which runs that setup behind the system's own password
 prompt (on Linux, polkit's), and the version. The Library's Machine line

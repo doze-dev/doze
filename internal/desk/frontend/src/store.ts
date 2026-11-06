@@ -17,7 +17,9 @@ export interface Where {
   dir?: string;
 }
 
-export type Theme = "system" | "violet" | "teal" | "burgundy" | "amber" | "slate" | "light" | "dark";
+/** Theme is a colour theme; Mode is dark, light, or system (follow macOS). The two are chosen apart. */
+export type Theme = "violet" | "teal" | "burgundy" | "amber" | "slate";
+export type Mode = "system" | "dark" | "light";
 
 export interface Toast {
   id: number;
@@ -54,6 +56,9 @@ export interface State {
   /** toasts is what was said and has not faded yet. */
   toasts: Toast[];
   theme: Theme;
+  mode: Mode;
+  /** dark is the mode as resolved: what the page is drawn in now. */
+  dark: boolean;
   /** history is where the page has been, oldest first; future what back left behind. ⌘[ and ⌘] walk them. */
   history: Where[];
   future: Where[];
@@ -80,7 +85,9 @@ export const store = new Store<State>({
   palette: false,
   help: false,
   toasts: [],
-  theme: "system",
+  theme: "violet",
+  mode: "system",
+  dark: true,
   history: [],
   future: [],
   tab: "",
@@ -329,29 +336,67 @@ function lastPlace(): Where | null {
   }
 }
 
-/** setTheme applies a theme to the page, remembers it, and tells Go. */
+const modeKey = "doze.mode";
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+/** paint draws the page in the theme and the mode, resolving system from macOS. */
+function paint() {
+  const { theme, mode } = get();
+  const dark = mode === "system" ? systemDark.matches : mode === "dark";
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.mode = dark ? "dark" : "light";
+  if (get().dark !== dark) set({ dark });
+}
+// Following the system means following it while the window is open too.
+systemDark.addEventListener("change", () => {
+  if (get().mode === "system") paint();
+});
+
+function remember(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Private mode or a sandbox without storage: it lasts the window.
+  }
+}
+
+/** setTheme sets the colour theme, keeps it, and tells Go. */
 export async function setTheme(theme: Theme) {
   set({ theme });
-  if (theme === "system") delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = theme;
-  try {
-    localStorage.setItem(themeKey, theme);
-  } catch {
-    // Private mode or a sandbox without storage: the theme lasts the window.
-  }
+  paint();
+  remember(themeKey, theme);
   const t = await transport();
   await t.theme(theme);
 }
 
-function storedTheme(): Theme {
+/** setMode sets dark, light or system, keeps it, and tells Go. */
+export async function setMode(mode: Mode) {
+  set({ mode });
+  paint();
+  remember(modeKey, mode);
+  const t = await transport();
+  await t.mode(mode);
+}
+
+const themes: Theme[] = ["violet", "teal", "burgundy", "amber", "slate"];
+
+/**
+ * stored is the theme and mode last chosen. Before the two were apart one
+ * value held both: "light" and "system" were modes on violet, and a colour
+ * named alone was that colour, dark.
+ */
+function stored(): { theme: Theme; mode: Mode } {
   try {
-    const v = localStorage.getItem(themeKey);
-    if (v === "dark") return "violet";
-    if (v && v !== "system") return v as Theme;
+    const t = localStorage.getItem(themeKey) ?? "";
+    const m = localStorage.getItem(modeKey);
+    if (m === "dark" || m === "light" || m === "system") return { theme: themes.includes(t as Theme) ? (t as Theme) : "violet", mode: m };
+    if (t === "light") return { theme: "violet", mode: "light" };
+    if (t === "dark") return { theme: "violet", mode: "dark" };
+    if (themes.includes(t as Theme)) return { theme: t as Theme, mode: "dark" };
   } catch {
     // no storage
   }
-  return "system";
+  return { theme: "violet", mode: "system" };
 }
 
 /** useBoot connects the store to Go once: the stacks, the pushes, the first tab. */
@@ -359,7 +404,8 @@ export function useBoot() {
   useEffect(() => {
     let off: Array<() => void> = [];
     let gone = false;
-    void setTheme(storedTheme());
+    set(stored());
+    paint();
     transport().then(async (t) => {
       if (gone) return;
       off = [

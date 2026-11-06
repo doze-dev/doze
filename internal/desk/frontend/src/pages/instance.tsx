@@ -568,11 +568,10 @@ function LastRun({ inst, stackKey, onRuns }: { inst: view.Instance; stackKey: st
 // says so until the console answers. It is dropped when the tab is left,
 // so a console nobody looks at holds nothing.
 function WebConsole({ inst }: { inst: view.Instance; stackKey: string }) {
-  const theme = useStore((s) => s.theme);
+  const dark = useStore((s) => s.dark);
   const [loaded, setLoaded] = useState(false);
   const asleep = inst.look.word === "asleep";
   const url = inst.web ?? "";
-  const dark = theme === "light" ? false : theme !== "system" || window.matchMedia("(prefers-color-scheme: dark)").matches;
   const src = url ? url + (url.includes("?") ? "&" : "?") + "theme=" + (dark ? "dark" : "light") : "";
   useEffect(() => setLoaded(false), [src]);
   return (

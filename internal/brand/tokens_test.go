@@ -37,7 +37,7 @@ func TestNoLiteralColoursOutsideTokens(t *testing.T) {
 }
 
 func TestThemesAreComplete(t *testing.T) {
-	for _, th := range []Theme{Dark, Light} {
+	for _, th := range Themes {
 		for _, v := range th.vars() {
 			if strings.HasSuffix(v, ": ") {
 				t.Errorf("%s theme: %s is empty", th.Name, v)

@@ -143,6 +143,13 @@ export function Logs(key: string, q: view$0.LogsQuery): $CancellablePromise<view
 }
 
 /**
+ * Mode tells Go the mode the page uses: dark, light or system.
+ */
+export function Mode(mode: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Mode", mode);
+}
+
+/**
  * Open opens a URL in the person's browser: an app's own domain.
  * Open opens a URL in the browser, or a file in its app; a path written
  * with ~ is the person's home.

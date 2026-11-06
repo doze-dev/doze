@@ -229,6 +229,14 @@ func Handler(s *Service) http.Handler {
 		s.SetTheme(a.Theme)
 		return map[string]bool{"ok": true}, nil
 	})
+	call("mode", func(b json.RawMessage) (any, error) {
+		var a struct{ Mode string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		s.SetMode(a.Mode)
+		return map[string]bool{"ok": true}, nil
+	})
 	call("doall", func(b json.RawMessage) (any, error) {
 		var a struct {
 			Key, Verb string

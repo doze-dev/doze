@@ -57,6 +57,7 @@ export interface Transport {
   /** timeline is a stack's last half hour. */
   timeline(key: string): Promise<view.Timeline>;
   theme(theme: string): Promise<void>;
+  mode(mode: string): Promise<void>;
   /** empty is the page for a folder with no doze.hcl yet. */
   empty(dir: string): Promise<view.Empty>;
   /** setup sets a folder up: init, add <arg>, or a starter file. */
@@ -116,6 +117,7 @@ async function wails(): Promise<Transport> {
     stopHolder: (key, name, pid) => api.StopHolder(key, name, pid),
     timeline: (key) => api.Timeline(key),
     theme: (theme) => api.Theme(theme),
+    mode: (mode) => api.Mode(mode),
     empty: (dir) => api.Empty(dir),
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
     library: () => api.Library(),
@@ -183,6 +185,7 @@ function http(): Transport {
     stopHolder: (key, name, pid) => call("stopholder", { key, name, pid }),
     timeline: (key) => call("timeline", { key }),
     theme: (theme) => call("theme", { theme }),
+    mode: (mode) => call("mode", { mode }),
     empty: (dir) => call("empty", { dir }),
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),
     library: () => call("library", {}),
