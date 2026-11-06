@@ -212,7 +212,9 @@ type Service struct {
 	notNow    map[string]string
 	notNowSet bool
 	attnTimer bool
-	bellAt    time.Time
+	// ram is each service's memory when last seen awake, by key#name.
+	ram    map[string]int64
+	bellAt time.Time
 	// upKey and upAction are an Up the menu bar asked the page to make,
 	// at upAt, so the checks' sheet can ask (AskUp).
 	upKey, upAction string
@@ -284,6 +286,7 @@ func (s *Service) push() {
 	s.mu.Lock()
 	before := s.sent[EventAttention]
 	s.mu.Unlock()
+	s.rememberRAM()
 	s.send(EventAttention, s.Attention())
 	s.mu.Lock()
 	after, fn := s.sent[EventAttention], s.onAttn

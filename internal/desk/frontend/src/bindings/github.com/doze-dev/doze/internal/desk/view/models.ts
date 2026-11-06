@@ -23,6 +23,115 @@ export interface Action {
 }
 
 /**
+ * Activity is what a stack did over a span (the last hour, day or week),
+ * read from its journal on disk: how long each service slept while the
+ * stack was up, and the memory that left free; what woke each one and how
+ * often; what crashed. It answers "is doze saving me anything, and what
+ * keeps waking my stack". Positions are fractions of the span, so the page
+ * draws without knowing about time.
+ */
+export interface Activity {
+    "key": string;
+    "stack": string;
+
+    /**
+     * Span is "1h", "24h" or "7d"; Inst narrows to one service, or "".
+     */
+    "span": string;
+    "inst"?: string;
+
+    /**
+     * Ticks label the axis of each row's strip.
+     */
+    "ticks": TimelineTick[] | null;
+    "summary": ActivitySummary;
+    "rows": ActivityRow[] | null;
+
+    /**
+     * Trouble is the crashes, failed starts and give-ups, newest first.
+     */
+    "trouble": Recent[] | null;
+
+    /**
+     * Events are the journal's lines in the span, newest first, at most 150.
+     */
+    "events": Recent[] | null;
+
+    /**
+     * Short says the journal starts inside the span: "the journal goes back
+     * 3 days", so the figures cover less than the span says.
+     */
+    "short"?: string;
+
+    /**
+     * Empty says nothing happened in the span.
+     */
+    "empty"?: boolean;
+}
+
+/**
+ * ActivityRow is one service over the span.
+ */
+export interface ActivityRow {
+    "name": string;
+    "look": Look;
+
+    /**
+     * AsleepPart is the share asleep while the stack was up, 0..1; Asleep
+     * says it in words ("19h asleep · 79%").
+     */
+    "asleepPart": number;
+    "asleep": string;
+    "wakes": number;
+
+    /**
+     * WokenBy is what woke it, most often first: "9 for api · 5 by a
+     * connection".
+     */
+    "wokenBy"?: string;
+    "crashes"?: number;
+    "freed"?: string;
+
+    /**
+     * Spans and Marks draw its strip: awake stretches and crashes.
+     */
+    "spans": TimelineSpanBar[] | null;
+    "marks": TimelineMark[] | null;
+
+    /**
+     * Never says it never slept in the span (pinned, or always in use).
+     */
+    "never"?: boolean;
+}
+
+/**
+ * ActivitySummary is the stack's line at the top.
+ */
+export interface ActivitySummary {
+    /**
+     * Up is how long the stack was up in the span: "21h of 24h".
+     */
+    "up": string;
+
+    /**
+     * Asleep is the share of service-time asleep while up: "71%".
+     */
+    "asleep": string;
+
+    /**
+     * Freed is memory left free by sleeping: "about 3.2 GB·h".
+     */
+    "freed"?: string;
+
+    /**
+     * FreedNote says what the estimate rests on.
+     */
+    "freedNote"?: string;
+    "wakes": number;
+    "crashes": number;
+}
+
+/**
  * Addr is one address pill.
  */
 export interface Addr {
@@ -1264,8 +1373,8 @@ export interface PaletteRow {
 
     /**
      * Enter is what tab narrows the palette to: a stack's key, or a
-     * stack's key and a service's name ("key/api"); empty when the row is
-     * a command.
+     * stack's key and a service's name ("key#api": a key is a folder, so
+     * never "/"); empty when the row is a command.
      */
     "enter"?: string;
 }
@@ -1664,44 +1773,6 @@ export interface Stopped {
 export interface Tab {
     "id": string;
     "title": string;
-}
-
-/**
- * Timeline is a stack's last half hour from its journal: a lane per
- * service with the spans it was awake, the moments it crashed, and the
- * events themselves, newest first. Positions are fractions of the span, so
- * the page draws without knowing about time.
- */
-export interface Timeline {
-    "key": string;
-    "stack": string;
-
-    /**
-     * From and To label the axis: "13:42" and "now".
-     */
-    "from": string;
-    "ticks": TimelineTick[] | null;
-    "lanes": TimelineLane[] | null;
-
-    /**
-     * Events are the journal's lines in the span, newest first.
-     */
-    "events": Recent[] | null;
-
-    /**
-     * Empty says nothing happened in the span.
-     */
-    "empty"?: boolean;
-}
-
-/**
- * TimelineLane is one service.
- */
-export interface TimelineLane {
-    "name": string;
-    "look": Look;
-    "spans": TimelineSpanBar[] | null;
-    "marks": TimelineMark[] | null;
 }
 
 /**

@@ -159,16 +159,25 @@ test("esc goes up a level on every page; ⌘[ and ⌘] walk the way you came", a
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
 });
 
-test("the timeline draws each service's last half hour, and esc goes back", async ({ page }, info) => {
+test("Activity: how much slept, what woke what, each service's strip, and esc goes back", async ({ page }, info) => {
   await openShop(page);
-  await page.keyboard.press("Shift+T");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Timeline");
-  const tl = page.getByRole("region", { name: "Awake over the last half hour" });
-  await expect(tl.locator(".tl-lane")).toHaveCount(10);
-  await expect(tl.locator(".tl-lane", { hasText: "db" }).locator(".tl-span")).not.toHaveCount(0);
-  await expect(tl.locator(".tl-ticks span").last()).toHaveText("now");
+  await page.keyboard.press("Shift+A");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Activity");
+  await expect(page.getByRole("group", { name: "Span" }).getByRole("button", { name: "24 hours" })).toHaveAttribute("aria-pressed", "true");
+  const sum = page.getByRole("region", { name: "Summary" });
+  await expect(sum).toContainText("asleep while the stack was up");
+  await expect(sum).toContainText("memory left free by sleeping");
+  const rows = page.getByRole("region", { name: "Each service" }).locator(".act-row:not(.h)");
+  await expect(rows).toHaveCount(10);
+  await expect(rows.filter({ hasText: "db" }).first()).toContainText("for migrate");
+  await expect(page.locator(".tl-ticks span").last()).toHaveText("now");
   await expect(page.locator(".tl-events")).toContainText("db (migrate needed it)");
-  await page.screenshot({ path: `.desk-look/Timeline-${info.project.name}.png` });
+  await page.screenshot({ path: `.desk-look/Activity-${info.project.name}.png` });
+  // A name narrows to that service; the last hour is a click.
+  await rows.filter({ hasText: "db" }).first().getByRole("button").click();
+  await expect(page.locator(".head .path")).toContainText("shop · db");
+  await page.getByRole("group", { name: "Span" }).getByRole("button", { name: "Last hour" }).click();
+  await expect(page.locator(".head .path")).toContainText("the last hour");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
 });

@@ -4,6 +4,9 @@
 export type {
     Act,
     Action,
+    Activity,
+    ActivityRow,
+    ActivitySummary,
     Addr,
     Attention,
     Away,
@@ -75,8 +78,6 @@ export type {
     Step,
     Stopped,
     Tab,
-    Timeline,
-    TimelineLane,
     TimelineMark,
     TimelineSpanBar,
     TimelineTick,

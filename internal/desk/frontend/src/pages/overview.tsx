@@ -132,9 +132,10 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         case "l":
           if (row) void go({ key: stackKey, page: "logs", instance: row.name });
           break;
+        case "A":
         case "T":
           e.preventDefault();
-          void go({ key: stackKey, page: "timeline" });
+          void go({ key: stackKey, page: "activity" });
           break;
         case "L":
           void go({ key: stackKey, page: "logs" });
@@ -197,8 +198,8 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             </button>
           ))}
         </div>
-        <button className="btn quiet" onClick={() => void go({ key: stackKey, page: "timeline" })} title="What woke, slept and crashed in the last half hour (T)">
-          Timeline <kbd>T</kbd>
+        <button className="btn quiet" onClick={() => void go({ key: stackKey, page: "activity" })} title="How long each service slept, what woke it, what crashed: the last hour, day or week (A)">
+          Activity <kbd>A</kbd>
         </button>
         <button className="btn quiet" onClick={() => void go({ key: stackKey, page: "logs" })} title="Every service's logs, merged (L)">
           All logs <kbd>L</kbd>

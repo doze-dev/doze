@@ -13,7 +13,7 @@ import { OverviewPage } from "./pages/overview";
 import { InstancePage } from "./pages/instance";
 import { LogsPage } from "./pages/logs";
 import { RecentPage } from "./pages/recent";
-import { TimelinePage } from "./pages/timeline";
+import { ActivityPage } from "./pages/activity";
 import { EmptyPage } from "./pages/empty";
 import { SettingsPage } from "./pages/settings";
 import { transport, type view } from "./transport";
@@ -39,8 +39,8 @@ export function App() {
         return `${w.instance} · ${stack} · doze`;
       case "logs":
         return `${w.instance ? w.instance + " logs" : "All logs"} · ${stack} · doze`;
-      case "timeline":
-        return `Timeline · ${stack} · doze`;
+      case "activity":
+        return `Activity · ${stack} · doze`;
       case "empty":
         return "A folder · doze";
     }
@@ -160,7 +160,7 @@ export function App() {
           const only = d.target;
           void go({ key, page: "logs", q: d.text || undefined }).then(() => only && set({ show: [only] }));
         }
-        else void go({ key, page: (d.page as "timeline" | "instance") || "instance", instance: d.target });
+        else void go({ key, page: (d.page as "activity" | "instance") || "instance", instance: d.target });
         break;
       case "choose":
         void chooseStart(key);
@@ -230,7 +230,7 @@ export function App() {
           {where?.page === "instance" && instance && <InstancePage inst={instance} stackKey={where.key} />}
           {where?.page === "logs" && <LogsPage key={where.q ?? ""} stackKey={where.key} instance={where.instance ?? ""} q={where.q} />}
           {where?.page === "empty" && empty && <EmptyPage e={empty} />}
-          {where?.page === "timeline" && <TimelinePage stackKey={where.key} />}
+          {where?.page === "activity" && <ActivityPage key={where.key + (where.instance ?? "")} stackKey={where.key} inst={where.instance} />}
           {where?.page === "recent" && <RecentPage stackKey={where.key} stack={stacks.find((s) => s.key === where.key)?.name ?? ""} />}
           {where?.page === "settings" && <SettingsPage library={library} version={version} section={where.section} />}
         </main>

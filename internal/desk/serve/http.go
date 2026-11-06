@@ -177,12 +177,12 @@ func Handler(s *Service) http.Handler {
 		}
 		return map[string]bool{"ok": true}, nil
 	})
-	call("timeline", func(b json.RawMessage) (any, error) {
-		var a struct{ Key string }
+	call("activity", func(b json.RawMessage) (any, error) {
+		var a struct{ Key, Span, Inst string }
 		if err := json.Unmarshal(b, &a); err != nil {
 			return nil, err
 		}
-		return s.Timeline(a.Key), nil
+		return s.Activity(a.Key, a.Span, a.Inst), nil
 	})
 	call("stopholder", func(b json.RawMessage) (any, error) {
 		var a struct {

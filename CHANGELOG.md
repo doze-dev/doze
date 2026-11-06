@@ -15,7 +15,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the system's password prompt. Open at login puts the bat in the menu bar.
   A stack's page says when `doze.hcl` was saved broken (with the line) or
   changed after it came up, and names the process holding a port an app
-  wanted. A Timeline per stack. `doze://shop/db` links open the app there.
+  wanted. Activity per stack: the last hour, day or week from its journal, with how long each service slept, the memory that left free, what woke it, and what crashed. `doze://shop/db` links open the app there.
 - **`doze` opens the app.** Where there is a screen, bare `doze` and `doze open`
   start the app and give the prompt back; over SSH `doze` is still the terminal
   dash, and piped it prints the status table. `doze dash` is deprecated and goes

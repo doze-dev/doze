@@ -1,6 +1,7 @@
 package view
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -9,50 +10,81 @@ import (
 	"github.com/doze-dev/doze/internal/journal"
 )
 
-func TestTimelineDrawsSpansAndCrashes(t *testing.T) {
-	now := time.Date(2026, 11, 6, 2, 0, 0, 0, time.UTC)
-	at := func(minAgo float64) time.Time { return now.Add(-time.Duration(minAgo * float64(time.Minute))) }
-	st := hub.StackView{Key: "k", Name: "shop", Running: true,
-		Instances: []control.InstanceView{
-			{Name: "db", Kind: "module", State: "active"},
-			{Name: "api", Kind: "app", State: "crashing"},
-			{Name: "cache", Kind: "module", State: "reaped"},
-		},
-		Events: []journal.Event{
-			{Time: at(45), Kind: journal.Wake, Instance: "db"}, // before the span: clipped
-			{Time: at(20), Kind: journal.Sleep, Instance: "db", Cause: journal.Cause{Kind: journal.ByIdle}},
-			{Time: at(15), Kind: journal.Wake, Instance: "db", Cause: journal.Cause{Kind: journal.ByDependency, By: "api"}},
-			{Time: at(14.9), Kind: journal.Ready, Instance: "db"},
-			{Time: at(15), Kind: journal.Wake, Instance: "api"},
-			{Time: at(14), Kind: journal.Crash, Instance: "api", Detail: "panic: STRIPE_KEY is required"},
-		},
+// A day of a stack: db slept most of it and was woken by api and by a
+// connection; api crashed once; the stack was down for two hours, which is
+// not counted as sleep.
+func TestActivityCountsSleepWhileUpAndWhatWoke(t *testing.T) {
+	now := time.Date(2026, 11, 6, 20, 0, 0, 0, time.UTC)
+	at := func(hAgo float64) time.Time { return now.Add(-time.Duration(hAgo * float64(time.Hour))) }
+	st := hub.StackView{Key: "k", Name: "shop", Running: true, Instances: []control.InstanceView{
+		{Name: "api", Kind: "app", State: "active"},
+		{Name: "db", Kind: "module", State: "reaped"},
+	}}
+	events := []journal.Event{
+		{Time: at(30), Kind: journal.Wake, Instance: "api", Cause: journal.Cause{Kind: journal.ByCommand}}, // before the day
+		{Time: at(20), Kind: journal.Wake, Instance: "db", Cause: journal.Cause{Kind: journal.ByDependency, By: "api"}},
+		{Time: at(19), Kind: journal.Sleep, Instance: "db", Cause: journal.Cause{Kind: journal.ByIdle}},
+		{Time: at(12), Kind: journal.Sleep, Instance: "api", Cause: journal.Cause{Kind: journal.ByShutdown}},
+		{Time: at(12), Kind: journal.Sleep, Instance: "db", Cause: journal.Cause{Kind: journal.ByShutdown}},
+		{Time: at(10), Kind: journal.Wake, Instance: "api", Cause: journal.Cause{Kind: journal.ByCommand}},
+		{Time: at(5), Kind: journal.Wake, Instance: "db", Cause: journal.Cause{Kind: journal.ByConnection}},
+		{Time: at(4), Kind: journal.Sleep, Instance: "db", Cause: journal.Cause{Kind: journal.ByIdle}},
+		{Time: at(2), Kind: journal.Crash, Instance: "api", Detail: "panic: boom"},
+		{Time: at(1.9), Kind: journal.Wake, Instance: "api", Cause: journal.Cause{Kind: journal.ByRestart}},
 	}
-	tl := TimelineOf(st, now)
-	if len(tl.Lanes) != 3 {
-		t.Fatalf("lanes = %d, want every service", len(tl.Lanes))
+	a := ActivityOf(st, events, "24h", "", map[string]int64{"db": 512 << 20}, now)
+	if a.Summary.Up != "22h of 24h" {
+		t.Errorf("up = %q", a.Summary.Up)
 	}
-	lanes := map[string]TimelineLane{}
-	for _, l := range tl.Lanes {
-		lanes[l.Name] = l
+	var db, api ActivityRow
+	for _, r := range a.Rows {
+		switch r.Name {
+		case "db":
+			db = r
+		case "api":
+			api = r
+		}
 	}
-	db := lanes["db"]
-	if len(db.Spans) != 2 || db.Spans[0].From != 0 || !db.Spans[1].Open || db.Spans[1].To != 1 {
-		t.Fatalf("db spans = %+v", db.Spans)
+	// db: up 22h, awake 2h of it, asleep 20h.
+	if db.Asleep != "20h asleep · 91%" || db.Wakes != 2 || db.WokenBy != "1 by a connection · 1 for api" {
+		t.Errorf("db = %+v", db)
 	}
-	if db.Spans[1].Ready <= db.Spans[1].From {
-		t.Errorf("db's second start has no ready mark: %+v", db.Spans[1])
+	if db.Freed != "~10.0 GB·h" || !strings.HasPrefix(a.Summary.Freed, "about 10.0 GB·h") {
+		t.Errorf("freed = %q, %q", db.Freed, a.Summary.Freed)
 	}
-	api := lanes["api"]
-	if len(api.Marks) != 1 || api.Marks[0].Kind != "crash" || len(api.Spans) != 1 || api.Spans[0].Open {
-		t.Errorf("api = %+v", api)
+	if api.Crashes != 1 || len(a.Trouble) != 1 || !strings.Contains(a.Trouble[0].Text, "api") {
+		t.Errorf("api = %+v, trouble = %+v", api, a.Trouble)
 	}
-	if len(lanes["cache"].Spans) != 0 {
-		t.Errorf("cache was quiet: %+v", lanes["cache"])
+	if a.Events[0].Text == "" || a.Short != "" {
+		t.Errorf("events = %+v, short = %q", a.Events[:1], a.Short)
 	}
-	if tl.Events[0].Text[:3] != "api" || len(tl.Events) != 5 {
-		t.Errorf("events newest first, in the span only: %+v", tl.Events)
+	// One service alone; and a week, which the journal does not reach.
+	if one := ActivityOf(st, events, "24h", "db", nil, now); len(one.Rows) != 1 || one.Rows[0].Name != "db" {
+		t.Errorf("db alone = %+v", one.Rows)
 	}
-	if tl.Ticks[6].Label != "now" {
-		t.Errorf("ticks = %+v", tl.Ticks)
+	if week := ActivityOf(st, events, "7d", "", nil, now); !strings.HasPrefix(week.Short, "the journal goes back") {
+		t.Errorf("week short = %q", week.Short)
+	}
+}
+
+// A service awake since before the journal begins is awake, not asleep.
+func TestActivityAwakeBeforeTheJournal(t *testing.T) {
+	now := time.Date(2026, 11, 6, 20, 0, 0, 0, time.UTC)
+	st := hub.StackView{Key: "k", Name: "shop", Running: true, Instances: []control.InstanceView{
+		{Name: "api", Kind: "app", State: "active"},
+		{Name: "db", Kind: "module", State: "reaped"},
+	}}
+	events := []journal.Event{
+		{Time: now.Add(-30 * time.Hour), Kind: journal.Wake, Instance: "db", Cause: journal.Cause{Kind: journal.ByCommand}},
+		{Time: now.Add(-29 * time.Hour), Kind: journal.Sleep, Instance: "db", Cause: journal.Cause{Kind: journal.ByIdle}},
+	}
+	a := ActivityOf(st, events, "24h", "", nil, now)
+	for _, r := range a.Rows {
+		if r.Name == "api" && (r.AsleepPart != 0 || !r.Never) {
+			t.Errorf("api, awake all along = %+v", r)
+		}
+		if r.Name == "db" && r.AsleepPart != 1 {
+			t.Errorf("db, asleep all day = %+v", r)
+		}
 	}
 }

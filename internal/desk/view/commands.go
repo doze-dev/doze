@@ -61,7 +61,7 @@ func instanceCommands(st hub.StackView, v control.InstanceView, now time.Time) [
 	if c := firstOf(v.Console, v.WebURL); c != "" && v.Kind == "module" {
 		out = append(out, PaletteRow{Glyph: "▣", Tone: "dim", Label: "Open " + n + "'s console", Note: c, Also: "admin ui", Do: Doing{Kind: "open", StackKey: key, Text: c, Target: n}})
 	}
-	out = append(out, logs)
+	out = append(out, logs, PaletteRow{Glyph: "◷", Tone: "dim", Label: "Activity of " + n, Note: "how long it slept, what woke it", Also: "timeline history savings", Do: Doing{Kind: "page", StackKey: key, Page: "activity", Target: n}})
 	if line := firstOf(v.HTTPS, v.URL, v.Endpoint); line != "" {
 		out = append(out, PaletteRow{Glyph: "⧉", Tone: "dim", Label: "Copy " + n + "'s URL", Note: line, CLI: "doze url " + n, Also: "address", Do: Doing{Kind: "copy", StackKey: key, Text: line, Target: n}})
 	}
@@ -133,7 +133,7 @@ func stackCommands(st hub.StackView) []PaletteRow {
 	out = append(out,
 		PaletteRow{Glyph: "→", Tone: "dim", Label: "Open " + name, Note: "its overview", Also: "go show", Do: Doing{Kind: "page", StackKey: key, Page: "home"}},
 		PaletteRow{Glyph: "≡", Tone: "dim", Label: "All logs of " + name, CLI: "doze logs", Also: "tail", Do: Doing{Kind: "page", StackKey: key, Page: "logs"}},
-		PaletteRow{Glyph: "◷", Tone: "dim", Label: "Timeline of " + name, Also: "history events", Do: Doing{Kind: "page", StackKey: key, Page: "timeline"}},
+		PaletteRow{Glyph: "◷", Tone: "dim", Label: "Activity of " + name, Note: "how long each service slept, what woke it, what crashed", Key: "A", Also: "timeline history events savings", Do: Doing{Kind: "page", StackKey: key, Page: "activity"}},
 	)
 	if st.Dir != "" {
 		out = append(out,

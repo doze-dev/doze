@@ -44,9 +44,11 @@ the last four minutes; its logs by run; and a module's own console when it has
 one. A task shows its last run and the runs kept.
 
 A service with a web console of its own (Temporal, mailpit) shows it in its
-Console tab, framed, with Open in browser a click away. **Timeline** in a
-stack's head, or `T`, draws the last half hour: when each service woke, slept
-and crashed, and what happened, newest first.
+Console tab, framed, with Open in browser a click away. **Activity** in a
+stack's head, or `A`, reads the stack's journal over the last hour, day or
+week: how long each service slept while the stack was up, about how much
+memory that left free, what woke each one and how often, and what crashed,
+then everything that happened, newest first.
 
 ## When something is wrong
 

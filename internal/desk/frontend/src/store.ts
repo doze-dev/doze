@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { Store, useSelector } from "@tanstack/react-store";
 import { transport, type LogsChanged, type Nav, type serve, type view } from "./transport";
 
-export type Page = "library" | "home" | "instance" | "logs" | "recent" | "empty" | "settings" | "timeline";
+export type Page = "library" | "home" | "instance" | "logs" | "recent" | "empty" | "settings" | "activity";
 
 export interface Where {
   key: string;
@@ -767,7 +767,7 @@ export function upFrom(w: Where | null): Where | null {
     case "instance":
     case "logs":
     case "recent":
-    case "timeline":
+    case "activity":
       return { key: w.key, page: "home" };
     case "home":
     case "empty":

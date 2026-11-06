@@ -28,6 +28,13 @@ export function Action(key: string, name: string, act: view$0.Action): $Cancella
 }
 
 /**
+ * Timeline is a stack's last half hour: lanes of awake spans and crashes.
+ */
+export function Activity(key: string, span: string, inst: string): $CancellablePromise<view$0.Activity> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Activity", key, span, inst);
+}
+
+/**
  * Admin runs a module's action on an instance.
  */
 export function Admin(key: string, name: string, action: string, resource: string, input: string): $CancellablePromise<void> {
@@ -343,13 +350,6 @@ export function StopHolder(key: string, name: string, pid: number): $Cancellable
  */
 export function Theme(theme: string): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Theme", theme);
-}
-
-/**
- * Timeline is a stack's last half hour: lanes of awake spans and crashes.
- */
-export function Timeline(key: string): $CancellablePromise<view$0.Timeline> {
-    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Timeline", key);
 }
 
 /**

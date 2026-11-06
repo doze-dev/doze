@@ -19,6 +19,7 @@ import (
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/prefs"
 	"github.com/doze-dev/doze/internal/desk/view"
+	"github.com/doze-dev/doze/internal/journal"
 	"github.com/doze-dev/doze/internal/projects"
 )
 
@@ -520,10 +521,43 @@ func configStamp(dir string) (stamp, bool) {
 	return st, true
 }
 
-// Timeline is a stack's last half hour, from its journal.
-func (s *Service) Timeline(key string) view.Timeline {
+// Activity is a stack's span ("1h", "24h", "7d") from its journal on disk,
+// for one service or all; the memory figures are each service's last seen
+// while awake (rememberRAM).
+func (s *Service) Activity(key, span, inst string) view.Activity {
 	st, _ := s.stack(key)
-	return view.TimelineOf(st, s.now())
+	events, _ := journal.Read(filepath.Join(key, "run", "journal.jsonl"))
+	if len(events) == 0 {
+		events = append(events, st.Events...)
+	}
+	s.rememberRAM()
+	s.mu.Lock()
+	ram := map[string]int64{}
+	for k, v := range s.ram {
+		if n, ok := strings.CutPrefix(k, key+"#"); ok {
+			ram[n] = v
+		}
+	}
+	s.mu.Unlock()
+	return view.ActivityOf(st, events, span, inst, ram, s.now())
+}
+
+// rememberRAM keeps each awake service's memory, so Activity can price an
+// hour of sleep after the service has gone to sleep.
+func (s *Service) rememberRAM() {
+	stacks := s.hub.Stacks()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ram == nil {
+		s.ram = map[string]int64{}
+	}
+	for _, st := range stacks {
+		for _, v := range st.Instances {
+			if v.RAM > 0 {
+				s.ram[st.Key+"#"+v.Name] = v.RAM
+			}
+		}
+	}
 }
 
 // others is what other doze programs serve on this machine, from the names

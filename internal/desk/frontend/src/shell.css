@@ -574,6 +574,20 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .tl-legend .tl-sw { position: relative; top: 0; width: 22px; height: 10px; display: inline-block; }
 .tl-legend .tl-mark.tl-sw { width: 4px; height: 12px; margin: 0; }
 .tl-events { margin: 0 var(--space-7) 14px; }
+/* Activity: the summary, then a row per service with its strip */
+.act-sum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0 var(--space-7) 14px; }
+.act-sum .stat { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); min-width: 0; }
+.act-sum .v { font-size: 26px; line-height: 30px; font-weight: 650; color: var(--bright); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.act-sum .v.bad { color: var(--bad); }
+.act-sum .s { color: var(--dim); font-size: var(--text-sm); }
+.act-short { margin: -4px var(--space-7) 12px; }
+.act-trouble { margin: 0 var(--space-7) 14px; border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.tl.act .act-row { display: grid; grid-template-columns: 140px minmax(0, 1fr) 110px 54px minmax(0, 220px) 90px; align-items: center; column-gap: 14px; }
+.tl.act .act-row.h { color: var(--dim); font-size: var(--text-xs); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.tl.act .act-row .r { text-align: right; font-variant-numeric: tabular-nums; }
+.act-asleep { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.act-bar { flex: 1 1 0; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; display: block; }
+.act-bar i { display: block; height: 100%; background: var(--accent); }
 .tl-list { display: grid; grid-template-columns: 70px 70px minmax(0, 1fr); column-gap: 10px; row-gap: 3px; font-size: var(--text-sm); }
 .clash { margin: 14px var(--space-7) 0; flex: none; }
 .opts { display: flex; flex-direction: column; gap: 8px; }
