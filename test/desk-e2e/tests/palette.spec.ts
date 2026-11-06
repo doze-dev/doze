@@ -115,7 +115,7 @@ test("? opens the Keys sheet, as the Help board draws it", async ({ page }, info
   await page.getByRole("tab", { name: /^shop/ }).click();
   await page.keyboard.press("?");
   const sheet = page.getByRole("dialog", { name: "Help" });
-  await expect(sheet.locator("h3")).toHaveText(["Anywhere", "On a row or tile", "The words"]);
+  await expect(sheet.locator("h3")).toHaveText(["Anywhere", "Home", "On a row or tile", "Logs", "A crashing service", "The words"]);
   await expect(sheet).toContainText("search a name, or type a verb and a name");
   await expect(sheet).toContainText("wake · sleep: the same switch as on a tile");
   await expect(sheet).toContainText("running, quiet for a while; sleeps when its timer runs out");

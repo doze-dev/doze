@@ -1,6 +1,6 @@
 import { transport, type serve } from "../transport";
 import { Bell } from "./bell";
-import { closeTab, tabStacks, useStore } from "../store";
+import { closeTab, tabStacks, useStore, set } from "../store";
 
 // The title bar, as every board draws it: the Library tab first, then a
 // tab per open stack with its dot and a red count when something needs
@@ -72,6 +72,9 @@ export function Titlebar({
         )}
       </div>
       <Bell />
+      <button className="bell" aria-label="Keyboard shortcuts" title="Keyboard shortcuts  ?  ⌘/" onClick={() => set((s) => ({ help: !s.help, palette: false, bell: false }))}>
+        <span aria-hidden style={{ font: "600 13px var(--font-sans)" }}>?</span>
+      </button>
       <button className="btn" title="Search a name, or type a verb and a name (⌘K)" onClick={onCommand}>
         <kbd>⌘K</kbd> Search or do
       </button>

@@ -15,7 +15,7 @@ import (
 const stoppedConfig = `stack = "acme"
 
 defaults {
-  domains = true
+  names = true
 }
 
 app "api" {

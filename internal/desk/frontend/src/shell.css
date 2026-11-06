@@ -31,7 +31,16 @@ body {
 * { box-sizing: border-box; min-width: 0; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: default; background: none; border: 0; padding: 0; margin: 0; text-align: inherit; }
-:is(button, input, select, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+:is(button, input[type="checkbox"], input[type="radio"], select, [tabindex]):focus-visible { outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; }
+/* A tile or node is chosen by its tint, not a second frame. */
+:is(.tile, .node):focus-visible { outline: none; }
+/* A text box shows focus by its caret and a softly tinted frame, never a ring
+   drawn inside the frame. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible { outline: none; }
+/* A dialog or panel takes focus only to hold the keys; it draws no ring. */
+[role="dialog"][tabindex="-1"]:focus-visible { outline: none; }
+.filter, .input { transition: border-color 120ms; }
+.filter:focus-within, .input:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--line2)); }
 .mono, code, kbd { font-family: var(--font-mono); font-size: var(--text-sm); font-variant-ligatures: none; }
 .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dim { color: var(--dim); } .ok { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
@@ -158,7 +167,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 @media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .tile { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 14px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--panel); min-height: var(--tile); overflow: hidden; width: 100%; }
 .tile:hover { border-color: var(--line2); }
-.tile.sel { border-color: var(--accent); }
+.tile.sel { border-color: var(--line2); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
 .tile.bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 7%, var(--panel)); }
 .tile.off { background: transparent; border-style: dashed; }
 .tile .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -216,7 +225,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .node .top .m { margin-left: auto; font-size: var(--text-sm); color: var(--dim); font-variant-numeric: tabular-nums; flex: none; }
 .node .st { font-size: 12.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .node .st b { font-weight: 600; }
-.node.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.node.sel { border-color: var(--line2); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
 .node.bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 7%, var(--panel)); }
 .node.off { background: var(--well); border-style: dashed; }
 .node.off .top b { color: var(--dim); }
@@ -373,6 +382,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 .input input { flex: 1 1 0; background: none; border: 0; outline: 0; color: var(--bright); }
 /* Needs you (D19): the bell, its panel, the alerts that can act */
 .bellw { position: relative; flex: none; margin-bottom: 6px; }
+.tb > .bell { flex: none; margin-bottom: 6px; }
 .bell { position: relative; width: 32px; height: 30px; border-radius: 7px; border: 1px solid var(--line2); background: var(--panel); display: inline-flex; align-items: center; justify-content: center; color: var(--dim); padding: 0; }
 .bell:hover { color: var(--bright); }
 .bell.hot { border-color: color-mix(in srgb, var(--bad) 55%, var(--panel)); color: var(--bright); }
@@ -651,7 +661,7 @@ button { cursor: default; background: none; border: 0; padding: 0; margin: 0; te
 /* a service's name on a tile or row: a button that looks like the name */
 .nm { display: inline-flex; min-width: 0; flex: 0 1 auto; overflow: hidden; padding: 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; border-radius: 4px; }
 .nm b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nm:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nm:focus-visible { outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
 
 /* On a selected row the dim words would fall under 4.5:1 against the
    selection; they take the text colour there instead. */

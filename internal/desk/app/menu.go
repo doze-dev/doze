@@ -68,7 +68,7 @@ func (d *desk) appMenu() *application.Menu {
 	m.AddRole(application.WindowMenu)
 
 	help := m.AddSubmenu("Help")
-	help.Add("Keyboard Shortcuts").OnClick(page("help"))
+	help.Add("Keyboard Shortcuts").SetAccelerator("CmdOrCtrl+/").OnClick(page("help"))
 	help.Add("doze Docs").OnClick(func(*application.Context) {
 		_ = d.app.Browser.OpenURL(docsURL)
 	})

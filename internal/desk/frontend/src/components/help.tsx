@@ -29,6 +29,7 @@ export function Help({ version, onClose }: { version: string; onClose: () => voi
               <span>{w}</span>
             </div>
           ))}
+          <Section title={HOME[0]} keys={HOME[1]} />
         </div>
         <div className="hc">
           <h3>On a row or tile</h3>
@@ -38,7 +39,10 @@ export function Help({ version, onClose }: { version: string; onClose: () => voi
               <span>{w}</span>
             </div>
           ))}
-          <div className="dim" style={{ fontSize: 11.5, marginTop: 4 }}>Letters are off while a console has focus.</div>
+          <div className="dim" style={{ fontSize: 11.5, margin: "2px 0 4px" }}>Letters are off while a console has focus.</div>
+          {MORE.map(([title, keys]) => (
+            <Section key={title} title={title} keys={keys} />
+          ))}
         </div>
         <div className="hc">
           <h3>The words</h3>
@@ -73,8 +77,53 @@ const ANYWHERE: Array<[string, string]> = [
   ["⌘[ ⌘]", "back · forward, the way you came"],
   ["⌘W", "close the window; the stacks keep running"],
   ["⌘L", "all logs of the stack"],
+  ["⌘⇧N", "Needs you: what is broken or worth doing"],
   ["⌘,", "settings"],
-  ["?", "this"],
+  ["? ⌘/", "this sheet"],
+];
+
+function Section({ title, keys }: { title: string; keys: Array<[string, string]> }) {
+  return (
+    <>
+      <h3 style={{ marginTop: 4 }}>{title}</h3>
+      {keys.map(([k, w]) => (
+        <div key={k} className="kr">
+          <kbd>{k}</kbd>
+          <span>{w}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+const HOME: [string, Array<[string, string]>] = [
+  "Home",
+  [
+    ["space", "bring a stack up · down"],
+    ["u", "up as last time"],
+    ["c", "choose what starts"],
+    ["⌫", "remove from doze (files stay)"],
+  ],
+];
+
+const MORE: Array<[string, Array<[string, string]>]> = [
+  [
+    "Logs",
+    [
+      ["space", "pause · follow"],
+      ["1–4", "level"],
+      ["[ ]", "earlier · later run"],
+      ["t", "relative · clock time"],
+      ["c", "copy what is shown"],
+    ],
+  ],
+  [
+    "A crashing service",
+    [
+      ["r", "try now"],
+      ["s", "stop trying"],
+    ],
+  ],
 ];
 
 const ROW: Array<[string, string]> = [
