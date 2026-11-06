@@ -686,9 +686,11 @@ reaped as a process group on stop.
 ## service and task
 
 A **service** is a long-running command that comes from outside the doze
-registry — anything you can start from a shell. It sleeps when nothing is using
-it and wakes when something connects, or when something that depends on it
-starts. A **task** is a command that runs to completion, such as a migration.
+registry — anything you can start from a shell. A service with a `port` sleeps
+when nothing is using it and wakes when something connects, or when something
+that depends on it starts. One with no `port` (a worker) has nothing in front
+of it that could wake it, so it runs until it is stopped, and a `sleep`
+duration on it is an error. A **task** is a command that runs to completion, such as a migration.
 
 ```hcl
 service "mailpit" {

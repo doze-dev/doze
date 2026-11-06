@@ -38,7 +38,8 @@ type Command struct {
 	DirSet   bool
 
 	// Service selects the service preset: woken by a connection or a
-	// dependant, and put to sleep when idle.
+	// dependant, and put to sleep when idle if doze fronts its port (one with
+	// no port has nothing to wake it, and stays on).
 	Service bool
 
 	// Task selects the task preset: run to completion, then done or failed.

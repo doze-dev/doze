@@ -857,6 +857,33 @@ func TestDefaultsOldSpellingsPointAtNew(t *testing.T) {
 	}
 }
 
+// Only a connection through doze can wake a service, so one with no port may
+// not sleep: a duration is refused, and by default it stays on.
+func TestAPortlessServiceDoesNotSleep(t *testing.T) {
+	_, err := Parse([]byte("service \"worker\" {\n  run   = \"work\"\n  sleep = \"5m\"\n}\n"), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "declare a `port`") {
+		t.Fatalf("a portless service with sleep = \"5m\": %v, want the port error", err)
+	}
+	type idler interface{ IdleAfter() (time.Duration, bool) }
+	for _, tc := range []struct {
+		src   string
+		sleep bool
+	}{
+		{"service \"worker\" { run = \"work\" }", false},
+		{"service \"worker\" {\n  run   = \"work\"\n  sleep = \"never\"\n}", false},
+		{"service \"web\" {\n  run  = \"serve\"\n  port = 8080\n}", true},
+	} {
+		cfg, err := Parse([]byte(tc.src+"\n"), "doze.hcl", nil)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.src, err)
+		}
+		_, set := cfg.Instances[0].Spec.(idler).IdleAfter()
+		if set != tc.sleep {
+			t.Errorf("%s: sleeps = %v, want %v", tc.src, set, tc.sleep)
+		}
+	}
+}
+
 func TestServicesAndTasksTakeMetaArguments(t *testing.T) {
 	cfg, err := Parse([]byte(`
 service "worker" {
