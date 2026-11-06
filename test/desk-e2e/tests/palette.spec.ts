@@ -8,6 +8,11 @@ const box = (page: import("@playwright/test").Page) => page.getByRole("textbox",
 
 test("nothing typed: Recent, then Do, with a verb's command at the right", async ({ page }, info) => {
   await page.goto("/");
+  // A failed start another spec left (the fixture's acme cannot start) is
+  // rightly in Needs you; put away, so this checks the rest.
+  await expect.poll(async () => ((await (await page.request.post("/api/library", { data: {} })).json()).stacks ?? []).filter((x: { busy?: string }) => x.busy).length, { timeout: 10000 }).toBe(0);
+  const stacks = await (await page.request.post("/api/stacks", { data: {} })).json();
+  for (const st of stacks) await page.request.post("/api/dismiss", { data: { key: st.key } });
   await page.getByRole("tab", { name: /^shop/ }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
   // Opening a service's page puts it in Recent.

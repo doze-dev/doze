@@ -94,6 +94,7 @@ func (s *Service) ClearLeftover(id string) error {
 				failed = append(failed, l.What+": "+err.Error())
 			}
 		}
+		s.recountLeftovers()
 		s.changed()
 		if len(failed) > 0 {
 			return fmt.Errorf("%s", strings.Join(failed, "; "))
@@ -102,6 +103,7 @@ func (s *Service) ClearLeftover(id string) error {
 		return nil
 	}
 	err := s.clear(id)
+	s.recountLeftovers()
 	s.changed()
 	return err
 }
@@ -250,8 +252,15 @@ func du(dir string) string {
 // leftoverEvery old, taken in the background: the Library shows the number
 // on every push, and a look runs ps.
 func (s *Service) leftoverCount() int {
+	safe, data := s.leftoversWithin(leftoverEvery)
+	return safe + data
+}
+
+// leftoversWithin counts the leftovers, at most age old: those Clean up
+// clears, and the data folders, which are deleted one at a time.
+func (s *Service) leftoversWithin(age time.Duration) (safe, data int) {
 	s.mu.Lock()
-	n, stale := s.leftoversN, s.now().Sub(s.leftoversAt) > leftoverEvery
+	n, d, stale := s.leftoversN, s.leftoversData, s.now().Sub(s.leftoversAt) > age
 	start := stale && !s.leftoversBusy
 	if start {
 		s.leftoversBusy = true
@@ -259,17 +268,31 @@ func (s *Service) leftoverCount() int {
 	s.mu.Unlock()
 	if start {
 		go func() {
-			got := len(s.Leftovers())
+			got, gotData := 0, 0
+			for _, l := range s.Leftovers() {
+				if l.Danger {
+					gotData++
+				} else {
+					got++
+				}
+			}
 			s.mu.Lock()
-			changed := got != s.leftoversN
-			s.leftoversN, s.leftoversAt, s.leftoversBusy = got, s.now(), false
+			changed := got != s.leftoversN || gotData != s.leftoversData
+			s.leftoversN, s.leftoversData, s.leftoversAt, s.leftoversBusy = got, gotData, s.now(), false
 			s.mu.Unlock()
 			if changed {
 				s.changed()
 			}
 		}()
 	}
-	return n
+	return n, d
+}
+
+// recountLeftovers makes the next look count again, after a clean up.
+func (s *Service) recountLeftovers() {
+	s.mu.Lock()
+	s.leftoversAt = time.Time{}
+	s.mu.Unlock()
 }
 
 const leftoverEvery = 15 * time.Second

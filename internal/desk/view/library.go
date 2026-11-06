@@ -390,6 +390,9 @@ type Other struct {
 	URL   string `json:"url,omitempty"`
 }
 
+// MissingFiles is missingFiles, for the service's Needs you list.
+func MissingFiles(dir string) string { return missingFiles(dir) }
+
 // missingFiles says what of a stack's files is gone, or "" when its
 // doze.hcl is there (or its folder is not known).
 func missingFiles(dir string) string {

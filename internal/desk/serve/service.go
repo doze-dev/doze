@@ -55,6 +55,8 @@ const (
 	// EventMenu is a native menu item the page acts on, as its own key
 	// would: data is its name (back, forward, logs, palette, help).
 	EventMenu = "menu"
+	// EventAttention is Needs you: what is wrong now, everywhere (D19).
+	EventAttention = "attention"
 )
 
 // Notice is one thing said to the person, kept among the last twenty.
@@ -115,6 +117,8 @@ type Nav struct {
 	Instance string `json:"instance,omitempty"`
 	// Dir is the folder an "empty" page is for: one with no doze.hcl yet.
 	Dir string `json:"dir,omitempty"`
+	// Bell says Needs you was asked for as the window opened.
+	Bell bool `json:"bell,omitempty"`
 }
 
 // Emitter delivers a push to the page.
@@ -174,6 +178,7 @@ type Service struct {
 	pendingPage string
 	// leftoversN is the last count of leftovers, taken at leftoversAt.
 	leftoversN    int
+	leftoversData int
 	leftoversAt   time.Time
 	leftoversBusy bool
 	// urls are the registry's URLs for names, kept a moment (urlFor).
@@ -187,14 +192,30 @@ type Service struct {
 	busy   map[string]string
 	failed map[string]*view.StackFailure
 	theme  string
-	sent   map[string]uint64 // event name → hash of what was last sent
-	dirty  bool
-	wake   chan struct{}
+	// attn is Needs you's memory: what each item said last push, the
+	// items whose cause went away a moment ago (shown as fixed), and Not
+	// now's choices (loaded from prefs once).
+	attnLast   map[string]view.Item
+	attnGone   map[string]goneItem
+	attnAbsent map[string]goneItem
+	attnQuiet  map[string]bool
+	lastAttn   *view.Attention
+	onAttn     func()
+	// started is when this service began: "while the window was closed"
+	// counts from here at the earliest.
+	started   time.Time
+	notNow    map[string]string
+	notNowSet bool
+	attnTimer bool
+	bellAt    time.Time
+	sent      map[string]uint64 // event name → hash of what was last sent
+	dirty     bool
+	wake      chan struct{}
 }
 
 // New makes a service over a hub. Run starts its pushes.
 func New(h *hub.Hub, emit Emitter) *Service {
-	s := &Service{hub: h, now: time.Now, emit: emit, sent: map[string]uint64{}, wake: make(chan struct{}, 1), rules: notify.New(), run: runSelf}
+	s := &Service{hub: h, now: time.Now, started: time.Now(), emit: emit, sent: map[string]uint64{}, wake: make(chan struct{}, 1), rules: notify.New(), run: runSelf}
 	h.OnChange(s.changed)
 	return s
 }
@@ -251,6 +272,16 @@ func (s *Service) Run(ctx context.Context) {
 // the navigation an Open is still waiting for once its stack is known.
 func (s *Service) push() {
 	s.send(EventStacks, s.Stacks())
+	s.mu.Lock()
+	before := s.sent[EventAttention]
+	s.mu.Unlock()
+	s.send(EventAttention, s.Attention())
+	s.mu.Lock()
+	after, fn := s.sent[EventAttention], s.onAttn
+	s.mu.Unlock()
+	if after != before && fn != nil {
+		fn() // the menu bar follows, at the push's pace
+	}
 	s.reportTasks()
 	s.reportOutside()
 	s.mu.Lock()
@@ -642,7 +673,39 @@ func (s *Service) Palette(key, _, query string) view.Palette {
 			}
 		}
 	}
+	if strings.TrimSpace(query) == "" {
+		s.paletteNeeds(&p)
+	}
 	return p
+}
+
+// paletteNeeds puts the rest of what is broken (D19) in ⌘K's first
+// section: the troubled services are already there; a stack's red items
+// open the bell, where their fixes are. Yellow ones wait in the bell, so
+// the palette stays short.
+func (s *Service) paletteNeeds(p *view.Palette) {
+	var rows []view.PaletteRow
+	for _, it := range s.Attention().Items {
+		if it.Instance != "" || it.Fixed || !it.Red {
+			continue
+		}
+		tone := "r"
+		note := it.Detail
+		if it.Stack != "" {
+			note = it.Stack + " · " + note
+		}
+		rows = append(rows, view.PaletteRow{Glyph: "dot", Tone: tone, Label: it.Title, Note: note, Key: "⏎ fix", Bad: it.Red, Do: view.Doing{Kind: "bell"}})
+	}
+	if len(rows) == 0 {
+		return
+	}
+	for i := range p.Sections {
+		if p.Sections[i].Title == "Needs you" {
+			p.Sections[i].Rows = append(p.Sections[i].Rows, rows...)
+			return
+		}
+	}
+	p.Sections = append([]view.PaletteSection{{Title: "Needs you", Rows: rows}}, p.Sections...)
 }
 
 // SetTheme remembers the colour theme chosen in Settings, in prefs, so the
@@ -783,6 +846,16 @@ func (s *Service) OpenPage(page string) {
 // to a stack the hub knows; until then the page starts on the first tab
 // and the Nav arrives with a push.
 func (s *Service) Pending() Nav {
+	s.mu.Lock()
+	bell := !s.bellAt.IsZero() && s.now().Sub(s.bellAt) < 5*time.Second
+	s.bellAt = time.Time{}
+	s.mu.Unlock()
+	nav := s.pending()
+	nav.Bell = bell
+	return nav
+}
+
+func (s *Service) pending() Nav {
 	s.mu.Lock()
 	dir := s.pendingDir
 	page := s.pendingPage

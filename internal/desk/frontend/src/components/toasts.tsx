@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { go, set, useStore } from "../store";
+import { Alerts } from "./bell";
 
 const GOOD_MS = 4000;
 const BAD_MS = 12000;
@@ -19,10 +20,12 @@ export function Toasts() {
     }, 1000);
     return () => clearInterval(tick);
   }, [toasts.length]);
-  if (toasts.length === 0) return null;
+  const alerts = useStore((s) => s.alerts.length);
+  if (toasts.length === 0 && alerts === 0) return null;
   const dismiss = (id: number) => set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) }));
   return (
     <div className="toasts" aria-live="polite">
+      <Alerts />
       {toasts.map((t) => (
         <div key={t.id} className="toast" style={t.bad ? { borderColor: "var(--bad)" } : undefined}>
           <span className={"dot " + (t.bad ? "r" : "g")} aria-hidden style={{ width: 10, height: 10 }} />

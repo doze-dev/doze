@@ -35,6 +35,20 @@ export function Admin(key: string, name: string, action: string, resource: strin
 }
 
 /**
+ * Attention is Needs you: what is wrong now, everywhere, each with its fix.
+ */
+export function Attention(): $CancellablePromise<view$0.Attention> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Attention");
+}
+
+/**
+ * Away is what happened while the window was closed, once; nil for nothing.
+ */
+export function Away(): $CancellablePromise<view$0.Away | null> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Away");
+}
+
+/**
  * Blur says the page is hidden.
  */
 export function Blur(): $CancellablePromise<void> {
@@ -173,6 +187,14 @@ export function Mode(mode: string): $CancellablePromise<void> {
 }
 
 /**
+ * NotNow puts a Needs you item aside until what it says (print) changes;
+ * an empty print brings it back.
+ */
+export function NotNow(id: string, print: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.NotNow", id, print);
+}
+
+/**
  * Open opens a URL in the person's browser: an app's own domain.
  * Open opens a URL in the browser, or a file in its app; a path written
  * with ~ is the person's home.
@@ -200,6 +222,21 @@ export function Palette(key: string, selected: string, query: string): $Cancella
  */
 export function Pending(): $CancellablePromise<serve$0.Nav> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Pending");
+}
+
+/**
+ * Preflight looks before a stopped stack starts: its files, its ports,
+ * its domains. Blocked says the page should ask first.
+ */
+export function Preflight(key: string, action: string, names: string[] | null): $CancellablePromise<view$0.Preflight> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Preflight", key, action, names);
+}
+
+/**
+ * PreflightFix is a way out from the checks: stop, without, or anyway.
+ */
+export function PreflightFix(key: string, action: string, names: string[] | null, kind: string, pid: number, without: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.PreflightFix", key, action, names, kind, pid, without);
 }
 
 /**

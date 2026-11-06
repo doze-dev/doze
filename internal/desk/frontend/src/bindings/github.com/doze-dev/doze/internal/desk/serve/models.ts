@@ -35,6 +35,11 @@ export interface Nav {
      * Dir is the folder an "empty" page is for: one with no doze.hcl yet.
      */
     "dir"?: string;
+
+    /**
+     * Bell says Needs you was asked for as the window opened.
+     */
+    "bell"?: boolean;
 }
 
 /**

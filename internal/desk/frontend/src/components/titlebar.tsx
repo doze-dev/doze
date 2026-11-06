@@ -1,5 +1,6 @@
 import { transport, type serve } from "../transport";
 import { Bat } from "./bat";
+import { Bell } from "./bell";
 import { closeTab, tabStacks, useStore } from "../store";
 
 // The title bar, as every board draws it: the Library tab first, then a
@@ -71,6 +72,7 @@ export function Titlebar({
           </button>
         )}
       </div>
+      <Bell />
       <button className="btn" title="Search a name, or type a verb and a name (⌘K)" onClick={onCommand}>
         <kbd>⌘K</kbd> Search or do
       </button>

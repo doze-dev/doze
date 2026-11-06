@@ -5,6 +5,8 @@ import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
 import { Palette } from "./components/palette";
 import { Toasts } from "./components/toasts";
+import { AwayStrip } from "./components/away";
+import { PreflightSheet } from "./components/preflight";
 import { Help } from "./components/help";
 import { LibraryPage } from "./pages/library";
 import { OverviewPage } from "./pages/overview";
@@ -109,19 +111,22 @@ export function App() {
       } else if (mod && e.key === ",") {
         e.preventDefault();
         void go({ key: "", page: "settings" });
+      } else if (mod && e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        set((s) => ({ bell: !s.bell, alerts: [], palette: false, help: false, away: null }));
       } else if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        set((s) => ({ palette: !s.palette, dialog: null, help: false }));
+        set((s) => ({ palette: !s.palette, dialog: null, help: false, bell: false }));
       } else if (e.key === "?" && !(e.target as HTMLElement).closest("input, textarea, select")) {
         e.preventDefault();
-        set((s) => ({ help: !s.help, palette: false }));
+        set((s) => ({ help: !s.help, palette: false, bell: false }));
       } else if (mod && e.key === "[") {
         e.preventDefault();
         void back();
       } else if (mod && e.key === "]") {
         e.preventDefault();
         void forward();
-      } else if (e.key === "Escape" && !e.defaultPrevented && !(e.target as HTMLElement).closest("input, textarea, select") && !dialog && !palette && !help && !document.querySelector(".scrim, .pop[role=menu]")) {
+      } else if (e.key === "Escape" && !e.defaultPrevented && !(e.target as HTMLElement).closest("input, textarea, select") && !dialog && !palette && !help && !document.querySelector(".scrim, .pop[role=menu], .np")) {
         // The same move on every page: up a level. Anything open on top
         // (a menu, a sheet, a dialog) takes esc first.
         e.preventDefault();
@@ -166,6 +171,9 @@ export function App() {
       case "folder":
         void chooseFolder();
         break;
+      case "bell":
+        set({ bell: true, alerts: [], away: null });
+        break;
     }
   };
 
@@ -199,6 +207,7 @@ export function App() {
               </div>
             </div>
           )}
+          <AwayStrip />
           {!where && <Loading />}
           {where?.page === "library" && library && <LibraryPage lib={library} />}
           {where?.page === "home" && home && <OverviewPage home={home} stackKey={where.key} />}
@@ -213,6 +222,7 @@ export function App() {
       {dialog && <Dialog d={dialog.d} onChoose={(b, text) => void choose(b, text)} onCancel={() => set({ dialog: null })} />}
       {palette && where && <Palette stackKey={where.key} onPick={pick} onClose={() => set({ palette: false })} />}
       {help && <Help version={version} onClose={() => set({ help: false })} />}
+      <PreflightSheet />
       <Toasts />
     </div>
   );

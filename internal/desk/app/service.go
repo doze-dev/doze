@@ -143,6 +143,27 @@ func (a *API) Library() view.Library { return a.s.Library() }
 // engines and daemons, state with no stack, stale routes.
 func (a *API) Leftovers() []view.Leftover { return a.s.Leftovers() }
 
+// Attention is Needs you: what is wrong now, everywhere, each with its fix.
+func (a *API) Attention() view.Attention { return a.s.Attention() }
+
+// Preflight looks before a stopped stack starts: its files, its ports,
+// its domains. Blocked says the page should ask first.
+func (a *API) Preflight(key, action string, names []string) view.Preflight {
+	return a.s.Preflight(key, action, names)
+}
+
+// PreflightFix is a way out from the checks: stop, without, or anyway.
+func (a *API) PreflightFix(key, action string, names []string, kind string, pid int, without string) error {
+	return a.s.PreflightFix(key, action, names, kind, pid, without)
+}
+
+// Away is what happened while the window was closed, once; nil for nothing.
+func (a *API) Away() *view.Away { return a.s.Away() }
+
+// NotNow puts a Needs you item aside until what it says (print) changes;
+// an empty print brings it back.
+func (a *API) NotNow(id, print string) { a.s.NotNow(id, print) }
+
 // ClearLeftover clears one leftover by its ID, or every one that deletes no
 // data with "all".
 func (a *API) ClearLeftover(id string) error { return a.s.ClearLeftover(id) }

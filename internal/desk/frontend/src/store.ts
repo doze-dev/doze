@@ -69,6 +69,15 @@ export interface State {
   sel: Record<string, number>;
   /** closed is the stacks whose tab was closed: still running, listed in the Library, back in the strip when opened again. */
   closed: string[];
+  /** attention is Needs you (D19), as Go last pushed it; bell says whether its panel is open. */
+  attention: view.Attention | null;
+  bell: boolean;
+  /** alerts are red items that appeared while the window was open: a toast each, with its fix, until acted on or closed. */
+  alerts: view.Item[];
+  /** away is what happened while the window was closed, until Got it or the bell. */
+  away: view.Away | null;
+  /** preflight is the checks that stopped an Up, with what was asked, until a way out or Cancel. */
+  preflight: { key: string; action: string; names: string[]; p: view.Preflight } | null;
 }
 
 export const store = new Store<State>({
@@ -97,7 +106,92 @@ export const store = new Store<State>({
   tab: "",
   sel: {},
   closed: readClosed(),
+  attention: null,
+  bell: false,
+  alerts: [],
+  away: null,
+  preflight: null,
 });
+
+// seenRed is every red item the page has seen, so only a new one toasts;
+// the first push only primes it.
+let seenRed: Set<string> | null = null;
+
+/** gotAttention takes Go's list: new red items become alerts, and an alert whose item left goes too. */
+function gotAttention(a: view.Attention) {
+  const items = a.items ?? [];
+  const red = items.filter((i) => i.red && !i.fixed);
+  set((s) => {
+    const fresh = seenRed ? red.filter((i) => !seenRed!.has(i.id + "|" + i.print)) : [];
+    const live = new Set(red.map((i) => i.id));
+    const alerts = [...s.alerts.filter((x) => live.has(x.id)).map((x) => red.find((i) => i.id === x.id) ?? x), ...fresh.filter((i) => !s.alerts.some((x) => x.id === i.id))];
+    return { attention: a, alerts: s.bell ? [] : alerts.slice(-3) };
+  });
+  seenRed = new Set([...(seenRed ?? []), ...red.map((i) => i.id + "|" + i.print)]);
+}
+
+/** closeAlert takes an alert's toast away; the item stays in the bell. */
+export const closeAlert = (id: string) => set((s) => ({ alerts: s.alerts.filter((x) => x.id !== id) }));
+
+/** notNow puts an item aside until what it says changes. */
+export async function notNow(it: view.Item) {
+  closeAlert(it.id);
+  const t = await transport();
+  await t.notNow(it.id, it.print);
+}
+
+/** showItem goes to the page that explains an item, and closes the bell. */
+export async function showItem(it: view.Item) {
+  set({ bell: false });
+  closeAlert(it.id);
+  const p = it.show;
+  if (!p) return;
+  if (p.page === "settings") await go({ key: "", page: "settings", section: p.section });
+  else if (p.page === "instance") await go({ key: p.key, page: "instance", instance: p.instance });
+  else await go({ key: p.key, page: "home" });
+}
+
+/** fixIt presses an item's fix: the same calls, and the same dialogs, the pages use. */
+export async function fixIt(it: view.Item, f: view.Fix) {
+  const t = await transport();
+  closeAlert(it.id);
+  try {
+    switch (f.kind) {
+      case "do":
+        set({ bell: false });
+        await ask(it.key ?? "", it.instance ?? "", f.verb ?? "");
+        break;
+      case "stack":
+        set({ bell: false });
+        if (f.verb === "remove" || f.verb === "down") await askStack(it.key ?? "", f.verb);
+        else await stackAction(it.key ?? "", f.verb ?? "");
+        break;
+      case "holder":
+        await t.stopHolder(it.key ?? "", it.instance ?? "", f.pid ?? 0);
+        break;
+      case "repair":
+        await repair();
+        break;
+      case "clean":
+        await t.clearLeftover("all");
+        break;
+      case "dismiss":
+        await t.dismiss(it.key ?? "");
+        break;
+      case "edit":
+        t.open("file://" + (f.path ?? ""));
+        break;
+      case "copy":
+        await copy(f.text ?? "", "the command");
+        break;
+      case "show":
+        await showItem(it);
+        break;
+    }
+  } catch (e) {
+    await say(String(e).replace(/^Error: /, ""), true);
+  }
+}
 
 const closedKey = "doze.closedTabs";
 function readClosed(): string[] {
@@ -223,10 +317,52 @@ export async function go(where: Where, how: "push" | "back" | "forward" = "push"
 /** stackAction acts on a whole stack from the Library: up-last, up-all, up with names, down, forget. */
 export async function stackAction(key: string, action: string, names: string[] = []) {
   const t = await transport();
+  if (action.startsWith("up")) {
+    // Up looks first (D19): with nothing in the way it just goes; with
+    // something red, the checks' sheet asks.
+    try {
+      const p = await t.preflight(key, action, names);
+      if (p.blocked) {
+        set({ preflight: { key, action, names, p }, palette: false, bell: false });
+        return;
+      }
+    } catch (e) {
+      t.log(`preflight ${key}: ${String(e)}`);
+    }
+  }
   try {
     await t.stack(key, action, names);
   } catch (e) {
     t.log(`${action} ${key} failed: ${String(e)}`);
+  }
+}
+
+/** preflightWay presses a way out of the checks' sheet. */
+export async function preflightWay(f: view.Fix) {
+  const pf = get().preflight;
+  if (!pf) return;
+  const t = await transport();
+  try {
+    switch (f.kind) {
+      case "stop":
+      case "without":
+      case "anyway":
+        set({ preflight: null });
+        await t.preflightFix(pf.key, pf.action, pf.names, f.kind, f.pid ?? 0, f.verb ?? "");
+        break;
+      case "edit":
+        t.open("file://" + (f.path ?? ""));
+        break;
+      case "repair":
+        await repair();
+        break;
+      case "stack":
+        set({ preflight: null });
+        await askStack(pf.key, "remove");
+        break;
+    }
+  } catch (e) {
+    await say(String(e).replace(/^Error: /, ""), true);
   }
 }
 
@@ -282,7 +418,7 @@ export async function ask(key: string, name: string, verb: string) {
     const d = await t.dialog(key, name, verb);
     if (n !== nav) return;
     if (!d.needed) return run(key, verb, name);
-    set({ dialog: { key, d }, palette: false });
+    set({ dialog: { key, d }, palette: false, bell: false });
   } catch (e) {
     t.log(`${verb} ${name}: no dialog: ${String(e)}`);
   }
@@ -294,7 +430,7 @@ export async function askStack(key: string, action: "down" | "remove") {
   try {
     const d = await t.dialog(key, "", action);
     if (!d.needed) return stackAction(key, action);
-    set({ dialog: { key, d }, palette: false });
+    set({ dialog: { key, d }, palette: false, bell: false });
   } catch (e) {
     t.log(`${action} ${key}: no dialog: ${String(e)}`);
   }
@@ -331,7 +467,7 @@ export async function askAction(key: string, name: string, a: view.Action) {
       await t.admin(key, name, a.id, a.resource ?? "", "");
       return;
     }
-    set({ dialog: { key, d }, palette: false });
+    set({ dialog: { key, d }, palette: false, bell: false });
   } catch (e) {
     t.log(`${a.label} failed: ${String(e)}`);
   }
@@ -480,6 +616,7 @@ export function useBoot() {
         t.on<LogsChanged>("logs", (c) => set((s) => ({ logsVersion: s.logsVersion + 1, logsTotal: c.total }))),
         t.on<Nav>("nav", (n) => void go({ key: n.key, page: (n.page as Page) || "home", dir: n.dir, instance: n.instance })),
         t.on<serve.Notice>("notice", toast),
+        t.on<view.Attention>("attention", gotAttention),
         // A native menu item: the same move as its key on the page.
         t.on<string>("menu", (item) => {
           const w = get().where;
@@ -499,6 +636,10 @@ export function useBoot() {
             case "logs":
               if (w?.key) void go({ key: w.key, page: "logs" });
               break;
+            case "bell":
+              // The menu bar's "Open" and ⌘⇧N from the menu: open it, never close it.
+              set({ bell: true, alerts: [], palette: false, help: false, away: null });
+              break;
             case "palette":
               set((s) => ({ palette: !s.palette, dialog: null, help: false }));
               break;
@@ -509,6 +650,9 @@ export function useBoot() {
         }),
       ];
       const [stacks, pending, version] = await Promise.all([t.stacks(), t.pending(), t.version()]);
+      void t.attention().then(gotAttention);
+      if (pending.bell) set({ bell: true });
+      void t.away().then((away) => set({ away: away ?? null }));
       t.log(`stacks ${stacks.length}${pending.key ? ", opening the one asked for" : ""}`);
       set({ stacks, version });
       // The window opens on the Library, unless it was opened at a project.

@@ -1,6 +1,6 @@
 # D19 · Needs you: see what is wrong sooner, and fix it where you are
 
-Status: proposal, 2026-11-06. Boards: page "9 · Needs you" on the canvas
+Status: built 2026-11-06 (the owner said yes to all four questions below). Boards: page "9 · Needs you" on the canvas
 (https://claude.ai/artifact/Uxg4UZCiEDQfYWYfm74nNK).
 
 ## The problem
@@ -192,3 +192,33 @@ screenshots against these boards and an independent audit, 1 day.
    runs on) or red?
 4. Should the bell count yellow items too (a number), or only show a dot
    for them (proposed)?
+
+## Built, and where it differs
+
+Built as above: `view/attention.go` and `view/away.go`, `serve/attention.go`
+and `serve/preflight.go`, the bell, panel, acting toasts, away strip and
+checks sheet in the page, the menu bar's section (`app/tray.go`), the
+notification's fix button, ⌘⇧N in the Go menu. An independent review found
+14 issues; all are fixed except the last group below.
+
+- ⌘K lists red items only; yellow ones wait in the bell, so the palette
+  stays short.
+- An item that leaves waits 5 s before it counts as fixed (a crash loop
+  passes through "starting"), and is never shown fixed when its stack was
+  mid-action, out of touch, stopped or removed, or when it was put aside or
+  dismissed.
+- The checks never offer to stop another stack's service, and a port held
+  by another user's process (which lsof cannot see) is caught by trying to
+  bind it.
+- With no window open, the machine report and the leftovers are looked at
+  every five minutes, not every half minute.
+- What Up starts follows the CLI's rule (`chooseUpTargets`), tasks
+  included.
+
+Not done:
+- Starting one service inside a running stack is not checked first.
+- "Did not wake in time" comes from the instance's error text, not from
+  notify's own wake timer.
+- The menu bar section lives in `app/tray.go` and has no table test.
+- A failed task's item leaves quietly when its stack stops, since it can
+  only run again once the stack is up.

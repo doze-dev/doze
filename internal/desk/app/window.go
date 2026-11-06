@@ -83,6 +83,8 @@ func (d *desk) open(dir string) {
 					if d.lastDir != "" {
 						p.LastDir = d.lastDir
 					}
+					// For "while the window was closed" when it opens again.
+					p.WindowClosed = time.Now()
 					if err := prefs.Save(d.hub.Home(), p); err != nil {
 						d.measure("prefs not saved: %v", err)
 					}

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Prefs is what is remembered.
@@ -32,6 +33,12 @@ type Prefs struct {
 	// Recent is the services whose pages were opened last, newest first,
 	// for ⌘K's Recent section.
 	Recent []Recent `json:"recent,omitempty"`
+	// NotNow is the Needs you items put aside, by ID, with what each said
+	// then: one that says something new shows again.
+	NotNow map[string]string `json:"notNow,omitempty"`
+	// WindowClosed is when the window last closed, for "while the window
+	// was closed".
+	WindowClosed time.Time `json:"windowClosed,omitzero"`
 }
 
 // Recent is one service opened: the stack's key and the service's name.

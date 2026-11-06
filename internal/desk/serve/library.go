@@ -110,9 +110,14 @@ func (s *Service) Library() view.Library {
 // when older than half a minute: the first paint never waits on launchd or
 // the keychain, and the line fills in on the next push.
 func (s *Service) doctorCached(stacks []hub.StackView) []view.Check {
+	return s.doctorWithin(stacks, 30*time.Second)
+}
+
+// doctorWithin is doctorCached with how old the report may be.
+func (s *Service) doctorWithin(stacks []hub.StackView, age time.Duration) []view.Check {
 	s.mu.Lock()
 	checks := append([]view.Check{}, s.doctorChecks...)
-	stale := s.now().Sub(s.doctorAt) > 30*time.Second
+	stale := s.now().Sub(s.doctorAt) > age
 	start := stale && !s.doctorBusy
 	if start {
 		s.doctorBusy = true
@@ -541,6 +546,7 @@ func childEnv() []string {
 
 // Dismiss puts away a stack action's failure once it has been read.
 func (s *Service) Dismiss(key string) {
+	s.quiet(func(it view.Item) bool { return it.ID == "failed:"+key })
 	s.mu.Lock()
 	delete(s.failed, key)
 	s.mu.Unlock()
@@ -615,6 +621,7 @@ func (s *Service) remove(key string, st hub.StackView) error {
 	}
 	s.busy[key] = "removing"
 	s.mu.Unlock()
+	s.quiet(func(it view.Item) bool { return it.Key == key })
 	s.changed()
 	go func() {
 		var failure *view.StackFailure

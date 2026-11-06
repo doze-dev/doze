@@ -20,6 +20,8 @@ export interface Nav {
   dir?: string;
   /** instance is set when a notification's Show asked for an instance's page. */
   instance?: string;
+  /** bell says Needs you was asked for as the window opened. */
+  bell?: boolean;
 }
 
 export interface Transport {
@@ -71,6 +73,16 @@ export interface Transport {
   leftovers(): Promise<view.Leftover[]>;
   /** clearLeftover clears one by its id; "all" clears every one that deletes no data. */
   clearLeftover(id: string): Promise<void>;
+  /** attention is Needs you: what is wrong now, everywhere, each with its fix. */
+  attention(): Promise<view.Attention>;
+  /** away is what happened while the window was closed, once; null for nothing. */
+  away(): Promise<view.Away | null>;
+  /** preflight looks before a stopped stack starts; blocked says to ask first. */
+  preflight(key: string, action: string, names: string[]): Promise<view.Preflight>;
+  /** preflightFix is a way out from the checks: stop (pid), without (a name), anyway. */
+  preflightFix(key: string, action: string, names: string[], kind: string, pid: number, without: string): Promise<void>;
+  /** notNow puts an item aside until what it says changes; "" brings it back. */
+  notNow(id: string, print: string): Promise<void>;
   /** dismissHints hides the Library's help strip for good. */
   dismissHints(): Promise<void>;
   /** chooseFolder shows the folder picker and opens what was chosen; "" when cancelled. */
@@ -129,6 +141,11 @@ async function wails(): Promise<Transport> {
     library: () => api.Library(),
     stack: (key, action, names) => api.Stack(key, action, names),
     leftovers: () => api.Leftovers().then((l) => l ?? []),
+    attention: () => api.Attention(),
+    away: () => api.Away(),
+    preflight: (key, action, names) => api.Preflight(key, action, names),
+    preflightFix: (key, action, names, kind, pid, without) => api.PreflightFix(key, action, names, kind, pid, without),
+    notNow: (id, print) => api.NotNow(id, print),
     clearLeftover: (id) => api.ClearLeftover(id),
     dismissHints: () => api.DismissHints(),
     chooseFolder: () => api.ChooseFolder(),
@@ -200,6 +217,11 @@ function http(): Transport {
     library: () => call("library", {}),
     stack: (key, action, names) => call("stack", { key, action, names }),
     leftovers: () => call<view.Leftover[] | null>("leftovers", {}).then((l) => l ?? []),
+    attention: () => call("attention", {}),
+    away: () => call("away", {}),
+    preflight: (key, action, names) => call("preflight", { key, action, names }),
+    preflightFix: (key, action, names, kind, pid, without) => call("preflightfix", { key, action, names, kind, pid, without }),
+    notNow: (id, print) => call("notnow", { id, print }),
     clearLeftover: (id) => call("clearleftover", { id }),
     dismissHints: () => call("dismisshints", {}),
     setView: (key, view) => call("setview", { key, view }),

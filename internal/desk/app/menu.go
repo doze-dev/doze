@@ -56,6 +56,7 @@ func (d *desk) appMenu() *application.Menu {
 	goMenu.AddSeparator()
 	goMenu.Add("All Logs of the Stack").SetAccelerator("CmdOrCtrl+L").OnClick(page("logs"))
 	goMenu.Add("Search or Do…").SetAccelerator("CmdOrCtrl+K").OnClick(page("palette"))
+	goMenu.Add("Needs You").SetAccelerator("CmdOrCtrl+Shift+N").OnClick(page("bell"))
 
 	view := m.AddSubmenu("View")
 	view.AddRole(application.ToggleFullscreen)

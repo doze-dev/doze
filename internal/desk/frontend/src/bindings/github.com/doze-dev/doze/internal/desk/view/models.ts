@@ -42,6 +42,60 @@ export interface Addr {
 }
 
 /**
+ * Attention is what needs the person now, across every stack and the
+ * machine (D19): red items are broken (something asked for is not
+ * happening), yellow ones are worth doing. Every surface (the bell, the menu
+ * bar, ⌘K, notifications) reads this one list. An item leaves when its
+ * cause is gone; "Not now" hides one until what it says changes.
+ */
+export interface Attention {
+    "red": number;
+    "yellow": number;
+    "items": Item[] | null;
+
+    /**
+     * Hidden counts items put aside with Not now.
+     */
+    "hidden"?: number;
+}
+
+/**
+ * Away is what happened while the window was closed (the WhileAway
+ * board): crashes, failed starts and task runs, with how each stands now.
+ * Routine wakes and sleeps are not news. Nil when nothing happened.
+ */
+export interface Away {
+    /**
+     * For is how long the window was closed: "3 h 12 m".
+     */
+    "for": string;
+    "events": AwayEvent[] | null;
+}
+
+/**
+ * AwayEvent is one line: who, what, when, and how it is now.
+ */
+export interface AwayEvent {
+    "key": string;
+    "stack": string;
+    "instance": string;
+
+    /**
+     * At is the times, "13:02, 13:40"; What the rest of the line after the
+     * name: "crashed twice in shop and started again".
+     */
+    "at": string;
+    "what": string;
+
+    /**
+     * Now is how it stands, Tone its colour (bad, good, dim): "still
+     * failing · in Needs you", "running", "done".
+     */
+    "now": string;
+    "tone": string;
+}
+
+/**
  * Banner is what the page says when what it shows cannot be believed.
  */
 export interface Banner {
@@ -433,6 +487,28 @@ export interface Fact {
 }
 
 /**
+ * Fix is one way out, as a button. Kind says what the page calls:
+ * 
+ * 	do       a verb on the instance (restart, task), through its dialog
+ * 	stack    a stack action (up-last, restart, remove), through its dialog
+ * 	holder   stop the process holding a port (PID), then start the instance
+ * 	repair   the machine's setup behind the administrator prompt
+ * 	clean    clear what was left behind, all but data
+ * 	dismiss  put a failed start away
+ * 	edit     open doze.hcl (Path) in the editor
+ * 	copy     copy Text
+ */
+export interface Fix {
+    "label": string;
+    "kind": string;
+    "verb"?: string;
+    "pid"?: number;
+    "path"?: string;
+    "text"?: string;
+    "primary"?: boolean;
+}
+
+/**
  * Found is one thing the detector saw in a folder.
  */
 export interface Found {
@@ -620,6 +696,53 @@ export interface Instance {
     "side": Side[] | null;
     "banner": Banner;
     "missing"?: boolean;
+}
+
+/**
+ * Item is one thing that needs the person.
+ */
+export interface Item {
+    /**
+     * ID names the item across pushes: its kind, stack and instance.
+     */
+    "id": string;
+
+    /**
+     * Print is what it says, for Not now: a new print shows it again.
+     */
+    "print": string;
+    "red": boolean;
+    "kind": string;
+
+    /**
+     * Key is the stack's key, Stack its name ("" for the machine).
+     */
+    "key"?: string;
+    "stack"?: string;
+    "instance"?: string;
+    "title": string;
+    "detail"?: string;
+
+    /**
+     * Mono says Detail is a program's own words, set in the code face.
+     */
+    "mono"?: boolean;
+    "fixes"?: Fix[] | null;
+
+    /**
+     * Show is the page that explains it.
+     */
+    "show"?: Place | null;
+
+    /**
+     * Since is when it began, as far as doze knows; zero when unknown.
+     */
+    "since"?: string;
+
+    /**
+     * Fixed says the cause went away a moment ago: shown grey, then gone.
+     */
+    "fixed"?: boolean;
 }
 
 /**
@@ -1146,6 +1269,16 @@ export interface Pill {
 }
 
 /**
+ * Place is a page to go to: a stack's home, an instance, Settings.
+ */
+export interface Place {
+    "key": string;
+    "page": string;
+    "instance"?: string;
+    "section"?: string;
+}
+
+/**
  * PortHolder is the process listening on the port an app wanted, as the
  * PortClash board names it.
  */
@@ -1165,6 +1298,33 @@ export interface PortHolder {
      */
     "stack"?: string;
     "service"?: string;
+}
+
+/**
+ * PreCheck is one line: ok, warn (it starts anyway) or bad (in the way).
+ */
+export interface PreCheck {
+    "tone": string;
+    "title": string;
+    "detail"?: string;
+    "mono"?: boolean;
+
+    /**
+     * Note is a second line under the detail, in plain words.
+     */
+    "note"?: string;
+    "fixes"?: Fix[] | null;
+}
+
+/**
+ * Preflight is what Up found before starting a stopped stack (the
+ * PreFlight board). Blocked says something red is in the way, and the
+ * page asks; otherwise Up just goes.
+ */
+export interface Preflight {
+    "stack": string;
+    "blocked": boolean;
+    "checks": PreCheck[] | null;
 }
 
 /**

@@ -230,6 +230,37 @@ func Handler(s *Service) http.Handler {
 		return map[string]bool{"ok": true}, nil
 	})
 	call("leftovers", func(json.RawMessage) (any, error) { return s.Leftovers(), nil })
+	call("attention", func(json.RawMessage) (any, error) { return s.Attention(), nil })
+	call("away", func(json.RawMessage) (any, error) { return s.Away(), nil })
+	call("preflight", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Action string
+			Names       []string
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return s.Preflight(a.Key, a.Action, a.Names), nil
+	})
+	call("preflightfix", func(b json.RawMessage) (any, error) {
+		var a struct {
+			Key, Action, Kind, Without string
+			Names                      []string
+			PID                        int
+		}
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, s.PreflightFix(a.Key, a.Action, a.Names, a.Kind, a.PID, a.Without)
+	})
+	call("notnow", func(b json.RawMessage) (any, error) {
+		var a struct{ ID, Print string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		s.NotNow(a.ID, a.Print)
+		return map[string]bool{"ok": true}, nil
+	})
 	call("clearleftover", func(b json.RawMessage) (any, error) {
 		var a struct{ ID string }
 		if err := json.Unmarshal(b, &a); err != nil {
