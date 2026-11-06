@@ -91,11 +91,11 @@ func migrate(ctx context.Context, name string) error {
 	}
 	oldBin, err := binFor(from)
 	if err != nil {
-		return fmt.Errorf("Postgres %s, to read the old data: %w", from, err)
+		return fmt.Errorf("fetching postgres %s, to read the old data: %w", from, err)
 	}
 	newBin, err := binFor(to)
 	if err != nil {
-		return fmt.Errorf("Postgres %s: %w", to, err)
+		return fmt.Errorf("fetching postgres %s: %w", to, err)
 	}
 
 	work, err := os.MkdirTemp("", "doze-migrate-")
