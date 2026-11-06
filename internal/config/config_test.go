@@ -240,6 +240,40 @@ output "the_color" { value = module.a.name }
 	}
 }
 
+// Outputs print as doze.hcl writes values, not as Go: 5432, not
+// cty.NumberIntVal(5432).
+func TestOutputsRenderAsTheyAreWritten(t *testing.T) {
+	src := `
+output "port"   { value = 5432 }
+output "ratio"  { value = 1.5 }
+output "on"     { value = true }
+output "name"   { value = "db" }
+output "hosts"  { value = ["a", "b"] }
+output "ports"  { value = [5432, 6379] }
+output "conn"   { value = { host = "db", port = 5432 } }
+output "nested" { value = { tags = ["x"] } }
+`
+	cfg, err := Parse([]byte(src), "doze.hcl", nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	want := map[string]string{
+		"port":   "5432",
+		"ratio":  "1.5",
+		"on":     "true",
+		"name":   "db",
+		"hosts":  `["a", "b"]`,
+		"ports":  "[5432, 6379]",
+		"conn":   "{\n  host = \"db\"\n  port = 5432\n}",
+		"nested": "{\n  tags = [\"x\"]\n}",
+	}
+	for name, w := range want {
+		if got := cfg.Outputs[name].Value; got != w {
+			t.Errorf("output %s = %q, want %q", name, got, w)
+		}
+	}
+}
+
 func TestVariableEnvOverride(t *testing.T) {
 	t.Setenv("DOZE_VAR_color", "crimson")
 	src := `
