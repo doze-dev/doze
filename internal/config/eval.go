@@ -333,8 +333,14 @@ func (cfg *Config) instanceDeps(parser *hclparse.Parser, p *pendingInstance, kno
 		if err != nil {
 			return err
 		}
-		if !ok || ref.Name == p.decl.Name {
+		if !ok {
 			continue
+		}
+		if ref.Name == p.decl.Name {
+			return selfReference(parser, p.decl.Title(), t)
+		}
+		if err := cfg.portlessURL(parser, ref, t); err != nil {
+			return err
 		}
 		p.decl.Refs = append(p.decl.Refs, ref)
 		edge(ref)
@@ -563,4 +569,36 @@ func didYouMean(name string, known *declared) string {
 	}
 	sort.Strings(all)
 	return "declared: " + strings.Join(all, ", ")
+}
+
+// selfReference is the error for a block that reads its own attributes: they
+// are made from the block, so it cannot wait for them.
+func selfReference(parser *hclparse.Parser, title string, t hcl.Traversal) error {
+	return posErr(parser, t.SourceRange(), title+" refers to itself",
+		"a block cannot read its own attributes; write the value itself (an app's own port is in $PORT)")
+}
+
+// portlessURL refuses <kind>.<name>.url for an app or a service with no
+// port: its url would be empty, and the program reading it would fail later
+// and far from here.
+func (cfg *Config) portlessURL(parser *hclparse.Parser, ref Ref, t hcl.Traversal) error {
+	if len(t) < 3 || (ref.Kind != KindApp && ref.Kind != KindService) {
+		return nil
+	}
+	if a, ok := t[2].(hcl.TraverseAttr); !ok || a.Name != "url" {
+		return nil
+	}
+	port := 0
+	if ref.Kind == KindService {
+		if s := cfg.Service(ref.Name); s != nil {
+			port = s.Port
+		}
+	} else if d := cfg.index[ref.Name]; d != nil {
+		port = d.Port
+	}
+	if port != 0 {
+		return nil
+	}
+	return posErr(parser, t.SourceRange(), fmt.Sprintf("%s %q has no port, so it has no url", ref.Kind, ref.Name),
+		fmt.Sprintf("give %s %q a port = … to reach it by url, or read another of its attributes", ref.Kind, ref.Name))
 }

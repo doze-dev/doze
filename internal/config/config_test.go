@@ -11,6 +11,8 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 
 	"github.com/doze-dev/doze-sdk/engine"
 )
@@ -852,5 +854,40 @@ service "mail" {
 	}
 	if s := cfg.Service("worker_1"); s == nil || !strings.Contains(s.Run, "--shard 1") {
 		t.Errorf("worker_1 should see count.index = 1: %+v", s)
+	}
+}
+
+func TestReferenceTypos(t *testing.T) {
+	for name, c := range map[string]struct{ src, want string }{
+		"self": {`app "w" {
+  run = "x"
+  env = { Y = app.w.port }
+}`, `app "w" refers to itself`},
+		"portless url": {`app "w" { run = "x" }
+app "api" {
+  run = "x"
+  env = { U = app.w.url }
+}`, `app "w" has no port, so it has no url`},
+		"service self": {`service "s" {
+  run = "x"
+  env = { P = service.s.port }
+}`, `service "s" refers to itself`},
+	} {
+		_, err := Parse([]byte(c.src), "doze.hcl", nil)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: want %q, got %v", name, c.want, err)
+		}
+	}
+}
+
+func TestAttributeTypoNamesTheNearest(t *testing.T) {
+	ctx := &hcl.EvalContext{Variables: map[string]cty.Value{"module": cty.ObjectVal(map[string]cty.Value{
+		"db": cty.ObjectVal(map[string]cty.Value{"url": cty.StringVal("x"), "port": cty.NumberIntVal(1)}),
+	})}}
+	expr, _ := hclsyntax.ParseExpression([]byte("module.db.ulr"), "doze.hcl", hcl.InitialPos)
+	_, diags := expr.Value(ctx)
+	addFixHints(diags)
+	if len(diags) == 0 || !strings.Contains(diags[0].Detail, "Did you mean module.db.url?") || !strings.Contains(diags[0].Detail, "It has: port, url.") {
+		t.Errorf("want a did-you-mean naming url, got %v", diags)
 	}
 }

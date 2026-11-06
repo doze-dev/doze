@@ -16,3 +16,6 @@ build/darwin/bat-*.png
 build/darwin/doze.iconset/
 /dist/
 /doze
+
+# agent worktrees
+/.claude/worktrees/

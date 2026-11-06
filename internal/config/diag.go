@@ -5,12 +5,15 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/agext/levenshtein"
 	"github.com/doze-dev/doze/internal/fault"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // nearest returns the closest candidate within a small edit distance, or "".
@@ -93,5 +96,77 @@ func addFixHints(diags hcl.Diagnostics) {
 		if strings.Contains(d.Summary, "single-argument block") && !strings.Contains(d.Detail, "own line") {
 			d.Detail += hint
 		}
+		if d.Summary == "Unsupported attribute" {
+			if better := attributeHint(d); better != "" {
+				d.Detail = better
+			}
+		}
 	}
+}
+
+// attributeHint rewrites HCL's "This object does not have an attribute
+// named …" for a reference to a block: which block, the nearest attribute it
+// does have, and all of them. "" when the reference is not one doze can read.
+func attributeHint(d *hcl.Diagnostic) string {
+	if d.Expression == nil || d.EvalContext == nil {
+		return ""
+	}
+	var t hcl.Traversal
+	switch e := d.Expression.(type) {
+	case *hclsyntax.ScopeTraversalExpr:
+		t = e.Traversal
+	default:
+		return ""
+	}
+	v, ok := lookupVar(d.EvalContext, t.RootName())
+	if !ok {
+		return ""
+	}
+	path := t.RootName()
+	for _, step := range t[1:] {
+		attr, ok := step.(hcl.TraverseAttr)
+		if !ok {
+			return ""
+		}
+		if v.IsNull() || !v.IsKnown() || (!v.Type().IsObjectType() && !v.Type().IsMapType()) {
+			return ""
+		}
+		var names []string
+		for it := v.ElementIterator(); it.Next(); {
+			k, _ := it.Element()
+			names = append(names, k.AsString())
+		}
+		if !hasName(names, attr.Name) {
+			if path == t.RootName() && isKind(path) {
+				return fmt.Sprintf("nothing called %q is published as %s.%s here: a block cannot refer to itself, and a %s must be declared to be referenced", attr.Name, path, attr.Name, path)
+			}
+			msg := fmt.Sprintf("%s has no attribute %q", path, attr.Name)
+			if near := nearest(attr.Name, names); near != "" {
+				msg += fmt.Sprintf(". Did you mean %s.%s?", path, near)
+			}
+			sort.Strings(names)
+			return msg + " It has: " + strings.Join(names, ", ") + "."
+		}
+		v = v.GetAttr(attr.Name)
+		path += "." + attr.Name
+	}
+	return ""
+}
+
+func lookupVar(ctx *hcl.EvalContext, name string) (cty.Value, bool) {
+	for c := ctx; c != nil; c = c.Parent() {
+		if v, ok := c.Variables[name]; ok {
+			return v, true
+		}
+	}
+	return cty.NilVal, false
+}
+
+func hasName(names []string, n string) bool {
+	for _, x := range names {
+		if x == n {
+			return true
+		}
+	}
+	return false
 }

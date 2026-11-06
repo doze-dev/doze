@@ -272,7 +272,7 @@ func (l *loader) decodeRunnables(cfg *Config, ctx *hcl.EvalContext, known *decla
 
 // splitAfter strips `after` off a body (it holds references, not a value) and
 // resolves it and the body's own references.
-func (l *loader) splitAfter(body hcl.Body, self string, known *declared) (rest hcl.Body, after, refs []Ref, waits map[string]engine.Condition, err error) {
+func (l *loader) splitAfter(cfg *Config, body hcl.Body, self string, known *declared) (rest hcl.Body, after, refs []Ref, waits map[string]engine.Condition, err error) {
 	meta, rest, diags := body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "after"}}})
 	if diags.HasErrors() {
 		return nil, nil, nil, nil, diagError(l.parser, diags)
@@ -287,7 +287,13 @@ func (l *loader) splitAfter(body hcl.Body, self string, known *declared) (rest h
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
-		if ok && ref.Name != self {
+		if ok && ref.Name == self {
+			return nil, nil, nil, nil, selfReference(l.parser, ref.Kind+" "+strconv.Quote(self), t)
+		}
+		if ok {
+			if err := cfg.portlessURL(l.parser, ref, t); err != nil {
+				return nil, nil, nil, nil, err
+			}
 			refs = append(refs, ref)
 		}
 	}
@@ -296,7 +302,7 @@ func (l *loader) splitAfter(body hcl.Body, self string, known *declared) (rest h
 
 func (l *loader) decodeService(cfg *Config, s *ServiceDecl, ctx *hcl.EvalContext, known *declared) error {
 	ctx = s.run.ctx(ctx)
-	rest, after, refs, waits, err := l.splitAfter(s.run.body, s.Name, known)
+	rest, after, refs, waits, err := l.splitAfter(cfg, s.run.body, s.Name, known)
 	if err != nil {
 		return err
 	}
@@ -393,7 +399,7 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 
 func (l *loader) decodeTask(cfg *Config, t *TaskDecl, ctx *hcl.EvalContext, known *declared) error {
 	ctx = t.run.ctx(ctx)
-	rest, after, refs, waits, err := l.splitAfter(t.run.body, t.Name, known)
+	rest, after, refs, waits, err := l.splitAfter(cfg, t.run.body, t.Name, known)
 	if err != nil {
 		return err
 	}
