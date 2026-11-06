@@ -249,6 +249,10 @@ Validate the config without touching the daemon or any data: schema, references,
 ports, engine-version gates. Exit 5 on problems, 6 with no config (CI-friendly;
 see [exit codes](#exit-codes)).
 
+It also warns, without failing, about what loads but is likely a mistake: a
+variable nothing reads, and a task nothing lists in `after` (which only `doze
+task` would ever run; `manual = true` says that is meant).
+
 ### `doze doctor [--fix]`
 
 Diagnose the environment: config, daemon, module pins, and each part of the

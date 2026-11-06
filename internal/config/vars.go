@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
+
+	"github.com/doze-dev/doze/internal/fault"
 )
 
 // hclsyntaxParseExpr parses a standalone HCL expression from a string override
@@ -80,6 +83,31 @@ func resolveVariables(parser *hclparse.Parser, blocks []*hcl.Block, in *varInput
 			return nil, err
 		}
 		vars[name] = val
+	}
+	// A --var for a variable nobody declared is a typo, or a stack that
+	// moved on: either way the value would be dropped without a word.
+	var stray []string
+	for name := range in.cli {
+		if _, ok := seen[name]; !ok {
+			stray = append(stray, name)
+		}
+	}
+	if len(stray) > 0 {
+		sort.Strings(stray)
+		declared := make([]string, 0, len(seen))
+		for n := range seen {
+			declared = append(declared, n)
+		}
+		sort.Strings(declared)
+		msg := fmt.Sprintf("--var %s: this stack declares no variable %q", stray[0], stray[0])
+		if near := nearest(stray[0], declared); near != "" {
+			msg += fmt.Sprintf("; did you mean %s?", near)
+		} else if len(declared) > 0 {
+			msg += "; it declares " + strings.Join(declared, ", ")
+		} else {
+			msg += "; it declares none (a variable \"" + stray[0] + "\" { … } block makes one)"
+		}
+		return nil, fault.With(fault.Invalid, errors.New(msg))
 	}
 	return vars, nil
 }

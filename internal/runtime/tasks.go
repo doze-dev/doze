@@ -113,6 +113,9 @@ func (r *Runtime) whyRun(ctx context.Context, name string, ts runspec.TaskSpec, 
 }
 
 func (r *Runtime) runTask(ctx context.Context, name string, decl *config.InstanceDecl, ts runspec.TaskSpec, force bool) error {
+	if ts.Err != nil {
+		return fmt.Errorf("task %q: %w", name, ts.Err)
+	}
 	hash := ""
 	if len(ts.Inputs) > 0 {
 		h, _, err := inputs.Hash(ts.Dir, ts.Inputs)

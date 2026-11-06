@@ -30,6 +30,9 @@ type TaskSpec struct {
 	Env    []string
 	Inputs []string
 	Manual bool
+	// Err is why the task cannot run at all (an env_file that is not
+	// there); the run fails with it before anything starts.
+	Err error
 }
 
 // Tasker is implemented by an engine that can run an instance as a task.

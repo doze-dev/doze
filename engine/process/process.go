@@ -117,6 +117,9 @@ func (Driver) Plan(_ context.Context, inst engine.Instance, _ engine.Toolchain) 
 	if fi, err := os.Stat(cfg.workDir()); err != nil || !fi.IsDir() {
 		return engine.SpawnPlan{}, fmt.Errorf("app %q: dir %q does not exist", inst.Name, cfg.workDir())
 	}
+	if err := cfg.envFileMissing(inst.Name); err != nil {
+		return engine.SpawnPlan{}, err
+	}
 	return engine.SpawnPlan{Specs: []engine.SpawnSpec{{
 		Name:  inst.Name,
 		Dir:   cfg.workDir(),
@@ -214,6 +217,18 @@ func (c *Config) mergedEnv() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// envFileMissing is the error for an env_file that is not there: starting
+// without the variables it holds would fail later, and further from the cause.
+func (c *Config) envFileMissing(name string) error {
+	if c.EnvFile == "" {
+		return nil
+	}
+	if _, err := os.Stat(c.EnvFile); err != nil {
+		return fmt.Errorf("%s: env_file %s does not exist; create it (often by copying .env.example), or remove env_file from the block", name, c.EnvFile)
+	}
+	return nil
 }
 
 // parseEnvFile reads KEY=VALUE lines from path (ignoring blanks and # comments),

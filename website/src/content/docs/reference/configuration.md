@@ -160,7 +160,8 @@ module postgres "app" {
 
 Values resolve by precedence (highest first): **`--var name=value`** › **`DOZE_VAR_<name>`**
 env var › a sibling **`*.auto.doze.vars`** file (`name = value` assignments) › the
-`default`. A required variable with no value is an error.
+`default`. A required variable with no value is an error, and so is a `--var`
+for a variable the stack does not declare (doze names the nearest one).
 
 **`locals { … }`** — named intermediate values (`local.<name>`); may reference
 variables, functions, and earlier locals.
@@ -620,7 +621,7 @@ app "api" {
 | `watch` | list of globs | none | Restart the app when a file matching one of these (relative to `dir`, `**` for any depth) changes while it is awake. The inputs of the tasks it waits for count too: the task runs first if its inputs changed. Files are checked once a second; a burst of writes is one restart. |
 | `console` | URL | none | A web console the app serves on a second port, such as `http://127.0.0.1:8025`. doze fronts that port too, on the app's own address, and opening it wakes the app. |
 | `env` | map | none | Environment for the app and its steps. Highest precedence; values may reference other blocks. |
-| `env_file` | string | none | Path to a `KEY=VALUE` file (lower precedence than `env`). |
+| `env_file` | string | none | Path to a `KEY=VALUE` file (lower precedence than `env`). If the file is not there, the start fails and says so; `doze lint` does not check for it, since `.env` files are rarely committed. |
 | `after` | list of references | none | Blocks to wait for, written as references to the whole block: `[task.migrate, module.db]`. |
 | `ready` | probe | `tcp()` when `port` is set | `tcp()` (the port accepts a connection), `http("/path")` (a 2xx from the app's own port), `log("text")` (the app printed it) or `exec("cmd")` (exits 0). With no `port` and no `ready`, readiness = "the process stayed alive briefly". |
 | `ready_timeout` | duration | `"60s"` | How long the app gets to become ready. A first `go run` that has to compile needs more. |

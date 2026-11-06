@@ -132,10 +132,14 @@ func reportLint(cfg *config.Config, unchecked []string, why string) {
 		Disabled  int            `json:"disabled"`
 		Unchecked []string       `json:"unchecked"` // module types the module pass did not check
 		Why       string         `json:"why,omitempty"`
-	}{cfg.Path(), count, disabled, unchecked, why})
+		Warnings  []string       `json:"warnings,omitempty"`
+	}{cfg.Path(), count, disabled, unchecked, why, cfg.Warnings})
 	fmt.Printf("%s %s is valid: %s\n", ui.OK("✓"), cfg.Path(), summary)
 	if len(unchecked) > 0 {
 		fmt.Printf("  %s module blocks not checked (%s): %s\n", ui.Warn("!"), why, strings.Join(unchecked, ", "))
+	}
+	for _, w := range cfg.Warnings {
+		fmt.Printf("  %s %s\n", ui.Warn("!"), w)
 	}
 }
 

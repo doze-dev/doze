@@ -891,3 +891,39 @@ func TestAttributeTypoNamesTheNearest(t *testing.T) {
 		t.Errorf("want a did-you-mean naming url, got %v", diags)
 	}
 }
+
+func TestLintWarnsUnusedVariableAndOrphanTask(t *testing.T) {
+	cfg, err := Parse([]byte(`
+variable "used" { default = "x" }
+variable "spare" { default = "y" }
+task "migrate" { run = "m" }
+task "seed" { run = "s" }
+task "once" {
+  run    = "o"
+  manual = true
+}
+app "api" {
+  run   = "a ${var.used}"
+  after = [task.migrate]
+}
+`), "doze.hcl", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(cfg.Warnings, "\n")
+	if !strings.Contains(all, `variable "spare"`) || strings.Contains(all, `variable "used"`) {
+		t.Errorf("unused variable warnings wrong: %s", all)
+	}
+	if !strings.Contains(all, `task "seed" runs only by doze task`) || strings.Contains(all, `"migrate"`) || strings.Contains(all, `"once"`) {
+		t.Errorf("orphan task warnings wrong: %s", all)
+	}
+}
+
+func TestUndeclaredVarFlagIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "doze.hcl", `variable "region" { default = "eu" }`)
+	_, err := LoadShape(filepath.Join(dir, "doze.hcl"), map[string]string{"regoin": "us"})
+	if err == nil || !strings.Contains(err.Error(), "did you mean region?") {
+		t.Errorf("want an undeclared --var error, got %v", err)
+	}
+}

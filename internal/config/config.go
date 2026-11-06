@@ -24,6 +24,9 @@ const (
 
 // Config is the validated, typed view of a doze.hcl file.
 type Config struct {
+	// Warnings are things that load but are likely mistakes: a variable
+	// nothing reads, a task nothing waits for. doze lint prints them.
+	Warnings []string
 	// Listen is the default client-facing address; instances may override it.
 	Listen string
 	// Home is the global doze home (shared toolchains + cache), deduped across

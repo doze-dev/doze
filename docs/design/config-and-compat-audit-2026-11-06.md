@@ -145,7 +145,7 @@ Vocabulary
 Kindness
 - [ ] L5 one error rendering, with positions, across the plugin wire
 - [x] L6 reference typos get did-you-mean and the list; portless `url` refused
-- [ ] L4 silent mistakes become errors; lint warns
+- [x] L4 silent mistakes become errors; lint warns
 - [ ] L11 the `$PORT` trap is named on a ready timeout
 
 Later items

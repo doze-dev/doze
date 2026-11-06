@@ -68,7 +68,7 @@ func (Driver) Task(inst engine.Instance) (runspec.TaskSpec, bool) {
 	if !ok || !cfg.Task {
 		return runspec.TaskSpec{}, false
 	}
-	return runspec.TaskSpec{Run: cfg.Run, Dir: cfg.workDir(), Env: cfg.envFor(inst), Inputs: cfg.Inputs, Manual: cfg.Manual}, true
+	return runspec.TaskSpec{Run: cfg.Run, Dir: cfg.workDir(), Env: cfg.envFor(inst), Inputs: cfg.Inputs, Manual: cfg.Manual, Err: cfg.envFileMissing(inst.Name)}, true
 }
 
 var _ runspec.Watcher = Driver{}

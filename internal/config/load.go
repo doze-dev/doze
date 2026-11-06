@@ -317,6 +317,7 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 	if err := cfg.evaluateOutputs(parser, outputBlocks, ctx); err != nil {
 		return nil, err
 	}
+	cfg.Warnings = cfg.lintWarnings(parser, varBlocks)
 	return cfg, nil
 }
 
