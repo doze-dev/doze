@@ -194,6 +194,7 @@ func rootCmd() *cobra.Command {
 		grouped(groupOne, jsonCapable(sleepCmd())),
 		grouped(groupOne, jsonCapable(mutating(restartCmd()))),
 		grouped(groupOne, jsonCapable(mutating(resetCmd()))),
+		grouped(groupOne, mutating(migrateCmd())),
 		grouped(groupOne, jsonCapable(mutating(taskCmd()))),
 		grouped(groupOne, jsonCapable(pinCmd())),
 		grouped(groupOne, jsonCapable(offCmd())),

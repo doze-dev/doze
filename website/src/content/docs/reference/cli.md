@@ -153,6 +153,16 @@ Delete a service's data. The next wake provisions it fresh from the config.
 It cannot be undone, so it asks first; `--yes` skips the question and is
 required when there is no terminal to ask on.
 
+### `doze migrate <name>`
+
+Move a postgres instance's data to the major version doze.hcl now declares.
+Postgres cannot read another major's data, so change `version` (16 → 17), bring
+the stack down, and run `doze migrate db`: it dumps the data with Postgres 16,
+sets the old data folder aside (kept, named for its version, with the dump
+beside it), makes a fresh Postgres 17 cluster and restores the dump into it. If
+a step fails, the old data is put back. Statements that did not restore (often an
+extension the new major lacks) are listed. Then bring the stack up.
+
 ### `doze task [name]`
 
 Run a task now, whatever its state, after waking what it references. It returns

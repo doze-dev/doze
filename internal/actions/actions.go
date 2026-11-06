@@ -107,6 +107,8 @@ var registry = []Action{
 		Arg: ArgNone, Kind: KindLocal, CLI: true, Dash: false},
 	{Name: "lint", Summary: "validate the config without touching anything",
 		Arg: ArgNone, Kind: KindLocal, CLI: true},
+	{Name: "migrate", Summary: "move a postgres instance's data to the major doze.hcl now declares",
+		Arg: ArgInstanceRequired, Kind: KindLocal, CLI: true},
 	{Name: "init", Summary: "scaffold a doze.hcl",
 		Arg: ArgNone, Kind: KindLocal, CLI: true},
 	{Name: "doctor", Summary: "diagnose the doze environment and configuration",
