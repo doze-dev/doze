@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/fault"
 	"github.com/doze-dev/doze/internal/health"
 	"github.com/doze-dev/doze/internal/logstore"
+	"github.com/doze-dev/doze/internal/portholder"
 	"github.com/doze-dev/doze/internal/supervisor"
 )
 
@@ -70,8 +72,16 @@ func (r *Runtime) executePlan(ctx context.Context, name string, plan engine.Spaw
 		started = append(started, p)
 
 		if err := health.WaitReady(ctx, spec.Ready, p.Alive, p.Logs); err != nil {
+			// Asked before the stop, while the app is still up to be looked at.
+			hint := ""
+			if port := envPort(spec.Env); port > 0 && fault.Of(err) == fault.Timeout && p.Alive() {
+				hint = portTrapHint(spec.Name, port, portholder.ListeningPorts(p.PID()))
+			}
 			stopAll()
 			msg := fmt.Errorf("%s not ready: %w", spec.Name, err)
+			if hint != "" {
+				msg = fmt.Errorf("%w. %s", msg, hint)
+			}
 			if logs := strings.TrimSpace(strings.Join(p.Logs(), "\n")); logs != "" {
 				msg = fmt.Errorf("%w\n%s", msg, logs)
 			}
