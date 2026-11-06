@@ -115,3 +115,42 @@ Tilt-style live sync.
    with old spellings pointing at new ones.
 4. **Kindness (2–3 days):** L5, L6, L4, L11.
 5. **Later:** L3 overrides, L12, L14, L15, C7 when needed, C8 with signing.
+
+## To do (the owner said "do them all", 2026-11-06)
+
+Ticked as each lands, with its commit.
+
+Bugs and docs
+- [ ] L1 a dotted `version` written as a number is refused; docs quote versions
+- [ ] L13 docs drift fixed
+- [ ] L9 root `listen` removed (old form pointing at `port`)
+- [ ] C6 the `doze migrate` pointer replaced with what works
+- [ ] C3 a pin is checked before it is written
+
+Compatibility
+- [ ] C1 releases record the doze they need; selection skips what this doze cannot run
+- [ ] C2 one plain sentence when nothing fits, with the way out
+- [ ] C4 doze.lock records the doze that wrote it
+- [ ] L2 `doze = ">= x"` in doze.hcl, read first
+- [ ] C5 offline with no pin uses a compatible cached module
+- [ ] C7 protocol negotiation (VersionedPlugins)
+- [ ] C8 the app says when a newer doze is out (auto-install waits for signing)
+- [ ] C6b `doze migrate` for a postgres major (dump and restore)
+
+Vocabulary
+- [ ] L7 one word for ordering: `after = [..., started(x), lazy(y)]`
+- [ ] L8 `defaults { names, sleep }`, "never" everywhere, one verb in the docs
+- [ ] L10 shared meta-arguments on every kind
+
+Kindness
+- [ ] L5 one error rendering, with positions, across the plugin wire
+- [ ] L6 reference typos get did-you-mean and the list; portless `url` refused
+- [ ] L4 silent mistakes become errors; lint warns
+- [ ] L11 the `$PORT` trap is named on a ready timeout
+
+Later items
+- [ ] L3 override files for core arguments
+- [ ] L12 richer `defaults`
+- [ ] L14 ports from the module's Describe
+- [ ] L15 `module.<x>.env`
+- [ ] L16 outputs render, portless service sleep, `doze fmt`, editor schema
