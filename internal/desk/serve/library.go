@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -541,4 +542,56 @@ func (s *Service) Dismiss(key string) {
 	delete(s.failed, key)
 	s.mu.Unlock()
 	s.changed()
+}
+
+// watchConfigs stamps every stack's config files each configLook and
+// pushes when one changed since it was last checked, so a broken, fixed
+// or edited doze.hcl reaches every page without waiting for anything else
+// to change.
+func (s *Service) watchConfigs(ctx context.Context) {
+	t := time.NewTicker(configLook)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		// Only the files the pages have read (the looks kept), and only those
+		// not looked at since the last tick: no views are built for this.
+		s.mu.Lock()
+		paths := make([]string, 0, len(s.configs))
+		for p, seen := range s.configs {
+			if s.now().Sub(seen.at) >= configLook {
+				paths = append(paths, p)
+			}
+		}
+		s.mu.Unlock()
+		changed := false
+		for _, path := range paths {
+			fi, ok := configStamp(filepath.Dir(path))
+			s.mu.Lock()
+			seen, known := s.configs[path]
+			s.mu.Unlock()
+			if !ok || !known {
+				continue
+			}
+			if !seen.mtime.Equal(fi.mtime) || seen.size != fi.size {
+				// Forget the old look, so the next one loads the file.
+				s.mu.Lock()
+				delete(s.configs, path)
+				s.mu.Unlock()
+				changed = true
+			} else {
+				// Unchanged: the look is fresh, so a push does not stamp again.
+				s.mu.Lock()
+				seen.at = s.now()
+				s.configs[path] = seen
+				s.mu.Unlock()
+			}
+		}
+		if changed {
+			s.changed()
+		}
+	}
 }

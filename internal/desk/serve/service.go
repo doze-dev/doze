@@ -217,6 +217,10 @@ func (s *Service) changed() {
 func (s *Service) Run(ctx context.Context) {
 	t := time.NewTicker(Pace)
 	defer t.Stop()
+	// A doze.hcl saved while the window is open is noticed within a look,
+	// whatever page is showing: each stack's files are stamped every
+	// configLook, and a change is pushed.
+	go s.watchConfigs(ctx)
 	for {
 		select {
 		case <-ctx.Done():
