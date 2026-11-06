@@ -89,6 +89,9 @@ type Defaults struct {
 	// size cap per instance. Zero takes the log store's defaults (5 runs, 10 MB).
 	LogRuns  int
 	LogBytes int64
+	// Commands are what every app, service and task takes when its block
+	// does not say: ready_timeout, restart and env.
+	Commands runspec.Defaults
 }
 
 // TLSSettings configures TLS termination between clients and the proxy.

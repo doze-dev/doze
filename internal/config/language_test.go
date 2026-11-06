@@ -3,6 +3,7 @@ package config_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/engine/process"
@@ -357,5 +358,45 @@ func TestAServiceIsAnInstanceOfTheCommandEngine(t *testing.T) {
 	}
 	if mongo.Port == 0 {
 		t.Errorf("a service with a port has Port set: %+v", mongo)
+	}
+}
+
+func TestDefaultsCarryReadyTimeoutRestartAndEnv(t *testing.T) {
+	cfg, err := config.Parse([]byte(`
+defaults {
+  ready_timeout = "3m"
+  env           = { LOG = "debug", REGION = "eu" }
+  restart {
+    policy = "always"
+  }
+}
+app "api" {
+  run  = "x"
+  port = 3000
+  env  = { REGION = "us" }
+}
+service "mail" {
+  run           = "y"
+  ready_timeout = "10s"
+}
+task "seed" { run = "z" }
+app "w" {
+  run = "w"
+  after = [task.seed]
+}
+`), "doze.hcl", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := cfg.Lookup("api").Spec.(*process.Config)
+	if api.ReadyTimeout != 3*time.Minute || string(api.Restart.Policy) != "always" || api.Env["LOG"] != "debug" || api.Env["REGION"] != "us" {
+		t.Errorf("api did not take the defaults under its own: %+v", api)
+	}
+	mail := cfg.Lookup("mail").Spec.(*process.Config)
+	if mail.ReadyTimeout != 10*time.Second || mail.Env["LOG"] != "debug" {
+		t.Errorf("mail: its own ready_timeout should win, env should be inherited: %+v", mail)
+	}
+	if seed := cfg.Lookup("seed").Spec.(*process.Config); seed.Env["REGION"] != "eu" {
+		t.Errorf("seed should inherit env: %+v", seed.Env)
 	}
 }

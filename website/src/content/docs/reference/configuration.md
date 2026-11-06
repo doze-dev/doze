@@ -42,6 +42,9 @@ generated from the module itself, so it can't be stale.
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |
 | `defaults { sleep }` | duration or `"never"` | `2m` | Put an instance to sleep after this long at **zero connections**; a block's own `sleep` wins. `"never"` keeps everything on unless a block says otherwise. (Was `idle_timeout`.) |
 | `defaults { names }` | bool | `false` | Give every instance a `<name>.<stack>.doze` name. (Was `domains = true`; `domains` on an app is for your own hostnames.) |
+| `defaults { ready_timeout }` | duration | `60s` | How long every app and service gets to become ready, unless its block says. |
+| `defaults { restart { … } }` | block | `on_failure` | The restart policy for every app and service whose block has none; same fields as a block's own. |
+| `defaults { env }` | map | none | Variables every app, service and task gets; a block's own `env` wins key by key. |
 | `defaults { log_runs }` | number | `5` | How many runs of each service's log are kept. A run is one start. |
 | `defaults { log_size }` | size | `"10MB"` | The most log kept per service, across its runs. |
 | `tls { … }` | block | off | Terminate client TLS for Postgres — see [TLS](#tls). |

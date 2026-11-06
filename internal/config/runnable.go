@@ -389,6 +389,7 @@ func (cfg *Config) addService(s *ServiceDecl, fail func(error) error) error {
 	if err != nil {
 		return fail(err)
 	}
+	cfg.applyDefaults(spec, s.run.body)
 	cfg.Add(&InstanceDecl{
 		Kind: KindService, Type: AppEngine, Name: s.Name, Version: "builtin",
 		Port: s.Port, Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(s.Name, s.Refs, s.After, s.waits), Enabled: s.run.enabled,
@@ -442,6 +443,7 @@ func (cfg *Config) addTask(t *TaskDecl) error {
 	if err != nil {
 		return fail(err)
 	}
+	cfg.applyDefaults(spec, t.run.body)
 	cfg.Add(&InstanceDecl{
 		Kind: KindTask, Type: AppEngine, Name: t.Name, Version: "builtin",
 		Spec: spec, Index: len(cfg.Instances), Deps: bootEdges(t.Name, t.Refs, t.After, t.waits), Enabled: t.run.enabled,

@@ -150,7 +150,7 @@ Kindness
 
 Later items
 - [ ] L3 override files for core arguments
-- [ ] L12 richer `defaults`
+- [x] L12 richer `defaults`
 - [ ] L14 ports from the module's Describe
 - [ ] L15 `module.<x>.env`
 - [ ] L16 outputs render, portless service sleep, `doze fmt`, editor schema

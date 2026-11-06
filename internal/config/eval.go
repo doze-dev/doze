@@ -14,6 +14,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/doze-dev/doze-sdk/engine"
+	"github.com/doze-dev/doze/internal/runspec"
 )
 
 // pendingInstance carries an instance whose engine-agnostic fields are decoded
@@ -224,6 +225,7 @@ func (l *loader) decodeBody(cfg *Config, p *pendingInstance, ctx, decodeCtx *hcl
 				return posErr(l.parser, p.defRange, p.decl.Title()+": "+err.Error(), "")
 			}
 		}
+		cfg.applyDefaults(spec, p.body)
 		p.decl.Spec = spec
 	case engine.RemoteDecoder: // out-of-process plugin: it decodes its own block
 		src := l.pluginBytes(p.defRange.Filename)
@@ -601,4 +603,32 @@ func (cfg *Config) portlessURL(parser *hclparse.Parser, ref Ref, t hcl.Traversal
 	}
 	return posErr(parser, t.SourceRange(), fmt.Sprintf("%s %q has no port, so it has no url", ref.Kind, ref.Name),
 		fmt.Sprintf("give %s %q a port = … to reach it by url, or read another of its attributes", ref.Kind, ref.Name))
+}
+
+// applyDefaults gives a command's spec the stack's defaults where its block
+// is silent.
+func (cfg *Config) applyDefaults(spec engine.EngineConfig, body hcl.Body) {
+	d, ok := spec.(runspec.Defaulter)
+	if !ok {
+		return
+	}
+	got, _, _ := body.PartialContent(&hcl.BodySchema{
+		Attributes: []hcl.AttributeSchema{{Name: "ready_timeout"}, {Name: "env"}},
+		Blocks:     []hcl.BlockHeaderSchema{{Type: "restart"}},
+	})
+	set := func(arg string) bool {
+		if got == nil {
+			return false
+		}
+		if _, ok := got.Attributes[arg]; ok {
+			return true
+		}
+		for _, b := range got.Blocks {
+			if b.Type == arg {
+				return true
+			}
+		}
+		return false
+	}
+	d.ApplyDefaults(cfg.Defaults.Commands, set)
 }

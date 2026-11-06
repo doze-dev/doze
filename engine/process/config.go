@@ -443,3 +443,32 @@ func (c *Config) IngressEnabled() bool { return c.ForwardPort() > 0 }
 // RunLine is the command line the instance runs; the dash shows it beside the
 // name.
 func (c Config) RunLine() string { return c.Run }
+
+var _ runspec.Defaulter = (*Config)(nil)
+
+// ApplyDefaults implements runspec.Defaulter: the stack's ready_timeout and
+// restart where the block set none (a task has neither), and its env under
+// the block's own.
+func (c *Config) ApplyDefaults(d runspec.Defaults, set func(string) bool) {
+	if !c.Task && !set("ready_timeout") && d.ReadyTimeout > 0 {
+		c.ReadyTimeout = d.ReadyTimeout
+	}
+	if !c.Task && !set("restart") && d.RestartPolicy != "" {
+		c.Restart = Restart{Policy: engine.RestartPolicy(d.RestartPolicy), Backoff: defaultBackoff, MaxRetries: defaultMaxRetries}
+		if d.RestartBackoff > 0 {
+			c.Restart.Backoff = d.RestartBackoff
+		}
+		if d.RestartMaxRetries > 0 {
+			c.Restart.MaxRetries = d.RestartMaxRetries
+		}
+	}
+	for k, v := range d.Env {
+		if _, ok := c.Env[k]; ok {
+			continue
+		}
+		if c.Env == nil {
+			c.Env = map[string]string{}
+		}
+		c.Env[k] = v
+	}
+}

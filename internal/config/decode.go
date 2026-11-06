@@ -38,10 +38,13 @@ type hclTLS struct {
 }
 
 type hclDefaults struct {
-	Sleep   string `hcl:"sleep,optional"`
-	Names   bool   `hcl:"names,optional"`
-	LogRuns int    `hcl:"log_runs,optional"`
-	LogSize string `hcl:"log_size,optional"`
+	Sleep        string            `hcl:"sleep,optional"`
+	Names        bool              `hcl:"names,optional"`
+	LogRuns      int               `hcl:"log_runs,optional"`
+	LogSize      string            `hcl:"log_size,optional"`
+	ReadyTimeout string            `hcl:"ready_timeout,optional"`
+	Env          map[string]string `hcl:"env,optional"`
+	Restart      *hclRestart       `hcl:"restart,block"`
 }
 
 // oldDefaults are the defaults arguments a later spelling replaced: the
@@ -84,6 +87,21 @@ func (cfg *Config) decodeDefaults(parser *hclparse.Parser, block *hcl.Block, ctx
 		}
 	}
 	cfg.Defaults.Domains = d.Names && !names.Disabled()
+	if d.ReadyTimeout != "" {
+		rt, err := runspec.ParseReadyTimeout(d.ReadyTimeout)
+		if err != nil {
+			return posErr(parser, block.DefRange, "invalid ready_timeout in defaults", err.Error())
+		}
+		cfg.Defaults.Commands.ReadyTimeout = rt
+	}
+	if d.Restart != nil {
+		rd, err := parseRestart(d.Restart)
+		if err != nil {
+			return posErr(parser, block.DefRange, "invalid restart in defaults", err.Error())
+		}
+		cfg.Defaults.Commands.RestartPolicy, cfg.Defaults.Commands.RestartBackoff, cfg.Defaults.Commands.RestartMaxRetries = rd.Policy, rd.Backoff, rd.MaxRetries
+	}
+	cfg.Defaults.Commands.Env = d.Env
 	if d.LogRuns < 0 {
 		return posErr(parser, block.DefRange, "invalid log_runs", "must not be negative")
 	}

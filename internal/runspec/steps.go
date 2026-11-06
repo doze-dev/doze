@@ -1,5 +1,7 @@
 package runspec
 
+import "time"
+
 import "github.com/doze-dev/doze-sdk/engine"
 
 // StepSet is the commands that surround a command's run, with where and how
@@ -62,4 +64,21 @@ type Downloader interface {
 	// SetDownloadRoot says where the fetched archive was unpacked: the
 	// directory the command runs in unless its block set `dir`.
 	SetDownloadRoot(engine.Instance, string)
+}
+
+// Defaults are a stack's defaults for every command it runs: what a block
+// takes when it does not say for itself.
+type Defaults struct {
+	ReadyTimeout      time.Duration
+	RestartPolicy     string // "" leaves the engine's own
+	RestartBackoff    time.Duration
+	RestartMaxRetries int
+	Env               map[string]string
+}
+
+// Defaulter is implemented by an engine config that takes the stack's
+// defaults. set says whether the block wrote an argument itself (a block's
+// own word wins; for env, key by key).
+type Defaulter interface {
+	ApplyDefaults(d Defaults, set func(arg string) bool)
 }
