@@ -504,6 +504,11 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 		"address": cty.StringVal(addr),
 		"url":     cty.StringVal(url),
 		"env_var": cty.StringVal(envVar),
+		// env is the variable a client reads, set: { DATABASE_URL = "…" }.
+		"env": cty.EmptyObjectVal,
+	}
+	if envVar != "" {
+		m["env"] = cty.ObjectVal(map[string]cty.Value{envVar: cty.StringVal(url)})
 	}
 	if ep.UnixSocket != "" {
 		m["socket"] = cty.StringVal(ep.UnixSocket)

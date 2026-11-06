@@ -927,3 +927,18 @@ func TestUndeclaredVarFlagIsAnError(t *testing.T) {
 		t.Errorf("want an undeclared --var error, got %v", err)
 	}
 }
+
+func TestEnvOfJoinsAndRefusesCollisions(t *testing.T) {
+	mod := func(name, key, url string) cty.Value {
+		return cty.ObjectVal(map[string]cty.Value{"name": cty.StringVal(name), "env": cty.ObjectVal(map[string]cty.Value{key: cty.StringVal(url)})})
+	}
+	f := envOfFunc()
+	got, err := f.Call([]cty.Value{mod("db", "DATABASE_URL", "postgres://x"), mod("cache", "REDIS_URL", "redis://y")})
+	if err != nil || got.LengthInt() != 2 || got.Index(cty.StringVal("REDIS_URL")).AsString() != "redis://y" {
+		t.Fatalf("env_of = %v, %v", got, err)
+	}
+	_, err = f.Call([]cty.Value{mod("db", "DATABASE_URL", "a"), mod("audit", "DATABASE_URL", "b")})
+	if err == nil || !strings.Contains(err.Error(), "db and audit both set DATABASE_URL") {
+		t.Errorf("want a collision error, got %v", err)
+	}
+}

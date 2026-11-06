@@ -152,7 +152,7 @@ Later items
 - [ ] L3 override files for core arguments
 - [x] L12 richer `defaults`
 - [ ] L14 ports from the module's Describe
-- [ ] L15 `module.<x>.env`
+- [x] L15 `module.<x>.env`
 - [ ] L16 outputs render, portless service sleep, `doze fmt`, editor schema
 
 Not done by me, for the owner (publishing): tag and push doze-sdk (v0.11.0:

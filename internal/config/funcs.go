@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/zclconf/go-cty/cty"
@@ -73,7 +74,8 @@ func stdlibFunctions() map[string]function.Function {
 		"tobool":   makeToFunc(cty.Bool),
 
 		// doze-specific
-		"env": envFunc(),
+		"env":    envFunc(),
+		"env_of": envOfFunc(),
 	}
 }
 
@@ -122,6 +124,43 @@ func envFunc() function.Function {
 				return args[1], nil
 			}
 			return cty.StringVal(""), nil
+		},
+	})
+}
+
+// envOfFunc is env_of(module.db, module.cache, …): the variables each block
+// publishes in its env, together. Unlike merge, two blocks that set the same
+// variable are an error, not a silent last-one-wins: two postgres modules
+// both offer DATABASE_URL, and only one can be it.
+func envOfFunc() function.Function {
+	return function.New(&function.Spec{
+		VarParam: &function.Parameter{Name: "blocks", Type: cty.DynamicPseudoType},
+		Type:     function.StaticReturnType(cty.Map(cty.String)),
+		Impl: func(args []cty.Value, _ cty.Type) (cty.Value, error) {
+			out := map[string]cty.Value{}
+			from := map[string]string{}
+			for i, a := range args {
+				if a.IsNull() || !a.IsKnown() || !a.Type().IsObjectType() || !a.Type().HasAttribute("env") {
+					return cty.NilVal, function.NewArgErrorf(i, "env_of takes blocks that publish env, such as module.db")
+				}
+				name := fmt.Sprintf("argument %d", i+1)
+				if a.Type().HasAttribute("name") {
+					name = a.GetAttr("name").AsString()
+				}
+				for it := a.GetAttr("env").ElementIterator(); it.Next(); {
+					k, v := it.Element()
+					key := k.AsString()
+					if prev, dup := from[key]; dup {
+						return cty.NilVal, function.NewArgErrorf(i, "%s and %s both set %s; write that one by hand, for example env = merge(env_of(module.%s), { %s = module.%s.url })", prev, name, key, prev, key, name)
+					}
+					from[key] = name
+					out[key] = v
+				}
+			}
+			if len(out) == 0 {
+				return cty.MapValEmpty(cty.String), nil
+			}
+			return cty.MapVal(out), nil
 		},
 	})
 }

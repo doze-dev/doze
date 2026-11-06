@@ -107,7 +107,7 @@ block is `module.app`, not `postgres.app`.
 
 | Reference | Attributes |
 |---|---|
-| `module.<name>` | `url`, `address`, `host`, `port`, `socket`, `env_var`, `name`, `engine`, plus whatever the module adds |
+| `module.<name>` | `url`, `address`, `host`, `port`, `socket`, `env_var`, `env`, `name`, `engine`, plus whatever the module adds |
 | `app.<name>` | `address`, `host`, `port`, `url` (all need the app to declare a `port`), `name` |
 | `service.<name>` | `address`, `host`, `port`, `data`, `name` |
 | `task.<name>` | none — a task is only named in `after` |
@@ -129,10 +129,22 @@ Every module exposes these baseline attributes:
 | `socket` | Unix socket path (empty for TCP). |
 | `url` | The connection string (e.g. `postgres://…`). |
 | `env_var` | The conventional variable name (`DATABASE_URL`, …). |
+| `env` | That variable, set: `{ DATABASE_URL = "postgres://…" }`. |
 
 Functions include the common string/collection/number/encoding helpers (`upper`,
 `join`, `format`, `coalesce`, `merge`, `jsonencode`, …) plus `env("NAME")` to read
-a host environment variable (with an optional default).
+a host environment variable (with an optional default), and `env_of(…)`, which
+gives a client every module's variable at once:
+
+```hcl
+app "api" {
+  run = "go run ./cmd/api"
+  env = merge(env_of(module.db, module.cache), { LOG = "debug" })
+}
+```
+
+Unlike `merge`, `env_of` refuses two modules that set the same variable (two
+postgres both offer `DATABASE_URL`) and says so, instead of keeping the last.
 
 ### Variables & locals
 
