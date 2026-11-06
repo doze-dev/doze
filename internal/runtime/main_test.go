@@ -16,5 +16,6 @@ func TestMain(m *testing.M) {
 	engine.Register(loopDriver{})
 	engine.Register(steadyDriver{})
 	engine.Register(shDriver{})
+	engine.Register(deafDriver{})
 	os.Exit(m.Run())
 }

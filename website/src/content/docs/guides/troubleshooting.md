@@ -62,6 +62,29 @@ Common causes:
 
 After fixing config, `doze sync` (or just reconnect) re-converges.
 
+## An app is never ready
+
+An `app` with `port = 3000` does not listen on 3000: doze holds that port and
+starts the app with `$PORT` set to a private one, and the app is ready when
+`$PORT` answers. An app that ignores `$PORT` and listens on its own port (vite
+on 5173, a server hard-coded to 3000) is never ready, and its start fails after
+the ready timeout. doze then looks at what the app's processes do listen on and
+says so:
+
+```text
+web not ready: did not become ready within 1m0s. web listens on :5173, not on $PORT (41234)
+that doze gave it; start it with --port $PORT (vite: --port $PORT --strictPort), or set
+direct = true to have doze leave its port alone
+```
+
+The fix is to read `$PORT` (and `$HOST`): `vite --port $PORT --strictPort`,
+`next dev -p $PORT`, or `os.Getenv("PORT")` in your own server. If the app
+must bind its declared port itself, set `direct = true`; doze then starts it
+but does not front it (no waking on a connection). "listens on no port" means
+the app is up but has bound nothing yet: a slow compile wants a longer
+`ready_timeout`, or the app is waiting on something else. See
+[Ports](/reference/configuration/#ports-for-an-app).
+
 ## Engine binaries won't download
 
 doze fetches engine binaries on first use. If you're offline, behind a corporate
