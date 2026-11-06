@@ -1,6 +1,6 @@
 # Postgres extensions by name
 
-Status: proposal, 2026-11-07. Nothing built yet.
+Status: approved 2026-11-07 (owner: waves 1 and 2; TimescaleDB Apache-only).
 
 ## The ask
 
@@ -121,6 +121,37 @@ recipe that built it.
 - **Preload.** The module writes `shared_preload_libraries` and the
   extension's settings into the instance's postgresql.conf from the declared
   set, ordered (timescaledb first), and restarts when the set changes.
+
+## The contract between the build and the module
+
+Decided 2026-11-07 so both halves can be built at once. An extension bundle
+is an **engine** in the existing mirror index, so the module's existing
+`engine.Fetcher` (`ResolveMajor`, `Ensure`), digest checks and `doze.lock`
+engine pins work unchanged; no SDK or doze change is needed for fetching.
+
+- **Engine key:** `pgext-<name>-pg<major>`, e.g. `pgext-vector-pg17`. Name is
+  the extension's `CREATE EXTENSION` name (`vector`, not `pgvector`).
+- **Versions:** the extension's own version, verbatim (`0.8.7`, `2.31.0`).
+  `major_parts: 2`, so `ResolveMajor("pgext-vector-pg17", "0.8")` gives the
+  newest 0.8.x. The module's catalog names the default line per extension.
+- **Archive:** `pgext-<name>-pg<major>-<version>-<triple>.tar.gz`, same index,
+  same release, same sha256 rules as the engines.
+- **Layout inside the archive** (paths relative to its root):
+  - `bin/` always present (holds `pg_repack` etc.; a `.keep` file otherwise,
+    since `Ensure` treats a non-empty `bin/` as installed);
+  - `share/extension/<name>.control` and its `--*.sql` scripts;
+  - `lib/<name>.so` (Linux) or `lib/<name>.dylib` / `.so` (macOS, whatever
+    PGXS produces), plus vendored dependency libraries beside it, rpath
+    `$ORIGIN` / `@loader_path`, ad-hoc signed on macOS;
+  - `share/<other>/` for data (PostGIS `share/proj`, `share/gdal`);
+  - `bundle.json`: `{ "name", "version", "pg_major", "preload": ["timescaledb"],
+    "settings": { "cron.database_name": "{db}" }, "env": { "PROJ_DATA":
+    "{root}/share/proj" }, "requires": ["vector"], "license": "PostgreSQL",
+    "source": "<upstream repo>@<tag>", "recipe": "<doze-binaries path>" }`.
+- **Built against** the oldest Postgres minor doze ships for that major,
+  inside doze-binaries' own Postgres tree (never system or Homebrew Postgres).
+- **Verified** by CI: install into the matching Postgres tree, start it with the
+  bundle's preload, `CREATE EXTENSION` (with `requires` first), one smoke query.
 
 ## Files
 

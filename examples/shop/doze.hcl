@@ -17,7 +17,7 @@ variable "domains" {
 }
 
 defaults {
-  sleep = "5m"
+  sleep = "2m"
   names      = var.domains
 }
 
