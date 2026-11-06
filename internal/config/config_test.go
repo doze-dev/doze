@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"github.com/doze-dev/doze/internal/dozeversion"
 	"os"
 	"path/filepath"
 	"strings"
@@ -743,5 +744,31 @@ func TestRootListenIsGone(t *testing.T) {
 	_, err := Parse([]byte("listen = \"127.0.0.1:7000\"\nmodule fake \"x\" { version = 1 }"), "doze.hcl", nil)
 	if err == nil || !strings.Contains(err.Error(), "stack-wide `listen` is gone") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// A stack that needs a newer doze says so first, even when the rest of the
+// file is something this doze cannot read.
+func TestDozeVersionIsReadFirst(t *testing.T) {
+	was := dozeversion.Current
+	t.Cleanup(func() { dozeversion.Current = was })
+	dozeversion.Current = "0.2.0"
+	_, err := Parse([]byte("doze = \">= 0.3\"\nmodule fake \"x\" { version = 1, wakes_on = [x] }"), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "this stack needs doze 0.3 or newer; this doze is 0.2.0") {
+		t.Errorf("newer stack: %v", err)
+	}
+	_, err = Parse([]byte("doze = \">= 0.3\"\nmodule fake \"x\" { version = 1 } some new { syntax }}"), "doze.hcl", nil)
+	if err == nil || !strings.Contains(err.Error(), "cannot read the file") {
+		t.Errorf("newer syntax: %v", err)
+	}
+	if _, err := Parse([]byte("doze = \">= 0.1\"\nmodule fake \"x\" { version = 1 }"), "doze.hcl", nil); err != nil {
+		t.Errorf("an older floor is fine: %v", err)
+	}
+	if _, err := Parse([]byte("doze = \"soon\"\nmodule fake \"x\" { version = 1 }"), "doze.hcl", nil); err == nil || !strings.Contains(err.Error(), "is not a doze version") {
+		t.Errorf("bad value: %v", err)
+	}
+	dozeversion.Current = "dev"
+	if _, err := Parse([]byte("doze = \">= 9.9\"\nmodule fake \"x\" { version = 1 }"), "doze.hcl", nil); err != nil {
+		t.Errorf("a development build reads every file: %v", err)
 	}
 }

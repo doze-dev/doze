@@ -41,9 +41,12 @@ func LoadShallow(path string) (*ShallowConfig, error) {
 	for _, f := range files {
 		hf, diags := parser.ParseHCLFile(f)
 		if diags.HasErrors() {
-			return nil, diagError(parser, diags)
+			return nil, newerSyntax(parser, diags)
 		}
 		hclFiles = append(hclFiles, hf)
+	}
+	if err := checkDozeVersion(parser, hclFiles); err != nil {
+		return nil, err
 	}
 	if err := checkOldForms(parser, hclFiles); err != nil {
 		return nil, err

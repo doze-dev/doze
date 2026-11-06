@@ -36,6 +36,7 @@ generated from the module itself, so it can't be stale.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
+| `doze` | string | none | The oldest doze this stack needs: `doze = ">= 0.2"`. Read before anything else, so an older doze says to update instead of calling newer arguments mistakes. `doze init` writes it. |
 | `stack` | string | the config folder's name | Names the stack. It scopes local domains (`<name>.<stack>.doze`) and must be unique among the stacks running on the machine. |
 | `home` | string | `$DOZE_HOME` or `~/.doze` | Shared toolchain store + cache (deduplicated across projects). |
 | `data_dir` | string | `<home>/projects/<slug>` | This project's state (data dirs, sockets, logs). |

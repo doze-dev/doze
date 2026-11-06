@@ -4,12 +4,17 @@ package config
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/agext/levenshtein"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
+	"github.com/zclconf/go-cty/cty"
+
+	"github.com/doze-dev/doze/internal/dozeversion"
 )
 
 // The kinds of thing a stack declares. A reference is always
@@ -235,4 +240,58 @@ func pluginSource(src []byte, filename string) []byte {
 		return src
 	}
 	return f.Bytes()
+}
+
+// checkDozeVersion reads a root `doze = ">= 0.2"`, before anything else in
+// the file is judged: a stack written for a newer doze then says so, instead
+// of an older doze calling its newer arguments mistakes. A development build
+// runs every file.
+func checkDozeVersion(parser *hclparse.Parser, files []*hcl.File) error {
+	for _, f := range files {
+		body, ok := f.Body.(*hclsyntax.Body)
+		if !ok {
+			continue
+		}
+		attr, ok := body.Attributes["doze"]
+		if !ok {
+			continue
+		}
+		v, diags := attr.Expr.Value(nil)
+		if diags.HasErrors() || v.Type() != cty.String || v.IsNull() {
+			return posErr(parser, attr.SrcRange, "`doze` is the oldest doze this stack needs, as text", `write: doze = ">= 0.2"`)
+		}
+		raw := strings.TrimSpace(v.AsString())
+		want := strings.TrimSpace(strings.TrimPrefix(raw, ">="))
+		if !dozeversion.Released(want) {
+			return posErr(parser, attr.SrcRange, fmt.Sprintf("`doze = %q` is not a doze version", raw), `write: doze = ">= 0.2", the oldest doze this stack needs`)
+		}
+		if dozeversion.NeedsNewer(want) {
+			return posErr(parser, attr.SrcRange,
+				fmt.Sprintf("this stack needs doze %s or newer; this doze is %s", want, strings.TrimPrefix(dozeversion.Current, "v")),
+				"update doze (brew upgrade doze, or in the app: Settings › About), then run the command again")
+		}
+	}
+	return nil
+}
+
+// reDozeLine finds a root `doze = ">= 0.2"` in text that did not parse.
+var reDozeLine = regexp.MustCompile(`(?m)^\s*doze\s*=\s*"\s*(?:>=)?\s*([0-9][0-9.]*)\s*"`)
+
+// newerSyntax is the error for a file that does not parse but says it needs
+// a newer doze: its new syntax is the likelier cause than a mistake.
+func newerSyntax(parser *hclparse.Parser, diags hcl.Diagnostics) error {
+	for _, d := range diags {
+		if d.Subject == nil {
+			continue
+		}
+		f := parser.Files()[d.Subject.Filename]
+		if f == nil {
+			continue
+		}
+		if m := reDozeLine.FindSubmatch(f.Bytes); m != nil && dozeversion.NeedsNewer(string(m[1])) {
+			return fmt.Errorf("%s: this stack needs doze %s or newer; this doze is %s, and cannot read the file. Update doze (brew upgrade doze, or in the app: Settings › About)",
+				d.Subject.Filename, m[1], strings.TrimPrefix(dozeversion.Current, "v"))
+		}
+	}
+	return diagError(parser, diags)
 }

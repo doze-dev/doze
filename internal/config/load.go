@@ -78,7 +78,7 @@ func (l *loader) loadFiles(path string, files []string, primary string, cliVars 
 	for _, f := range files {
 		hf, diags := l.parser.ParseHCLFile(f)
 		if diags.HasErrors() {
-			return nil, diagError(l.parser, diags)
+			return nil, newerSyntax(l.parser, diags)
 		}
 		l.files = append(l.files, hf)
 	}
@@ -160,7 +160,7 @@ func parse(src []byte, filename string, l *loader) (*Config, error) {
 	l.parser = hclparse.NewParser()
 	file, diags := l.parser.ParseHCL(src, filename)
 	if diags.HasErrors() {
-		return nil, diagError(l.parser, diags)
+		return nil, newerSyntax(l.parser, diags)
 	}
 	l.files = []*hcl.File{file}
 	cfg, err := l.buildConfig(file.Body, filename, nil)
@@ -170,12 +170,15 @@ func parse(src []byte, filename string, l *loader) (*Config, error) {
 // buildConfig validates a (possibly merged) HCL body into a Config.
 func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInputs) (*Config, error) {
 	parser := l.parser
+	if err := checkDozeVersion(parser, l.files); err != nil {
+		return nil, err
+	}
 	if err := checkOldForms(parser, l.files); err != nil {
 		return nil, err
 	}
 	schema := &hcl.BodySchema{
 		Attributes: []hcl.AttributeSchema{
-			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "stack"},
+			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "stack"}, {Name: "doze"},
 		},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "defaults"},
@@ -253,6 +256,8 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 			dst = &cfg.DataDir
 		case "stack":
 			dst = &cfg.StackName
+		case "doze":
+			continue // read first, by checkDozeVersion
 		}
 		if diags := gohcl.DecodeExpression(attr.Expr, ctx, dst); diags.HasErrors() {
 			return nil, diagError(parser, diags)

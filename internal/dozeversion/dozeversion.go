@@ -52,3 +52,17 @@ func Older(a, b string) bool {
 
 // NeedsNewer says this doze is older than need.
 func NeedsNewer(need string) bool { return Older(Current, need) }
+
+// Marker is the line a new doze.hcl starts with: the oldest doze the stack
+// needs, this one's major and minor ("0.2"). Empty for a development build,
+// which has no version to name.
+func Marker() string {
+	if !Released(Current) {
+		return ""
+	}
+	parts := strings.Split(strings.TrimPrefix(Current, "v"), ".")
+	if len(parts) > 2 {
+		parts = parts[:2]
+	}
+	return `doze = ">= ` + strings.Join(parts, ".") + `" # the oldest doze this stack needs` + "\n\n"
+}

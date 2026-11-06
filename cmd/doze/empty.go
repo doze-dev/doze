@@ -8,6 +8,7 @@ import (
 
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/display"
+	"github.com/doze-dev/doze/internal/dozeversion"
 	"github.com/doze-dev/doze/internal/projects"
 )
 
@@ -39,7 +40,7 @@ func setupFolder(dir, action, arg string) error {
 			return fmt.Errorf("doze %s: %s", action, lastLine(string(out), err.Error()))
 		}
 	case "empty":
-		if err := os.WriteFile(path, []byte(display.StarterFile), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(dozeversion.Marker()+display.StarterFile), 0o644); err != nil {
 			return err
 		}
 	default:
