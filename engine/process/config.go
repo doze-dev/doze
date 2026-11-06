@@ -99,6 +99,14 @@ type restartBlock struct {
 	MaxRetries int    `hcl:"max_retries,optional"`
 }
 
+// AppSchema is the schema an app block's own body is decoded with (the
+// arguments config reads off every block, such as `port`, are not in it). The
+// editor schema's drift test holds its table to this.
+func AppSchema() *hcl.BodySchema {
+	s, _ := gohcl.ImpliedBodySchema(hclConfig{})
+	return s
+}
+
 // Defaults for unset fields.
 const (
 	readyInterval     = time.Second

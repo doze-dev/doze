@@ -777,6 +777,23 @@ Root settings live in `doze.hcl`; instance blocks may be split across sibling
 `*.doze.hcl` files (merged automatically), or pass `--config <dir>` to merge
 every `*.hcl` in a directory. See [Files & storage](/guides/files-and-storage/#breaking-config-into-files).
 
+## Editor schema
+
+[`/schema/doze-hcl.json`](/schema/doze-hcl.json) lists everything on this
+page as data: the root arguments, each block with its labels, and each
+argument with its type and a line on what it does. It is generated from the
+loader's own tables and checked against them by a test, so it changes when doze
+does. A `module` block is marked `open`: its own arguments belong to the module
+and are on its [registry](https://doze.nerdmenot.in/registry/) page.
+
+No editor reads it by itself today. The HashiCorp HCL extension for VS Code
+highlights HCL syntax but takes no schema, and terraform-ls completes Terraform
+files only. The file follows the block-schema shape of
+`terraform providers schema -json` (`attributes`, `block_types`,
+`nesting_mode`), so it is a starting point for a language server, a snippet
+generator or an assistant that writes `doze.hcl`. For layout, `doze fmt` (or
+`doze fmt --check` in CI) is the formatter.
+
 ## Versions & the lockfile
 
 A bare major (`version = 16`) resolves to the newest minor and is pinned in

@@ -174,6 +174,25 @@ func parse(src []byte, filename string, l *loader) (*Config, error) {
 	return cfg, invalid(err)
 }
 
+// rootSchema is what doze.hcl may hold at its top level. (A root `listen` is
+// an old form, refused by checkOldForms before this schema is applied.)
+var rootSchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "stack"}, {Name: "doze"},
+	},
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: "defaults"},
+		{Type: "tls"},
+		{Type: "variable", LabelNames: []string{"name"}},
+		{Type: "locals"},
+		{Type: "output", LabelNames: []string{"name"}},
+		{Type: KindModule, LabelNames: []string{"type", "name"}},
+		{Type: KindApp, LabelNames: []string{"name"}},
+		{Type: KindService, LabelNames: []string{"name"}},
+		{Type: KindTask, LabelNames: []string{"name"}},
+	},
+}
+
 // buildConfig validates a (possibly merged) HCL body into a Config.
 func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInputs) (*Config, error) {
 	parser := l.parser
@@ -183,24 +202,7 @@ func (l *loader) buildConfig(body hcl.Body, primaryPath string, inputs *varInput
 	if err := checkOldForms(parser, l.files); err != nil {
 		return nil, err
 	}
-	schema := &hcl.BodySchema{
-		Attributes: []hcl.AttributeSchema{
-			{Name: "listen"}, {Name: "home"}, {Name: "data_dir"}, {Name: "stack"}, {Name: "doze"},
-		},
-		Blocks: []hcl.BlockHeaderSchema{
-			{Type: "defaults"},
-			{Type: "tls"},
-			{Type: "variable", LabelNames: []string{"name"}},
-			{Type: "locals"},
-			{Type: "output", LabelNames: []string{"name"}},
-			{Type: KindModule, LabelNames: []string{"type", "name"}},
-			{Type: KindApp, LabelNames: []string{"name"}},
-			{Type: KindService, LabelNames: []string{"name"}},
-			{Type: KindTask, LabelNames: []string{"name"}},
-		},
-	}
-
-	content, diags := body.Content(schema)
+	content, diags := body.Content(rootSchema)
 	if diags.HasErrors() {
 		return nil, diagError(parser, diags)
 	}

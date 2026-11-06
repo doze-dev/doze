@@ -19,6 +19,11 @@ import (
 	"github.com/doze-dev/doze/internal/runspec"
 )
 
+// instanceMetaSchema is the meta-arguments of a module or app block, read
+// before its body is decoded. (`depends_on` is an old form, refused with its
+// new spelling.)
+var instanceMetaSchema = &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"}, {Name: "enabled"}, {Name: "after"}}}
+
 // expandInstanceBlock turns one module or app block into one or more pending
 // instances. A plain block yields one; a `count`/`for_each` block is stamped into
 // several, each with a flat derived name (label_key / label_index) and a child
@@ -30,8 +35,7 @@ func (l *loader) expandInstanceBlock(cfg *Config, block *hcl.Block, declRanges m
 	if err != nil {
 		return nil, err
 	}
-	metaSchema := &hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "count"}, {Name: "for_each"}, {Name: "depends_on"}, {Name: "enabled"}, {Name: "after"}}}
-	meta, restBody, diags := block.Body.PartialContent(metaSchema)
+	meta, restBody, diags := block.Body.PartialContent(instanceMetaSchema)
 	if diags.HasErrors() {
 		return nil, diagError(parser, diags)
 	}
