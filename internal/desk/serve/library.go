@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	names "github.com/doze-dev/doze-names"
@@ -72,6 +73,17 @@ func (s *Service) Library() view.Library {
 	lib.OpenAtLogin = autostart.Enabled()
 	lib.Others = others(home)
 	s.mu.Unlock()
+	lib.Leftovers = s.leftoverCount()
+	for i := range lib.Stacks {
+		for j, a := range lib.Stacks[i].Addresses {
+			if a.Host == "" || a.Unready {
+				continue
+			}
+			if url := s.urlFor(a.Host); url != "" {
+				lib.Stacks[i].Addresses[j].Text, lib.Stacks[i].Addresses[j].URL = url, url
+			}
+		}
+	}
 	// A doze.hcl that does not load is said on its row (configError takes
 	// the lock itself, so this is after it).
 	for _, st := range stacks {
@@ -268,17 +280,8 @@ func (s *Service) Stack(key, action string, chosen []string) error {
 		return errors.New("no such stack")
 	}
 	switch action {
-	case "forget":
-		if st.Running {
-			return errors.New("stop it first: Forget is for a stack that is not running")
-		}
-		if err := os.Remove(filepath.Join(key, projects.FileName)); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		s.hub.Refresh()
-		s.changed()
-		s.Say("forgot "+st.Name+"; everything is still on disk", false)
-		return nil
+	case "forget", "remove":
+		return s.remove(key, st)
 	case "up-last", "up-all", "up", "down", "restart":
 	default:
 		return fmt.Errorf("no such action %q", action)
@@ -594,4 +597,55 @@ func (s *Service) watchConfigs(ctx context.Context) {
 			s.changed()
 		}
 	}
+}
+
+// remove takes a stack out of doze, running or not, whatever is left of its
+// folder: its daemon is stopped (by its pid, so a deleted folder is no
+// obstacle), its record and stale control files go, and so do the domain
+// routes it claimed. Its folder, doze.hcl and data stay where they are;
+// opening the folder again brings it back, with its data.
+func (s *Service) remove(key string, st hub.StackView) error {
+	s.mu.Lock()
+	if w := s.busy[key]; w != "" {
+		s.mu.Unlock()
+		return fmt.Errorf("%s is already %s", st.Name, w)
+	}
+	if s.busy == nil {
+		s.busy, s.failed = map[string]string{}, map[string]*view.StackFailure{}
+	}
+	s.busy[key] = "removing"
+	s.mu.Unlock()
+	s.changed()
+	go func() {
+		var failure *view.StackFailure
+		if pid, alive, ok := hub.DaemonPID(key); ok && alive {
+			// The daemon stops its services as it exits; a slow one gets the
+			// time doze down gives it.
+			_ = syscall.Kill(pid, syscall.SIGTERM)
+			for i := 0; i < 200 && hub.Alive(pid); i++ {
+				time.Sleep(100 * time.Millisecond)
+			}
+			if hub.Alive(pid) {
+				failure = &view.StackFailure{What: "Removing " + st.Name + " failed", Lines: []string{fmt.Sprintf("its daemon (pid %d) did not stop; try doze down in its folder", pid)}}
+			}
+		}
+		if failure == nil {
+			for _, f := range []string{projects.FileName, filepath.Join("run", "doze.admin.sock"), filepath.Join("run", "doze.pid")} {
+				_ = os.Remove(filepath.Join(key, f))
+			}
+			if st.Dir != "" {
+				_ = names.ForgetProject(s.hub.Home(), st.Dir)
+			}
+			s.Say("removed "+st.Name+" from doze; its folder and data are still on disk, and opening the folder brings it back", false)
+		}
+		s.mu.Lock()
+		delete(s.busy, key)
+		if failure != nil {
+			s.failed[key] = failure
+		}
+		s.mu.Unlock()
+		s.hub.Refresh()
+		s.changed()
+	}()
+	return nil
 }

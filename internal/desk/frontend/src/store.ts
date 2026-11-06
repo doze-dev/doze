@@ -67,6 +67,8 @@ export interface State {
   /** tab is the instance page's tab; sel the selected row of each console table, by block id. Go follows both. */
   tab: string;
   sel: Record<string, number>;
+  /** closed is the stacks whose tab was closed: still running, listed in the Library, back in the strip when opened again. */
+  closed: string[];
 }
 
 export const store = new Store<State>({
@@ -94,7 +96,38 @@ export const store = new Store<State>({
   future: [],
   tab: "",
   sel: {},
+  closed: readClosed(),
 });
+
+const closedKey = "doze.closedTabs";
+function readClosed(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(closedKey) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function saveClosed(closed: string[]) {
+  set({ closed });
+  try {
+    localStorage.setItem(closedKey, JSON.stringify(closed));
+  } catch {
+    // no storage
+  }
+}
+
+/** closeTab takes a stack's tab off the strip; the stack keeps running. Closing the tab on screen goes to the tab before it, or the Library. */
+export async function closeTab(key: string) {
+  const s = get();
+  const tabs = tabStacks(s.stacks, s.where?.key ?? "", s.closed);
+  const i = tabs.findIndex((x) => x.key === key);
+  saveClosed([...s.closed.filter((k) => k !== key), key]);
+  if (s.where?.key === key) {
+    const next = tabs[i - 1] ?? tabs[i + 1];
+    await go(next && next.key !== key ? { key: next.key, page: "home" } : { key: "", page: "library" });
+  }
+}
 
 /** set patches the store, outside React or in. */
 export function set(patch: Partial<State> | ((s: State) => Partial<State>)) {
@@ -151,6 +184,7 @@ export async function go(where: Where, how: "push" | "back" | "forward" = "push"
   const s = get();
   const sameStack = s.where?.key === where.key;
   const trail = how === "push" && s.where && !samePlace(s.where, where) ? { history: [...s.history, s.where].slice(-50), future: [] } : {};
+  if (where.key && s.closed.includes(where.key)) saveClosed(s.closed.filter((k) => k !== where.key));
   if (where.page !== "empty") {
     try {
       localStorage.setItem(lastKey, JSON.stringify({ key: where.key, page: where.page, instance: where.instance }));
@@ -254,8 +288,8 @@ export async function ask(key: string, name: string, verb: string) {
   }
 }
 
-/** askStack runs a stack action (down, forget), asking first when Go says to: down when something in it is in use, forget always. */
-export async function askStack(key: string, action: "down" | "forget") {
+/** askStack runs a stack action (down, remove), asking first when Go says to: down when something in it is in use, remove always. */
+export async function askStack(key: string, action: "down" | "remove") {
   const t = await transport();
   try {
     const d = await t.dialog(key, "", action);
@@ -276,6 +310,8 @@ export async function choose(b: view.Button, text = "") {
   set({ dialog: null });
   if (!dialog || !b.verb) return;
   const t = await transport();
+  // Removing the stack on screen leaves its page for the Library, where the row goes.
+  if (dialog.d.stack && b.verb === "remove" && s.where?.key === dialog.key) void go({ key: "", page: "library" });
   try {
     if (dialog.d.stack) await t.stack(dialog.key, b.verb, b.targets ?? []);
     else if (dialog.d.setup) await t.setup(dialog.d.setup, b.verb, text);
@@ -556,9 +592,9 @@ export async function up() {
   if (w) await go(w);
 }
 
-/** tabStacks are the stacks with a tab, in the strip's order: every running stack, and the stopped one being looked at. ⌘1–9 count these. */
-export function tabStacks(stacks: serve.StackSummary[], current: string): serve.StackSummary[] {
-  return stacks.filter((s) => s.running || s.key === current);
+/** tabStacks are the stacks with a tab, in the strip's order: every running stack whose tab was not closed, and the one being looked at. ⌘1–9 count these. */
+export function tabStacks(stacks: serve.StackSummary[], current: string, closed: string[] = []): serve.StackSummary[] {
+  return stacks.filter((s) => s.key === current || (s.running && !closed.includes(s.key)));
 }
 
 /** repair runs the machine setup behind the administrator prompt; what happened is said by Go. */

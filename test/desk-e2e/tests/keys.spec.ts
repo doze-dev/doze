@@ -46,7 +46,7 @@ test("space on a focused button presses that button, not the selected stack's sw
 test("esc in the stack's ▾ menu closes the menu and nothing else", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: /^shop/ }).click();
-  await page.getByRole("button", { name: "More ways to start shop" }).click();
+  await page.getByRole("button", { name: "More for shop" }).click();
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   // Focus starts in the menu; the arrows move it.

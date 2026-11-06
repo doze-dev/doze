@@ -26,12 +26,12 @@ func addressOf(v control.InstanceView) (address, url string) {
 	switch {
 	case addr == "":
 		return "", ""
+	case strings.HasPrefix(addr, "http") && v.Kind == "module" && v.URL == "" && v.Resource == "":
+		// A module is web only when it says so; its name alone is not.
+		return display.Address(v), ""
 	case strings.HasPrefix(addr, "http"):
-		if v.Kind == "module" {
-			// A module's console is reached by name and port; the name is
-			// what the row shows.
-			return strings.TrimPrefix(addr, "http://") + port, addr + port
-		}
+		// Whole, http:// and all: a browser takes a bare .doze name for a
+		// search.
 		return addr + port, addr + port
 	}
 	return addr + port, ""

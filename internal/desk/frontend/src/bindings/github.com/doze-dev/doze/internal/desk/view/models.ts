@@ -639,6 +639,35 @@ export interface KV {
 }
 
 /**
+ * Leftover is something a stack left behind, out of step with doze: an
+ * engine process whose daemon died, a daemon for a stack not listed, a
+ * state folder with no stack, a route for a folder that is gone.
+ */
+export interface Leftover {
+    /**
+     * daemon, engine, state, route
+     */
+    "kind": string;
+
+    /**
+     * what ClearLeftover takes
+     */
+    "id": string;
+    "what": string;
+    "detail": string;
+
+    /**
+     * Stop, Remove, Delete…
+     */
+    "action": string;
+
+    /**
+     * Danger is a deletion of data: asked one by one, never by "all".
+     */
+    "danger"?: boolean;
+}
+
+/**
  * LibStack is one row of the library.
  */
 export interface LibStack {
@@ -646,6 +675,12 @@ export interface LibStack {
      * Busy is the stack action in flight, as on its page.
      */
     "busy"?: string;
+
+    /**
+     * Missing says the stack's files went away: "the folder is gone" or
+     * "doze.hcl is gone". It cannot start; Remove takes it off the list.
+     */
+    "missing"?: string;
 
     /**
      * Broken is its doze.hcl failing to load, in a line: "doze.hcl does not
@@ -755,6 +790,12 @@ export interface Library {
      * OpenAtLogin says the app starts at login, in the menu bar only.
      */
     "openAtLogin"?: boolean;
+
+    /**
+     * Leftovers counts what stacks left behind (Service.Leftovers): the
+     * Machine line offers to clean up when there are any.
+     */
+    "leftovers"?: number;
 }
 
 /**

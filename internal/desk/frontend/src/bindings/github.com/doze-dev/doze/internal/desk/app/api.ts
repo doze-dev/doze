@@ -50,6 +50,14 @@ export function ChooseFolder(): $CancellablePromise<string> {
 }
 
 /**
+ * ClearLeftover clears one leftover by its ID, or every one that deletes no
+ * data with "all".
+ */
+export function ClearLeftover(id: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.ClearLeftover", id);
+}
+
+/**
  * Console is an instance's console tab, resolved for the selection.
  */
 export function Console(key: string, name: string, tab: string, sel: { [_ in string]?: number } | null): $CancellablePromise<view$0.Console> {
@@ -125,6 +133,14 @@ export function Home(key: string): $CancellablePromise<view$0.Home> {
  */
 export function Instance(key: string, name: string): $CancellablePromise<view$0.Instance> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Instance", key, name);
+}
+
+/**
+ * Leftovers are what stacks left behind, out of step with doze: stray
+ * engines and daemons, state with no stack, stale routes.
+ */
+export function Leftovers(): $CancellablePromise<view$0.Leftover[] | null> {
+    return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Leftovers");
 }
 
 /**
@@ -237,7 +253,7 @@ export function Setup(dir: string, action: string, arg: string): $CancellablePro
 }
 
 /**
- * Stack acts on a whole stack: up-last, up-all, up (with names), down, forget.
+ * Stack acts on a whole stack: up-last, up-all, up (with names), down, remove.
  */
 export function Stack(key: string, action: string, names: string[] | null): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.Stack", key, action, names);

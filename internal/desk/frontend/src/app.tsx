@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice, useStore } from "./store";
+import { store, ask, back, chooseFolder, choose, copy, forward, go, run, say, set, stackAction, tabStacks, up, useBoot, useSlice, useStore } from "./store";
 import { Titlebar } from "./components/titlebar";
 import { Sidebar } from "./components/sidebar";
 import { Dialog } from "./components/dialog";
@@ -95,7 +95,7 @@ export function App() {
         void go({ key: "", page: "library" });
       } else if (mod && e.key >= "1" && e.key <= "9") {
         // The tabs as the strip shows them, so ⌘3 is the third tab.
-        const s = tabStacks(stacks, where?.key ?? "")[Number(e.key) - 1];
+        const s = tabStacks(stacks, where?.page === "library" || where?.page === "settings" ? "" : (where?.key ?? ""), store.get().closed)[Number(e.key) - 1];
         if (s) {
           e.preventDefault();
           void go({ key: s.key, page: "home" });

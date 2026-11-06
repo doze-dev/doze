@@ -183,6 +183,11 @@ func (h *Hub) Refresh() {
 	}
 	for _, sock := range socks {
 		key := filepath.Dir(filepath.Dir(sock))
+		if _, alive, ok := DaemonPID(key); ok && !alive {
+			// The socket outlived its daemon (it was killed, or the machine
+			// restarted): the stack is stopped, not "not answering".
+			continue
+		}
 		seen[key] = true
 		if _, ok := h.stacks[key]; ok {
 			continue

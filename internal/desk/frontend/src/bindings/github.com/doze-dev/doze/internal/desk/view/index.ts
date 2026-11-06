@@ -30,6 +30,7 @@ export type {
     Home,
     Instance,
     KV,
+    Leftover,
     LibStack,
     Library,
     Line,

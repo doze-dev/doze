@@ -139,7 +139,15 @@ func (a *API) Copy(text string) error {
 // Library is the first tab: every stack, the help strip, the machine line.
 func (a *API) Library() view.Library { return a.s.Library() }
 
-// Stack acts on a whole stack: up-last, up-all, up (with names), down, forget.
+// Leftovers are what stacks left behind, out of step with doze: stray
+// engines and daemons, state with no stack, stale routes.
+func (a *API) Leftovers() []view.Leftover { return a.s.Leftovers() }
+
+// ClearLeftover clears one leftover by its ID, or every one that deletes no
+// data with "all".
+func (a *API) ClearLeftover(id string) error { return a.s.ClearLeftover(id) }
+
+// Stack acts on a whole stack: up-last, up-all, up (with names), down, remove.
 func (a *API) Stack(key, action string, names []string) error { return a.s.Stack(key, action, names) }
 
 // Timeline is a stack's last half hour: lanes of awake spans and crashes.

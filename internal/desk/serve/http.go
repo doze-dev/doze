@@ -229,6 +229,14 @@ func Handler(s *Service) http.Handler {
 		s.SetTheme(a.Theme)
 		return map[string]bool{"ok": true}, nil
 	})
+	call("leftovers", func(json.RawMessage) (any, error) { return s.Leftovers(), nil })
+	call("clearleftover", func(b json.RawMessage) (any, error) {
+		var a struct{ ID string }
+		if err := json.Unmarshal(b, &a); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, s.ClearLeftover(a.ID)
+	})
 	call("dismiss", func(b json.RawMessage) (any, error) {
 		var a struct{ Key string }
 		if err := json.Unmarshal(b, &a); err != nil {

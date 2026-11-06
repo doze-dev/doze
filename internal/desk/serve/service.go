@@ -172,6 +172,10 @@ type Service struct {
 	pendingInstance string
 	// pendingPage is a page the menu bar asked for with no stack: "settings".
 	pendingPage string
+	// leftoversN is the last count of leftovers, taken at leftoversAt.
+	leftoversN    int
+	leftoversAt   time.Time
+	leftoversBusy bool
 	// urls are the registry's URLs for names, kept a moment (urlFor).
 	urls map[string]urlSeen
 	// emptyShown is the folder with no doze.hcl the page was last sent to,
@@ -1142,7 +1146,7 @@ func (s *Service) fronted(h *view.Home, st hub.StackView) {
 				continue
 			}
 			if url := s.urlFor(v.Domain); url != "" {
-				r.Address, r.URL = strings.TrimPrefix(url, "http://"), url
+				r.Address, r.URL = url, url
 			}
 		}
 	}

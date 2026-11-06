@@ -159,6 +159,7 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
               </div>
             )}
             <Doctor checks={checks} />
+            <Leftovers />
             <p className="model">The same report as <span className="mono">doze doctor</span>, with the fixes attached.</p>
           </>
         )}
@@ -185,6 +186,99 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
         <Keys keys={part === "machine" ? [["c", "copy report"], ["esc", "back"]] : [["⌘,", "here"], ["esc", "back"]]} note="from the menu bar, the Library's Machine line, or ⌘," />
       </div>
     </div>
+  );
+}
+
+const KINDS: Record<string, string> = { daemon: "daemons", engine: "engines", state: "data", route: "routes" };
+
+// Leftovers is what stacks left behind, out of step with doze: an engine
+// whose daemon died, a daemon for a stack no longer listed (its folder
+// deleted, or another home's), data with no stack, a route for a folder
+// that is gone. Each has its own button; "Clean up" does all but the data,
+// which is deleted only one folder at a time, after asking.
+function Leftovers() {
+  const [items, setItems] = useState<view.Leftover[] | null>(null);
+  const [asking, setAsking] = useState("");
+  const [busy, setBusy] = useState("");
+  const [all, setAll] = useState<string[]>([]);
+  const load = () => transport().then((t) => t.leftovers().then(setItems));
+  useEffect(() => {
+    void load();
+  }, []);
+  const clear = async (id: string) => {
+    setBusy(id);
+    setAsking("");
+    const t = await transport();
+    try {
+      await t.clearLeftover(id);
+    } catch (e) {
+      t.log(`clear ${id}: ${String(e)}`);
+    }
+    setBusy("");
+    await load();
+  };
+  if (items === null) return null;
+  const safe = items.filter((l) => !l.danger).length;
+  const kinds = Array.from(new Set(items.map((l) => l.kind)));
+  return (
+    <section className="leftovers" aria-label="Left behind">
+      <div className="lh">
+        <h3>Left behind</h3>
+        <span className="dim">
+          {items.length === 0
+            ? "nothing: every process, folder and route doze sees belongs to a stack in the Library"
+            : `${items.length} thing${items.length === 1 ? "" : "s"} stacks left behind, out of step with doze`}
+        </span>
+        <span className="grow" />
+        <button className="btn quiet" onClick={() => void load()} disabled={!!busy}>
+          Look again
+        </button>
+        {safe > 0 && (
+          <button className="btn pri" disabled={!!busy} onClick={() => void clear("all")} title="Stops the stray processes and removes the stale routes; data is never deleted this way">
+            {busy === "all" ? "Cleaning up…" : `Clean up ${safe}`}
+          </button>
+        )}
+      </div>
+      {kinds.map((k) => (
+        <div key={k} className="chk" role="table" aria-label={KINDS[k] ?? k}>
+          <div className="cr sec">
+            {KINDS[k] ?? k}
+            <span>{items.filter((l) => l.kind === k).length}</span>
+          </div>
+          {items
+            .filter((l) => l.kind === k)
+            .slice(0, all.includes(k) ? undefined : 6)
+            .map((l) => (
+              <div key={l.id} className="cr">
+                <span className={"dot " + (l.danger ? "r" : "y")} aria-hidden />
+                <b title={l.what}>{l.what}</b>
+                <span className="d mono" title={l.detail}>
+                  {l.detail}
+                </span>
+                {asking === l.id ? (
+                  <span className="ask">
+                    <button className="btn danger" onClick={() => void clear(l.id)}>
+                      Delete it
+                    </button>
+                    <button className="btn quiet" onClick={() => setAsking("")}>
+                      Keep
+                    </button>
+                  </span>
+                ) : (
+                  <button className="copy" disabled={!!busy} onClick={() => (l.danger ? setAsking(l.id) : void clear(l.id))}>
+                    {busy === l.id || busy === "all" ? "…" : l.action}
+                  </button>
+                )}
+              </div>
+            ))}
+          {!all.includes(k) && items.filter((l) => l.kind === k).length > 6 && (
+            <button className="cr more" onClick={() => setAll([...all, k])}>
+              and {items.filter((l) => l.kind === k).length - 6} more like these · show all
+            </button>
+          )}
+        </div>
+      ))}
+    </section>
   );
 }
 

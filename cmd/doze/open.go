@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/ui"
 
 	"github.com/doze-dev/doze/internal/desk/app"
@@ -68,7 +69,10 @@ With no display (SSH, CI) it prints the status table instead.`,
 			if fixture != "" || linkArg != "" {
 				// A fixture has no project, and a link names its own.
 				dir = ""
-			} else if _, err := loadConfig(); err == nil {
+			} else if _, err := config.LoadShape(configPath, nil); err == nil {
+				// The shape only: a full load starts the modules' plugin
+				// processes, and an open handed over to a running app exits
+				// without reaping them.
 				if dir == "" {
 					dir, _ = filepath.Abs(configDir(configPath))
 				}

@@ -65,8 +65,12 @@ export interface Transport {
   setup(dir: string, action: string, arg: string): Promise<void>;
   /** library is the first tab: every stack, the help strip, the machine line. */
   library(): Promise<view.Library>;
-  /** stack acts on a whole stack: up-last, up-all, up with names, down, forget. */
+  /** stack acts on a whole stack: up-last, up-all, up with names, down, remove. */
   stack(key: string, action: string, names: string[]): Promise<void>;
+  /** leftovers are what stacks left behind: stray engines and daemons, state with no stack, stale routes. */
+  leftovers(): Promise<view.Leftover[]>;
+  /** clearLeftover clears one by its id; "all" clears every one that deletes no data. */
+  clearLeftover(id: string): Promise<void>;
   /** dismissHints hides the Library's help strip for good. */
   dismissHints(): Promise<void>;
   /** chooseFolder shows the folder picker and opens what was chosen; "" when cancelled. */
@@ -124,6 +128,8 @@ async function wails(): Promise<Transport> {
     setup: (dir, action, arg) => api.Setup(dir, action, arg),
     library: () => api.Library(),
     stack: (key, action, names) => api.Stack(key, action, names),
+    leftovers: () => api.Leftovers().then((l) => l ?? []),
+    clearLeftover: (id) => api.ClearLeftover(id),
     dismissHints: () => api.DismissHints(),
     chooseFolder: () => api.ChooseFolder(),
     setView: (key, view) => api.SetView(key, view),
@@ -193,6 +199,8 @@ function http(): Transport {
     setup: (dir, action, arg) => call("setup", { dir, action, arg }),
     library: () => call("library", {}),
     stack: (key, action, names) => call("stack", { key, action, names }),
+    leftovers: () => call<view.Leftover[] | null>("leftovers", {}).then((l) => l ?? []),
+    clearLeftover: (id) => call("clearleftover", { id }),
     dismissHints: () => call("dismisshints", {}),
     setView: (key, view) => call("setview", { key, view }),
     chooseFolder: async () => {

@@ -213,7 +213,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
             aria-label={home.busy ? `${home.stack} is ${home.busy}` : home.running ? `${home.stack} is up` : `${home.stack} is stopped`}
             onClick={() => void (home.running ? askStop(stackKey) : stackAction(stackKey, "up-last"))}
           />
-          <button className={"ib" + (menu ? " on" : "")} aria-label={`More ways to start ${home.stack}`} onClick={() => setMenu((m) => !m)}>
+          <button className={"ib" + (menu ? " on" : "")} aria-label={`More for ${home.stack}`} onClick={() => setMenu((m) => !m)}>
             ▾
           </button>
         </span>

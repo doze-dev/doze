@@ -80,7 +80,7 @@ func DialogOf(st hub.StackView, name, verb string, now time.Time) Dialog {
 	if name == "" && verb == "down" {
 		return stopDialog(st)
 	}
-	if name == "" && verb == "forget" {
+	if name == "" && (verb == "forget" || verb == "remove") {
 		return forgetDialog(st)
 	}
 	snap := snapshot(st)
@@ -244,23 +244,26 @@ func stopDialog(st hub.StackView) Dialog {
 	return d
 }
 
-// forgetDialog is the question before the Library lets go of a stopped
-// stack. Nothing is deleted, but a stack vanishing from a key press should
-// not happen unseen.
+// forgetDialog is the question before a stack is removed from doze, running
+// or not: its services stop, its files stay. Always asked: a stack vanishing
+// from a key press should not happen unseen.
 func forgetDialog(st hub.StackView) Dialog {
 	name := st.Name
 	if name == "" {
 		name = "this stack"
 	}
+	what := "doze stops listing it: the Library, its tab and the menu bar."
+	if st.Running {
+		what = "Its services stop, then doze stops listing it: the Library, its tab and the menu bar."
+	}
 	return Dialog{
-		Kind: "forget", Title: "Forget " + name + "?", Stack: true, Needed: true,
+		Kind: "remove", Title: "Remove " + name + " from doze?", Stack: true, Needed: true,
 		Rows: []KV{
-			{K: "What happens", V: "doze stops listing it in the Library and the menu bar."},
-			{K: "Data", V: "Kept: the folder, its doze.hcl and its data stay on disk. Opening the folder again brings it back."},
+			{K: "What happens", V: what},
+			{K: "Files", V: "Kept: the folder, its doze.hcl and its data stay on disk. Open the folder again (⌘O, or drop it on the window) to bring it back, data and all."},
 		},
-		Buttons: []Button{{Label: "Forget " + name, Verb: "forget", Primary: true}, {Label: "Cancel", Cancel: true}},
+		Buttons: []Button{{Label: "Remove " + name, Verb: "remove", Primary: true}, {Label: "Cancel", Cancel: true}},
 		Default: 1,
-		Foot:    []string{"From a script: remove it from ~/.doze/projects"},
 	}
 }
 

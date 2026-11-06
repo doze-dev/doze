@@ -19,6 +19,8 @@ test("the Library lists every stack with a switch, as the Library board does", a
   await expect(shop.locator(".fig")).toContainText(/\d awake · /);
   await expect(shop.locator(".fig")).toContainText(/\d{3} MB · \d connections/);
   await expect(shop.locator(".pill").first()).toContainText("https://dev.shop.example");
+  // A .doze web address is written whole: a browser takes a bare one for a search.
+  await expect(shop.locator(".pills")).toContainText(/http:\/\/\w+\.shop\.doze/);
   await expect(shop.getByRole("switch")).toHaveAttribute("aria-checked", "true");
   const acme = rows.nth(1);
   await expect(acme).toContainText("acme");
@@ -37,14 +39,14 @@ test("the Library lists every stack with a switch, as the Library board does", a
   await expect(page.locator(".keys")).toContainText("the first tab; it never closes");
   await page.screenshot({ path: `.desk-look/Library-${info.project.name}.png` });
 
-  // The ▾ beside the switch: as last time, everything, and Forget for a
-  // stopped stack.
-  await acme.getByRole("button", { name: "More ways to start acme" }).click();
-  const menu = page.getByRole("menu", { name: "Ways to start acme" });
+  // The ▾ beside the switch: as last time, everything, and Remove.
+  await acme.getByRole("button", { name: "More for acme" }).click();
+  const menu = page.getByRole("menu", { name: "acme" });
   await expect(menu).toContainText("As last time");
   await expect(menu).toContainText("api, web, db, and what they need");
   await expect(menu).toContainText("Everything");
-  await expect(menu).toContainText("Forget this stack");
+  await expect(menu).toContainText("Remove from doze…");
+  await expect(menu).toContainText("stops listing it; every file stays");
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 });
@@ -210,10 +212,61 @@ test("a folder opened while the window is open lands on its page: three ways in,
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("fresh", { timeout: 10000 });
   await expect(page.locator(".strip")).toContainText("Stopped");
   await expect(page.getByRole("switch", { name: "web is stopped" })).toBeVisible();
-  // Forget it again, so the next spec's Library is as it was.
+  // Remove it again, so the next spec's Library is as it was.
   await page.keyboard.press("Escape");
   await page.locator(".lrow", { hasText: "fresh" }).first().click();
   await page.keyboard.press("Backspace");
-  await page.getByRole("dialog").getByRole("button", { name: "Forget fresh" }).click();
+  const dlg = page.getByRole("dialog", { name: "Remove fresh from doze?" });
+  await expect(dlg).toContainText("the folder, its doze.hcl and its data stay on disk");
+  await dlg.getByRole("button", { name: "Remove fresh" }).click();
   await expect(page.locator(".lrow", { hasText: "fresh" })).toHaveCount(0);
+  expect(fs.existsSync(path.join(fresh, "doze.hcl"))).toBe(true);
+});
+
+test("a stack whose folder was deleted says so, cannot start, and is removed from its row", async ({ page }, info) => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  await page.goto("/");
+  await expect(page.locator(".lib")).toBeVisible();
+  const gone = fs.mkdtempSync(path.join(os.tmpdir(), "doze-open-gone-"));
+  fs.writeFileSync(path.join(gone, "doze.hcl"), 'stack = "gone"\n\napp "web" {\n  run  = "true"\n  port = 3998\n}\n');
+  await page.evaluate((d) => fetch("/api/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir: d }) }), gone);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("gone", { timeout: 10000 });
+  await page.keyboard.press("Escape");
+  fs.rmSync(gone, { recursive: true, force: true });
+  const row = page.locator(".lrow", { hasText: "gone" }).first();
+  await expect(row).toContainText("the folder is gone", { timeout: 10000 });
+  await expect(row.getByRole("switch")).toBeDisabled();
+  await page.screenshot({ path: `.desk-look/LibraryMissing-${info.project.name}.png` });
+  await row.getByRole("button", { name: "Remove…" }).click();
+  await page.getByRole("dialog", { name: "Remove gone from doze?" }).getByRole("button", { name: "Remove gone" }).click();
+  await expect(page.locator(".lrow", { hasText: "gone" })).toHaveCount(0);
+});
+
+test("a running stack's tab closes and the stack keeps running; opening it brings the tab back", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: /^shop/ }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await page.getByRole("button", { name: "Close the shop tab" }).click();
+  await expect(page.getByRole("tab", { name: /^shop/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Library");
+  const shop = page.locator(".lrow", { hasText: "shop" }).first();
+  await expect(shop.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  // The strip remembers it (the fixture opens shop on every load, as
+  // doze open would, so a reload is not the check).
+  expect(await page.evaluate(() => localStorage.getItem("doze.closedTabs"))).toContain("shop");
+  await shop.dblclick();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop");
+  await expect(page.getByRole("tab", { name: /^shop/ })).toHaveCount(1);
+});
+
+test("Settings › Machine lists what stacks left behind, each with its way out", async ({ page }, info) => {
+  await page.goto("/");
+  await page.locator(".machine").getByRole("button", { name: "Machine…" }).click();
+  const left = page.getByRole("region", { name: "Left behind" });
+  await expect(left.getByRole("heading", { name: "Left behind" })).toBeVisible();
+  // What is listed depends on this machine; never cleaned up from a test.
+  await expect(left.locator(".lh .dim")).toContainText(/nothing: every process|stacks left behind/);
+  await page.screenshot({ path: `.desk-look/LeftBehind-${info.project.name}.png`, fullPage: true });
 });

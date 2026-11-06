@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -39,12 +40,18 @@ type Library struct {
 	Others []Other `json:"others,omitempty"`
 	// OpenAtLogin says the app starts at login, in the menu bar only.
 	OpenAtLogin bool `json:"openAtLogin,omitempty"`
+	// Leftovers counts what stacks left behind (Service.Leftovers): the
+	// Machine line offers to clean up when there are any.
+	Leftovers int `json:"leftovers,omitempty"`
 }
 
 // LibStack is one row of the library.
 type LibStack struct {
 	// Busy is the stack action in flight, as on its page.
 	Busy string `json:"busy,omitempty"`
+	// Missing says the stack's files went away: "the folder is gone" or
+	// "doze.hcl is gone". It cannot start; Remove takes it off the list.
+	Missing string `json:"missing,omitempty"`
 	// Broken is its doze.hcl failing to load, in a line: "doze.hcl does not
 	// load · line 9". A stopped stack cannot start while it is set.
 	Broken  string `json:"broken,omitempty"`
@@ -92,6 +99,9 @@ type Addr struct {
 	// Unready is an https domain this machine is not set up for yet: not a
 	// link, and not green, until the one-time setup is done.
 	Unready bool `json:"unready,omitempty"`
+	// Host is an app's .doze name, for the page's host to swap in the
+	// port-less URL while the front door is up; not sent.
+	Host string `json:"-"`
 }
 
 // Step is one of the help strip's three.
@@ -224,6 +234,7 @@ func libStackOf(st hub.StackView, now time.Time) LibStack {
 		name = filepath.Base(st.Dir)
 	}
 	row := LibStack{Key: st.Key, Name: name, Dir: display.Tilde(st.Dir), Running: st.Running, Live: st.Conn == hub.ConnLive, Addresses: []Addr{}}
+	row.Missing = missingFiles(st.Dir)
 	// The counts are the tally every surface uses.
 	t := display.TallyOf(st.Instances)
 	awake, dozing, waking, asleep, off, trouble := t.Awake, t.Dozing, t.Waking, t.Asleep, t.Off+t.Paused, t.Trouble+t.Failed
@@ -347,10 +358,17 @@ func addressesOf(st hub.StackView) ([]Addr, int) {
 		return false
 	})
 	for _, v := range names {
-		addr, _ := display.URL(v)
+		addr, port := display.URL(v)
 		a := Addr{Text: v.Domain, Up: display.AwakeNow(v)}
-		if strings.HasPrefix(addr, "http") {
-			a.URL = addr
+		// A module is web only when it says so; its name alone is not.
+		web := strings.HasPrefix(addr, "http") && (v.Kind != "module" || v.URL != "" || v.Resource != "")
+		if web {
+			// A web address is written whole, http:// and all: pasted
+			// bare, a browser takes a .doze name for a search.
+			a.Text, a.URL = addr+port, addr+port
+			if v.Kind == "app" || v.Kind == "service" {
+				a.Host = v.Domain
+			}
 		}
 		out = append(out, a)
 	}
@@ -370,4 +388,32 @@ type Other struct {
 	Owner string `json:"owner"`
 	PID   int    `json:"pid"`
 	URL   string `json:"url,omitempty"`
+}
+
+// missingFiles says what of a stack's files is gone, or "" when its
+// doze.hcl is there (or its folder is not known).
+func missingFiles(dir string) string {
+	if !filepath.IsAbs(dir) {
+		return ""
+	}
+	if _, err := os.Stat(filepath.Join(dir, "doze.hcl")); err == nil {
+		return ""
+	}
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return "the folder is gone"
+	}
+	return "doze.hcl is gone"
+}
+
+// Leftover is something a stack left behind, out of step with doze: an
+// engine process whose daemon died, a daemon for a stack not listed, a
+// state folder with no stack, a route for a folder that is gone.
+type Leftover struct {
+	Kind   string `json:"kind"` // daemon, engine, state, route
+	ID     string `json:"id"`   // what ClearLeftover takes
+	What   string `json:"what"`
+	Detail string `json:"detail"`
+	Action string `json:"action"` // Stop, Remove, Delete…
+	// Danger is a deletion of data: asked one by one, never by "all".
+	Danger bool `json:"danger,omitempty"`
 }

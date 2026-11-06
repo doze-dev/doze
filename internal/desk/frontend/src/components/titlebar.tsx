@@ -1,6 +1,6 @@
 import { transport, type serve } from "../transport";
 import { Bat } from "./bat";
-import { tabStacks } from "../store";
+import { closeTab, tabStacks, useStore } from "../store";
 
 // The title bar, as every board draws it: the Library tab first, then a
 // tab per open stack with its dot and a red count when something needs
@@ -24,9 +24,10 @@ export function Titlebar({
   onCommand: () => void;
   pending?: { name: string; dir: string };
 }) {
-  // A tab is a running stack, or the stopped one being looked at; the
-  // Library lists the rest.
-  const open = tabStacks(stacks, current);
+  // A tab is a running stack, or the one being looked at; the Library
+  // lists the rest. A closed tab's stack keeps running.
+  const closed = useStore((s) => s.closed);
+  const open = tabStacks(stacks, library ? "" : current, closed);
   return (
     <header
       className="tb"
@@ -41,18 +42,27 @@ export function Titlebar({
           <span className="t">Library</span>
         </button>
         {open.map((s, i) => (
-          <button
-            key={s.key}
-            role="tab"
-            aria-selected={!library && s.key === current}
-            className={"stab" + (!library && s.key === current ? " on" : "")}
-            onClick={() => onPick(s.key)}
-            title={`${s.dir}${s.broken ? " · doze.hcl does not load" : s.running && !s.live ? " · daemon not answering" : ""}  ⌘${i + 1}`}
-          >
-            <span className={"dot " + (s.trouble ? "r" : s.broken ? "y" : s.running ? (s.live ? "g" : "y") : "")} aria-hidden />
-            <span className="t">{s.name || "stack"}</span>
-            {s.trouble && <span className="badge">{s.troubled || "!"}</span>}
-          </button>
+          <span key={s.key} className={"stabw" + (!library && s.key === current ? " on" : "")}>
+            <button
+              role="tab"
+              aria-selected={!library && s.key === current}
+              className={"stab" + (!library && s.key === current ? " on" : "")}
+              onClick={() => onPick(s.key)}
+              title={`${s.dir}${s.broken ? " · doze.hcl does not load" : s.running && !s.live ? " · daemon not answering" : ""}  ⌘${i + 1}`}
+            >
+              <span className={"dot " + (s.trouble ? "r" : s.broken ? "y" : s.running ? (s.live ? "g" : "y") : "")} aria-hidden />
+              <span className="t">{s.name || "stack"}</span>
+              {s.trouble && <span className="badge">{s.troubled || "!"}</span>}
+            </button>
+            <button
+              className="stabx"
+              aria-label={`Close the ${s.name || "stack"} tab`}
+              title={s.running ? "Close the tab. The stack keeps running; open it again from the Library." : "Close the tab"}
+              onClick={() => void closeTab(s.key)}
+            >
+              ×
+            </button>
+          </span>
         ))}
         {pending && (
           <button role="tab" aria-selected className="stab on" title={pending.dir}>

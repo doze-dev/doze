@@ -40,6 +40,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
           break;
         case " ":
           e.preventDefault();
+          if (row?.missing) break;
           if (row && !row.running && row.broken) void go({ key: row.key, page: "home" });
           else if (row) void (row.running ? askStop(row.key) : stackAction(row.key, "up-last"));
           break;
@@ -49,7 +50,7 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
         case "Backspace":
           // Claimed, or WebKit takes it as "go back" and leaves the page.
           e.preventDefault();
-          if (row && !row.running) void askStack(row.key, "forget");
+          if (row && !row.busy) void askStack(row.key, "remove");
           break;
       }
     };
@@ -91,19 +92,19 @@ export function LibraryPage({ lib }: { lib: view.Library }) {
       )}
       {stacks.length > 0 && (
         <p className="model" style={{ marginTop: 12 }}>
-          Drop a project folder anywhere in this window, or press ⌘O, to add it. It appears here, stopped, until you bring it up, and stays until you forget it.
+          Drop a project folder anywhere in this window, or press ⌘O, to add it. It appears here, stopped, until you bring it up, and stays until you remove it (⌫), which stops it and leaves its files alone.
         </p>
       )}
       {(lib.others ?? []).length > 0 && <Others others={lib.others ?? []} />}
       </div>
-      <Machine checks={lib.machine ?? []} repairable={!!lib.repairable} repairing={!!lib.repairing} />
+      <Machine checks={lib.machine ?? []} repairable={!!lib.repairable} repairing={!!lib.repairing} leftovers={lib.leftovers ?? 0} />
       <Keys
         keys={[
           ["↑↓", "move"],
           ["space", "up / down"],
           ["⏎", "open"],
           ["⌘O", "open folder"],
-          ["⌫", "forget"],
+          ["⌫", "remove"],
         ]}
         note="the first tab; it never closes"
       />
@@ -163,7 +164,7 @@ function EmptyLibrary() {
 function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s: view.LibStack; selected: boolean; menuOpen: boolean; onSelect: () => void; onMenu: () => void; onCloseMenu: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   return (
-    <div ref={ref} role="row" aria-selected={selected} aria-label={`${s.name}, ${s.busy ? s.busy : s.running ? "up" : "stopped"}${s.broken ? ", " + s.broken : s.need ? ", " + s.need : ""}`} className={"lrow" + (selected ? " sel" : "")} onClick={onSelect} onDoubleClick={() => void go({ key: s.key, page: "home" })} style={{ position: "relative" }}>
+    <div ref={ref} role="row" aria-selected={selected} aria-label={`${s.name}, ${s.busy ? s.busy : s.running ? "up" : "stopped"}${s.missing ? ", " + s.missing : s.broken ? ", " + s.broken : s.need ? ", " + s.need : ""}`} className={"lrow" + (selected ? " sel" : "")} onClick={onSelect} onDoubleClick={() => void go({ key: s.key, page: "home" })} style={{ position: "relative" }}>
       <span className={"dot " + s.dot} aria-hidden />
       <div className="name">
         <b className={s.running ? "" : "dim"}>{s.name}</b>
@@ -189,12 +190,27 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
         <span className="dim">{s.sub}</span>
       </div>
       <div className="pills">
-        {s.broken && (
+        {s.missing && (
+          <span className="need">
+            ● <span className="t">{s.missing}</span>
+            <button
+              className="link"
+              disabled={!!s.busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                void askStack(s.key, "remove");
+              }}
+            >
+              Remove…
+            </button>
+          </span>
+        )}
+        {s.broken && !s.missing && (
           <span className="need">
             ● <span className="t">{s.broken}</span>
           </span>
         )}
-        {s.need && !s.broken && (
+        {s.need && !s.broken && !s.missing && (
           <span className="need">
             ● <span className="t">{s.need}</span>
           </span>
@@ -215,8 +231,8 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
           role="switch"
           aria-checked={s.busy ? s.busy !== "stopping" : s.running}
           aria-busy={!!s.busy}
-          disabled={!!s.busy || (!s.running && !!s.broken) || !s.dir}
-          title={s.busy ? `${s.busy}…` : !s.dir ? "Run by an older doze that does not say its folder: use doze down in that folder" : !s.running && s.broken ? "doze.hcl does not load, so it cannot start; open it to see why" : undefined}
+          disabled={!!s.busy || (!s.running && (!!s.broken || !!s.missing)) || !s.dir}
+          title={s.busy ? `${s.busy}…` : !s.running && s.missing ? `${s.missing}, so it cannot start; remove it, or put the folder back` : !s.dir ? "Run by an older doze that does not say its folder: use doze down in that folder" : !s.running && s.broken ? "doze.hcl does not load, so it cannot start; open it to see why" : undefined}
           aria-label={s.busy ? `${s.name} is ${s.busy}` : s.running ? `${s.name} is up` : `${s.name} is stopped`}
           onDoubleClick={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -226,7 +242,7 @@ function StackRow({ s, selected, menuOpen, onSelect, onMenu, onCloseMenu }: { s:
         />
         <button
           className={"ib" + (menuOpen ? " on" : "")}
-          aria-label={`More ways to start ${s.name}`}
+          aria-label={`More for ${s.name}`}
           onClick={(e) => {
             e.stopPropagation();
             onMenu();
@@ -310,16 +326,16 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
     void stackAction(s.key, action, names);
   };
   return (
-    <div ref={ref} className="pop" role="menu" aria-label={`Ways to start ${s.name}`} style={up ? { bottom: "calc(100% - 8px)", right: 16 } : { top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
+    <div ref={ref} className="pop" role="menu" aria-label={`${s.name}`} style={up ? { bottom: "calc(100% - 8px)", right: 16 } : { top: "calc(100% - 8px)", right: 16 }} onClick={(e) => e.stopPropagation()}>
       <div className="ph">Up</div>
-      <button className="pi" role="menuitem" onClick={() => act("up-last")}>
+      <button className="pi" role="menuitem" disabled={!!s.missing} onClick={() => act("up-last")}>
         <div className="t">
           <b>As last time</b>
           <span>{s.lastSet && s.lastSet.length > 0 ? s.lastSet.join(", ") + ", and what they need" : "everything declared"}</span>
         </div>
         <kbd>space</kbd>
       </button>
-      <button className="pi" role="menuitem" onClick={() => act("up-all")}>
+      <button className="pi" role="menuitem" disabled={!!s.missing} onClick={() => act("up-all")}>
         <div className="t">
           <b>Everything</b>
           <span>all {s.declared}</span>
@@ -338,7 +354,7 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
         </button>
       )}
       <div className="msep" />
-      {s.running ? (
+      {s.running && (
         <button className="pi" role="menuitem" onClick={() => {
           onClose();
           void askStop(s.key);
@@ -348,20 +364,22 @@ export function StackMenu({ s, onClose }: { s: view.LibStack; onClose: () => voi
             <span>stops everything; this set is remembered</span>
           </div>
         </button>
-      ) : (
-        <button className="pi" role="menuitem" onClick={() => act("forget")}>
-          <div className="t">
-            <b className="dim">Forget this stack</b>
-            <span>leaves every file where it is</span>
-          </div>
-          <kbd>⌫</kbd>
-        </button>
       )}
+      <button className="pi" role="menuitem" onClick={() => {
+        onClose();
+        void askStack(s.key, "remove");
+      }}>
+        <div className="t">
+          <b className="dim">Remove from doze…</b>
+          <span>{s.running ? "stops it and stops listing it; " : "stops listing it; "}every file stays</span>
+        </div>
+        <kbd>⌫</kbd>
+      </button>
     </div>
   );
 }
 
-function Machine({ checks, repairable, repairing }: { checks: view.Check[]; repairable: boolean; repairing: boolean }) {
+function Machine({ checks, repairable, repairing, leftovers }: { checks: view.Check[]; repairable: boolean; repairing: boolean; leftovers: number }) {
   return (
     <div className="machine">
       <b>Machine</b>
@@ -374,6 +392,11 @@ function Machine({ checks, repairable, repairing }: { checks: view.Check[]; repa
         </span>
       ))}
       <span className="grow" />
+      {leftovers > 0 && (
+        <button className="btn" style={{ height: 26 }} onClick={() => void go({ key: "", page: "settings", section: "machine" })} title="Processes, data and routes stacks left behind, out of step with doze">
+          <span className="dot y" aria-hidden /> {leftovers} left behind · Clean up…
+        </button>
+      )}
       {(repairable || repairing) && (
         <button className="btn pri" style={{ height: 26 }} disabled={repairing} onClick={() => void repair()} title="The same setup as doze doctor --fix, behind the system's password prompt">
           {repairing ? "Setting up…" : "Set up (one password)"}
