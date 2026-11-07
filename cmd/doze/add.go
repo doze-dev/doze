@@ -229,9 +229,11 @@ func binaryOf(kind string) string {
 	return kind
 }
 
+// containerImage is the image for --as container: the known one (mailpit is
+// axllent/mailpit), else the name itself.
 func containerImage(kind string) string {
-	if kind == "mongo" {
-		return "mongo:7"
+	if image := detect.KnownImage(kind); image != "" {
+		return image
 	}
 	return kind
 }

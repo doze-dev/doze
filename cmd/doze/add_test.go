@@ -245,3 +245,13 @@ func got0(cfg *config.Config, who func(int) (portholder.Holder, bool)) portTaken
 	cfg.Defaults.Domains = false
 	return takenPorts(cfg, false, 0, who)[0]
 }
+
+func TestAddAsContainerUsesTheKnownImage(t *testing.T) {
+	inProject(t, "")
+	if err := runAdd("mailpit", "", "", "container", 0, false); err != nil {
+		t.Fatal(err)
+	}
+	if out := read(t); !strings.Contains(out, "docker run --rm -p $HOST:$PORT:1025 axllent/mailpit\"") {
+		t.Fatalf("mailpit's image is axllent/mailpit:\n%s", out)
+	}
+}

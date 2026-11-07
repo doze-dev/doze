@@ -36,6 +36,12 @@ func KnownService(name string) (port int, ok bool) {
 	return k.port, ok
 }
 
+// KnownImage is the container image doze uses for a known service ("" when the
+// name is not known).
+func KnownImage(name string) string {
+	return knownServices[name].image
+}
+
 // ServiceBlock renders a `service` block for a name. found is the path of its
 // binary when one is on the PATH ("" when not); image is a container image to
 // use when there is none, from a compose file or the known table.
