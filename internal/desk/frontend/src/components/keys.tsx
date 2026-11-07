@@ -10,7 +10,7 @@ export function Keys({ keys, note }: { keys: Array<[string, string]>; note?: str
         </span>
       ))}
       <span className="grow" />
-      {note && <span>{note}</span>}
+      {note && <span className="note">{note}</span>}
     </div>
   );
 }

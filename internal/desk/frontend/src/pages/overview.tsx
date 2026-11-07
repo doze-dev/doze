@@ -6,6 +6,10 @@ import { Keys } from "../components/keys";
 import { pageKey } from "../keys";
 import { useTrap } from "../components/trap";
 import { StackMenu } from "./library";
+import { GridView, MapFlow, nextCard } from "./flow";
+
+// The overview's views, in the switch's order; 1 to 4 pick them.
+const VIEWS = ["tiles", "list", "map", "grid"] as const;
 
 // The stack's overview, as the Tiles, List and Map boards lay it out: the
 // head with the view switch and the stack's switch, one quiet strip of
@@ -31,9 +35,20 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
     if (!q) return rows;
     return rows.filter((r) => r.name.toLowerCase().includes(q) || r.because.toLowerCase().includes(q) || (r.address ?? "").toLowerCase().includes(q));
   }, [rows, filter]);
+  const viewName = home.view || "tiles";
+  // The map draws a selection only once one is made (MapFlowSelected), and
+  // the grid's row is the one under its crosshair: lit is either, "" for
+  // none. It starts clear on each stack and each view.
+  const [lit, setLit] = useState("");
+  const [gridFilter, setGridFilter] = useState(false);
+  useEffect(() => {
+    setLit("");
+    setGridFilter(false);
+  }, [stackKey, viewName]);
   // The keys act on the selected row only while it is shown: a row the
-  // filter hides is not acted on unseen.
-  const row = shown.find((r) => r.name === selected);
+  // filter hides is not acted on unseen. On the map and the grid they act
+  // on what is lit.
+  const row = viewName === "map" || viewName === "grid" ? (lit ? rows.find((r) => r.name === lit) : undefined) : shown.find((r) => r.name === selected);
   // What a screen reader is told as it happens: a service that starts
   // crashing or fails. The figures are not announced; they change every
   // second and are there to be read.
@@ -50,7 +65,22 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
     before.current = now;
     if (news.length) setSaid(news.join(". "));
   }, [rows]);
-  const viewName = home.view || "tiles";
+
+  // Esc on the map clears its selection before it goes home: caught on
+  // the way down, ahead of the window's own esc.
+  useEffect(() => {
+    if (viewName !== "map" || !lit) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || document.querySelector(".scrim, .pop[role=menu], .np, .pal")) return;
+      if ((e.target as HTMLElement).closest?.("input, textarea, select")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLit("");
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    };
+    window.addEventListener("keydown", onEsc, true);
+    return () => window.removeEventListener("keydown", onEsc, true);
+  }, [viewName, lit]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,6 +124,38 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           case "l":
             return;
         }
+      }
+      if (viewName === "map" && e.key.startsWith("Arrow")) {
+        // The arrows move between cards the way they are drawn.
+        e.preventDefault();
+        const next = nextCard(home.map, lit, e.key);
+        if (next) {
+          setLit(next);
+          void select(next);
+          document.querySelector<HTMLElement>(`.flow [data-name="${CSS.escape(next)}"]`)?.focus();
+        }
+        return;
+      }
+      if (viewName === "map" && e.key === "Enter") {
+        if (row && !row.down) void go({ key: stackKey, page: "instance", instance: row.name });
+        else if (!lit) {
+          const first = nextCard(home.map, "", "ArrowRight");
+          setLit(first);
+          if (first) void select(first);
+        }
+        return;
+      }
+      if (viewName === "grid" && (e.key.startsWith("Arrow") || e.key === "Enter")) {
+        // Into the table: its cells take the keys from there.
+        e.preventDefault();
+        document.querySelector<HTMLElement>(".g td[tabindex='0']")?.focus();
+        return;
+      }
+      if (viewName === "grid" && e.key === "/") {
+        e.preventDefault();
+        setGridFilter(true);
+        setTimeout(() => (document.querySelector(".filter input") as HTMLInputElement | null)?.focus(), 0);
+        return;
       }
       switch (e.key) {
         case "ArrowDown":
@@ -150,14 +212,15 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         case "1":
         case "2":
         case "3":
-          void setView(stackKey, ["tiles", "list", "map"][Number(e.key) - 1]);
+        case "4":
+          void setView(stackKey, VIEWS[Number(e.key) - 1]);
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, row, selected, stackKey, viewName, stopped, starting]);
+  }, [shown, row, selected, stackKey, viewName, stopped, starting, lit, home.map]);
 
   const stackSummary = useStore((s) => s.stacks.find((x) => x.key === stackKey));
   const libRow: view.LibStack | undefined = useStore((s) => s.library?.stacks?.find((x) => x.key === stackKey));
@@ -192,9 +255,14 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
         <span className="grow" />
         {viewName === "list" && <DensityPick />}
         <div className="seg" role="group" aria-label="View">
-          {(["tiles", "list", "map"] as const).map((v) => (
+          {VIEWS.map((v) => (
             <button key={v} className={viewName === v ? "on" : ""} aria-pressed={viewName === v} onClick={() => void setView(stackKey, v)}>
-              {v === "tiles" ? "Tiles" : v === "list" ? "List" : "Map"}
+              {v === "tiles" ? "Tiles" : v === "list" ? "List" : v === "map" ? "Map" : "Grid"}
+              {v === "grid" && (
+                <span className="tag" aria-hidden>
+                  new
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -274,7 +342,7 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           {stopped.config && <SourceCard c={stopped.config} />}
         </>
       ) : (
-        <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} stale={!home.banner.ok} />
+        <Strip v={home.vitals} narrow={narrow} tight={viewName === "list"} fit={viewName === "map" || viewName === "grid"} stale={!home.banner.ok} />
       )}
     </>
   );
@@ -289,14 +357,61 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
     </div>
   );
 
-  // The head, the banner, the strip and the filter span the window in
-  // every view, so the Tiles · List · Map switch never moves; only the
-  // rows share their room with the details pane. The map scrolls like the
-  // tiles, so the keys stay in view under it.
+  // The head, the banner and the strip span the window in every view, so
+  // the Tiles · List · Map · Grid switch never moves; only the rows share
+  // their room with the details pane. The map and the grid scroll inside
+  // their box, so the keys stay in view under them; neither has a filter
+  // row of its own (MapFlow, MapGrid), the grid's comes with /.
+  const visible = useMemo(() => new Set(shown.map((r) => r.name)), [shown]);
+  const keys: Array<[string, string]> = stopped
+    ? [
+        ["↑↓", "move"],
+        ["space", "start with this one"],
+        ["u", "up as last time"],
+        ["c", "choose what starts"],
+        ["/", "filter"],
+        ["esc", "home"],
+      ]
+    : viewName === "map"
+      ? [
+          ["↑↓←→", "move"],
+          ["space", "wake / sleep"],
+          ["p", "pin"],
+          ["⏎", lit ? "open" : "select"],
+          ["l", "logs"],
+          ["esc", lit ? "clear the selection" : "home"],
+        ]
+      : viewName === "grid"
+        ? [
+            ["↑↓←→", "move"],
+            ["space", "wake / sleep the row"],
+            ["⏎", "open"],
+            ["o", "open the row"],
+            ["/", "filter rows"],
+          ]
+        : [
+            ["↑↓", "move"],
+            ["space", "wake / sleep"],
+            ["p", "pin"],
+            ["⏎", "open"],
+            ["l", "logs"],
+            ["y", "copy address"],
+            ["/", "filter"],
+            ["esc", "home"],
+          ];
+  const note = stopped
+    ? "nothing runs while the stack is down"
+    : viewName === "map"
+      ? lit
+        ? "selected: its callers, what it needs and what it uses stay lit; the rest steps back"
+        : "click a card to draw its lines"
+      : viewName === "grid"
+        ? "reads like a table: a row needs each column it has a dot in"
+        : "from Home: click a stack";
   return (
     <>
       {page}
-      {viewName !== "list" && filterRow}
+      {(viewName === "tiles" || (viewName === "grid" && (gridFilter || filter))) && filterRow}
       {viewName === "tiles" && (
         <div className="scrollarea">
           <Tiles groups={groups} shown={shown} selected={selected} stackKey={stackKey} />
@@ -313,35 +428,9 @@ export function OverviewPage({ home, stackKey }: { home: view.Home; stackKey: st
           {row?.down ? <DownPane row={row} /> : <Pane inst={inst} row={row} stackKey={stackKey} />}
         </div>
       )}
-      {viewName === "map" && (
-        <div className="scrollarea">
-          <MapView m={home.map} rows={rows} shown={shown} selected={selected} stackKey={stackKey} />
-        </div>
-      )}
-      <Keys
-        keys={
-          stopped
-            ? [
-                ["↑↓", "move"],
-                ["space", "start with this one"],
-                ["u", "up as last time"],
-                ["c", "choose what starts"],
-                ["/", "filter"],
-                ["esc", "home"],
-              ]
-            : [
-                ["↑↓", "move"],
-                ["space", "wake / sleep"],
-                ["p", "pin"],
-                ["⏎", "open"],
-                ["l", "logs"],
-                ["y", "copy address"],
-                ["/", "filter"],
-                ["esc", "home"],
-              ]
-        }
-        note={stopped ? "nothing runs while the stack is down" : "from Home: click a stack"}
-      />
+      {viewName === "map" && <MapFlow m={home.map} rows={rows} lit={lit} onLit={setLit} stackKey={stackKey} />}
+      {viewName === "grid" && <GridView g={home.grid} rows={rows} visible={visible} stackKey={stackKey} onRow={setLit} />}
+      <Keys keys={keys} note={note} />
       <div className="sr-only" aria-live="polite">
         {said}
       </div>
@@ -563,7 +652,7 @@ function DownPane({ row }: { row: view.Row }) {
 }
 
 /** toggle flips a row's switch: wake it, or put it to sleep; one turned off comes back and wakes. */
-function toggle(stackKey: string, r: view.Row) {
+export function toggle(stackKey: string, r: view.Row) {
   if (r.kind === "task") {
     void run(stackKey, "task", r.name);
     return;
@@ -576,7 +665,7 @@ function toggle(stackKey: string, r: view.Row) {
   else void run(stackKey, "wake", r.name);
 }
 
-function Strip({ v, narrow, tight, stale }: { v: view.Vitals4; narrow?: boolean; tight?: boolean; stale?: boolean }) {
+function Strip({ v, narrow, tight, fit, stale }: { v: view.Vitals4; narrow?: boolean; tight?: boolean; fit?: boolean; stale?: boolean }) {
   const s = v.state;
   const counts: Array<[number, string, string]> = [
     [s.dozing, "dozing", "warn"],
@@ -586,7 +675,7 @@ function Strip({ v, narrow, tight, stale }: { v: view.Vitals4; narrow?: boolean;
     [s.crashing, "crashing", "bad"],
   ];
   return (
-    <div className={"strip" + (narrow ? " narrow" : "") + (tight ? " tight" : "") + (stale ? " faded" : "")} title={stale ? "the last figures heard; the daemon is not answering" : undefined}>
+    <div className={"strip" + (narrow ? " narrow" : "") + (tight ? " tight" : "") + (fit ? " fit" : "") + (stale ? " faded" : "")} title={stale ? "the last figures heard; the daemon is not answering" : undefined}>
       <div className="stat wide">
         <span className="v">
           {v.mem.total}
@@ -636,7 +725,7 @@ function Strip({ v, narrow, tight, stale }: { v: view.Vitals4; narrow?: boolean;
   );
 }
 
-function PinGlyph() {
+export function PinGlyph() {
   return (
     <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
       <path d="M6 1.5h4l-.8 4.2L12 8.5V10H8.6V15H7.4V10H4V8.5l2.8-2.8z" fill="currentColor" />
@@ -700,7 +789,7 @@ function Switch({ r, stackKey }: { r: view.Row; stackKey: string }) {
   );
 }
 
-function Dot({ r }: { r: view.Row }) {
+export function Dot({ r }: { r: view.Row }) {
   if (r.kind === "task") {
     return (
       <span className={"glyph tone-" + r.look.tone} aria-hidden>
@@ -994,81 +1083,6 @@ function Pane({ inst, row, stackKey }: { inst: view.Instance | null; row?: view.
   );
 }
 
-function MapView({ m, rows, shown, selected, stackKey }: { m: view.MapView; rows: view.Row[]; shown: view.Row[]; selected: string; stackKey: string }) {
-  const visible = new Set(shown.map((r) => r.name));
-  const byName = new Map(rows.map((r) => [r.name, r]));
-  const path = (e: view.MapEdge) => {
-    if (e.same) return `M${e.x1} ${e.y1} C${e.x1} ${(e.y1 + e.y2) / 2}, ${e.x2} ${(e.y1 + e.y2) / 2}, ${e.x2} ${e.y2}`;
-    // The curve leaves and arrives along its own direction: a need that
-    // points back left bends left, instead of looping out of its node.
-    const dir = e.x2 >= e.x1 ? 1 : -1;
-    const dx = dir * Math.max(60, Math.abs(e.x2 - e.x1) / 2);
-    return `M${e.x1} ${e.y1} C${e.x1 + dx} ${e.y1}, ${e.x2 - dx} ${e.y2}, ${e.x2} ${e.y2}`;
-  };
-  return (
-    <div className="map" role="group" aria-label="The stack as a map: what needs what, and what is keeping what awake" style={{ minHeight: m.h + 60 }}>
-      <svg className="edges" width={m.w} height={m.h} aria-hidden="true">
-        {(m.edges ?? []).map((e) => (
-          <path key={e.from + ">" + e.to} d={path(e)} fill="none" strokeWidth="2" className={"edge " + e.tone} />
-        ))}
-      </svg>
-      {(m.columns ?? []).map((c) => (
-        <div key={c.title + c.y} className="col" style={{ left: c.x, top: c.y }}>
-          {c.title.charAt(0) + c.title.slice(1).toLowerCase()} <span>{c.what}</span>
-        </div>
-      ))}
-      {(m.nodes ?? []).map((n) => {
-        const r = byName.get(n.name);
-        if (!r) return null;
-        return (
-          <button
-            key={n.name}
-            className={"node" + (n.task ? " task" : "") + (r.name === selected ? " sel" : "") + (r.trouble ? " bad" : "") + (!r.on && !n.task ? " off" : "") + (visible.has(r.name) ? "" : " faded")}
-            style={{ left: n.x, top: n.y, width: n.w }}
-            aria-label={`${r.name}, ${r.look.word}${r.because ? ", " + r.because : ""}`}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !r.down) {
-                e.preventDefault();
-                void go({ key: stackKey, page: "instance", instance: r.name });
-              }
-            }}
-            onClick={() => void select(r.name)}
-            onDoubleClick={() => !r.down && void go({ key: stackKey, page: "instance", instance: r.name })}
-          >
-            <div className="top">
-              <Dot r={r} />
-              <b>{r.name}</b>
-              {r.pinned && (
-                <span className="pin">
-                  <PinGlyph />
-                </span>
-              )}
-              {r.mem && <span className="m">{r.mem}</span>}
-            </div>
-            <div className="st">
-              <b className={wordTone(r)}>{r.look.word}</b>
-              {r.because && <> · {r.because}</>}
-            </div>
-          </button>
-        );
-      })}
-      <div className="legend">
-        <span>
-          <i />
-          needs, and keeps it awake
-        </span>
-        <span>
-          <i className="dim" />
-          needs, not right now
-        </span>
-        <span>
-          <i className="dash" />
-          would need, if on
-        </span>
-      </div>
-    </div>
-  );
-}
 
 /** useNarrow is whether the window is the Narrow board's size: the strip drops its cores figure. */
 function useNarrow(): boolean {
