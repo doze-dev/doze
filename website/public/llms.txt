@@ -1,38 +1,99 @@
 # doze
 
-> doze runs real backing services (PostgreSQL, Valkey, Kvrocks, FerretDB/Mongo-compatible, MariaDB, Temporal, and local S3/SQS/SNS) as native processes on macOS and Linux — no Docker, no VM. You declare services in one HCL file (doze.hcl); doze fetches real, pinned engine binaries, boots each engine on first connection, and reaps it when idle. doze ALSO runs your OWN services (the `process` block): a local microservices orchestrator that starts your API/worker/frontend in dependency order, health-gated, wired to each other and to their data — and you can point services at REMOTE databases and use doze as a pure process runner (code local, data wherever it lives). At rest the whole backend is one ~15 MB daemon. Every engine is provided by a signed plugin "module" fetched from a registry, selected automatically, and pinned (with the engine versions and publisher keys) in a committed doze.lock. Not for production.
+> doze runs your whole local development stack as native processes on macOS (Apple silicon) and Linux, with no Docker and no VM. You declare the stack in one HCL file, doze.hcl. Each service starts on its first connection and sleeps when nothing has used it for a while (2 minutes by default). doze is a desktop app (one window for every stack, a menu bar icon) and a CLI; both are the same binary. It is for local development, not production.
 
-Key facts for answering questions:
-- Config: HCL. `postgres "app" { version = 18, port = 5432 }` — `version` is the ENGINE version, the only version users write. Module (plugin) versions are selected automatically and pinned in doze.lock; they move only via `doze modules upgrade`.
-- Install: `brew install doze-dev/tap/doze`, `mise use -g ubi:doze-dev/doze`, GitHub releases, or `go install github.com/doze-dev/doze/cmd/doze@latest`. Apple Silicon macOS + x86-64/arm64 Linux; no Intel Mac; Windows via WSL2.
-- Core commands: doze init · up · down · status · shell <name> · run -- <cmd> · logs · lint · sync · reset · modules search|docs|list|info|upgrade [--check]|which · binaries available.
-- Trust: registry indexes and artifact checksums are ed25519-signed; publisher keys pin on first use (TOFU) into doze.lock; locked+cached projects resolve fully offline.
-- Repos: github.com/doze-dev/{doze, doze-sdk, doze-modules, doze-registry, doze-binaries, module-template}.
+Key facts:
+- Install: the app with `brew install --cask doze-dev/tap/doze` on macOS; deb and rpm packages on Linux. The CLI is the same binary. Running `doze` opens the app; every app action is also a command.
+- doze.hcl has four kinds of block: `module <type> "<name>"` (an engine from the doze registry, e.g. `module postgres "db" { version = 18 }`), `app` (your own code), `service` (any other long-running program, e.g. mailpit) and `task` (runs to completion, e.g. a migration). `after = [task.migrate, module.db]` orders them; references such as `module.db.url` wire them. Root fields: `stack`, `doze`; `defaults { sleep = "2m"  names = true }`.
+- Modules come only from the doze registry (registry.doze-dev.com for doze 0.2): postgres, valkey, kvrocks, ferret (FerretDB, MongoDB wire protocol), mariadb, temporal, kafka and aws. `aws` is one module with S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager, STS and Step Functions. Anything else runs as your own `service` (`doze add <name> --as installed|container|download`). New modules are contributed by pull request to github.com/doze-dev/doze-modules.
+- Modules are signed; the registry key is compiled into doze. doze.lock pins engine binaries, modules and downloads; commit it. Pins move only with `doze modules upgrade`.
+- Names: with `names = true` each service is `<name>.<stack>.doze` on an address of its own, so every Postgres can use 5432. A front door serves apps on :80 and :443. One-time machine setup: `doze dns-setup` (undo with `--uninstall`); `doze trust` for an app's own https `domains`.
+- States: awake, dozing, waking, asleep, crashing, failed, stopped. `sleep = "never"` or `doze pin` keeps a service awake; `doze off` keeps it stopped.
+- Commands: `doze init`, `add`, `up` (`--last`, `--all`), `down`, `status`, `logs`, `wake`, `sleep`, `restart`, `reset`, `task`, `pin`, `on`, `off`, `url`, `env`, `run --env -- <cmd>`, `migrate` (Postgres majors), `lint`, `fmt`, `doctor`, `modules upgrade`. `--json` gives one envelope; exit codes are stable.
+- Upgrading from doze 0.1: `process` is now `app`/`service`/`task`, `depends_on` is `after`, `idle_timeout` is `sleep`, `name` is `stack`, engine blocks are `module <type> "<name>"`.
 
-## Docs
+## Start here
 
-- [Why doze](/why/doze/): the case for it; the three taxes of Docker/brew/LocalStack
-- [Native processes vs containers](/why/not-containers/): the debugger story, footprint, fidelity
-- [Why HCL](/why/hcl/): types, cross-block references, expressions vs YAML/JSON
-- [Alternatives, honestly](/why/alternatives/): compose, Testcontainers, LocalStack, Nix, Tilt
-- [The trust model](/why/trust/): signatures, TOFU keys, the three-layer lockfile
-- [Install](/start/install/) · [Getting started](/start/getting-started/) · [Core concepts](/start/concepts/)
-- [Coming from docker-compose](/start/from-docker-compose/): the mental-model mapping
-- [Running your own services (microservices/process)](/guides/microservices/) · [The engines](/guides/engines/)
-- [Modules, for users](/guides/modules/) · [Teams & CI](/guides/teams-ci/) · [FAQ](/guides/faq/)
-- [CLI reference](/reference/cli/) · [Configuration reference](/reference/configuration/) · [doze.lock](/reference/lockfile/) · [Environment variables](/reference/environment/)
+- [Install](https://doze-dev.com/docs/doze/start/install/): One static binary — Homebrew, mise, direct download, or built from source.
+- [Your first stack](https://doze-dev.com/docs/doze/start/first-stack/)
+- [Bring your own repo](https://doze-dev.com/docs/doze/start/your-repo/)
+- [How doze thinks](https://doze-dev.com/docs/doze/start/how-doze-thinks/)
 
-## Building modules
+## The app
 
-- [How modules work](/modules/overview/) · [Your first module](/modules/first-module/) · [Real-engine modules](/modules/real-engines/)
-- [Describe(): docs from code](/modules/describe/) · [Testing](/modules/testing/) · [Releasing](/modules/releasing/) · [Publishing](/modules/publishing/)
+- [Library and stacks](https://doze-dev.com/docs/doze/app/library/)
+- [Tiles, List, Map and Grid](https://doze-dev.com/docs/doze/app/views/)
+- [Inside a service](https://doze-dev.com/docs/doze/app/inside-a-service/)
+- [When something breaks](https://doze-dev.com/docs/doze/app/when-something-breaks/)
+- [⌘K and keys](https://doze-dev.com/docs/doze/app/keys/)
+- [Menu bar and notifications](https://doze-dev.com/docs/doze/app/menu-bar/)
+- [Domains and HTTPS](https://doze-dev.com/docs/doze/app/domains/)
+- [Settings and Doctor](https://doze-dev.com/docs/doze/app/settings/)
 
-## Running a registry
+## doze.hcl
 
-- [The architecture of trust](/operate/trust-architecture/) · [Host your own](/operate/self-host/) · [Mirror binaries](/operate/mirror-binaries/) · [Operations](/operate/operations/)
-- [Module index schema](/reference/module-index/)
+- [Apps](https://doze-dev.com/docs/doze/hcl/apps/)
+- [Shared services](https://doze-dev.com/docs/doze/hcl/shared-services/)
+- [Your own services](https://doze-dev.com/docs/doze/hcl/your-own-services/)
+- [Tasks](https://doze-dev.com/docs/doze/hcl/tasks/)
+- [Start order and readiness](https://doze-dev.com/docs/doze/hcl/start-order/)
+- [Sleep and wake](https://doze-dev.com/docs/doze/hcl/sleep/)
+- [Names and addresses](https://doze-dev.com/docs/doze/hcl/names/)
+- [References and env](https://doze-dev.com/docs/doze/hcl/references-and-env/)
+- [Splitting files](https://doze-dev.com/docs/doze/hcl/splitting-files/)
+- [Teams and CI](https://doze-dev.com/docs/doze/hcl/teams-and-ci/)
+
+## Services
+
+- [Postgres](https://doze-dev.com/docs/doze/services/postgres/)
+- [Valkey](https://doze-dev.com/docs/doze/services/valkey/)
+- [Kvrocks](https://doze-dev.com/docs/doze/services/kvrocks/)
+- [FerretDB](https://doze-dev.com/docs/doze/services/ferretdb/)
+- [MariaDB](https://doze-dev.com/docs/doze/services/mariadb/)
+- [Temporal](https://doze-dev.com/docs/doze/services/temporal/)
+- [Kafka](https://doze-dev.com/docs/doze/services/kafka/)
+- [AWS](https://doze-dev.com/docs/doze/services/aws/)
+
+## Guides
+
+- [Running your own services](https://doze-dev.com/docs/doze/guides/microservices/): doze isn't just for databases — it's a local orchestrator for your microservices, with or without any database at all.
+- [Recipes — Workflows](https://doze-dev.com/docs/doze/guides/workflows/)
+- [Upgrading from 0.1](https://doze-dev.com/docs/doze/guides/upgrading-from-0-1/)
+- [Postgres major upgrades](https://doze-dev.com/docs/doze/guides/postgres-upgrades/)
+- [Files & storage](https://doze-dev.com/docs/doze/guides/files-and-storage/)
+- [Memory](https://doze-dev.com/docs/doze/guides/memory/)
+- [Linux](https://doze-dev.com/docs/doze/guides/linux/)
+- [Troubleshooting](https://doze-dev.com/docs/doze/guides/troubleshooting/)
+- [FAQ](https://doze-dev.com/docs/doze/guides/faq/)
+
+## Reference
+
+- [CLI](https://doze-dev.com/docs/doze/reference/cli/): Every doze command and flag, with the JSON envelope and exit codes for scripts.
+- [doze.hcl](https://doze-dev.com/docs/doze/reference/doze-hcl/): Every block and field doze.hcl takes, with its type, default and what it does.
+- [Environment](https://doze-dev.com/docs/doze/reference/environment/): Every environment variable doze reads, and the ones it sets for your commands and prints for your shell.
+- [doze.lock](https://doze-dev.com/docs/doze/reference/lockfile/): What doze.lock pins, field by field, and what changes it.
+- [Binaries](https://doze-dev.com/docs/doze/reference/binaries/): Where the engine binaries doze runs come from, how they are checked and pinned, and where they live on disk.
+- [Postgres extensions](https://doze-dev.com/docs/doze/reference/extensions/): Which Postgres extensions work out of the box, and how to install one that doesn't ship with Postgres.
+- [Architecture](https://doze-dev.com/docs/doze/reference/architecture/): How doze is built (the binary, the daemon, modules, names and the app) and which repo holds each part.
+
+## Contribute to the registry
+
+- [How the registry works](https://doze-dev.com/docs/doze/contribute/registry/): Where doze gets modules, what the signed index holds, where the key lives, and what a module must meet to get in.
+- [Propose a module](https://doze-dev.com/docs/doze/contribute/propose/): Ask for a new engine in the doze registry, and agree on it before anyone writes code.
+- [Write it in doze-modules](https://doze-dev.com/docs/doze/contribute/write/): Lay out a new module in doze-modules, implement the driver, describe it, and register it in the four places the repo checks.
+- [Test it](https://doze-dev.com/docs/doze/contribute/test/): Run the same checks doze-modules CI runs on your module, from unit tests to acceptance against the real backend.
+- [Submit and release](https://doze-dev.com/docs/doze/contribute/submit/): Open the pull request, pass the checklist, and follow your module from the merge to a signed release in the registry.
+
+## Why doze
+
+- [Why doze?](https://doze-dev.com/docs/doze/why/doze/)
+- [Native processes vs containers, for development](https://doze-dev.com/docs/doze/why/not-containers/): Why your dev backend should be a process you can see, debug, and profile — not a VM you tunnel into.
+- [Why HCL (and not YAML or JSON)](https://doze-dev.com/docs/doze/why/hcl/): Config that declares infrastructure should have types, references, and expressions — argued from doze's actual features.
+- [Alternatives, honestly](https://doze-dev.com/docs/doze/why/alternatives/): What docker-compose, Testcontainers, LocalStack, Nix, and the rest are genuinely good at — and when to pick them over doze.
+- [The trust model](https://doze-dev.com/docs/doze/why/trust/): Why a dev tool has supply-chain rigor — signatures, key pinning, and a lockfile with three layers.
 
 ## Optional
 
-- [Architecture](/reference/architecture/): engine-blind core, engines as gRPC plugin modules
-- The module registry (browse + machine layer): /registry/
+- [doze AWS docs](https://doze-dev.com/docs/aws/): the local AWS on its own
+- [doze Kafka docs](https://doze-dev.com/docs/kafka/): the local Kafka on its own
+- [The module registry](https://doze-dev.com/registry/): every module, its versions and fields

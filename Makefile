@@ -127,3 +127,7 @@ docs-shots: frontend ## Shoot the docs' app screenshots (website/docs-shots.json
 .PHONY: ground
 ground: build ## Check that every doze command, flag and doze.hcl field the docs name exists (GROUND_REPORT_ONLY=1 reports without failing)
 	bun website/scripts/ground.ts
+
+.PHONY: llms
+llms: ## Write website/public/llms.txt from the docs' order (doze-website design/docs-ia.json) and each page's title and description
+	bun website/scripts/gen-llms.ts
