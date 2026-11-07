@@ -50,8 +50,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/doze-dev/doze-names v0.4.0 h1:pmYWmwVWY/YxcDd7QaJvXyfDSRQynLWQRMSuL0GaWxI=
 github.com/doze-dev/doze-names v0.4.0/go.mod h1:+wjfifUPHJcARB/L7HqSsk5YW1W3SItvGB14XbS7CO0=
-github.com/doze-dev/doze-sdk v0.11.1-0.20261107115053-d9e5d930a389 h1:UvZtvctWnxun3KFSBonQWES8c0nRFqzru4X73WzYCTA=
-github.com/doze-dev/doze-sdk v0.11.1-0.20261107115053-d9e5d930a389/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
+github.com/doze-dev/doze-sdk v0.12.0 h1:PWNhTTzCvDueiYz36ekkh9zKTPErZ+Hue9ifjnI0g3c=
+github.com/doze-dev/doze-sdk v0.12.0/go.mod h1:6QyR7o4Xe90fLxYfUzpfT4x/Wtg6LtDnNfuihsEdtfw=
 github.com/doze-dev/wails/v3 v3.1.0-doze.1 h1:Fq9LeZ4wH34UUuvjT8sk6mGdJ0TtpnfER1CUce4/d/E=
 github.com/doze-dev/wails/v3 v3.1.0-doze.1/go.mod h1:tzDY3W1jzN3ksSqfGalTt7K3PwnGfIqtl+IgIXlXz0I=
 github.com/ebitengine/purego v0.11.1 h1:2zpWRSQNVKN4eKsKO9eM1ILDgWfYMY9GwqRmK6XeQ/0=
