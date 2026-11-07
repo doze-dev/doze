@@ -1,0 +1,172 @@
+---
+title: Sleep and wake
+description: How long services stay awake with nothing using them, how to change it, and how to keep one up or take one out.
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Keys from "@docs/Keys.astro";
+import Steps from "@docs/Steps.astro";
+import sleepDialog from "../../../assets/app/sleep-dialog.webp";
+
+Choose how long each service stays awake with nothing using it, keep one up
+while you work, and take one out of the run.
+
+## How sleep works
+
+A service sleeps when nothing has held it for two minutes, and wakes on the
+next connection. Its data stays. Three things hold a service awake:
+
+- **a connection** through doze to its port, open or in use;
+- **a service that needs it** and is running: a dependant holds what it
+  references or lists in `after`;
+- **a pin**, which you set (below).
+
+So a connection pool, or a consumer that keeps its connection open, keeps
+what it is connected to awake. That is usually what you want while you work.
+
+| State | Means |
+|---|---|
+| awake | running, and something used it lately |
+| dozing | running, quiet for a while; sleeps when its timer runs out |
+| waking | starting, because something asked for it |
+| asleep | not running, data kept; the next connection wakes it |
+| crashing | exits soon after starting; doze tries again, a few times |
+| failed | doze stopped trying; it waits for you |
+| stopped | the whole stack is down; nothing runs |
+
+## What sleeps, and what does not
+
+- **Modules** (Postgres, Valkey, Kafka, …) sleep, except those doze does not
+  sit in front of, such as Temporal, which run while the stack is up.
+- **Apps and services with a `port`** sleep: doze holds the port, so the next
+  connection wakes them.
+- **Apps and services without a port** (workers) never sleep on their own:
+  nothing could connect to wake them, so they run until stopped.
+
+## Change the time
+
+```hcl
+defaults {
+  sleep = "10m"
+}
+
+module postgres "db" {
+  version = 18
+  sleep   = "30m"
+}
+
+app "orders" {
+  run   = "go run ./services/orders"
+  port  = 8003
+  sleep = "never"
+}
+```
+
+- `defaults { sleep }` is the stack's time, `"2m"` unless you set it.
+- A block's own `sleep` wins for that block.
+- `"never"` keeps it up while the stack is up. `defaults { sleep = "never" }`
+  means only blocks with a `sleep` of their own ever sleep.
+
+Larder, the made-up shop the docs use as an example, sets `sleep = "never"` on
+the services that consume Kafka: they get no requests of their own, so no
+request would ever wake them.
+
+A duration on a block that cannot sleep is an error, with the fix:
+
+```text
+sleep = "5m" needs doze to hold the app's port, so that a connection can wake it: declare a `port`, and do not set `direct`
+```
+
+To change one block's sleep only on your machine, put it in an override file
+([Splitting files](/hcl/splitting-files/)).
+
+## Sleep, wake or pin one now
+
+<HowTo>
+<Fragment slot="app">
+
+<Shot src={sleepDialog} alt="The Sleep postgres? dialog: five apps need it, so it offers to sleep them too, to sleep postgres only, or to turn it off" caption="Sleeping Larder's postgres while five apps use it. Sleeping an idle service never asks." crop />
+
+<Steps>
+
+1. **Flip the service's switch** on its tile or row, or select it and press
+   <kbd>space</kbd>. An awake service goes to sleep; an asleep one wakes.
+2. **If something is using it,** doze asks first: sleep it and what needs
+   it, sleep it only (what uses it will wake it again), or turn it off.
+3. **To keep it awake,** open the service and click **Pin awake**, or press
+   <kbd>p</kbd>. **Unpin** lets it sleep again.
+
+</Steps>
+
+<Keys keys={[["space", "wake · sleep: the same switch as on a tile"], ["w s", "wake · sleep"], ["p", "pin awake · unpin"]]} />
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze sleep db        # stop it now; data stays, the next connection wakes it
+doze sleep           # everything that is awake (the daemon keeps running)
+doze wake api        # start it and what it depends on, and wait until ready
+doze wake            # every enabled service
+doze pin db          # keep it awake with nobody connected
+doze pin db --off    # let it sleep again
+```
+
+</Fragment>
+</HowTo>
+
+A pin lasts until the stack goes down.
+
+## Take one out of the run
+
+Sleeping is temporary: the next connection wakes the service. **Off** keeps
+it down: connections to it fail, and a service that needs it cannot start,
+until you turn it back on. Use it to run something from your editor instead,
+or to see how the rest copes without it.
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Flip the service's switch.** When something uses it, doze asks
+   first, and the dialog has a **Turn … off** button. A crashing service's
+   page offers **Stop trying**, which does the same.
+2. **Flip the switch again** to turn it back on and wake it.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze off payments    # stop it and keep it stopped
+doze on payments     # back in the run; it wakes on its next connection
+```
+
+</Fragment>
+</HowTo>
+
+Off is for this run only: it is not written to doze.hcl, and it ends when the
+stack goes down. To keep a block declared but never started, set
+`enabled = false` in its block.
+
+## Start part of a stack
+
+`doze up` with no names starts everything. Name services to start only
+those and what they need:
+
+```sh
+doze up gateway catalog
+```
+
+doze remembers what you started. The next plain `doze up` asks whether to
+start the same again; `--last` and `--all` answer without asking:
+
+```sh
+doze up --last    # what was started last time
+doze up --all     # everything
+```
+
+With no terminal to ask on, as in CI, a plain `doze up` starts everything.

@@ -1,31 +1,54 @@
-// gen-engines — generate one docs page per engine module from the signed
-// registry's own data (catalog + index.yaml + meta.yaml), so the docs show
-// exactly what each module runs — engine versions, platforms, every published
-// release, and the full config reference — without hand-maintained duplicates
-// that drift.
+// gen-engines — one docs page per registry module, under services/: the
+// hand-written part (what it is, how to use it, recipes) from
+// src/content/recipes/<engine>.md, then a reference generated from the signed
+// registry's own data (catalog + index.yaml + meta.yaml): the versions you can
+// declare, every field and nested block, and the module's releases. One page
+// per engine, and the reference cannot drift from the module.
 //
-// Runs before `astro build` (see package.json). On any fetch failure it keeps
-// the committed snapshot in src/content/docs/engines/ and warns — the docs
-// build must not die because the registry hiccuped.
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { parse } from 'yaml';
+// Runs before `astro build` (see package.json). On a fetch failure it keeps
+// the committed reference and refreshes only the hand-written part, so an
+// edited recipe still lands and the build does not die because the registry
+// hiccuped.
+//
+// The page's frontmatter is the recipe's (title, description), plus
+// redirect_from: the old engines/<engine>/ address and whatever the recipe
+// lists (the old recipe pages it absorbed).
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { parse, stringify } from 'yaml';
 
 const BASE = process.env.DOZE_REGISTRY_BASE || 'https://doze.nerdmenot.in/registry';
-const OUT = new URL('../src/content/docs/engines/', import.meta.url).pathname;
+// Where readers are sent: the registry's pages on the site, and its signed
+// files on the registry host.
+const SITE = 'https://doze-dev.com/registry';
+const RAW = 'https://registry.doze-dev.com';
+const OUT = new URL('../src/content/docs/services/', import.meta.url).pathname;
+const RECIPES = new URL('../src/content/recipes/', import.meta.url).pathname;
 
-// Display order — the same order as the engines overview.
+// Display order, and the page each module gets when its slug is not its name.
 const ORDER = ['postgres', 'valkey', 'kvrocks', 'ferret', 'mariadb', 'temporal', 'kafka', 'aws'];
+const SLUG = { ferret: 'ferretdb' };
+const slugOf = (name) => SLUG[name] || name;
+
+// Corrections to a module's description of itself, until the module is
+// fixed: postgres's Describe() gives grant a label "role", but role is a
+// required field and grant takes no label (modules/postgres/config.go).
+const LABEL_IS_FIELD = { 'postgres.grant': { name: 'role', type: 'string', required: true, desc: 'The role the privileges go to.' } };
+
+// The example is the module's own, and may use fields its description does
+// not list yet (aws queue content_dedup), so ground.ts skips it.
+const MARK = { start: '<!-- recipe:start -->', end: '<!-- recipe:end -->' };
 
 const platformLabel = (t) =>
 	t
 		.replace('aarch64-apple-darwin', 'macOS (Apple Silicon)')
+		.replace('x86_64-apple-darwin', 'macOS (Intel)')
 		.replace('aarch64-unknown-linux-gnu', 'Linux (arm64)')
 		.replace('x86_64-unknown-linux-gnu', 'Linux (x86_64)');
 
 const whereLine = (platforms) => {
 	const mac = platforms.some((t) => t.includes('apple-darwin'));
 	const linux = platforms.some((t) => t.includes('linux'));
-	if (mac && linux) return 'macOS & Linux';
+	if (mac && linux) return 'macOS and Linux';
 	if (!mac && platforms.length === 1) return platformLabel(platforms[0]) + ' only';
 	return mac ? 'macOS only' : 'Linux only';
 };
@@ -33,18 +56,29 @@ const whereLine = (platforms) => {
 const esc = (s) => String(s ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ');
 
 // A module describes its block the way it decodes it: `postgres "db" { … }`.
-// In a doze.hcl the same block is written `module postgres "db" { … }` — the
-// keyword is doze's, not the module's — so the example gains it here.
+// In a doze.hcl the same block is written `module postgres "db" { … }`: the
+// keyword is doze's, not the module's, so the example gains it here.
 const asModuleBlock = (name, example) =>
-	String(example ?? '')
-		.trim()
-		.replace(new RegExp(`^(#\\s*)?${name}(\\s+")`, 'gm'), `$1module ${name}$2`);
+	oneArgPerLine(
+		String(example ?? '')
+			.trim()
+			.replace(new RegExp(`^(#\\s*)?${name}(\\s+")`, 'gm'), `$1module ${name}$2`),
+	);
 
-function argTable(args) {
-	const rows = args.filter((a) => !a.arguments);
-	if (!rows.length) return '';
+// oneArgPerLine opens up a one-line block with several arguments,
+// `queue "q" { fifo = true  dlq = "auto" }`, which HCL refuses (a one-line
+// block takes one argument). Some modules' examples have them.
+const oneArgPerLine = (src) =>
+	src.replace(/^(\s*)([\w-]+(?:\s+"[^"]*")*)\s*\{\s*(.+?)\s*\}[ \t]*$/gm, (line, ind, head, inner) => {
+		const args = inner.split(/\s+(?=[\w-]+\s*=(?!=))/);
+		if (args.length < 2) return line;
+		return `${ind}${head} {\n${args.map((a) => `${ind}  ${a.trim()}`).join('\n')}\n${ind}}`;
+	});
+
+function fieldTable(args) {
+	if (!args.length) return '';
 	let out = '| Field | Type | Default | Description |\n|---|---|---|---|\n';
-	for (const a of rows) {
+	for (const a of args) {
 		const def = a.default ? `\`${a.default}\`` : '—';
 		const req = a.required ? ' **Required.**' : '';
 		out += `| \`${a.name}\` | ${a.type || ''} | ${def} | ${esc(a.desc)}${req} |\n`;
@@ -52,17 +86,41 @@ function argTable(args) {
 	return out;
 }
 
-function blockSections(args) {
-	let out = '';
-	for (const a of args.filter((a) => a.arguments)) {
-		out += `\n**\`${a.name} "<name>" { … }\`** — ${esc(a.desc)}\n\n`;
-		out += argTable(a.arguments) || '_No fields — the label is the declaration._\n';
+// nestedBlocks lists the blocks a module takes inside its own. Modules say
+// so two ways: config.blocks, with a label and fields of their own, or an
+// argument of type "block" with only a description. The heading form,
+// **`role "<name>" { … }`**, is what website/scripts/ground.ts reads.
+function nestedBlocks(name, cfg) {
+	const blocks = [];
+	for (const b of cfg.blocks || []) {
+		let args = b.arguments || [];
+		let label = b.label;
+		const fix = LABEL_IS_FIELD[`${name}.${b.name}`];
+		if (fix) {
+			label = undefined;
+			args = [fix, ...args];
+		} else if (label === undefined) {
+			label = 'name'; // aws lists its blocks without one; every one is labelled
+		}
+		blocks.push({ name: b.name, label, desc: b.desc, args, listed: true });
+	}
+	for (const a of (cfg.arguments || []).filter((a) => a.type === 'block')) {
+		const label = /label = name/.test(a.desc || '') ? 'name' : undefined;
+		blocks.push({ name: a.name, label, desc: a.desc, args: [], listed: false });
+	}
+	if (!blocks.length) return '';
+	let out = '\n### Nested blocks\n';
+	for (const b of blocks) {
+		const head = b.label ? `${b.name} "<${b.label}>" { … }` : `${b.name} { … }`;
+		out += `\n**\`${head}\`** — ${esc(b.desc)}\n\n`;
+		if (b.args.length) out += fieldTable(b.args);
+		else out += b.listed ? '_No fields: the label is the declaration._\n' : "_The module does not list this block's fields yet._\n";
 	}
 	return out;
 }
 
 // backendVersions resolves what a user can actually DECLARE, from
-// doze-binaries' published index: every series (the `version =` you write —
+// doze-binaries' published index: every series (the `version =` you write;
 // a bare series pins its newest build) with its exact builds, filtered to the
 // majors the current module release supports. null = no fetched backend
 // (kafka's version is a protocol profile; aws takes none) or lookup failure.
@@ -97,7 +155,41 @@ async function get(path) {
 	return res.text();
 }
 
-try {
+// recipe reads the hand-written part: its frontmatter and its body.
+function recipe(name) {
+	const file = `${RECIPES}${slugOf(name)}.md`;
+	if (!existsSync(file)) return { front: {}, body: '' };
+	const text = readFileSync(file, 'utf8');
+	const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+	return m ? { front: parse(m[1]) || {}, body: m[2].trim() } : { front: {}, body: text.trim() };
+}
+
+function frontmatter(name, fallbackTitle, fallbackDesc) {
+	const { front } = recipe(name);
+	const redirects = [...new Set([`/engines/${name}/`, ...(front.redirect_from || [])])];
+	const fm = { title: front.title || fallbackTitle, description: front.description || fallbackDesc || '', redirect_from: redirects };
+	if (front.sidebar) fm.sidebar = front.sidebar;
+	return `---\n${stringify(fm, { lineWidth: 0 }).trim()}\n---\n`;
+}
+
+const recipeBlock = (name) => `${MARK.start}\n\n${recipe(name).body}\n\n${MARK.end}`;
+
+// refresh rewrites the hand-written part of an already generated page.
+function refresh(name) {
+	const file = `${OUT}${slugOf(name)}.md`;
+	if (!existsSync(file)) return false;
+	const text = readFileSync(file, 'utf8');
+	const a = text.indexOf(MARK.start);
+	const b = text.indexOf(MARK.end);
+	if (a < 0 || b < 0) return false;
+	const old = text.match(/^---\n[\s\S]*?\n---\n/)?.[0] ?? '';
+	const oldFront = parse(old.replace(/^---\n|---\n$/g, '')) || {};
+	const head = frontmatter(name, oldFront.title, oldFront.description);
+	writeFileSync(file, head + text.slice(old.length, a) + recipeBlock(name) + text.slice(b + MARK.end.length));
+	return true;
+}
+
+async function generate() {
 	const catalog = JSON.parse(await get('index.json'));
 	const mods = catalog.namespaces?.doze?.modules ?? {};
 	mkdirSync(OUT, { recursive: true });
@@ -119,34 +211,35 @@ try {
 		const releases = Object.entries(index?.releases || {})
 			.map(([v, r]) => ({ v, engines: (r.engines || []).map(String), plats: Object.keys(r.artifacts || {}).length, stable: v === stable }))
 			.sort((a, b) => b.v.localeCompare(a.v, undefined, { numeric: true }));
-		const args = meta.config?.arguments || [];
+		const cfg = meta.config || {};
+		const fields = (cfg.arguments || []).filter((a) => a.type !== 'block' && !a.arguments);
 		const inv = await backendVersions(name, versions);
 		const series = inv?.series;
 		const pending = inv?.pending || [];
 
-		const page = `---
-title: "${title}"
-description: "${(meta.tagline || '').replaceAll('"', '\\"')}"
----
+		const page = `${frontmatter(name, title, meta.tagline)}
+<!-- GENERATED by website/scripts/gen-engines.mjs. The prose between the recipe marks comes from website/src/content/recipes/${slugOf(name)}.md; the reference below it from the module's signed registry data. Edit those, not this file. -->
 
-<!-- GENERATED by website/scripts/gen-engines.mjs from the signed registry — do not edit by hand. -->
+**Runs ${title}${runs ? ` ${runs}` : ''} · ${whereLine(cat.platforms || [])}** · [registry page ↗](${SITE}/doze/${name}/)
 
-**Runs ${title}${runs ? ` ${runs}` : ''} · ${whereLine(cat.platforms || [])}** · [registry page ↗](https://doze.nerdmenot.in/registry/doze/${name}/)
+${recipeBlock(name)}
+
+## Reference
 
 ${meta.description || meta.tagline || ''}
 
-## Usage
+### Every field at once
 
+<!-- ground:skip -->
 \`\`\`hcl
 ${asModuleBlock(name, meta.example)}
 \`\`\`
 
-${series ? `## Versions you can declare
+${series ? `### Versions you can declare
 
-The \`version =\` you write is the **engine's own version** — the only version
-that's yours. Declare a series and doze pins its newest published build, or
-declare an exact build; either way it's fetched, verified, and pinned in
-\`doze.lock\` (so it never moves on its own).
+The \`version =\` you write is the engine's own version. Declare a series and
+doze pins its newest published build, or declare an exact build. Either way it
+is fetched, verified and pinned in \`doze.lock\`, so it never moves on its own.
 
 | \`version =\` | pins (today) | exact builds |
 |---|---|---|
@@ -155,41 +248,49 @@ ${series.map((sr) => `| \`${sr.series}\` | \`${sr.latest}\` | ${sr.fulls.length}
 <details>
 <summary>Every exact build, per series</summary>
 
-${series.map((sr) => `**${sr.series}** — ${sr.fulls.map((f) => `\`${f}\``).join(' · ')}`).join('\n\n')}
+${series.map((sr) => `**${sr.series}**: ${sr.fulls.map((f) => `\`${f}\``).join(' · ')}`).join('\n\n')}
 
 </details>
-${pending.length ? `\n_The mirror also publishes ${pending.map((p) => `\`${p}\``).join(' · ')} — declarable once the module adds support for ${pending.length === 1 ? 'that series' : 'those series'}._\n` : ''}
-` : versions.length ? `## Versions you can declare
+${pending.length ? `\n_The binaries mirror also publishes ${pending.map((p) => `\`${p}\``).join(' · ')}: declarable once the module supports ${pending.length === 1 ? 'that series' : 'those series'}._\n` : ''}
+` : versions.length ? `### Versions you can declare
 
-The \`version =\` you write is the **engine's own version** — the only version
-that's yours. doze fetches and verifies it, pins it in \`doze.lock\`, and picks
-the module release providing it automatically.
+The \`version =\` you write is the engine's own version. doze fetches and
+verifies it, pins it in \`doze.lock\`, and picks the module release that
+provides it.
 
 ${versions.map((v) => `\`${v}\``).join(' · ')}
-` : `## Versions
+` : `### Versions
 
-This engine takes no \`version =\` — it tracks current APIs.
+This engine takes no \`version =\`: it tracks current APIs.
 `}
-## Configuration
+### Fields
 
-${argTable(args) || '_This engine has no top-level arguments._'}
-${blockSections(args)}
-## Module releases
+${fieldTable(fields) || '_This engine has no top-level fields of its own._'}
+Every module block also takes doze's own fields: \`port\`, \`listen\`, \`sleep\`,
+\`after\`, \`enabled\`, \`routes\`, \`count\` and \`for_each\`
+([doze.hcl reference](/reference/doze-hcl/)).
+${nestedBlocks(name, cfg)}
+### Module releases
 
-Machinery, for the curious: the plugin releases that provide this engine.
-doze selects the newest compatible one and pins it in \`doze.lock\` — you
-never write these. Older releases stay resolvable for pinned lockfiles.
+The releases of the module that provide this engine. doze picks the newest
+one that fits your doze and your \`version =\`, and pins it in \`doze.lock\`;
+you never write these. Older releases stay available for pinned lockfiles.
 
 | Release | Engine versions | Platforms | |
 |---|---|---|---|
 ${releases.map((r) => `| \`${r.v}\` | ${r.engines.join(' · ')} | ${r.plats} | ${r.stable ? '**stable**' : ''} |`).join('\n')}
 
-Raw signed data: [index.yaml ↗](https://doze.nerdmenot.in/registry/doze/${name}/index.yaml) · [meta.yaml ↗](https://doze.nerdmenot.in/registry/doze/${name}/meta.yaml)
+Signed data: [index.yaml ↗](${RAW}/doze/${name}/index.yaml) · [meta.yaml ↗](${RAW}/doze/${name}/meta.yaml)
 `;
-		writeFileSync(`${OUT}${name}.md`, page);
+		writeFileSync(`${OUT}${slugOf(name)}.md`, page);
 		n++;
 	}
-	console.log(`✓ generated ${n} engine page(s) from ${BASE}`);
+	console.log(`✓ generated ${n} service page(s) from ${BASE}`);
+}
+
+try {
+	await generate();
 } catch (e) {
-	console.warn(`⚠ engine-page generation skipped (${e.message}) — using the committed snapshot`);
+	const kept = ORDER.filter(refresh);
+	console.warn(`⚠ registry fetch failed (${e.message}): kept the committed reference, refreshed the recipes of ${kept.join(', ') || 'none'}`);
 }
