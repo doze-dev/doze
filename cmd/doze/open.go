@@ -104,7 +104,7 @@ With no display (SSH, CI) it prints the status table instead.`,
 	c.Flags().StringVar(&show, "show", "", "open the window at this service of the project")
 	c.Flags().BoolVar(&measure, "measure", false, "print timings to stderr for the desk bench")
 	c.Flags().StringVar(&serveAddr, "serve", "", "serve the app's page over HTTP at this address instead of opening a window")
-	c.Flags().StringVar(&fixture, "fixture", "", "a scripted stack (shop, crash, modules) instead of the real daemons")
+	c.Flags().StringVar(&fixture, "fixture", "", "a scripted stack (shop, crash, modules, larder) instead of the real daemons")
 	c.Flags().BoolVar(&window, "window", false, "open the window, not only the menu bar")
 	c.Flags().DurationVar(&closeAfter, "close-after", 0, "close the window this long after it opens (the desk bench)")
 	c.Flags().DurationVar(&quitAfter, "quit-after", 0, "quit this long after starting (the desk bench)")

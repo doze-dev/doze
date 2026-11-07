@@ -29,7 +29,7 @@ import (
 type Options struct {
 	// Addr is the address to listen on; "127.0.0.1:0" picks a port.
 	Addr string
-	// Fixture names a scripted stack (shop, crash, modules) to serve instead
+	// Fixture names a scripted stack (shop, crash, modules, larder) to serve instead
 	// of the real daemons; "" serves the real ones.
 	Fixture string
 	// Out is where the URL is printed once listening.
@@ -54,6 +54,7 @@ var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
 	"portclash": fixture.Crash,
 	"changed":   fixture.Shop,
 	"stale":     fixture.Shop,
+	"larder":    fixture.Larder,
 }
 
 // Run serves until ctx ends.
@@ -164,6 +165,18 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 			return nil, nil, err
 		}
 		f.Snap.Dir = dir
+	}
+	if name == "larder" {
+		// The Larder example, up from its own doze.hcl: the map's calls
+		// and the grid's tooltips are read from it.
+		dir := filepath.Join(home, "work", "larder")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(fixture.LarderHCL), 0o644); err != nil {
+			return nil, nil, err
+		}
+		f.Snap.Dir, f.Snap.Loaded = dir, time.Now()
 	}
 	if name == "changed" {
 		// The shop, running a doze.hcl it read ten minutes ago; the file was
