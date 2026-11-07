@@ -67,3 +67,9 @@ sleep & wake (2m, `sleep`, `"never"`, pin, on/off, `doze up --last/--all`);
 upgrading from 0.1 (renames above); `doze migrate`; Linux (deb/rpm,
 systemd-resolved, polkit Repair; undo: `doze dns-setup --uninstall`,
 `doze trust --remove`); contribute via doze-modules; a new llms.txt.
+
+## Found while writing (fix in D5 or after)
+
+- `doze down --help` still says "use the dash: :sleep" (should point to `doze sleep` / the app).
+- `RegistryBase` still doze.nerdmenot.in; docs say registry.doze-dev.com — the path layout (`/doze/<name>/index.yaml` at the root) must match what D5 serves.
+- The old site's sidebar (website/astro.config.mjs) lists slugs the rebuild deletes; switch it to autogenerate or retire the old site after the merges.
