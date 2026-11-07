@@ -1,0 +1,131 @@
+---
+title: When something breaks
+description: What the app shows when a service crashes, a port is taken, or doze.hcl stops loading, and how to fix each.
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Steps from "@docs/Steps.astro";
+import crash from "../../../assets/app/crash.webp";
+import portClash from "../../../assets/app/port-clash.webp";
+import configError from "../../../assets/app/config-error.webp";
+
+Read what went wrong in the app and fix it: a crash, a port someone else holds,
+or a `doze.hcl` that no longer loads.
+
+The examples break Larder, the made-up grocery service the docs use, on
+purpose.
+
+## Where you hear about it
+
+The stack's tab gets a red count, and so does the bell at the top right
+(<kbd>⌘⇧N</kbd>). The bell's panel, **Needs you**, lists what is broken and each
+item's fix. When the window is closed or on another page, the app sends a
+notification for a crash, a failed task, or a service that never became ready;
+see [Menu bar and notifications](/app/menu-bar/).
+
+## A crash
+
+A service that exits soon after it starts is **crashing**. doze waits and tries
+again, five times by default, waiting a little longer each time. After the last
+try it is **failed** and waits for you.
+
+<Shot
+  src={crash}
+  alt="Larder's orders service crashing: a red banner says try 3 of 5, and What it said shows a Postgres password error"
+  caption="orders cannot sign in to Postgres. The last lines before it exited say why."
+  callouts={[
+    { n: 1, x: 20, y: 3, title: "A red count", text: "on the stack's tab and on the bell." },
+    { n: 2, x: 21, y: 25, title: "The banner.", text: "Which try this is, and when the next one comes." },
+    { n: 3, x: 25, y: 35, title: "What it said.", text: "The last lines before it exited, with the error in red." },
+    { n: 4, x: 90, y: 10, title: "Try now or Stop trying.", text: "Stop trying turns the service off until you turn it on." },
+  ]}
+/>
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Read What it said.** Copy takes the lines with you.
+2. **Fix the cause** in your code or in `doze.hcl`.
+3. **Press Try now** (<kbd>r</kbd>). Or **Stop trying** (<kbd>s</kbd>) while you
+   look, and flip its switch on when you are ready.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze logs orders        # what it printed, also while it is down
+doze restart orders     # try now
+doze off orders         # stop trying; nothing wakes it
+doze on orders          # back into the run
+```
+
+</Fragment>
+</HowTo>
+
+How many tries, and how long between them, is the `restart` block of an `app`
+or a `service`:
+
+```hcl
+app "orders" {
+  run = "go run ./services/orders"
+
+  restart {
+    max_retries = 10
+    backoff     = "2s"
+  }
+}
+```
+
+## A port that is taken
+
+When an app cannot listen because another process holds its port, the page
+names that process and its pid, and offers two ways out.
+
+<Shot
+  src={portClash}
+  alt="Larder's gateway crashing because bun, pid 7681, holds port 8000, with Stop bun and Edit doze.hcl"
+  caption="Something else is on port 8000, so gateway cannot listen."
+  callouts={[
+    { n: 1, x: 26, y: 35, title: "Who has the port.", text: "The process and its pid." },
+    { n: 2, x: 92, y: 41, title: "Stop it.", text: "A polite TERM, after doze checks it still holds the port." },
+    { n: 3, x: 91.5, y: 50, title: "Use another port.", text: "Opens doze.hcl; the app's name keeps working on the new port." },
+  ]}
+/>
+
+doze never stops a process it did not start without asking, which is why this
+is a question. From a terminal, `lsof -i :8000` names the same process.
+
+## A doze.hcl that does not load
+
+Save a broken `doze.hcl` while the stack runs, and the stack keeps running as
+it was. Its page says what is wrong, on which line, in the same words as
+`doze lint`.
+
+<Shot
+  src={configError}
+  alt="A red banner on the larder page: doze.hcl changed and does not load, with line 190 highlighted and the error below"
+  caption="A typo in a task's name. The message offers the name it meant."
+  callouts={[
+    { n: 1, x: 4, y: 18, title: "The banner.", text: "When the file changed, and that the stack keeps running." },
+    { n: 2, x: 17, y: 38, title: "The line.", text: "The part of doze.hcl that does not load, underlined." },
+    { n: 3, x: 15, y: 48, title: "The message.", text: "What is wrong and, where it can, what you meant." },
+    { n: 4, x: 92, y: 18, title: "Edit doze.hcl", text: "opens the file in your editor (⌘E)." },
+  ]}
+/>
+
+Fix it in your editor. The page checks the file again each time you save. Once
+it loads, **Restart the stack** applies it: a running stack keeps the file it
+started with. A `doze.hcl` that changed and still loads offers the same restart.
+
+```sh
+doze lint       # the same check, from a terminal
+```
+
+More problems and their fixes: [Troubleshooting](/guides/troubleshooting/).
+
+Next: [⌘K and keys](/app/keys/).

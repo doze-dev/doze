@@ -1,0 +1,142 @@
+---
+title: Inside a service
+description: A service's own page, with how to reach it, why it is awake, its logs, its console, and a task's runs.
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Keys from "@docs/Keys.astro";
+import Steps from "@docs/Steps.astro";
+import overview from "../../../assets/app/service-overview.webp";
+import moduleOverview from "../../../assets/app/service-overview-module.webp";
+import logs from "../../../assets/app/service-logs.webp";
+import consoleShot from "../../../assets/app/service-console.webp";
+import task from "../../../assets/app/task-ran.webp";
+
+Open one service to see how to reach it, why it is awake, what it printed, and
+its own console.
+
+## Open a service
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Open the stack** from Home.
+2. **Double-click a service,** or select it and press <kbd>⏎</kbd>. From the
+   List view, **Open** in the details pane does the same.
+3. **Press <kbd>esc</kbd>** to go back up to the stack.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze open --show catalog     # the app, at this service of the current project
+doze url catalog             # its connect line
+doze logs catalog            # what it printed
+```
+
+</Fragment>
+</HowTo>
+
+## Overview
+
+<Shot
+  src={overview}
+  alt="The catalog service's page: its addresses, why it is awake, recent events, and charts of memory, CPU and connections"
+  caption="catalog, one of Larder's apps. Larder is the made-up grocery example the docs use."
+  callouts={[
+    { n: 1, x: 8, y: 32, title: "The stack's services.", text: "Apps, modules, your own services and tasks, a click apart." },
+    { n: 2, x: 79, y: 10, title: "Its switch and verbs.", text: "Wake or sleep, pin it awake, restart, open it in a browser." },
+    { n: 3, x: 24, y: 24, title: "Reach it.", text: "Its URL, its name and port, and the bare IP and port. Each has Copy." },
+    { n: 4, x: 25, y: 46, title: "Why it's awake.", text: "What holds it up, when it would sleep, and what it needs." },
+    { n: 5, x: 23, y: 73, title: "Recent.", text: "When it woke, why, and how long it took to be ready, this run." },
+    { n: 6, x: 69, y: 24, title: "The last four minutes.", text: "Memory, CPU and connections." },
+  ]}
+/>
+
+A module's overview starts with a **Connect** card instead: the URL, the
+environment variable an app would read it from, its name and port, and where its
+data lives. Below it, **From your code** gives the same URL in Node, Python, Go,
+a shell, `.env` and `psql`.
+
+<Shot src={moduleOverview} alt="Larder's postgres module: the Connect card with its URL, DATABASE_URL, address and data folder, and From your code in Node" caption="The postgres module. Inside the stack there is nothing to configure: the name resolves and the variable is set." crop />
+
+## Logs
+
+The **Logs** tab is what the service printed, following new lines as they
+come. Filter the text with <kbd>/</kbd>, pick a level from Debug to Errors, and
+switch between times relative to now and clock times. A service keeps its logs
+by run: <kbd>[</kbd> and <kbd>]</kbd> step to an earlier or later run. **Copy**
+copies what is shown.
+
+<Shot src={logs} alt="The gateway's Logs tab: a filter box, level and time switches, and request lines with one warning" caption="gateway's logs. The warning is a rate limit." crop />
+
+**All logs** on the stack's page (<kbd>L</kbd>, or <kbd>⌘L</kbd> anywhere in the
+stack) merges every service's lines, with a box per service to show or hide it.
+
+## Console
+
+A module with a console of its own has a tab for it. Kafka's lists the topics,
+the consumer groups and their lag, and the newest messages, and can produce a
+message. AWS's shows its buckets and queues, and every API call, newest first. A console reads every two
+seconds while the module is awake and never wakes it. Postgres's tab is
+**activity**: how many connections are active, idle and waiting.
+
+<Shot src={consoleShot} alt="Kafka's console tab: topics with partitions and message counts, consumer groups with lag, the tail of orders.placed, and actions" caption="Kafka's console. The recommendations group is two messages behind." crop />
+
+A service that serves a web console, such as Larder's mailpit, declares it with
+`console = "http://127.0.0.1:8025"`, and its page shows it in a **Console** tab,
+with **Open in browser** (<kbd>o</kbd>) a key away.
+
+While a console tab has the keyboard, its letters are its own actions; the
+page's keys wait.
+
+## A task
+
+A task's page shows its **Last run**: the output, the exit code and how long it
+took. **Runs** lists the runs kept for the stack, newest first, with who or what
+started each. **Run again** (<kbd>⏎</kbd>) runs it now.
+
+<Shot src={task} alt="The migrate-catalog task: the output of its last run, the three runs kept, and its command" caption="migrate-catalog, a task Larder runs before catalog. The second run failed with exit 1." crop />
+
+A task keeps nothing awake once it ends. A failed run shows a notification,
+and the task's row stays red until the next run.
+
+```sh
+doze task                   # every task and how it last ran
+doze task migrate-catalog   # run it now
+```
+
+## Keys
+
+<Keys
+  keys={[
+    ["esc", "up to the stack"],
+    ["w s", "wake, sleep"],
+    ["p", "pin it awake, or unpin"],
+    ["r", "restart (a task: run it)"],
+    ["o", "open in a browser"],
+    ["y", "copy its address"],
+    ["l", "its logs"],
+    ["⏎", "a task: run it"],
+  ]}
+/>
+
+On the Logs tab:
+
+<Keys
+  keys={[
+    ["/", "filter the text"],
+    ["1–4", "level: debug, info, warnings, errors"],
+    ["t", "relative or clock time"],
+    ["[ ]", "earlier, later run"],
+    ["space", "pause or follow"],
+    ["c", "copy what is shown"],
+  ]}
+/>
+
+Next: [When something breaks](/app/when-something-breaks/).

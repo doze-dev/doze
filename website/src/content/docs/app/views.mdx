@@ -1,0 +1,87 @@
+---
+title: Tiles, List, Map and Grid
+description: The four views of a stack's page, what each shows, and when to use which.
+---
+
+import Shot from "@docs/Shot.astro";
+import Keys from "@docs/Keys.astro";
+import map from "../../../assets/app/view-map.webp";
+import tiles from "../../../assets/app/view-tiles.webp";
+import list from "../../../assets/app/view-list.webp";
+import grid from "../../../assets/app/view-grid.webp";
+
+Four views of the same stack. Pick one with the switch at the top, or press
+<kbd>1</kbd> to <kbd>4</kbd>. doze remembers the view for each stack.
+
+## The stack page
+
+<Shot
+  src={map}
+  alt="The larder stack in the Map view, with the view switch, the stack's switch, the strip of totals and the cards"
+  caption="Larder, the made-up grocery example, in the Map view."
+  callouts={[
+    { n: 1, x: 65, y: 10, title: "The view switch.", text: "Tiles, List, Map, Grid." },
+    { n: 2, x: 93, y: 10, title: "The stack's switch.", text: "Up or down for the whole stack." },
+    { n: 3, x: 11, y: 19, title: "The strip.", text: "Memory, CPU, how many are awake, connections, tasks." },
+    { n: 4, x: 38, y: 44, title: "Who calls whom.", text: "Left to right, the way a request travels. Lines come from references in doze.hcl." },
+    { n: 5, x: 13, y: 73, title: "Nobody calls these.", text: "Services that work from events." },
+    { n: 6, x: 9, y: 86, title: "Shared by the stack.", text: "Postgres, Kafka and the rest. The chips on each card say who uses what." },
+    { n: 7, x: 20, y: 98, title: "The keys for this view.", text: "They change with the view." },
+  ]}
+/>
+
+Beside the view switch, **Activity** (<kbd>A</kbd>) reads the stack's journal
+over the last hour, day or week: how long each service slept, about how much
+memory that left free, what woke each one, and what crashed. **All logs**
+(<kbd>L</kbd>) is every service's output, merged.
+
+## Which view, for what
+
+| View | What it shows | Use it to |
+|---|---|---|
+| **Tiles** <kbd>1</kbd> | A card per service, with its state, its memory and its address. | See at a glance what is awake. |
+| **List** <kbd>2</kbd> | A row per service, and a details pane for the one you select. | Read addresses and details without opening each one. |
+| **Map** <kbd>3</kbd> | Who calls whom, from references in doze.hcl. Click a card to draw its lines. | Understand a stack you did not write. |
+| **Grid** <kbd>4</kbd> | The stack as a table: a row needs each column it has a dot in. | Answer "what uses kafka?" down a column. |
+
+Tiles and List group the services the same way: **apps** (your code),
+**modules** (from the doze registry), **outside** (your own services) and
+**tasks**. Every row has a switch: on wakes the service, off puts it to sleep.
+Putting a service to sleep asks first when something running depends on it.
+
+<Shot src={tiles} alt="The larder stack in Tiles: a card per app with its switch, state, memory and address" caption="Tiles. Each card says why the service is awake: storefront needs gateway, so gateway stays up." crop />
+
+<Shot src={list} alt="The larder stack in List, with catalog selected and its details in the pane on the right" caption="List, with catalog selected: its addresses, its command, when it sleeps, and what it needs." crop />
+
+<Shot src={grid} alt="The larder stack in Grid: services down the side, what they need across the top, and the tasks that run before each" caption="The Grid: read across for what a service needs, down for who needs a service. The last column is the tasks that run before it." />
+
+## Keys
+
+<Keys
+  keys={[
+    ["1–4", "Tiles, List, Map, Grid"],
+    ["↑ ↓ j k", "move"],
+    ["space", "wake or sleep the selected one"],
+    ["⏎", "open it"],
+    ["w s", "wake, sleep"],
+    ["p", "pin it awake"],
+    ["r", "restart it"],
+    ["l", "its logs"],
+    ["y", "copy its address"],
+    ["/", "filter"],
+    ["A L", "Activity, all logs"],
+  ]}
+/>
+
+In the Map the arrow keys move between cards the way they are drawn. In the
+Grid, an arrow key or <kbd>⏎</kbd> moves into the table, and <kbd>/</kbd>
+filters its rows. Every key is listed under [⌘K and keys](/app/keys/).
+
+### In a terminal
+
+```sh
+doze status            # every service, its state and memory
+doze status --graph    # the dependency tree
+```
+
+Next: [Inside a service](/app/inside-a-service/).
