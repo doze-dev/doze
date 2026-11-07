@@ -277,6 +277,11 @@ func (s *stack) view() StackView {
 		LastSet:   append([]string(nil), s.lastSet...),
 		Since:     s.since,
 	}
+	if !s.loaded.IsZero() && s.loaded.Before(v.Since) {
+		// The daemon read doze.hcl when it started, which may be long
+		// before this hub saw it: "up" counts from then.
+		v.Since = s.loaded
+	}
 	for name, sr := range s.series {
 		v.Series[name] = sr.clone()
 	}

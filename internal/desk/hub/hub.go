@@ -83,7 +83,8 @@ type StackView struct {
 	// LastSet is what doze up started last time, from the project record;
 	// empty means everything.
 	LastSet []string
-	// Since is when the hub first saw this stack's daemon: "up 14m".
+	// Since is when this stack's daemon started (when it read doze.hcl),
+	// or, from an older daemon, when the hub first saw it: "up 14m".
 	Since time.Time
 }
 

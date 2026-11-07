@@ -179,6 +179,9 @@ func (s *Service) DismissHints() {
 // route and the certificate authority, and the app itself. A part that
 // is not in place carries the command that puts it there.
 func (s *Service) doctor(stacks []hub.StackView) []view.Check {
+	if s.FakeDoctor != nil {
+		return s.FakeDoctor(stacks)
+	}
 	out := []view.Check{}
 	if names.Disabled() {
 		out = append(out, view.Check{Section: "names", Name: "names", OK: false, Text: "switched off (DOZE_ZONE)"})

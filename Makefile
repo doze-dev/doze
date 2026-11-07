@@ -113,3 +113,13 @@ help: ## Show this help
 .PHONY: dmg
 dmg: app ## Build Doze.app and wrap it in a disk image (dist/Doze-<version>.dmg)
 	sh build/darwin/dmg.sh dist $(VERSION)
+
+# The version the docs' screenshots show (Settings, About, Machine): the
+# release they document, not this checkout's git describe.
+DOCS_VERSION ?= 0.2.0
+
+.PHONY: docs-shots
+docs-shots: frontend ## Shoot the docs' app screenshots (website/docs-shots.json) into website/src/assets/app as WebP
+	CGO_ENABLED=0 go build -tags purego,production -ldflags "-s -w -X main.version=$(DOCS_VERSION)" -o test/desk-e2e/.doze-docs ./cmd/doze
+	cd test/desk-e2e && bun install --frozen-lockfile && DOZE_BIN=.doze-docs bun run shot.ts docs ../../website/docs-shots.json ../../website/src/assets/app
+	rm -f test/desk-e2e/.doze-docs

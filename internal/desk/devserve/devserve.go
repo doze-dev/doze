@@ -21,6 +21,7 @@ import (
 	"github.com/doze-dev/doze/internal/control/fixture"
 	"github.com/doze-dev/doze/internal/desk/hub"
 	"github.com/doze-dev/doze/internal/desk/serve"
+	"github.com/doze-dev/doze/internal/desk/view"
 	"github.com/doze-dev/doze/internal/desk/web"
 	"github.com/doze-dev/doze/internal/display"
 )
@@ -29,7 +30,7 @@ import (
 type Options struct {
 	// Addr is the address to listen on; "127.0.0.1:0" picks a port.
 	Addr string
-	// Fixture names a scripted stack (shop, crash, modules, larder) to serve instead
+	// Fixture names a scripted stack (a key of Fixtures) to serve instead
 	// of the real daemons; "" serves the real ones.
 	Fixture string
 	// Out is where the URL is printed once listening.
@@ -46,15 +47,21 @@ type Options struct {
 
 // Fixtures are the scripted stacks a fixture run can serve.
 var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
-	"shop":      fixture.Shop,
-	"crash":     fixture.Crash,
-	"modules":   fixture.Modules,
-	"long":      fixture.Long,
-	"badconfig": fixture.Shop,
-	"portclash": fixture.Crash,
-	"changed":   fixture.Shop,
-	"stale":     fixture.Shop,
-	"larder":    fixture.Larder,
+	"shop":             fixture.Shop,
+	"crash":            fixture.Crash,
+	"modules":          fixture.Modules,
+	"long":             fixture.Long,
+	"badconfig":        fixture.Shop,
+	"portclash":        fixture.Crash,
+	"changed":          fixture.Shop,
+	"stale":            fixture.Shop,
+	"larder":           fixture.Larder,
+	"larder-crash":     fixture.LarderCrash,
+	"larder-portclash": fixture.LarderPortClash,
+	"larder-badconfig": fixture.Larder,
+	"larder-domains":   fixture.LarderDomains,
+	// none is a machine with no stacks at all: the LibraryEmpty board.
+	"none": nil,
 }
 
 // Run serves until ctx ends.
@@ -80,6 +87,14 @@ func Run(ctx context.Context, o Options) error {
 		return []byte("doze: this is a fixture; " + st.Name + " cannot really " + map[string]string{"up-last": "start", "up-all": "start", "up": "start", "down": "stop", "restart": "restart"}[action] + " here"), errors.New("exit status 1")
 	}
 	svc.SetVersion(o.Version)
+	if o.Fixture != "" {
+		svc.SetClock(Now)
+	}
+	if _, stopped := os.LookupEnv("DOZE_FIXTURE_NOW"); stopped && o.Fixture != "" {
+		// On a stopped clock the page is being photographed for the docs:
+		// the machine is one set up as they describe.
+		svc.FakeDoctor = func(st []hub.StackView) []view.Check { return setUpMachine(st, o.Version) }
+	}
 	setup := o.Setup
 	if setup == nil && o.Fixture != "" {
 		setup = starterOnly
@@ -128,9 +143,12 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 		}
 		return nil, nil, fmt.Errorf("no fixture %q (have %s)", name, strings.Join(names, ", "))
 	}
-	home, err := os.MkdirTemp("", "doze-fixture-")
+	root, home, work, err := fixtureHome()
 	if err != nil {
 		return nil, nil, err
+	}
+	if build == nil {
+		return hub.New(hub.Options{Home: home, Now: Now}), func() { _ = os.RemoveAll(root) }, nil
 	}
 	run := filepath.Join(home, "projects", name+"-1", "run")
 	if err := os.MkdirAll(run, 0o755); err != nil {
@@ -140,10 +158,10 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 	if err := os.WriteFile(sock, nil, 0o644); err != nil {
 		return nil, nil, err
 	}
-	if err := seedStopped(home, time.Now()); err != nil {
+	if err := seedStopped(home, work, Now()); err != nil {
 		return nil, nil, err
 	}
-	f := build(time.Now())
+	f := build(Now())
 	if name == "portclash" {
 		// The crash fixture's api, failing because port 7799 is taken; the
 		// spec holds that port, so there is a real listener to name.
@@ -157,7 +175,7 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 	}
 	if name == "badconfig" {
 		// The shop, running, with a doze.hcl saved broken under it.
-		dir := filepath.Join(home, "work", "shop")
+		dir := filepath.Join(work, "shop")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, nil, err
 		}
@@ -166,29 +184,48 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 		}
 		f.Snap.Dir = dir
 	}
-	if name == "larder" {
+	if strings.HasPrefix(name, "larder") {
 		// The Larder example, up from its own doze.hcl: the map's calls
-		// and the grid's tooltips are read from it.
-		dir := filepath.Join(home, "work", "larder")
+		// and the grid's tooltips are read from it. Its variants are
+		// the docs' screenshots: larder-domains runs the file with the
+		// storefront's domain in it; larder-badconfig, the file saved
+		// since with a task's name misspelt, so it no longer loads.
+		src, loaded := fixture.LarderHCL, f.Snap.Loaded
+		switch name {
+		case "larder-domains":
+			src = fixture.LarderDomainsHCL
+		case "larder-badconfig":
+			src = strings.Replace(src, "after = [task.migrate-catalog]\n", "after = [task.migrate-catalogue]\n", 1)
+		}
+		dir := filepath.Join(work, "larder")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, nil, err
 		}
-		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(fixture.LarderHCL), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(src), 0o644); err != nil {
 			return nil, nil, err
 		}
-		f.Snap.Dir, f.Snap.Loaded = dir, time.Now()
+		// Saved a minute before it was read, or, for larder-badconfig, two
+		// minutes ago, after: by the fixture's clock, which may be stopped.
+		saved := loaded.Add(-time.Minute)
+		if name == "larder-badconfig" {
+			saved = Now().Add(-2 * time.Minute)
+		}
+		if err := os.Chtimes(filepath.Join(dir, "doze.hcl"), saved, saved); err != nil {
+			return nil, nil, err
+		}
+		f.Snap.Dir, f.Snap.Loaded = dir, loaded
 	}
 	if name == "changed" {
 		// The shop, running a doze.hcl it read ten minutes ago; the file was
 		// saved since: the "doze.hcl changed" banner.
-		dir := filepath.Join(home, "work", "shop")
+		dir := filepath.Join(work, "shop")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, nil, err
 		}
 		if err := os.WriteFile(filepath.Join(dir, "doze.hcl"), []byte(changedConfig), 0o644); err != nil {
 			return nil, nil, err
 		}
-		f.Snap.Dir, f.Snap.Loaded = dir, time.Now().Add(-10*time.Minute)
+		f.Snap.Dir, f.Snap.Loaded = dir, Now().Add(-10*time.Minute)
 	}
 	// The meters every second after the script, as a daemon sends them, so
 	// a metered page is never told its picture is old.
@@ -213,11 +250,39 @@ func HubFor(name string) (*hub.Hub, func(), error) {
 		// last word heard and says the daemon is not answering.
 		d = &quiet{Fake: f}
 	}
-	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return d }})
+	h := hub.New(hub.Options{Home: home, Dial: func(string) control.Daemon { return d }, Now: Now})
 	return h, func() {
 		close(stop)
-		_ = os.RemoveAll(home)
+		_ = os.RemoveAll(root)
 	}, nil
+}
+
+// fixtureHome lays out where a fixture lives: a doze home, and a folder
+// of stack folders beside it. They are in a new temporary folder, or,
+// with DOZE_FIXTURE_HOME set, in that folder, emptied first, as .doze and
+// code: run with HOME there too, the page says ~/code/larder, the same
+// on every run (make docs-shots).
+func fixtureHome() (root, home, work string, err error) {
+	root = os.Getenv("DOZE_FIXTURE_HOME")
+	if root == "" {
+		root, err = os.MkdirTemp("", "doze-fixture-")
+		return root, root, filepath.Join(root, "work"), err
+	}
+	if err := os.RemoveAll(root); err != nil {
+		return "", "", "", err
+	}
+	home = filepath.Join(root, ".doze")
+	return root, home, filepath.Join(root, "code"), os.MkdirAll(home, 0o755)
+}
+
+// Now is a fixture's clock: the time now, or, with DOZE_FIXTURE_NOW set to
+// an RFC 3339 time, that time and no other, so every age and clock on the
+// page is the same from one run to the next (make docs-shots).
+func Now() time.Time {
+	if t, err := time.Parse(time.RFC3339, os.Getenv("DOZE_FIXTURE_NOW")); err == nil {
+		return t
+	}
+	return time.Now()
 }
 
 // lastStats is the script's last meters frame, or nil when it has none.

@@ -136,9 +136,13 @@ type Service struct {
 	// down, restart): the fixture server sets it so a test never starts a
 	// real daemon. It returns what the CLI would print, and its error.
 	FakeStack func(st hub.StackView, action string) ([]byte, error)
-	now       func() time.Time
-	emit      Emitter
-	version   string
+	// FakeDoctor, when set, is the machine report in place of this
+	// machine's: the docs' screenshots show a machine set up as the docs
+	// describe, whatever the one taking them has.
+	FakeDoctor func(stacks []hub.StackView) []view.Check
+	now        func() time.Time
+	emit       Emitter
+	version    string
 
 	mu         sync.Mutex
 	focus      Focus

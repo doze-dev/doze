@@ -1,0 +1,32 @@
+{
+  "$comment": "The app screenshots the docs use: make docs-shots shoots each against its fixture (internal/desk/devserve) and writes src/assets/app/<name>.webp, and <name>-dark.webp where dark is set. The clock is stopped at now, so a run repeats.",
+  "size": "1280x800",
+  "scale": 2,
+  "now": "2026-11-03T14:22:30Z",
+  "shots": [
+    { "name": "library", "fixture": "larder", "dark": true },
+    { "name": "library-empty", "fixture": "none" },
+    { "name": "view-tiles", "fixture": "larder", "stack": "larder", "view": "tiles" },
+    { "name": "view-list", "fixture": "larder", "stack": "larder", "view": "list" },
+    { "name": "view-map", "fixture": "larder", "stack": "larder", "view": "map", "dark": true },
+    { "name": "view-grid", "fixture": "larder", "stack": "larder", "view": "grid" },
+    { "name": "map-selected", "fixture": "larder", "stack": "larder", "view": "map:catalog" },
+    { "name": "grid-hover", "fixture": "larder", "stack": "larder", "view": "grid:orders/catalog" },
+    { "name": "service-overview", "fixture": "larder", "stack": "larder", "view": "inside:catalog" },
+    { "name": "service-overview-module", "fixture": "larder", "stack": "larder", "view": "inside:postgres" },
+    { "name": "service-logs", "fixture": "larder", "stack": "larder", "view": "ilogs:gateway" },
+    { "name": "service-console", "fixture": "larder", "stack": "larder", "view": "console:kafka" },
+    { "name": "service-console-aws", "fixture": "larder", "stack": "larder", "view": "console:aws" },
+    { "name": "stack-logs", "fixture": "larder", "stack": "larder", "view": "logs" },
+    { "name": "task-ran", "fixture": "larder", "stack": "larder", "view": "inside:migrate-catalog" },
+    { "name": "palette", "fixture": "larder", "stack": "larder", "view": "palette" },
+    { "name": "palette-typed", "fixture": "larder", "stack": "larder", "view": "pal:gateway" },
+    { "name": "sleep-dialog", "fixture": "larder", "stack": "larder", "view": "sleep:postgres" },
+    { "name": "crash", "fixture": "larder-crash", "stack": "larder", "view": "inside:orders" },
+    { "name": "port-clash", "fixture": "larder-portclash", "stack": "larder", "view": "inside:gateway", "hold": 8000 },
+    { "name": "config-error", "fixture": "larder-badconfig", "stack": "larder", "view": "tiles" },
+    { "name": "settings", "fixture": "larder", "stack": "larder", "view": "settings" },
+    { "name": "machine", "fixture": "larder", "stack": "larder", "view": "machine" },
+    { "name": "domains", "fixture": "larder-domains", "stack": "larder", "view": "inside:storefront" }
+  ]
+}
