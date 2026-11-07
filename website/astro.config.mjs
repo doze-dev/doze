@@ -59,111 +59,17 @@ export default defineConfig({
           },
         },
       ],
+      // The docs are written for doze-website, which orders them by hand
+      // (design/docs-ia.json there). This older site lists each folder.
       sidebar: [
-        {
-          label: "Why doze",
-          items: [
-            { slug: "why/doze" },
-            { slug: "why/not-containers" },
-            { slug: "why/hcl" },
-            { slug: "why/alternatives" },
-            { slug: "why/trust" },
-          ],
-        },
-        {
-          label: "Getting started",
-          items: [
-            { slug: "start/install" },
-            { slug: "start/getting-started" },
-            { slug: "start/concepts" },
-            { slug: "start/from-docker-compose" },
-          ],
-        },
-        {
-          label: "The app & the CLI",
-          items: [
-            { slug: "cli/tour" },
-            { slug: "cli/app" },
-          ],
-        },
-        {
-          label: "Engines",
-          items: [
-            { slug: "guides/engines", label: "Overview" },
-            { slug: "engines/postgres" },
-            { slug: "engines/valkey" },
-            { slug: "engines/kvrocks" },
-            { slug: "engines/ferret" },
-            { slug: "engines/mariadb" },
-            { slug: "engines/temporal" },
-            { slug: "engines/kafka" },
-            { slug: "engines/aws" },
-          ],
-        },
-        {
-          label: "Guides",
-          items: [
-            { slug: "guides/microservices" },
-            { slug: "guides/engines" },
-            {
-              label: "Engine recipes",
-              collapsed: true,
-              items: [
-                { slug: "guides/recipes/microservices-stack" },
-                { slug: "guides/recipes/postgres" },
-                { slug: "guides/recipes/valkey-kvrocks" },
-                { slug: "guides/recipes/documentdb" },
-                { slug: "guides/recipes/aws" },
-                { slug: "guides/recipes/kafka" },
-                { slug: "guides/recipes/stacks" },
-                { slug: "guides/recipes/config-layout" },
-              ],
-            },
-            { slug: "guides/workflows" },
-            { slug: "guides/modules" },
-            { slug: "guides/teams-ci" },
-            { slug: "guides/files-and-storage" },
-            { slug: "guides/resource-footprint" },
-            { slug: "guides/troubleshooting" },
-            { slug: "guides/faq" },
-          ],
-        },
-        {
-          label: "Building modules",
-          items: [
-            { slug: "modules/overview" },
-            { slug: "modules/first-module" },
-            { slug: "modules/real-engines" },
-            { slug: "modules/describe" },
-            { slug: "modules/testing" },
-            { slug: "modules/releasing" },
-            { slug: "modules/publishing" },
-          ],
-        },
-        {
-          // Not under /registry/* — that path is the registry portal itself
-          // (proxied by the domain router), so the operator guide lives at
-          // /operate/* to avoid the collision.
-          label: "How the registry works",
-          items: [
-            { slug: "operate/trust-architecture" },
-            { slug: "operate/mirror-binaries" },
-            { slug: "operate/operations" },
-          ],
-        },
-        {
-          label: "Reference",
-          items: [
-            { slug: "reference/cli" },
-            { slug: "reference/configuration" },
-            { slug: "reference/lockfile" },
-            { slug: "reference/environment" },
-            { slug: "reference/module-index" },
-            { slug: "reference/binaries" },
-            { slug: "reference/extensions" },
-            { slug: "reference/architecture" },
-          ],
-        },
+        { label: "Start here", autogenerate: { directory: "start" } },
+        { label: "The app", autogenerate: { directory: "app" } },
+        { label: "doze.hcl", autogenerate: { directory: "hcl" } },
+        { label: "Services", autogenerate: { directory: "services" } },
+        { label: "Guides", autogenerate: { directory: "guides" } },
+        { label: "Reference", autogenerate: { directory: "reference" } },
+        { label: "Contribute to the registry", autogenerate: { directory: "contribute" } },
+        { label: "Why doze", autogenerate: { directory: "why" } },
       ],
     }),
   ],

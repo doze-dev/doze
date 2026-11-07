@@ -39,14 +39,12 @@ jobs:
             go test -c -o /dev/null ./internal/desk/app/
           done
       # Every doze command, flag and doze.hcl field the docs name exists
-      # (website/scripts/ground.ts, make ground). Report only until the docs
-      # rewrite lands; then drop GROUND_REPORT_ONLY and it gates.
+      # (website/scripts/ground.ts, make ground). It gates.
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: "1.4.4" }
       - name: Docs name only what exists
         env:
           CGO_ENABLED: "0"
-          GROUND_REPORT_ONLY: "1"
         run: |
           go build -o doze ./cmd/doze
           bun website/scripts/ground.ts

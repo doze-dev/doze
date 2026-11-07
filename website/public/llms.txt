@@ -14,57 +14,57 @@ Key facts:
 
 ## Start here
 
-- [Install](https://doze-dev.com/docs/doze/start/install/): One static binary — Homebrew, mise, direct download, or built from source.
-- [Your first stack](https://doze-dev.com/docs/doze/start/first-stack/)
-- [Bring your own repo](https://doze-dev.com/docs/doze/start/your-repo/)
-- [How doze thinks](https://doze-dev.com/docs/doze/start/how-doze-thinks/)
+- [Install the app](https://doze-dev.com/docs/doze/start/install/): Install doze on a Mac or on Linux, open it once, and let it set up names for your services.
+- [Your first stack](https://doze-dev.com/docs/doze/start/first-stack/): Open an example project in the app, bring it up, and watch each service wake.
+- [Bring your own repo](https://doze-dev.com/docs/doze/start/your-repo/): Point doze at your own project, let it write a doze.hcl from what it finds, and bring it up.
+- [How doze thinks](https://doze-dev.com/docs/doze/start/how-doze-thinks/): The four kinds of block, sleep and wake, names, and start order, in one page.
 
 ## The app
 
-- [Library and stacks](https://doze-dev.com/docs/doze/app/library/)
-- [Tiles, List, Map and Grid](https://doze-dev.com/docs/doze/app/views/)
-- [Inside a service](https://doze-dev.com/docs/doze/app/inside-a-service/)
-- [When something breaks](https://doze-dev.com/docs/doze/app/when-something-breaks/)
-- [⌘K and keys](https://doze-dev.com/docs/doze/app/keys/)
-- [Menu bar and notifications](https://doze-dev.com/docs/doze/app/menu-bar/)
-- [Domains and HTTPS](https://doze-dev.com/docs/doze/app/domains/)
-- [Settings and Doctor](https://doze-dev.com/docs/doze/app/settings/)
+- [Library and stacks](https://doze-dev.com/docs/doze/app/library/): Home, the list of every stack on this machine, and how to add, start, stop and remove one.
+- [Tiles, List, Map and Grid](https://doze-dev.com/docs/doze/app/views/): The four views of a stack's page, what each shows, and when to use which.
+- [Inside a service](https://doze-dev.com/docs/doze/app/inside-a-service/): A service's own page, with how to reach it, why it is awake, its logs, its console, and a task's runs.
+- [When something breaks](https://doze-dev.com/docs/doze/app/when-something-breaks/): What the app shows when a service crashes, a port is taken, or doze.hcl stops loading, and how to fix each.
+- [⌘K and keys](https://doze-dev.com/docs/doze/app/keys/): The ⌘K palette, and every key the app answers to, page by page.
+- [Menu bar and notifications](https://doze-dev.com/docs/doze/app/menu-bar/): The bat in the menu bar, what its menu offers, and when doze sends a notification.
+- [Domains and HTTPS](https://doze-dev.com/docs/doze/app/domains/): Give an app a real name under a public TLD, served over https on your machine, so sign-in callbacks, cookies and tenant subdomains work locally.
+- [Settings and Doctor](https://doze-dev.com/docs/doze/app/settings/): The app's settings, the machine's setup part by part, and Repair when a part is missing.
 
 ## doze.hcl
 
-- [Apps](https://doze-dev.com/docs/doze/hcl/apps/)
-- [Shared services](https://doze-dev.com/docs/doze/hcl/shared-services/)
-- [Your own services](https://doze-dev.com/docs/doze/hcl/your-own-services/)
-- [Tasks](https://doze-dev.com/docs/doze/hcl/tasks/)
-- [Start order and readiness](https://doze-dev.com/docs/doze/hcl/start-order/)
-- [Sleep and wake](https://doze-dev.com/docs/doze/hcl/sleep/)
-- [Names and addresses](https://doze-dev.com/docs/doze/hcl/names/)
-- [References and env](https://doze-dev.com/docs/doze/hcl/references-and-env/)
-- [Splitting files](https://doze-dev.com/docs/doze/hcl/splitting-files/)
-- [Teams and CI](https://doze-dev.com/docs/doze/hcl/teams-and-ci/)
+- [Apps](https://doze-dev.com/docs/doze/hcl/apps/): Declare your own code in doze.hcl, an API, a worker or a web front end, so doze starts it, restarts it and gives it a name.
+- [Shared services](https://doze-dev.com/docs/doze/hcl/shared-services/): Add Postgres, Valkey, Kafka, AWS and the other registry modules to a stack, choose their versions, and keep them pinned.
+- [Your own services](https://doze-dev.com/docs/doze/hcl/your-own-services/): Run a program that is not in the registry, such as mailpit, MongoDB or MinIO, as a service in your stack, from your PATH, a container or a download.
+- [Tasks](https://doze-dev.com/docs/doze/hcl/tasks/): Run migrations, installs and seed scripts as tasks, before the apps that need them and again only when their files change.
+- [Start order and readiness](https://doze-dev.com/docs/doze/hcl/start-order/): Say what each service waits for with after, and when it counts as ready with ready.
+- [Sleep and wake](https://doze-dev.com/docs/doze/hcl/sleep/): How long services stay awake with nothing using them, how to change it, and how to keep one up or take one out.
+- [Names and addresses](https://doze-dev.com/docs/doze/hcl/names/): How every service gets a name like postgres.larder.doze, how apps are served without a port, and what happens with names off.
+- [References and env](https://doze-dev.com/docs/doze/hcl/references-and-env/): Pass one block's address to another by reference, set environment variables, and parameterise a stack with variables.
+- [Splitting files](https://doze-dev.com/docs/doze/hcl/splitting-files/): Split a stack's doze.hcl across several files, and change a few settings on your machine only with an override file.
+- [Teams and CI](https://doze-dev.com/docs/doze/hcl/teams-and-ci/): Share a stack with your team through two committed files, and run it in CI with stable output and exit codes.
 
 ## Services
 
-- [Postgres](https://doze-dev.com/docs/doze/services/postgres/)
-- [Valkey](https://doze-dev.com/docs/doze/services/valkey/)
-- [Kvrocks](https://doze-dev.com/docs/doze/services/kvrocks/)
-- [FerretDB](https://doze-dev.com/docs/doze/services/ferretdb/)
-- [MariaDB](https://doze-dev.com/docs/doze/services/mariadb/)
-- [Temporal](https://doze-dev.com/docs/doze/services/temporal/)
-- [Kafka](https://doze-dev.com/docs/doze/services/kafka/)
-- [AWS](https://doze-dev.com/docs/doze/services/aws/)
+- [Postgres](https://doze-dev.com/docs/doze/services/postgres/): Run a real PostgreSQL server, with its roles, schemas, grants and extensions declared in doze.hcl.
+- [Valkey](https://doze-dev.com/docs/doze/services/valkey/): Run Valkey, the open-source Redis, as an in-memory cache any Redis client can use.
+- [Kvrocks](https://doze-dev.com/docs/doze/services/kvrocks/): Run Kvrocks, the Redis protocol on disk, for keys that survive sleep and restarts without living in RAM.
+- [FerretDB](https://doze-dev.com/docs/doze/services/ferretdb/): Run a MongoDB-compatible database that any Mongo driver, mongosh or Compass connects to.
+- [MariaDB](https://doze-dev.com/docs/doze/services/mariadb/): Run MariaDB, the MySQL-compatible database, with its users and grants declared in doze.hcl.
+- [Temporal](https://doze-dev.com/docs/doze/services/temporal/): Run a local Temporal server, with its Web UI and namespaces, for your workflow workers.
+- [Kafka](https://doze-dev.com/docs/doze/services/kafka/): Run a single-node Kafka-protocol broker, with its topics declared in doze.hcl and a web console, without a JVM.
+- [AWS](https://doze-dev.com/docs/doze/services/aws/): Run local AWS (S3, SQS, SNS, DynamoDB, Lambda and more) as one service, with buckets, queues and tables declared in doze.hcl.
 
 ## Guides
 
-- [Running your own services](https://doze-dev.com/docs/doze/guides/microservices/): doze isn't just for databases — it's a local orchestrator for your microservices, with or without any database at all.
-- [Recipes — Workflows](https://doze-dev.com/docs/doze/guides/workflows/)
-- [Upgrading from 0.1](https://doze-dev.com/docs/doze/guides/upgrading-from-0-1/)
-- [Postgres major upgrades](https://doze-dev.com/docs/doze/guides/postgres-upgrades/)
-- [Files & storage](https://doze-dev.com/docs/doze/guides/files-and-storage/)
-- [Memory](https://doze-dev.com/docs/doze/guides/memory/)
-- [Linux](https://doze-dev.com/docs/doze/guides/linux/)
-- [Troubleshooting](https://doze-dev.com/docs/doze/guides/troubleshooting/)
-- [FAQ](https://doze-dev.com/docs/doze/guides/faq/)
+- [Microservices](https://doze-dev.com/docs/doze/guides/microservices/): Run a stack of your own services in Go, Python and TypeScript, in order, beside the databases they use, from one doze.hcl.
+- [Everyday workflows](https://doze-dev.com/docs/doze/guides/workflows/): Start a stack, connect to it, read its logs, run a task, change doze.hcl and stop for the day, in the app or in a terminal.
+- [Upgrading from 0.1](https://doze-dev.com/docs/doze/guides/upgrading-from-0-1/): Every spelling doze 0.2 changed in doze.hcl and on the command line, and what to write instead.
+- [Postgres major upgrades](https://doze-dev.com/docs/doze/guides/postgres-upgrades/): Move a Postgres service's data from one major version to the next with doze migrate, keeping the old data until you are sure.
+- [Files and storage](https://doze-dev.com/docs/doze/guides/files-and-storage/): Where doze keeps binaries, data, logs and state, what to commit, and how to clean up.
+- [Memory](https://doze-dev.com/docs/doze/guides/memory/): What doze holds in memory when a stack is idle and while you work, measured, with how to measure it yourself.
+- [Linux](https://doze-dev.com/docs/doze/guides/linux/): Install doze on Linux, set up .doze names with systemd-resolved, and undo all of it.
+- [Troubleshooting](https://doze-dev.com/docs/doze/guides/troubleshooting/): What to do when a service crashes, a port is taken, a name does not resolve, an app is never ready, or doze.hcl does not load.
+- [FAQ](https://doze-dev.com/docs/doze/guides/faq/): Short answers to the questions people ask about doze, with links to the pages that go further.
 
 ## Reference
 
@@ -86,11 +86,11 @@ Key facts:
 
 ## Why doze
 
-- [Why doze?](https://doze-dev.com/docs/doze/why/doze/)
-- [Native processes vs containers, for development](https://doze-dev.com/docs/doze/why/not-containers/): Why your dev backend should be a process you can see, debug, and profile — not a VM you tunnel into.
-- [Why HCL (and not YAML or JSON)](https://doze-dev.com/docs/doze/why/hcl/): Config that declares infrastructure should have types, references, and expressions — argued from doze's actual features.
-- [Alternatives, honestly](https://doze-dev.com/docs/doze/why/alternatives/): What docker-compose, Testcontainers, LocalStack, Nix, and the rest are genuinely good at — and when to pick them over doze.
-- [The trust model](https://doze-dev.com/docs/doze/why/trust/): Why a dev tool has supply-chain rigor — signatures, key pinning, and a lockfile with three layers.
+- [Why doze](https://doze-dev.com/docs/doze/why/doze/): The problem doze solves, what it does instead of a VM or always-on services, and when it is the wrong tool.
+- [Native processes vs containers](https://doze-dev.com/docs/doze/why/not-containers/): Why the services next to your editor should be processes on your machine, not containers in a VM, and what containers are still for.
+- [Why HCL](https://doze-dev.com/docs/doze/why/hcl/): Why doze.hcl is HCL and not YAML or JSON, argued from what doze does with it.
+- [Alternatives](https://doze-dev.com/docs/doze/why/alternatives/): What docker-compose, Testcontainers, LocalStack, Nix, Tilt and brew services are good at, and when to pick them over doze.
+- [The trust model](https://doze-dev.com/docs/doze/why/trust/): How doze checks every module and binary it downloads, what doze.lock pins, and what the signatures do not prove.
 
 ## Optional
 

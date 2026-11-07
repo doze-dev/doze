@@ -77,3 +77,11 @@ systemd-resolved, polkit Repair; undo: `doze dns-setup --uninstall`,
 - Home's empty state mentions a Procfile; internal/detect doesn't read Procfiles — fix the copy or add detection.
 - desk/app/menu.go `docsURL` points at /cli/app/ — point at /app/library/ on doze-dev.com.
 - `doze init` (non-wizard) doesn't write `defaults { names = true }`; decide whether it should.
+- doze-modules metas: postgres `grant` labelled `role` though `role` is a required field; aws meta lists only fifo/dlq/max_receives for queue and no fields for topic/table/function; ferret/mariadb/temporal nested blocks have no fields. (gen-engines works around with LABEL_IS_FIELD.)
+- `doze url <app>` prints 127.0.0.1:<port> even with names on; references give <name>.<stack>.doze.
+- `doze off --help` says off is "the row's switch in the app", but the switch sleeps; off is only in the sleep dialog / "Stop trying".
+- `started()` still waits for ready on the app/service path.
+- Temporal needs an explicit `port` to get an address, though its meta default is 7233.
+- `doze add mailpit --as container` writes image `mailpit` (should be axllent/mailpit).
+- No "add a service" flow in the app for an existing stack (only for an empty folder).
+- README.md still links guides/engines.
