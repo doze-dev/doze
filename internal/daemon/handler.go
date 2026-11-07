@@ -159,7 +159,6 @@ func (h *handler) dataDir(name string) string {
 }
 
 func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint) {
-	cfg := h.d.cfg
 	// Show the address the instance actually listens on. In per-service mode this
 	// is its own 127.0.0.x, so two Postgres on 5432 read as 127.0.0.11:5432 and
 	// 127.0.0.12:5432 rather than both as the canonical 127.0.0.1:5432 (which is
@@ -189,11 +188,6 @@ func (h *handler) hydrateEndpoint(v *control.InstanceView, ep endpoints.Endpoint
 	v.EnvVar = ep.EnvVar
 	v.Domains = ep.Domains
 	v.HTTPS = ep.HTTPS
-	// The aws engine is reached at the stack's AWS host; its backend port in
-	// ep.Address is internal-only, so show the host instead.
-	if shared, ok := cfg.AWSEndpoint(v.Engine); ok {
-		v.Endpoint = strings.TrimPrefix(shared, "http://")
-	}
 	// The full, directly-addressable path (AWS resource URL/ARN, ingress :80 URL).
 	v.Resource = h.d.resources[v.Name]
 }

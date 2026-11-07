@@ -143,7 +143,7 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 // + DNS name (proxied engines) or boots it (supervised processes), and returns
 // the new instance's name. Live add is limited to self-contained blocks —
 // references to sibling services aren't resolved here (they need the full
-// document); AWS-builtin/ingress engines are not yet supported live.
+// document).
 func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) {
 	// Decode the block in isolation via the same pipeline (incl. plugin decode).
 	// Because it's decoded alone, references to sibling services can't resolve —
@@ -163,9 +163,6 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
 		return "", fmt.Errorf("no engine %q (is its module enabled?)", decl.Type)
-	}
-	if config.IsAWSBuiltin(decl.Type) {
-		return "", fmt.Errorf("live add of AWS built-in engine %q is not yet supported — declare it in the config and restart", decl.Type)
 	}
 
 	inst := engine.Instance{Name: decl.Name, Type: decl.Type, Spec: decl.Spec}
@@ -376,7 +373,7 @@ func (d *Daemon) refreshIngressRoutes(eps []endpoints.Endpoint) {
 	if !d.cfg.Defaults.Domains || d.plan == nil || d.zone == nil {
 		return
 	}
-	d.publishRoutes(eps, d.plan, nil)
+	d.publishRoutes(eps, d.plan)
 	// A domain added live needs what one declared at the start got: its
 	// record, and the authority in the environment of what starts next.
 	d.ensureDomains(true)

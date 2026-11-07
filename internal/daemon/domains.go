@@ -91,14 +91,13 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 // against the instance the name is for.
 func (d *Daemon) noteHeld(held *names.ErrHeld) {
 	who := fmt.Sprintf("%s is held by %s (pid %d)", held.Host, held.Owner, held.PID)
-	awsHost := "aws." + d.cfg.Stack() + "." + config.DomainSuffix
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.heldNames == nil {
 		d.heldNames = map[string]string{}
 	}
 	for _, decl := range d.cfg.Decls() {
-		if d.cfg.DomainFor(decl.Name) == held.Host || (held.Host == awsHost && decl.Type == config.AWSUnifiedType) {
+		if d.cfg.DomainFor(decl.Name) == held.Host || d.instRoutes[decl.Name][held.Host] != "" {
 			d.heldNames[decl.Name] = who
 		}
 		for _, dom := range decl.Domains {

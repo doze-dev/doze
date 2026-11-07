@@ -511,13 +511,6 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 	}
 	inst.Grant, _ = cfg.Grant(p.decl, p.drv, "")
 	envVar, url := p.drv.ConnString(inst, ep)
-	// AWS built-ins share one port-less endpoint per type; a `<type>.<name>.url`
-	// reference resolves to it (http://s3.<stack>.doze), not the internal
-	// backend address — the app talks to the shared endpoint and names the
-	// bucket/queue/topic via `.name`.
-	if shared, ok := cfg.AWSEndpoint(p.decl.Type); ok {
-		url = shared
-	}
 	m := map[string]cty.Value{
 		"name":    cty.StringVal(p.decl.Name),
 		"engine":  cty.StringVal(p.decl.Type),

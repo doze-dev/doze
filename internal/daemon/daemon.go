@@ -224,9 +224,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// AWS resource URLs/ARNs (filled by buildAWSRoutes) and ingress processes'
 	// :80 URLs — surfaced in the dash's detail card.
 	d.resources = map[string]string{}
-	// AWS single endpoints (s3./sqs./sns.<stack>.doze) route by resource on
-	// the shared :80 ingress; register their hosts in the resolver.
-	awsRoutes := d.buildAWSRoutes(plan)
 	if d.cfg.Defaults.Domains {
 		for _, decl := range d.cfg.Decls() {
 			if !decl.Enabled || decl.Type != "process" {
@@ -298,7 +295,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer releaseNames()
 	// HTTP ingress: apps that declare a `port` share :80, routed by Host.
-	releaseIngress, err := d.setupIngress(ctx, eps, plan, awsRoutes)
+	releaseIngress, err := d.setupIngress(ctx, eps, plan)
 	if err != nil {
 		return err
 	}

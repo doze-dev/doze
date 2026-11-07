@@ -88,9 +88,7 @@ func For(cfg *config.Config) ([]Endpoint, error) {
 				}
 			}
 		}
-		if shared, ok := cfg.AWSEndpoint(decl.Type); ok {
-			ep.URL = shared
-		} else if cfg.Defaults.Domains && !strings.HasPrefix(addr, "unix:") {
+		if cfg.Defaults.Domains && !strings.HasPrefix(addr, "unix:") {
 			// Local DNS name: connection strings read as the service, not a loopback
 			// address. Only TCP endpoints get one — a unix socket has no hostname.
 			ep.Domain = cfg.DomainFor(decl.Name)
@@ -176,19 +174,6 @@ func EnvAssignments(cfg *config.Config, only []string) ([]EnvPair, error) {
 		}
 		if ep.EnvVar == "" || ep.URL == "" {
 			continue // no conventional client env var for this engine
-		}
-		// AWS built-ins share ONE port-less endpoint per service type
-		// (http://s3.<stack>.doze), served on the :80 ingress — so a stock
-		// SDK needs a single AWS_ENDPOINT_URL_S3/SQS/SNS for all buckets/queues/
-		// topics, emitted once, not one per resource.
-		if shared, ok := cfg.AWSEndpoint(ep.Engine); ok && strings.HasPrefix(ep.EnvVar, "AWS_ENDPOINT_URL") {
-			aws = true
-			if used[ep.EnvVar] {
-				continue // one endpoint per type, already emitted
-			}
-			used[ep.EnvVar] = true
-			pairs = append(pairs, EnvPair{Engine: ep.Engine, Var: ep.EnvVar, Value: shared})
-			continue
 		}
 		v := ep.EnvVar
 		if used[v] {

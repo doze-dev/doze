@@ -72,7 +72,7 @@ Decided, by the project owner, during design:
 | D5 | No container option. A container is a command in `run`. |
 | D6 | The dash uses one frame with a per-kind front tab. |
 | D7 | The TLD is `.doze`, for doze, doze-aws and doze-kafka. Decided 2026-10-10. It is already shipped, it is the brand, and it needs no migration. |
-| D8 | The address split between module and standalone is intended. As a module, aws answers at `<name>.<stack>.doze` and `aws.<stack>.doze`; standalone it answers at `aws.<instance>.doze` and `127.0.0.1:4566`. Decided 2026-10-10. |
+| D8 | ~~The address split between module and standalone is intended.~~ Superseded on 2026-11-07 by [module-names.md](module-names.md): as a module, aws answers at its instance's name (`aws.<stack>.doze` when the instance is called `aws`) and every name under it, by the routes the module declares; there is no separate stack-wide AWS host. Standalone it answers at `127.0.0.1:4566`. |
 | D9 | The dash is built on the latest stable Charm libraries (Bubble Tea, Lip Gloss, Bubbles), whatever that is when phase 5 starts. Decided 2026-10-10. |
 | D10 | There is no old syntax to support. doze has never gone live, so bare module blocks, `process`, `use` and the `modules` block are removed outright. No deprecation window and no `doze migrate`. Decided 2026-10-10. |
 | D11 | No registry override of any kind. The mirror setting, `DOZE_MODULES_MIRROR` and the self-hosting docs are removed. `DOZE_<TYPE>_PLUGIN` (a locally built module, which the integration tests use) and `DOZE_MODULES=off` stay. The registry's signing key is compiled into doze instead of trusted on first use. Decided 2026-10-10. |
