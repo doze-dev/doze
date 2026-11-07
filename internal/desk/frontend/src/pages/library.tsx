@@ -147,7 +147,7 @@ function EmptyLibrary() {
       <div className="ways">
         <div className="way drop">
           <h3>Drop a project folder here</h3>
-          <p>doze reads what is in it: go.mod, package.json, a compose file, a Procfile. It says what it found before anything starts.</p>
+          <p>doze reads what is in it: go.mod, package.json, a compose file, a Makefile. It says what it found before anything starts.</p>
           <button className="btn pri" onClick={() => void chooseFolder()}>
             Open folder… <kbd>⌘O</kbd>
           </button>

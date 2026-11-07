@@ -136,7 +136,7 @@ const ROW: Array<[string, string]> = [
   ["l L", "its logs · all logs"],
   ["y", "copy address"],
   ["/", "filter"],
-  ["1 2 3", "Tiles · List · Map"],
+  ["1 2 3 4", "Tiles · List · Map · Grid"],
 ];
 
 const WORDS: Array<[string, string, string]> = [

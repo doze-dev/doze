@@ -149,7 +149,7 @@ test("Settings: the themes, the machine part by part, About", async ({ page }, i
 
   await side.locator(".si", { hasText: "About" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("About");
-  await expect(page.getByRole("button", { name: "doze.dev" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "doze-dev.com" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("doze");
 });

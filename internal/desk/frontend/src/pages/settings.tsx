@@ -185,8 +185,8 @@ export function SettingsPage({ library, version, section }: { library: view.Libr
               <div className="v">
                 <span className="mono">{version}</span>
                 <UpdateLine />
-                <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => transport().then((t) => t.open("https://doze.dev"))}>
-                  doze.dev
+                <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => transport().then((t) => t.open("https://doze-dev.com"))}>
+                  doze-dev.com
                 </button>
               </div>
             </div>

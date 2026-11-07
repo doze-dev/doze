@@ -9,7 +9,7 @@ import (
 )
 
 // docsURL is the app's page in the docs, for Help.
-const docsURL = "https://doze.dev/docs/cli/app/"
+const docsURL = "https://doze-dev.com/docs/doze/app/library/"
 
 // appMenu is doze's own menu bar, set in place of the framework's default
 // (whose Help loaded the framework's site into the window). Items that
