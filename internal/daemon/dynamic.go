@@ -71,6 +71,21 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 	}
 	serve(ln)
 
+	// The module's other listeners (engine.Networked), each on this address at
+	// its own port, forwarded to the socket the module listens on for it.
+	if err := d.startListeners(name, engineType, bindAddr, ip, func(l net.Listener, backend string) {
+		d.instWG.Add(1)
+		go func() {
+			defer d.instWG.Done()
+			_ = d.px.ServeForward(instCtx, l, name, drv, backend)
+		}()
+	}); err != nil {
+		cancel()
+		_ = ln.Close()
+		delete(d.running, name)
+		return err
+	}
+
 	// People type localhost:8080 from habit. An app that has an address of its
 	// own is also given 127.0.0.1 at the same port, when nothing else has it.
 	// Only apps: every postgres on the machine would want 127.0.0.1:5432.
@@ -239,11 +254,12 @@ func (d *Daemon) RemoveInstance(ctx context.Context, name string, wipe bool) err
 		delete(d.running, name)
 		// Its address goes back to the pool with its name, released below.
 	}
-	// Deregister the DNS name.
+	// Deregister the DNS name, and the names its listeners' routes answered for.
+	d.forgetListeners(name)
 	if ep, ok := d.endpointFor(name); ok && ep.Domain != "" {
 		delete(d.resolveMap, ep.Domain)
-		d.republishDomains()
 	}
+	d.republishDomains()
 	delete(d.binds, name)
 	delete(d.nameOnly, name)
 	delete(d.consoles, name)

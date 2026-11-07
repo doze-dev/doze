@@ -62,3 +62,30 @@ func TestServiceRemovedArguments(t *testing.T) {
 		}
 	}
 }
+
+// A module's `routes` is doze's too: `routes = false` keeps its HTTP listeners
+// on their ports and serves none of its names without a port. Unset is the
+// module's own ask.
+func TestModuleRoutes(t *testing.T) {
+	cfg, err := config.ParseShape([]byte(`
+module aws "aws" {
+  routes = false
+}
+module kafka "events" {
+  version = 4
+}
+`), "/tmp/x/doze.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Lookup("aws").NoRoutes {
+		t.Error("routes = false should turn the aws instance's routes off")
+	}
+	if cfg.Lookup("events").NoRoutes {
+		t.Error("unset routes should leave the module's routes on")
+	}
+	_, err = config.ParseShape([]byte("module aws \"aws\" {\n  routes = \"no\"\n}\n"), "/tmp/x/doze.hcl")
+	if err == nil || !strings.Contains(err.Error(), "routes") {
+		t.Fatalf("a routes that is not a bool: %v", err)
+	}
+}

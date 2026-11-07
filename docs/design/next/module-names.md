@@ -55,7 +55,7 @@ say what it needs, or to be told what it got.
    port, any subdomain wakes a sleeping instance and is counted for idle time,
    the same as a connection to the main port today.
 7. **The person can always say no.** Every opt-in has a config switch to turn it
-   off for one instance (`front = false`).
+   off for one instance (`routes = false`).
 
 ## The model
 
@@ -110,6 +110,18 @@ front door, without a port.
 - An HTTP listener with no route is reached on its port only
   (`http://events.shop.doze:8081`), which is what most HTTP things want.
 
+## Who holds the ports
+
+doze holds every public port, as it holds a module's main port today: it
+listens on each, wakes the instance on a connection, and forwards to the
+listener's backend. Main's backend is the socket `BackendSocket` names; every
+other listener's is `<listener>.sock` in the instance's socket directory, given
+to the module in the grant (`Backend`). So opening the console of a sleeping
+Kafka starts it, which today it does not (the module binds its console itself).
+The main listener's port is the person's (`port = …`, or the module's default):
+a module leaves it 0 and doze puts it there; another listener on that port is a
+configuration error naming both.
+
 ## What the module is told back (the grant)
 
 At provision, spawn and converge, `Instance` carries what doze actually set up:
@@ -118,6 +130,7 @@ At provision, spawn and converge, `Instance` carries what doze actually set up:
 |---|---|---|
 | `Host` | `cloud.shop.doze` | names are off or the machine is not set up |
 | `Listeners[name].Addr` | `cloud.shop.doze:4566`, or `127.0.0.1:41233` without names | never: there is always an address |
+| `Listeners[name].Backend` | `/…/run/events/console.sock` | never: where the module listens for it |
 | `Listeners[name].URL` | `http://cloud.shop.doze` (fronted), `http://cloud.shop.doze:4566` (not) | not an HTTP listener |
 | `Routes` | the granted shapes, as full host patterns | none granted |
 
@@ -156,7 +169,7 @@ type Network struct {
 
 type Listener struct {
     Name     string   // "main", "registry", "console"
-    Port     int      // public port on the instance's address
+    Port     int      // public port; 0 for main, whose port is the declared one
     Protocol Protocol // TCP or HTTP
     Routes   []string // HTTP only: "@", "<label>", "<prefix>@"
 }
@@ -189,7 +202,7 @@ older SDK does not advertise it and gets the default.
 
 ```hcl
 module aws "cloud" {
-  front = false   # no port-less routes; reach it on its port
+  routes = false  # no port-less routes; reach it on its ports
 }
 ```
 
@@ -236,7 +249,8 @@ Done when: a release of doze-sdk with the contract, used by nothing yet.
 - `endpoints.For` and `doze env` read the grant through `ConnString`; the
   `ip:port` → `name:port` rewrite in `endpoints.go` goes.
 - The config rules (route forms, sibling against instance names, ports) at load,
-  and `front = false` in HCL.
+  and `routes = false` in HCL (not `front`, which was once a service argument
+  that did nothing and is refused with that message).
 - Every listener goes through the proxy, so any route or port wakes the instance.
 - The AWS special case stays in this step, so nothing changes for aws yet.
 - Tests: a golden test over the fixture stacks: `endpoints.yaml` and `doze env`

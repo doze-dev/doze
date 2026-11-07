@@ -4,7 +4,17 @@ package config
 import (
 	"errors"
 	"fmt"
+	"sort"
 )
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // validatePorts enforces the explicit-port rule for a loaded config: every enabled
 // instance must resolve to a client-facing address, and no two may share one. It
@@ -34,11 +44,17 @@ func (cfg *Config) validatePorts() error {
 		if cfg.Defaults.Domains {
 			continue // per-service loopback IPs disambiguate; ports may repeat
 		}
-		if other, dup := addrs[addr]; dup {
-			errs = append(errs, fmt.Errorf("port conflict: %q and %q both use %s — give each instance a unique port (or `defaults { names = true }` to share ports by name)", other, decl.Name, addr))
-			continue
+		uses := map[string]string{addr: fmt.Sprintf("%q", decl.Name)}
+		for a, what := range cfg.extraListenerAddrs(decl) {
+			uses[a] = what
 		}
-		addrs[addr] = decl.Name
+		for _, a := range sortedKeys(uses) {
+			if other, dup := addrs[a]; dup {
+				errs = append(errs, fmt.Errorf("port conflict: %s and %s both use %s — give each instance a unique port (or `defaults { names = true }` to share ports by name)", other, uses[a], a))
+				continue
+			}
+			addrs[a] = uses[a]
+		}
 	}
 	return errors.Join(errs...)
 }

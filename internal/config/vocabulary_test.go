@@ -131,7 +131,7 @@ func TestVocabularyMatchesTheLoader(t *testing.T) {
 	// a module: the common fields an app alone may use dropped, its sleep, the
 	// meta-arguments (its own come from the module)
 	moduleCommon := slices.DeleteFunc(slices.Clone(commonArgs), func(n string) bool { return slices.Contains(appOnly, n) })
-	check(KindModule, moduleCommon, []string{"sleep"}, meta)
+	check(KindModule, moduleCommon, []string{"sleep", "routes"}, meta)
 
 	// an app: its engine's own schema, the common fields less version and
 	// listen (refused on an app), the meta-arguments

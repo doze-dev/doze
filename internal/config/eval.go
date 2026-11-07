@@ -509,6 +509,7 @@ func (cfg *Config) attributesFor(p *pendingInstance) (cty.Value, error) {
 		Endpoint: ep,
 		Spec:     p.decl.Spec,
 	}
+	inst.Grant, _ = cfg.Grant(p.decl, p.drv, "")
 	envVar, url := p.drv.ConnString(inst, ep)
 	// AWS built-ins share one port-less endpoint per type; a `<type>.<name>.url`
 	// reference resolves to it (http://s3.<stack>.doze), not the internal

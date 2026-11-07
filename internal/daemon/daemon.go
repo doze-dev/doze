@@ -103,6 +103,9 @@ type Daemon struct {
 	instWG     *sync.WaitGroup
 	running    map[string]*instHandle // proxied instances with a live listener
 	resolveMap map[string]net.IP      // live view of domain -> IP (mutated on add/remove)
+	// instRoutes are each instance's route names (engine.Networked), each to
+	// the public address of the listener it reaches (listeners.go).
+	instRoutes map[string]map[string]string
 	// ready is closed once Run has finished starting up, just before the
 	// control socket serves. An in-process caller waits on it, so its first
 	// call happens after everything Run set up.

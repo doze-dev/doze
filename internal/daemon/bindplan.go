@@ -3,6 +3,7 @@ package daemon
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	names "github.com/doze-dev/doze-names"
 
@@ -31,7 +32,7 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (
 	p.loopback = domainsOn && zone != nil && names.PoolUsable()
 	loopbackIP := net.IPv4(127, 0, 0, 1)
 
-	usedPort := map[string]string{} // port -> instance, for the fallback dup-port error
+	usedPort := map[string]string{} // port -> what uses it, for the fallback dup-port error
 	for _, ep := range eps {
 		_, port, err := net.SplitHostPort(ep.Address)
 		if err != nil {
@@ -62,12 +63,24 @@ func (d *Daemon) buildBindPlan(eps []endpoints.Endpoint, zone *names.Registry) (
 		default:
 			ip = loopbackIP
 			if domainsOn { // wanted per-IP but the machine is not set up
-				if other, dup := usedPort[port]; dup {
-					return nil, fmt.Errorf(
-						"%q and %q both use port %s, but this machine is not set up to give each service its own address — run `doze doctor --fix` once (needs sudo), or give them distinct ports",
-						other, ep.Name, port)
+				// Every listener of the instance is on 127.0.0.1 too (engine.Networked).
+				uses := map[string]string{port: fmt.Sprintf("%q", ep.Name)}
+				if binds, err := d.listenersOf(ep.Name, net.JoinHostPort(loopbackIP.String(), port)); err == nil {
+					for _, b := range binds {
+						if b.Name != engine.MainListener {
+							_, p, _ := net.SplitHostPort(b.Public)
+							uses[p] = fmt.Sprintf("%q (its %s listener)", ep.Name, b.Name)
+						}
+					}
 				}
-				usedPort[port] = ep.Name
+				for _, p := range sortedKeys(uses) {
+					if other, dup := usedPort[p]; dup {
+						return nil, fmt.Errorf(
+							"%s and %s both use port %s, but this machine is not set up to give each service its own address — run `doze doctor --fix` once (needs sudo), or give them distinct ports",
+							other, uses[p], p)
+					}
+					usedPort[p] = uses[p]
+				}
 			}
 		}
 		p.bind[ep.Name] = net.JoinHostPort(ip.String(), port)
@@ -104,4 +117,13 @@ func fronted(drv engine.Driver, inst engine.Instance) bool {
 		return ok && px.Proxied(inst)
 	}
 	return true
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

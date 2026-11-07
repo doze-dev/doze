@@ -121,6 +121,7 @@ func Vocabulary() VocabBlock {
 					{Name: "port", Type: num, Doc: "The port clients use; the engine's own (5432, 6379, …) if unset."},
 					{Name: "listen", Type: str, Doc: `A full address instead: "unix:/path.sock", or "0.0.0.0:5544".`},
 					{Name: "sleep", Type: str, Doc: `Sleep after this long with nothing holding it, or "never".`},
+					{Name: "routes", Type: boolean, Doc: "false: serve the module's HTTP listeners on their ports only, none of its names without a port."},
 				}, metaArgs...)},
 			{Name: KindApp, Labels: []string{"name"}, Many: true, Doc: "Your own code, run on the host.",
 				Args: concat(commandArgs, []VocabArg{

@@ -313,9 +313,10 @@ func (r *cancelRegistry) Lookup(key []byte) (engine.CancelTarget, bool) {
 	return t, ok
 }
 
-// ServeForward accepts connections on ln and forwards each to a fixed TCP
-// address that belongs to the named instance — a second port of it, such as a
-// web console. A connection wakes the instance and holds it awake exactly as
+// ServeForward accepts connections on ln and forwards each to a fixed address
+// that belongs to the named instance — a second port of it, such as a web
+// console: a TCP host:port, or a unix socket path (a module's listener, see
+// engine.Networked). A connection wakes the instance and holds it awake exactly as
 // one to its main port does, so opening the console of a sleeping service
 // starts the service.
 func (p *Proxy) ServeForward(ctx context.Context, ln net.Listener, name string, drv engine.Driver, target string) error {
@@ -344,7 +345,7 @@ func (p *Proxy) ServeForward(ctx context.Context, ln net.Listener, name string, 
 				p.logf("wake %q for its second port failed: %v", name, err)
 				return
 			}
-			upstream, err := net.Dial("tcp", target)
+			upstream, err := dialBackend(target)
 			if err != nil {
 				p.logf("dial %s (a second port of %q) failed: %v", target, name, err)
 				return

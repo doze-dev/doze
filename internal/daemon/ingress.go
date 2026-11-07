@@ -106,6 +106,10 @@ func (d *Daemon) projectDir() string {
 // removed, or when this daemon dies.
 func (d *Daemon) publishRoutes(eps []endpoints.Endpoint, plan *bindPlan, awsRoutes map[string]string) {
 	routes := d.ingressRoutes(eps, plan)
+	// A module's own routes (engine.Networked), each to its listener.
+	for host, target := range d.moduleRoutes() {
+		routes[host] = target
+	}
 	for host, target := range awsRoutes {
 		routes[host] = target
 	}

@@ -102,6 +102,9 @@ func (l *loader) loadFiles(path string, files []string, primary string, cliVars 
 		if err := cfg.validatePorts(); err != nil {
 			return nil, err
 		}
+		if err := cfg.validateNetworks(); err != nil {
+			return nil, err
+		}
 	}
 	if err := cfg.validateAppDomains(); err != nil {
 		return nil, err

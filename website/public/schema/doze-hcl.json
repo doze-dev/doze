@@ -287,6 +287,11 @@
               "optional": true,
               "type": "number"
             },
+            "routes": {
+              "description": "false: serve the module's HTTP listeners on their ports only, none of its names without a port.",
+              "optional": true,
+              "type": "bool"
+            },
             "sleep": {
               "description": "Sleep after this long with nothing holding it, or \"never\".",
               "optional": true,
