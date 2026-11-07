@@ -95,3 +95,30 @@ jobs:
           go test -tags integration -count=1 -v
           -run 'TestNamesThroughTheSystemResolver|TestDozeAndAStandaloneToolShareTheZone|TestANameAStandaloneToolHoldsStopsTheStack'
           ./test/integration/
+
+  # Module names, end to end: the kafka and aws modules built from their own
+  # repositories' main, in a private zone (no setup). Their names, the names
+  # their routes ask for, what a client is told, and waking on each of them.
+  module-names:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: doze }
+      - uses: actions/checkout@v4
+        with: { repository: doze-dev/doze-aws, path: doze-aws }
+      - uses: actions/checkout@v4
+        with: { repository: doze-dev/doze-kafka, path: doze-kafka }
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: doze/go.mod
+          cache-dependency-path: |
+            doze/go.sum
+            doze-aws/module/go.sum
+            doze-kafka/module/go.sum
+      - name: Module names
+        working-directory: doze
+        run: go test -tags integration -count=1 -v -run TestModulesAnswerAtTheirNames ./test/integration/
