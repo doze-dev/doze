@@ -1,0 +1,108 @@
+---
+title: Your first stack
+description: Open an example project in the app, bring it up, and watch each service wake.
+redirect_from: ["/start/getting-started/"]
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Steps from "@docs/Steps.astro";
+import library from "../../../assets/app/library.webp";
+import map from "../../../assets/app/view-map.webp";
+
+Open an example project in the app, bring it up, and watch each service wake.
+
+:::note
+We use **Larder**, a made-up online grocery service: Go, Python and TypeScript
+services on Postgres, Valkey, Kafka and AWS. It is not a real shop; it exists so
+every page shows the same stack.
+:::
+
+You need the app ([Install the app](/start/install/)) and git. doze fetches
+Postgres, Valkey, Kafka and the local AWS itself. Larder's own services are
+code, so they need what any checkout of them would: Go, [uv](https://docs.astral.sh/uv/)
+for the Python ones, and [bun](https://bun.sh) for the TypeScript ones.
+
+## 1. Get the example
+
+```sh
+git clone https://github.com/doze-dev/doze-examples
+```
+
+Larder is the `larder` folder. Everything it runs is in one file,
+`larder/doze.hcl`: four shared services, a mail catcher, nine apps and the
+tasks that prepare them.
+
+## 2. Open it and bring it up
+
+<HowTo>
+<Fragment slot="app">
+
+<Shot src={library} alt="Home with two stacks: larder up, with 13 awake and its switch on, and acme stopped" caption="Home after step 3: larder is up, its switch on." crop />
+
+<Steps>
+
+1. **Open doze.** From Applications, or type `doze` in a terminal. It opens on
+   Home.
+2. **Drop the `larder` folder on the window,** or press <kbd>⌘O</kbd> and pick
+   it. It appears stopped. Opening a folder never starts it.
+3. **Flip its switch on.** The **⋯** beside it offers **Start everything**, or
+   **Choose what starts…** to tick only the apps you will work on; what they
+   need comes too.
+4. **Open the stack and press <kbd>3</kbd> for the Map.** Each card shows a
+   service, what it uses, and its memory as it wakes.
+
+</Steps>
+
+<Shot src={map} alt="larder on the Map: storefront calls gateway, which calls identity, fulfilment, orders, catalog and recommendations; the shared services along the bottom" caption="Step 4: larder on the Map. Lines are calls, read from references in doze.hcl." />
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+cd doze-examples/larder
+doze up
+doze status
+```
+
+`doze up` brings the stack up and returns when it is ready; each line says how
+long that service took. `doze status` lists every service as awake, dozing,
+waking or asleep. Add `-w` to keep it on screen.
+
+</Fragment>
+</HowTo>
+
+The first `up` takes a while: doze downloads each engine once, and `go run`
+compiles each Go service the first time. Later starts are quick.
+
+Two things Larder asks of you:
+
+- **Its names.** Larder turns on `<service>.larder.doze` names, which need the
+  one-time setup from [Install the app](/start/install/#first-launch). On a
+  machine without it, bring Larder up with `doze up --var names=false`; every
+  service then listens on `127.0.0.1`.
+- **Its shelves.** The catalog starts empty. Run `doze task seed-catalog` once,
+  or open the `seed-catalog` task in the app and press **Run again**.
+
+Then open the storefront's address from its card, and shop.
+
+## 3. Walk away
+
+After two minutes with nothing connected, a service goes to sleep. Its data
+stays on disk, and its next connection wakes it. To keep one up longer, set
+`sleep` on its block:
+
+```hcl
+module postgres "postgres" {
+  version = 18
+  sleep   = "10m"   # or "never"
+}
+```
+
+Larder already does this for the services that read from Kafka: no request
+would ever wake them, so they say `sleep = "never"`. More in
+[Sleep and wake](/hcl/sleep/).
+
+When you are done for the day, flip the stack's switch off, or run `doze down`.
+
+Next: [Bring your own repo](/start/your-repo/).
