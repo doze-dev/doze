@@ -7,7 +7,7 @@
 //   - each field and block in ```hcl blocks against the editor schema,
 //     public/schema/doze-hcl.json (generated from internal/config), and,
 //     inside `module <engine> "…" { }`, against that engine's generated
-//     page (engines/<engine>.md), which lists the module's own fields;
+//     page (services/<engine>.md), which lists the module's own fields;
 //   - that every fenced code block says its language.
 //
 // A deliberate mistake is kept by writing <!-- ground:skip --> (or, in MDX,
@@ -26,7 +26,9 @@ const root = path.resolve(import.meta.dir, "../..");
 const docsDir = path.resolve(process.argv[2] ?? path.join(root, "website/src/content/docs"));
 const bin = path.resolve(root, process.env.DOZE_BIN ?? "doze");
 const schemaFile = path.join(root, "website/public/schema/doze-hcl.json");
-const enginesDir = path.join(docsDir, "engines");
+const enginesDir = path.join(docsDir, "services");
+// a module whose page is not named after it
+const enginePage: Record<string, string> = { ferret: "ferretdb" };
 
 type Finding = { file: string; line: number; kind: string; what: string };
 const findings: Finding[] = [];
@@ -168,7 +170,7 @@ const engines = new Map<string, Engine | null>();
 const unlisted = new Set<string>();
 function engine(name: string): Engine | null {
   if (engines.has(name)) return engines.get(name)!;
-  const file = path.join(enginesDir, name + ".md");
+  const file = path.join(enginesDir, (enginePage[name] ?? name) + ".md");
   if (!fs.existsSync(file)) {
     engines.set(name, null);
     return null;
@@ -176,7 +178,7 @@ function engine(name: string): Engine | null {
   const e: Engine = { fields: new Set(), blocks: new Map() };
   let into = e.fields;
   for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-    const b = line.match(/^\*\*`([\w-]+) "<name>" \{ … \}`\*\*/);
+    const b = line.match(/^\*\*`([\w-]+)(?: "<\w+>")? \{ … \}`\*\*/);
     if (b) {
       e.blocks.set(b[1], (into = new Set()));
       continue;
@@ -230,7 +232,7 @@ function checkHCL(file: string, start: number, lines: string[], skip: Set<number
     if (top.kind === "schema" && top.name === "doze.hcl" && name === "module") {
       const type = labels[0];
       const e = type && type !== '""' ? engine(type) : null;
-      if (!skip.has(n) && type && !e && fs.existsSync(enginesDir)) say(file, n, "unknown-module-type", `module ${type}: no engine page engines/${type}.md`);
+      if (!skip.has(n) && type && !e && fs.existsSync(enginesDir)) say(file, n, "unknown-module-type", `module ${type}: no engine page services/${enginePage[type] ?? type}.md`);
       next = e ? { kind: "engine", e, name: `module ${type}` } : { kind: "open", name };
     } else if (top.kind === "schema") {
       const bt = top.block.block_types?.[name];
@@ -239,7 +241,8 @@ function checkHCL(file: string, start: number, lines: string[], skip: Set<number
       if (name === "locals") next = { kind: "open", name };
     } else if (top.kind === "engine") {
       const fields = top.e.blocks.get(name);
-      if (fields) next = { kind: "fields", fields, name: `${top.name} ${name}` };
+      // a block the module names without listing its fields is not checked
+      if (fields) next = fields.size ? { kind: "fields", fields, name: `${top.name} ${name}` } : { kind: "open", name };
       else if (top.e.fields.has(name)) next = { kind: "open", name };
       else if (top.e.blocks.size === 0) unlisted.add(top.name.replace("module ", ""));
       else if (!skip.has(n) && !(schema.block_types?.module.block.attributes ?? {})[name]) say(file, n, "unknown-block", `${top.name}: no block ${name}`);
