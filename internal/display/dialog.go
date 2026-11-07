@@ -55,18 +55,35 @@ type Span struct {
 }
 
 // HeldSentence says who is using v, for the sleep and restart questions:
-// "api is running and needs it, and 3 connections are open to it right now."
-// The names and the count are strong.
+// "api is running and needs it, and 3 connections are open to it right now",
+// "gateway, orders and recommendations are running and need it." The names
+// and the count are strong.
 func HeldSentence(v control.InstanceView) []Span {
 	deps, conns := Dependants(v), Connections(v)
 	count := fmt.Sprintf("%d connection%s", conns, Plural(conns))
+	open := " are open to it right now."
+	if conns == 1 {
+		open = " is open to it right now."
+	}
+	need := " is running and needs it"
+	if len(deps) > 1 {
+		need = " are running and need it"
+	}
 	switch {
 	case len(deps) > 0 && conns > 0:
-		return []Span{{strings.Join(deps, ", "), true}, {" is running and needs it, and ", false}, {count, true}, {" are open to it right now.", false}}
+		return []Span{{andList(deps), true}, {need + ", and ", false}, {count, true}, {open, false}}
 	case len(deps) > 0:
-		return []Span{{strings.Join(deps, ", "), true}, {" is running and needs it.", false}}
+		return []Span{{andList(deps), true}, {need + ".", false}}
 	}
-	return []Span{{count, true}, {" open to it right now.", false}}
+	return []Span{{count, true}, {open, false}}
+}
+
+// andList joins names as a sentence does: "a", "a and b", "a, b and c".
+func andList(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
 // Fact is one row of a confirmation: a key down the left and what it says,

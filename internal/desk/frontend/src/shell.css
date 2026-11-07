@@ -439,7 +439,9 @@ table.g tfoot td b { color: var(--text); }
 .dialog { width: 520px; max-width: calc(100% - 80px); background: var(--panel); border: 1px solid var(--line2); border-radius: var(--radius-xl); box-shadow: 0 24px 60px rgba(0, 0, 0, .5); padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
 .dialog h2 { margin: 0; font-size: var(--text-lg); font-weight: 650; color: var(--bright); }
 .dialog p { margin: 0; color: var(--text); line-height: 19px; }
-.dialog .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.dialog .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+/* Four choices (sleep with dependants: and, only, off, cancel) need the room. */
+.dialog:not(.pf):has(.acts > :nth-child(4)) { width: 620px; }
 .dialog.danger { border-color: var(--bad); }
 .input { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid var(--line2); border-radius: var(--radius); background: var(--well); color: var(--dim); font-size: var(--text-base); }
 .input input { flex: 1 1 0; background: none; border: 0; outline: 0; color: var(--bright); }

@@ -45,6 +45,14 @@ test("a module's overview: connect, the snippets, why it's awake, the charts", a
   await expect(dlg).toContainText("Kept. Nothing is deleted.");
   await expect(dlg.locator(".btn")).toHaveText([/Sleep db and api/, "Sleep db only", "Turn db off", /Cancel/]);
   await expect(dlg).toContainText("doze only asks when something else is affected.");
+  // Every choice sits inside the box, even with four of them (a 520 px box once
+  // pushed "Sleep catalog and orders" out past its left edge).
+  const box = (await dlg.boundingBox())!;
+  for (const b of await dlg.locator(".btn").all()) {
+    const r = (await b.boundingBox())!;
+    expect(r.x).toBeGreaterThanOrEqual(box.x);
+    expect(r.x + r.width).toBeLessThanOrEqual(box.x + box.width);
+  }
   await page.screenshot({ path: `.desk-look/ConfirmSleep-${info.project.name}.png` });
   await page.keyboard.press("Escape");
   await expect(dlg).toBeHidden();
