@@ -112,7 +112,7 @@ func elbowH(head float64, points ...pt) path {
 		}
 		// Round the corner at p: stop short of it, curve through it.
 		next := points[i+1]
-		r := math.Min(12, math.Min(dist(cur, p), dist(p, next))/2)
+		r := math.Min(18, math.Min(dist(cur, p), dist(p, next))/2)
 		in := toward(p, cur, r)
 		out := toward(p, next, r)
 		fmt.Fprintf(&b, " L %s %s Q %s %s, %s %s", n(in.x), n(in.y), n(p.x), n(p.y), n(out.x), n(out.y))

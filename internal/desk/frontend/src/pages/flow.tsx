@@ -22,7 +22,7 @@ export function MapFlow({ m, rows, lit, onLit, stackKey }: { m: view.MapView; ro
     if (!el) return;
     const measure = () => {
       const r = el.clientWidth / m.w;
-      setFit(r < 1 && r >= 0.88 ? r : 1);
+      setFit(r < 1 && r >= 0.84 ? r : 1);
     };
     measure();
     const ro = new ResizeObserver(measure);

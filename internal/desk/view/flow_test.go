@@ -29,19 +29,20 @@ func TestLarderMap(t *testing.T) {
 	for _, n := range m.Nodes {
 		at[n.Name] = n
 	}
-	// The board's places, with 40 px between columns where the board has 20
-	// so a line can bend and its arrowhead land: storefront → gateway →
+	// The board's places, spaced as the first map was (72 px between
+	// columns where the board has 20, 140 down a column where it has 116),
+	// so the lines have room: storefront → gateway →
 	// identity, fulfilment, recommendations → orders → catalog.
 	want := map[string][4]int{
-		"storefront":      {24, 168, 214, 74},
-		"gateway":         {278, 168, 214, 74},
-		"identity":        {532, 52, 250, 74},
-		"fulfilment":      {532, 168, 250, 74},
-		"recommendations": {532, 284, 250, 74},
-		"orders":          {822, 168, 214, 74},
-		"catalog":         {1076, 168, 214, 74},
-		"payments":        {24, 396, 214, 74},
-		"notifications":   {278, 396, 214, 74},
+		"storefront":      {24, 192, 214, 74},
+		"gateway":         {310, 192, 214, 74},
+		"identity":        {596, 52, 250, 74},
+		"fulfilment":      {596, 192, 250, 74},
+		"recommendations": {596, 332, 250, 74},
+		"orders":          {918, 192, 214, 74},
+		"catalog":         {1204, 192, 214, 74},
+		"payments":        {24, 444, 214, 74},
+		"notifications":   {310, 444, 214, 74},
 	}
 	for name, w := range want {
 		n, ok := at[name]
@@ -63,11 +64,11 @@ func TestLarderMap(t *testing.T) {
 	for _, c := range m.Caps {
 		caps = append(caps, c.Text+" · "+c.Sub+" @"+strconv.Itoa(c.Y))
 	}
-	if want := []string{"Who calls whom · left to right, the way a request travels @16", "Nobody calls these · they work from events @372", "Shared by the stack · one line each would be 17 lines; the chips on each card say who uses what @496"}; !slices.Equal(caps, want) {
+	if want := []string{"Who calls whom · left to right, the way a request travels @16", "Nobody calls these · they work from events @420", "Shared by the stack · one line each would be 17 lines; the chips on each card say who uses what @544"}; !slices.Equal(caps, want) {
 		t.Errorf("captions %q", caps)
 	}
-	if m.Band != 486 {
-		t.Errorf("band at %d, the board's is at 486", m.Band)
+	if m.Band != 534 {
+		t.Errorf("band at %d, want 534 (the board's 486, spaced)", m.Band)
 	}
 
 	// The chips are what each uses, in doze.hcl's order; ✓ its tasks.
@@ -107,8 +108,8 @@ func TestLarderMap(t *testing.T) {
 	if rows["needs"] != "catalog · and postgres, kafka below|" || rows["needed by"] != "gateway, fulfilment · they keep it awake|" || rows["before it"] != "migrate-orders ✓|16m ago" {
 		t.Errorf("orders detail %q", rows)
 	}
-	if m.Detail != (MapAt{842, 14}) {
-		t.Errorf("detail at %+v, want 842,14 (the board's 762, moved with the wider gaps)", m.Detail)
+	if m.Detail != (MapAt{970, 14}) {
+		t.Errorf("detail at %+v, want 970,14 (the board's 762, moved with the wider gaps)", m.Detail)
 	}
 
 	// Every call is drawn, and no line passes behind a card.

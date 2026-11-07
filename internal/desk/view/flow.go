@@ -137,11 +137,11 @@ type MapLine struct {
 // The board's measures, in CSS pixels.
 const (
 	flowLeft    = 24  // the first column's left
-	flowGap     = 40  // between columns: room for a line to bend and an arrowhead to land
+	flowGap     = 72  // between columns: room for a line to bend and an arrowhead to land
 	flowCardW   = 214 // a card's usual width
 	flowWide    = 36  // a column grows by this for a long name
 	flowCardH   = 74  // an app card
-	flowStep    = 116 // card to card, down a column
+	flowStep    = 140 // card to card, down a column: room to breathe, as the first map had
 	flowTop     = 52  // the first card under a caption
 	flowCapGap  = 36  // a caption sits this far above its cards
 	flowShareH  = 88  // a band card
@@ -845,7 +845,7 @@ func (r *router) call(from string, s, t box) path {
 				return p
 			}
 		}
-		bx := sx + math.Min(14, (tx-sx)/3)
+		bx := sx + math.Min(24, (tx-sx)/3)
 		if p := elbow(pt{sx, sy}, pt{bx, sy}, pt{bx, ty}, pt{tx, ty}); try(p) {
 			return p
 		}
