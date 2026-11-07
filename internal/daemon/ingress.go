@@ -25,12 +25,11 @@ import (
 const IngressPort = 80
 
 // setupIngress publishes this stack's routes and joins the shared front door.
-// awsRoutes are the stack's local-AWS hosts (see awsingress.go).
-func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, plan *bindPlan, awsRoutes map[string]string) (release func(), err error) {
+func (d *Daemon) setupIngress(ctx context.Context, eps []endpoints.Endpoint, plan *bindPlan) (release func(), err error) {
 	if !d.cfg.Defaults.Domains || d.zone == nil {
 		return func() {}, nil // no names, so nothing to front
 	}
-	d.publishRoutes(eps, plan, awsRoutes)
+	d.publishRoutes(eps, plan)
 	d.ensureDomains(false)
 	return names.ServeFrontDoor(ctx, d.zone, names.CADir(d.cfg.Home), d.logf).Close, nil
 }
@@ -104,19 +103,16 @@ func (d *Daemon) projectDir() string {
 // publishRoutes writes this stack's routes into the shared registry. A route
 // lives on its name's entry, so it disappears with the name: when a service is
 // removed, or when this daemon dies.
-func (d *Daemon) publishRoutes(eps []endpoints.Endpoint, plan *bindPlan, awsRoutes map[string]string) {
+func (d *Daemon) publishRoutes(eps []endpoints.Endpoint, plan *bindPlan) {
 	routes := d.ingressRoutes(eps, plan)
 	// A module's own routes (engine.Networked), each to its listener.
 	for host, target := range d.moduleRoutes() {
 		routes[host] = target
 	}
-	for host, target := range awsRoutes {
-		routes[host] = target
-	}
 	for host, target := range routes {
 		if err := d.zone.RouteFor(host, target); err != nil {
 			// The usual reason is that the name is someone else's: a standalone
-			// tool holding aws.<stack>.doze. status and doctor say who.
+			// tool holding it. status and doctor say who.
 			d.logf("front door: %s is not routed: %v", host, err)
 			continue
 		}

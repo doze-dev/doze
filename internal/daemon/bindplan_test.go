@@ -89,24 +89,6 @@ func TestHydrateEndpointShowsRealBind(t *testing.T) {
 	}
 }
 
-// The aws engine's Endpoint is prettified to the stack's AWS host, but Bind
-// must keep the internal backend address — it's the raw line the dash shows
-// under the connect address.
-func TestHydrateEndpointAWSKeepsRawBind(t *testing.T) {
-	cfg := &config.Config{StackName: "demo", Defaults: config.Defaults{Domains: true}}
-	cfg.Add(&config.InstanceDecl{Type: "aws", Name: "local", Enabled: true})
-	d := &Daemon{cfg: cfg, logf: t.Logf, binds: map[string]string{"local": "127.0.0.1:53987"}}
-	h := &handler{d: d}
-	v := control.InstanceView{Name: "local", Engine: "aws"}
-	h.hydrateEndpoint(&v, endpoints.Endpoint{Name: "local", Engine: "aws", Address: "127.0.0.1:53987"})
-	if v.Endpoint != "aws.demo.doze" {
-		t.Errorf("endpoint = %q, want the shared host aws.demo.doze", v.Endpoint)
-	}
-	if v.Bind != "127.0.0.1:53987" {
-		t.Errorf("bind = %q, want the raw backend 127.0.0.1:53987", v.Bind)
-	}
-}
-
 // A supervised process binds its own port and has no entry in the bind plan; its
 // endpoint falls back to the canonical declared address.
 func TestHydrateEndpointFallsBackWhenUnproxied(t *testing.T) {

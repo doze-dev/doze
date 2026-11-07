@@ -73,7 +73,7 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 
 	// The module's other listeners (engine.Networked), each on this address at
 	// its own port, forwarded to the socket the module listens on for it.
-	if err := d.startListeners(name, engineType, bindAddr, ip, func(l net.Listener, backend string) {
+	if err := d.startListeners(name, engineType, bindAddr, func(l net.Listener, backend string) {
 		d.instWG.Add(1)
 		go func() {
 			defer d.instWG.Done()
@@ -143,7 +143,7 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 // + DNS name (proxied engines) or boots it (supervised processes), and returns
 // the new instance's name. Live add is limited to self-contained blocks —
 // references to sibling services aren't resolved here (they need the full
-// document); AWS-builtin/ingress engines are not yet supported live.
+// document).
 func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) {
 	// Decode the block in isolation via the same pipeline (incl. plugin decode).
 	// Because it's decoded alone, references to sibling services can't resolve —
@@ -163,9 +163,6 @@ func (d *Daemon) AddInstance(ctx context.Context, block string) (string, error) 
 	drv, ok := engine.Lookup(decl.Type)
 	if !ok {
 		return "", fmt.Errorf("no engine %q (is its module enabled?)", decl.Type)
-	}
-	if config.IsAWSBuiltin(decl.Type) {
-		return "", fmt.Errorf("live add of AWS built-in engine %q is not yet supported — declare it in the config and restart", decl.Type)
 	}
 
 	inst := engine.Instance{Name: decl.Name, Type: decl.Type, Spec: decl.Spec}
@@ -336,8 +333,13 @@ func (d *Daemon) republishDomains() {
 			continue
 		}
 		live[host] = l
-		for _, t := range d.claimAppDomains(l, host) {
+		apps, held1 := d.claimAppDomains(l, host)
+		routed, held2 := d.claimRouteNames(l, host)
+		for _, t := range append(apps, routed...) {
 			live[t.Name.Host] = t
+		}
+		for _, h := range append(held1, held2...) {
+			d.noteHeldLocked(h) // the caller holds d.mu
 		}
 	}
 	// Drop what is no longer declared. Tracking the leases from THIS pass, not
@@ -376,7 +378,7 @@ func (d *Daemon) refreshIngressRoutes(eps []endpoints.Endpoint) {
 	if !d.cfg.Defaults.Domains || d.plan == nil || d.zone == nil {
 		return
 	}
-	d.publishRoutes(eps, d.plan, nil)
+	d.publishRoutes(eps, d.plan)
 	// A domain added live needs what one declared at the start got: its
 	// record, and the authority in the environment of what starts next.
 	d.ensureDomains(true)

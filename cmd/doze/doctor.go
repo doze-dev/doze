@@ -105,20 +105,10 @@ func doctorCmd() *cobra.Command {
 					// A LIVE probe through the system resolver — the same path
 					// curl/psql take — is the only honest check. Requires the
 					// daemon (it answers the queries).
-					// Probe a real per-service domain; AWS built-ins don't publish
-					// one (they share a per-type host), so skip them, falling back
-					// to that shared host only if the stack is all AWS built-ins.
+					// Probe a real per-service domain: every instance has one.
 					probe := ""
 					for _, decl := range cfg.Instances {
 						if !decl.Enabled {
-							continue
-						}
-						if config.IsAWSBuiltin(decl.Type) {
-							if probe == "" {
-								if host, ok := cfg.AWSHost(decl.Type); ok {
-									probe = host
-								}
-							}
 							continue
 						}
 						probe = cfg.DomainFor(decl.Name)

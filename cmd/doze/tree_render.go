@@ -101,12 +101,6 @@ func statusData(cfg *config.Config, views map[string]control.InstanceView, daemo
 		if domain == "" && cfg.Defaults.Domains && endpoint != "" && !strings.HasPrefix(endpoint, "unix:") {
 			domain = cfg.DomainFor(d.Name)
 		}
-		// AWS built-ins live under the stack's one AWS host, each at its type's
-		// path; the internal backend address never surfaces (no per-instance
-		// domain either).
-		if shared, ok := cfg.AWSEndpoint(d.Type); ok {
-			endpoint, domain = strings.TrimPrefix(shared, "http://"), ""
-		}
 		// A forwarded process surfaces its public port, not the app's self-bound one.
 		if fe := forwardHostPort(cfg, d); fe != "" {
 			endpoint = fe
@@ -333,12 +327,7 @@ func endpointCell(cfg *config.Config, decl *config.InstanceDecl, v control.Insta
 // services) plus whether it should render live (unmuted). Kept separate from
 // the painted cell so callers can compare the sentinel before styling.
 func endpointValue(cfg *config.Config, decl *config.InstanceDecl, v control.InstanceView, running bool) (string, bool) {
-	// AWS built-ins are reached at their shared per-type endpoint (same host for
-	// every bucket/queue/topic); the backend port is internal, so never show it.
 	if cfg != nil && decl != nil {
-		if shared, ok := cfg.AWSEndpoint(decl.Type); ok {
-			return strings.TrimPrefix(shared, "http://"), running
-		}
 		// A forwarded process is reached at its public port (http://<name>…:<port>);
 		// the app's self-bound high port is internal, so show the forward instead.
 		if fe := forwardHostPort(cfg, decl); fe != "" {

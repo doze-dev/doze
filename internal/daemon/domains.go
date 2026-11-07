@@ -48,7 +48,12 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 			continue
 		}
 		leases = append(leases, l)
-		leases = append(leases, d.claimAppDomains(l, host)...)
+		apps, held1 := d.claimAppDomains(l, host)
+		routed, held2 := d.claimRouteNames(l, host)
+		leases = append(append(leases, apps...), routed...)
+		for _, h := range append(held1, held2...) {
+			d.noteHeld(h)
+		}
 	}
 	d.zoneLeases = leases
 	release = func() {
@@ -90,15 +95,19 @@ func (d *Daemon) setupDomains(ctx context.Context, own map[string]net.IP) (relea
 // noteHeld records that a name this stack wanted belongs to another program,
 // against the instance the name is for.
 func (d *Daemon) noteHeld(held *names.ErrHeld) {
-	who := fmt.Sprintf("%s is held by %s (pid %d)", held.Host, held.Owner, held.PID)
-	awsHost := "aws." + d.cfg.Stack() + "." + config.DomainSuffix
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	d.noteHeldLocked(held)
+}
+
+// noteHeldLocked is noteHeld for a caller that holds d.mu.
+func (d *Daemon) noteHeldLocked(held *names.ErrHeld) {
+	who := fmt.Sprintf("%s is held by %s (pid %d)", held.Host, held.Owner, held.PID)
 	if d.heldNames == nil {
 		d.heldNames = map[string]string{}
 	}
 	for _, decl := range d.cfg.Decls() {
-		if d.cfg.DomainFor(decl.Name) == held.Host || (held.Host == awsHost && decl.Type == config.AWSUnifiedType) {
+		if d.cfg.DomainFor(decl.Name) == held.Host || d.instRoutes[decl.Name][held.Host] != "" {
 			d.heldNames[decl.Name] = who
 		}
 		for _, dom := range decl.Domains {
@@ -113,8 +122,9 @@ func (d *Daemon) noteHeld(held *names.ErrHeld) {
 // onto the lease of its doze name, so they resolve to the same address and
 // go away with it; a certificate the person brought is recorded on them. A
 // domain another live stack holds is logged and skipped, as a held name is.
-func (d *Daemon) claimAppDomains(l *names.Lease, host string) []*names.Lease {
+func (d *Daemon) claimAppDomains(l *names.Lease, host string) ([]*names.Lease, []*names.ErrHeld) {
 	var out []*names.Lease
+	var helds []*names.ErrHeld
 	for _, decl := range d.cfg.Decls() {
 		if !decl.Enabled || len(decl.Domains) == 0 || d.cfg.DomainFor(decl.Name) != host {
 			continue
@@ -124,7 +134,7 @@ func (d *Daemon) claimAppDomains(l *names.Lease, host string) []*names.Lease {
 			if err != nil {
 				if held, ok := names.Held(err); ok {
 					d.logf("domains: %s is held by pid %d (%s)", held.Host, held.PID, held.Owner)
-					d.noteHeld(held)
+					helds = append(helds, held)
 				} else {
 					d.logf("domains: could not register %s: %v", dom, err)
 				}
@@ -138,7 +148,7 @@ func (d *Daemon) claimAppDomains(l *names.Lease, host string) []*names.Lease {
 			out = append(out, t)
 		}
 	}
-	return out
+	return out, helds
 }
 
 // usesDozeCA says some app declares a domain without bringing its own

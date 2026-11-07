@@ -19,7 +19,7 @@ converged on boot.
 ## The block
 
 ```hcl
-module aws "local" {
+module aws "aws" {
   port = 4566
 
   bucket "uploads" { versioning = true }
@@ -53,14 +53,14 @@ the services track current AWS APIs.
 
 ## Point your SDK at it
 
-Reference `module.local.url` from an `app` block and every AWS SDK picks it up
+Reference `module.aws.url` from an `app` block and every AWS SDK picks it up
 through the standard endpoint variables:
 
 ```hcl
 app "api" {
   run = "go run ."
   env = {
-    AWS_ENDPOINT_URL_S3  = module.local.url    # boots + holds the aws instance
+    AWS_ENDPOINT_URL_S3  = module.aws.url    # boots + holds the aws instance
     BUCKET               = "uploads"        # resources are plain names
   }
 }
@@ -75,6 +75,20 @@ aws sqs get-queue-url --queue-name emails
 
 One endpoint serves every service — the gateway routes by protocol, exactly
 like the standalone `doze-aws` binary.
+
+### Its address
+
+With names on (`defaults { names = true }`), the instance is reached at its
+name without a port: an instance called `aws` in stack `shop` is
+`http://aws.shop.doze`, which is what `module.aws.url` and `doze env` give. Every
+name under it reaches it too, so SDKs that address by host work unchanged:
+`sqs.us-east-1.aws.shop.doze`, and S3 by virtual host
+(`uploads.s3.us-east-1.aws.shop.doze`) without `force_path_style`. So does
+`sync-aws.shop.doze`, where every SDK sends Step Functions'
+`StartSyncExecution` and `TestState`. Call the instance something else and the
+same holds under that name (`cloud.shop.doze`). `routes = false` in the block
+keeps it on its port only (`aws.shop.doze:4566`). These need the aws module 0.2
+or later; an older one is reached at its port.
 
 ## Queues, topics, fanout
 
