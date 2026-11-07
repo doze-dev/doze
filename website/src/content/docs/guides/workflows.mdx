@@ -1,0 +1,269 @@
+---
+title: "Everyday workflows"
+description: Start a stack, connect to it, read its logs, run a task, change doze.hcl and stop for the day, in the app or in a terminal.
+redirect_from: ["/cli/tour/"]
+---
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Steps from "@docs/Steps.astro";
+import library from "../../../assets/app/library.webp";
+import overview from "../../../assets/app/service-overview.webp";
+import logs from "../../../assets/app/service-logs.webp";
+import tiles from "../../../assets/app/view-tiles.webp";
+
+You'll be able to do a normal day's work with doze: bring a stack up, reach
+its services from your code, read what they print, change the config, and stop.
+
+Every step works in the app and in a terminal; the app runs the same commands.
+The examples use **Larder**, a made-up grocery service from
+[doze-examples](https://github.com/doze-dev/doze-examples/tree/main/larder).
+
+## Start the stack
+
+<HowTo>
+<Fragment slot="app">
+
+<Shot src={library} alt="The Library: larder is up with 13 awake, acme is stopped" caption="The Library. Each stack has a switch; the … menu holds the rest." crop />
+
+<Steps>
+
+1. **Open doze.** From Applications, or type `doze` in a terminal.
+2. **Flip the stack's switch on.** It starts what was started last time, or
+   everything the first time.
+3. **For something else, open the `…` menu:** **Start everything**, or, while
+   the stack is down, **Choose what starts…** to tick the apps you will work
+   on. What they need comes too.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze up                     # asks whether to start the same set as last time
+doze up --last              # the same set, without asking
+doze up --all               # everything, without asking
+doze up storefront gateway  # these two and what they need
+```
+
+`doze up` returns when every service it started is ready. Add `-f` to follow
+the logs after; <kbd>Ctrl</kbd>+<kbd>C</kbd> stops following, not the stack.
+
+</Fragment>
+</HowTo>
+
+Services you did not start are not off. Most sleep until something connects,
+then wake. See [Sleep and wake](/hcl/sleep/).
+
+## See what is running
+
+<HowTo>
+<Fragment slot="app">
+
+<Shot src={tiles} alt="Larder in the Tiles view, one card per service with its state and memory" caption="A stack's page. 1–4 switch between Tiles, List, Map and Grid." crop />
+
+<Steps>
+
+1. **Open the stack** from the Library (<kbd>⏎</kbd> on its row).
+2. **Read the states.** Each service is awake, dozing (running, nobody
+   connected, counting down to sleep), waking, asleep, crashing (it exited
+   and a restart is due), failed, or off (you switched it off). A task is
+   done, failed or not run.
+3. **Press <kbd>⏎</kbd> on a service** to open it: why it is awake, its
+   memory and CPU, and its recent wakes.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze status          # one table: state, address, connections, memory, CPU
+doze status -w       # the same, redrawn as things change
+doze status --graph  # who waits on whom
+```
+
+</Fragment>
+</HowTo>
+
+## Connect from your code and your tools
+
+An app block gets its connection strings from its own `env`, so an app doze
+runs needs nothing more. For a program you start yourself, such as a test
+runner or `psql`:
+
+<HowTo>
+<Fragment slot="app">
+
+<Shot src={overview} alt="The catalog service: the Reach it card with its URL, address, and IP and port, each with Copy" caption="Inside a service. Copy beside each line; y copies the address." crop />
+
+<Steps>
+
+1. **Open the service.**
+2. **Press Copy** on the line you want, or <kbd>y</kbd> for the address.
+   A module's **Connect** card also shows the same URL for Node, Python, Go,
+   a shell, `.env` and `psql`.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+psql "$(doze url postgres)"        # one service's connection line
+eval "$(doze env)"                 # export DATABASE_URL, REDIS_URL, … into this shell
+doze env --dotenv > .env           # the same as KEY=value lines
+doze run --env -- go test ./...    # run one command with those variables set
+```
+
+`doze url` and `doze env` read the config, so the stack need not be up;
+connecting is what wakes a service. `doze run` without `--env` adds nothing
+to the command's environment.
+
+</Fragment>
+</HowTo>
+
+## Read the logs
+
+<HowTo>
+<Fragment slot="app">
+
+<Shot src={logs} alt="The gateway service's Logs tab" caption="A service's Logs tab. All logs of the stack are one key away." crop />
+
+<Steps>
+
+1. **Open the service and press <kbd>l</kbd>** for its Logs tab.
+2. **For the whole stack, press <kbd>L</kbd>** on the stack's page, or
+   <kbd>⌘L</kbd>.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze logs gateway              # the newest run
+doze logs gateway --run -1     # the run before it: what it said before it died
+doze logs gateway --since 10m  # the last ten minutes
+doze logs -f gateway orders    # follow two services
+doze logs                      # every service, merged by time
+```
+
+Logs are kept on disk per run, so this works for a service that is asleep or
+crashed, and with the stack down. `-f` needs the stack up.
+
+</Fragment>
+</HowTo>
+
+## Run a task
+
+Tasks such as migrations run by themselves before the apps that list them in
+`after`, and again when their `inputs` change. To run one now:
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Open the stack** and pick the task under **Tasks** in the sidebar.
+2. **Press Run** (or <kbd>⏎</kbd>). The output appears on the page; the runs
+   are kept beside it.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze task migrate-catalog  # run it now, whatever its state
+doze task                  # every task and how it last ran
+```
+
+</Fragment>
+</HowTo>
+
+## Keep one awake, put one aside
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Pin a service awake:** open it and press **Pin awake** (<kbd>p</kbd>).
+   It stays up with nobody connected until you unpin it or the stack stops.
+2. **Put one to sleep now:** **Sleep** (<kbd>s</kbd>). Its data stays.
+3. **Take one out of this run:** flip its row's switch off. Nothing wakes it,
+   not even a connection, until you switch it on again.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze pin postgres        # keep it awake; doze pin postgres --off to undo
+doze sleep postgres      # sleep now; the next connection wakes it
+doze wake postgres       # wake now, with what it needs
+doze off storefront      # stop it and keep it stopped
+doze on storefront       # back in the run; wakes on its next connection
+doze restart gateway     # stop and start again
+```
+
+</Fragment>
+</HowTo>
+
+## Change doze.hcl
+
+1. Edit the file. `doze lint` checks it without touching anything, and
+   `doze fmt` lays it out.
+2. A running stack keeps the file it started with. The app says so on the
+   stack's page ("doze.hcl changed 2m ago, after the stack read it"), and a
+   file that does not load is shown with its line.
+3. To apply it, restart the stack: **Restart larder** in the `…` menu, or
+   `doze down` then `doze up`.
+
+When you only changed structure inside a module (a new role, bucket, queue or
+topic), `doze sync` applies it to the running stack. `doze sync --dry-run`
+shows what it would do first; `sync` also drops structure you removed.
+
+## Start a service's data again
+
+```sh
+doze reset postgres
+```
+
+`reset` stops the service and deletes its data; the next wake sets it up
+fresh from the config. It asks first and cannot be undone.
+
+## Stop for the day
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Flip the stack's switch off** on the Library. Every service stops, and
+   so does the stack's background daemon.
+2. **Close the window if you like.** The bat stays in the menu bar; quitting
+   the app leaves stacks running.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze down
+```
+
+</Fragment>
+</HowTo>
+
+Next time, `doze up` offers what you had running.
+
+## When something is wrong
+
+`doze doctor` checks the machine setup and the config and says what to fix.
+In the app the same report is under Settings › Machine. See
+[Troubleshooting](/guides/troubleshooting/), and the
+[CLI reference](/reference/cli/) for every command and flag.

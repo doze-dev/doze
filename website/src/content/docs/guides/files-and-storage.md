@@ -1,269 +1,149 @@
 ---
-title: "Files & storage"
+title: "Files and storage"
+description: Where doze keeps binaries, data, logs and state, what to commit, and how to clean up.
 ---
 
+You'll be able to find any file doze writes, know which ones to commit, and
+free disk space safely.
 
-There are two kinds of files in a doze project: **what you write** (a little
-config you commit) and **what doze manages** (engine binaries, data, sockets, and
-logs it keeps out of your way). This page explains exactly where everything lives,
-what to commit versus ignore, how to split your config across files, and how to
-reset or clean things up.
+There are two places: a little in your project, and the rest in one folder per
+user, `~/.doze`. To split `doze.hcl` itself into several files, see
+[Splitting files](/hcl/splitting-files/).
 
-## The short version
+## In your project
 
+```text
+larder/
+  doze.hcl       you write it                           commit
+  *.doze.hcl     more of the same, if you split it      commit
+  doze.lock      doze writes it: what each version is    commit
+  .doze/         doze writes it: this machine's state    ignored by itself
 ```
-my-app/
-  doze.hcl            # you write this  — your declared instances        (commit)
-  doze.lock           # doze writes this — resolved versions + checksums  (commit)
-  *.doze.hcl          # optional         — extra config, split by topic   (commit)
-  .doze/              # doze writes this — runtime manifest               (gitignore)
+
+- **`doze.lock`** pins what doze downloads, so every machine runs the same
+  bytes. Commit it. More [below](#dozelock).
+- **`.doze/`** holds `endpoints.yaml` (each service's address and connection
+  string, for scripts that want to read them) and `state.json`. doze writes a
+  `.gitignore` inside the folder, so you don't need to add it to yours.
+
+Your data is not in the project. That keeps the repository small, and a
+`git clean` cannot delete a database.
+
+## In `~/.doze`
+
+```text
+~/.doze/
+  postgres/                      engine binaries, one folder per version and platform
+    18.6.0-aarch64-apple-darwin/
+    _templates/                  a ready-made empty cluster per version, copied on first wake
+  valkey/  kafka/  …             the same for each engine
+  modules/                       the module plugins doze fetched from the registry
+  downloads/                     what a `service` with `download` fetched, by checksum
+  cache/                         downloads in progress and registry metadata
+  ca/                            the local certificate authority, after `doze trust`
+  desk/                          the app: prefs.json and app.log
+  names.json  routes.json  …     the machine's names and routes, shared by every stack
+  projects/
+    larder-3d586471/             one folder per project
+      project.json               where its doze.hcl is, when it was last up, what was started
+      clusters/<service>/        each service's data
+      logs/                      what each service printed, per run
+      run/
+        doze.log                 the stack's daemon log
+        journal.jsonl            every wake, sleep, crash and task run, for Activity
+        …                        sockets and the daemon's pid
 ```
 
-Everything heavy — the actual Postgres/Redis binaries and your databases' data —
-lives **outside your project**, in a shared home at `~/.doze`. Your repo stays
-tiny.
+The examples use **Larder**, a made-up grocery service.
 
-## What you write
+- **Binaries are shared.** Ten projects on Postgres 18.6 use one download.
+  You download a version the first time any project needs it.
+- **A project's folder** is named after its folder plus a short hash of its
+  path, so two projects both called `api` never meet. `doze doctor` prints it
+  on its `project` line.
+- **Logs** are kept per run on disk, so `doze logs` and the app's Logs tab work
+  for a service that is asleep or crashed. `log_runs` and `log_size` in
+  `defaults` set how much is kept.
+- **The journal** is what the app's Activity view reads: how long each service
+  slept, what woke it, what crashed.
+- **`ca/`** exists only after `doze trust`, for apps with `domains`. Its key is
+  readable by you alone. See [Domains and HTTPS](/app/domains/).
 
-### `doze.hcl`
-Your declared instances and root settings. The one file you really author. See the
-[configuration reference](/reference/configuration/).
+## doze.lock
 
-### `*.doze.hcl` (optional)
-You can split instances across sibling `*.doze.hcl` files — doze merges them
-automatically. See [breaking config into files](#breaking-config-into-files).
-
-### `doze.lock` — commit it
-`doze.lock` is doze's `package-lock.json`, and it pins **three layers** of the
-supply chain, right next to `doze.hcl`:
+`doze.lock` has a `doze:` line and three layers:
 
 ```yaml
-engines:                        # engine binaries: version = 16 -> 16.14.0 + per-platform SHA-256
+doze: 0.2.0          # the newest doze that wrote this file
+engines:             # each engine version you declared, resolved to a build
   postgres:
-    "16": { resolved: 16.14.0, hashes: { … } }
-modules:                        # the plugin providing each engine: release, plugin
-  doze/postgres:                # protocol, supported engine versions, all-platform hashes
-    version: 0.2.1
+    "18":
+      resolved: 18.6.0
+      source: mirror
+      hashes:
+        aarch64-apple-darwin: sha256:…
+modules:             # the module release that runs each engine
+  doze/postgres:
+    version: …
     protocol: 1
-    engines: ["14", "15", "16", "17", "18"]
-    hashes: { … }
-keys:                           # each registry namespace's ed25519 publisher key,
-  doze: Nu5y8mbjYv7…            # pinned on first use — a swapped key is a hard error
+    hashes:
+      aarch64-apple-darwin: sha256:…
+downloads:           # each URL a `service` downloads, and what it served the first time
+  https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz:
+    sha256: sha256:…
 ```
 
-**Commit it.** Every teammate and your CI then run byte-identical modules *and*
-engine binaries, verified against the same publisher key. Module pins never
-move on their own — `doze modules upgrade` moves them, and prints a reminder to
-commit. See [Managing binaries](/reference/binaries/).
+- **`engines`**: `version = 18` becomes an exact build, with a checksum for
+  each platform.
+- **`modules`**: the plugin that runs the engine, with its release and
+  checksums. Pins move only when you run `doze modules upgrade`.
+- **`downloads`**: a download that later serves different bytes is refused.
+- **`doze:`**: an older doze reading the file says it is older, since a newer
+  one may have pinned something it cannot run.
 
-## What doze manages
+How the registry signs what doze fetches is in
+[The trust model](/why/trust/). The fields are in the
+[doze.lock reference](/reference/lockfile/).
 
-### The home — `~/.doze` (shared across all your projects)
+## Moving it
 
-One machine-wide directory holds the engine toolchains and per-project state,
-laid out like [moonrepo's proto](https://moonrepo.dev/proto):
+Two root settings in `doze.hcl` move the folders:
 
-```
-~/.doze/
-  postgres/                                  # engine toolchains, downloaded once…
-    16.14.0-aarch64-apple-darwin/bin         #   …and shared by every project
-    _templates/16.14.0/                      # copy-on-write boot template (initdb once)
-  valkey/  kvrocks/  documentdb/             # same idea per engine
-  cache/                                     # transient downloads
-  tls/                                       # auto-generated self-signed cert (shared)
-  projects/                                  # per-project state (see below)
-    my-app-1a2b3c4d/
-    other-app-9f8e7d6c/
+```hcl
+home     = "/Volumes/work/doze" # the whole ~/.doze, for this project (or set DOZE_HOME)
+data_dir = "./.doze-data" # only this project's folder, here inside the repo
 ```
 
-Because toolchains live here and are content-addressed, ten projects that all use
-Postgres 16.14 share **one** download. Relocate the whole home with `$DOZE_HOME`
-or the `home` setting.
+`DOZE_HOME` in the environment moves `~/.doze` for every project.
+`data_dir` inside the repository keeps a throwaway stack self-contained; add
+it to `.gitignore`, since it holds real database files.
 
-### Per-project state — `~/.doze/projects/<slug>/`
+## Freeing space
 
-Each project gets its own namespaced subdirectory (the slug is your project folder
-name plus a short hash of its path, so two `app` folders never collide):
+| To | Do |
+|---|---|
+| Put a service to sleep, keeping its data | `doze sleep postgres` |
+| Throw away one service's data | `doze reset postgres` (it asks; the next wake starts fresh) |
+| Throw away a whole project's data | `doze down`, then delete its folder under `~/.doze/projects/` |
+| Drop an engine version no project uses | delete its folder, such as `~/.doze/postgres/16.15.0-aarch64-apple-darwin` |
+| Drop old Postgres data kept by `doze migrate` | delete `clusters/<name>.pg16-…` and the `-dump.sql` beside it |
 
-```
-~/.doze/projects/my-app-1a2b3c4d/
-  clusters/                  # each instance's DATA lives here
-    app/                     #   the `app` Postgres data directory
-    cache/                   #   the `cache` Valkey data directory
-  run/                       # runtime files
-    doze.pid                 #   the daemon's pid
-    doze.admin.sock          #   the control socket the CLI/TUI talk to
-    doze.log                 #   the daemon log (doze logs)
-    app/                     #   the `app` backend's private socket
-    backend-app.pid          #   for crash/orphan reconciliation
-```
+Anything doze downloaded comes back on the next use, checked against
+`doze.lock`. Your `doze.hcl` and `doze.lock` are never touched.
 
-Find a project's directory any time:
+The app's **Settings › Machine** has a **Left behind** line: processes, folders
+and routes that belong to no stack on Home.
+
+## Removing everything
+
+To remove doze from a machine, undo the machine setup first, then delete the
+folder:
 
 ```sh
-doze doctor      # the `project` line prints this path
+doze trust --remove        # in each project that used domains
+doze dns-setup --uninstall
+rm -rf ~/.doze
 ```
 
-### `.doze/endpoints.yaml` (project-local)
-
-When the daemon is up it writes `.doze/endpoints.yaml` next to your `doze.hcl` —
-the current address and connection string for each instance, for other tooling to
-read. It's regenerated on demand, so **gitignore it**.
-
-## Putting state somewhere else
-
-By default a project's state lives under the shared home. Two overrides:
-
-```hcl
-home     = "~/.doze"         # relocate the shared tool store + cache (or set $DOZE_HOME)
-data_dir = "./.doze-state"   # keep THIS project's data inside the repo instead
-```
-
-- **`data_dir`** moves clusters/sockets/logs for *this* project. Pointing it at a
-  path inside your repo (e.g. `./.doze-state`) keeps everything self-contained —
-  just gitignore it. Handy for throwaway sandboxes or fully isolated CI.
-- **`home` / `$DOZE_HOME`** moves the shared, cross-project tool store.
-
-## Commit vs ignore
-
-| File | Commit? | Why |
-|---|---|---|
-| `doze.hcl` | ✅ | your declared environment |
-| `doze.lock` | ✅ | byte-identical binaries for the whole team |
-| `*.doze.hcl` | ✅ | shared split config |
-| `local.doze.hcl` | ❌ | per-developer overrides (see below) |
-| `.doze/` | ❌ | regenerated runtime manifest |
-| `data_dir` if inside the repo | ❌ | actual database data |
-
-A typical `.gitignore`:
-
-```gitignore
-.doze/
-local.doze.hcl
-.doze-state/        # only if you set data_dir to an in-repo path
-```
-
-## Breaking config into files
-
-For anything past a couple of instances, split `doze.hcl` into sibling
-`*.doze.hcl` files. doze loads `doze.hcl` first (it holds the root settings), then
-merges every `*.doze.hcl` beside it in sorted order — it's all one config. (A plain
-`*.hcl` sibling is left alone; only the `*.doze.hcl` suffix is auto-merged.)
-
-```
-my-app/
-  doze.hcl              # root settings (listen/defaults/tls) + core instances
-  databases.doze.hcl    # postgres instances
-  cache.doze.hcl        # valkey / kvrocks
-  aws.doze.hcl          # s3 / sqs / sns
-```
-
-```hcl
-# doze.hcl  — root settings live here, and only here
-defaults { sleep = "5m" }
-
-module postgres "app" {
-  version = 16
-  role "app" { password = "app" }
-}
-```
-
-```hcl
-# module.doze.hcl  — just more instances
-module aws "cloud" {
-  port = 4566
-  bucket "uploads" {}
-  queue  "emails" {}
-}
-```
-
-```sh
-doze status     # shows app (from doze.hcl) and cloud (from aws.doze.hcl)
-doze doctor     # validates the merged whole
-```
-
-**Rules of thumb**
-
-- **Root settings** (`listen`, `home`, `data_dir`, `defaults`, `tls`) belong in
-  `doze.hcl`. A duplicate `defaults`/`tls` across files is a (clearly reported)
-  error.
-- **Instance blocks** can live in any file; names must be unique across all of
-  them.
-- Or point `--config` at a directory to merge every `*.hcl` in it:
-  ```sh
-  doze --config ./config status
-  ```
-- Errors are reported with the **file, line, and a snippet** — including
-  cross-file duplicates and unknown blocks (with a "did you mean?" hint).
-
-### Per-developer overrides
-
-Keep the shared stack in `doze.hcl`, and let each developer change a few things
-for themselves in a **gitignored** file whose name ends in `.override.doze.hcl`:
-
-```hcl
-# local.override.doze.hcl  (gitignored — yours alone)
-module postgres "db" {
-  port = 5499         # 5432 is taken on this laptop
-}
-
-app "admin" {
-  enabled = false     # I never work on it
-}
-```
-
-An override names a block declared elsewhere, by kind and name, and changes only
-`port`, `enabled`, `sleep` and `version`: the arguments doze reads itself, so
-they work the same for every kind and module. Anything else in an override is
-an error that names it, as is an override for a block nothing declares, so a
-renamed block cannot leave a stale override quietly doing nothing.
-
-To **add** something of your own instead, such as a scratch database, put it in
-another gitignored `*.doze.hcl` file; every sibling `*.doze.hcl` is read too:
-
-```hcl
-# local.doze.hcl  (gitignored)
-module postgres "scratch" {
-  version = 17
-}
-```
-
-Add both to `.gitignore`:
-
-```
-*.override.doze.hcl
-local.doze.hcl
-```
-
-## Multiple projects on one machine
-
-Run doze from each project directory and they stay completely independent — own
-data, own endpoints, own daemon — while **sharing** the downloaded toolchains
-under `~/.doze`. You can have Postgres 14 in one repo and 17 in another with zero
-conflict.
-
-## Resetting & cleaning up
-
-```sh
-# Put an instance to sleep now (data is kept; next connect re-boots it)
-doze sleep app
-
-# Wipe one instance's data and start fresh (re-provisions + converges on next boot)
-doze reset app
-
-# Nuke a whole project's state (stop the daemon first)
-doze down
-rm -rf "$(doze doctor | awk '/project/{print $3}')"
-
-# Reclaim disk from downloads / unused toolchains
-rm -rf ~/.doze/cache
-rm -rf ~/.doze/postgres/15.18.0-*    # an engine version you no longer use
-```
-
-Nothing here touches your `doze.hcl` or `doze.lock` — recreate the data any time
-by connecting again.
-
----
-
-Next: the **[configuration reference](/reference/configuration/)** for every
-field, or **[recipes](/guides/engines/)** for concrete setups.
+Then remove the app the way you installed it. On Linux, see
+[Linux](/guides/linux/#removing-it).

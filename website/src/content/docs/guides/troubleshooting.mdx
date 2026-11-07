@@ -1,0 +1,223 @@
+---
+title: "Troubleshooting"
+description: What to do when a service crashes, a port is taken, a name does not resolve, an app is never ready, or doze.hcl does not load.
+---
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Steps from "@docs/Steps.astro";
+import crash from "../../../assets/app/crash.webp";
+import portClash from "../../../assets/app/port-clash.webp";
+
+You'll be able to find out why a service is not doing what you expect, and fix
+the common causes.
+
+The examples use **Larder**, a made-up grocery service.
+
+## Where to look first
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Look for red.** A stack's tab shows a count of what needs you, and so
+   does the bell at the top right.
+2. **Open the service.** Its page says what went wrong, shows the last lines
+   it printed before it exited, and offers the fix it can.
+3. **Check the machine:** Settings › Machine is the same report as
+   `doze doctor`, with a **Repair** button.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze status            # each service's state, and a note on what went wrong
+doze logs orders       # what it printed in its newest run
+doze logs orders --run -1   # the run before
+doze doctor            # the machine setup and the config
+```
+
+</Fragment>
+</HowTo>
+
+A service's state tells you where to start:
+
+| State | Meaning |
+|---|---|
+| awake, dozing | running; dozing means nobody is connected and it will sleep soon |
+| waking | starting, and not ready yet |
+| asleep | not running; the next connection wakes it |
+| crashing | it exited by itself, and doze will start it again shortly (`doze status` shows the try, such as `crashing 3/5`) |
+| failed | nothing is running and something went wrong: the tries ran out, or the start never got as far as running |
+| off | you switched it off (`doze off`); nothing wakes it until `doze on` |
+
+## A service keeps crashing
+
+<Shot src={crash} alt="The orders service crashing: try 3 of 5, and the lines it printed, ending in a password authentication error" caption="A crashing service: when doze tries again, and what it said before it exited." crop />
+
+The service starts and exits. doze starts it again, waiting longer each time,
+up to the `restart` block's `max_retries`, then marks it failed.
+
+1. Read what it said. In the app it is on the service's page; in a terminal,
+   `doze logs <name>`, or `doze logs <name> --run -1` for the run before.
+2. Fix the cause. In the example above, the `orders` role's password in the
+   service's `env` does not match the one on the `postgres` module.
+3. Start it again: **Try now** (<kbd>r</kbd>) in the app, or
+   `doze restart orders`. **Stop trying** (<kbd>s</kbd>) takes it out of the
+   run while you look; `doze on orders` brings it back.
+
+More in [When something breaks](/app/when-something-breaks/).
+
+## A port is taken
+
+<Shot src={portClash} alt="gateway cannot listen on port 8000 because bun, pid 7681, has it; two choices: stop pid 7681, or use another port" caption="The app names the process that holds the port, and offers to stop it." crop />
+
+Another program is on the port a service wants. The app names it and offers
+two fixes: stop that process (doze asks first; it never stops a process it did
+not start on its own), or use another port.
+
+In a terminal, find it yourself:
+
+```sh
+lsof -nP -iTCP:8000 -sTCP:LISTEN
+```
+
+Then stop it, or give the block another `port` in `doze.hcl`. With names on,
+the service's name keeps working whatever port you pick. A
+[personal override file](/hcl/splitting-files/) changes a port for you alone.
+
+On a Mac with names set up, each service has an address of its own, so two
+stacks can both use 5432. A clash then means a program outside doze holds the
+port.
+
+## An app is never ready
+
+An `app` with `port = 3000` does not listen on 3000: doze holds that port and
+starts the app with `$PORT` set to a private one, and the app is ready when
+`$PORT` answers. An app that ignores `$PORT` and listens on its own port (vite
+on 5173, a server hard-coded to 3000) is never ready, and its start fails after
+the ready timeout. doze then looks at what the app's processes do listen on and
+says so:
+
+```text
+web listens on :5173, not on $PORT (41234) that doze gave it; start it with
+--port $PORT (vite: --port $PORT --strictPort), or set direct = true to have doze
+leave its port alone
+```
+
+The fix is to read `$PORT` (and `$HOST`): `vite --port $PORT --strictPort`,
+`next dev -p $PORT`, or `os.Getenv("PORT")` in your own server. If the app
+must bind its declared port itself, set `direct = true`; doze then starts it
+but does not front it (no waking on a connection).
+
+"started but listens on no port" means the app is up but has bound nothing
+yet. A slow first compile wants a longer `ready_timeout` (Larder sets
+`ready_timeout = "3m"` in `defaults` for its first `go run`), or the app is
+waiting on something else. See [Apps](/hcl/apps/).
+
+## doze.hcl does not load
+
+`doze lint` checks the file without starting anything and prints the file,
+the line and what to write. In the app, the stack's page shows the same
+message with the line and an **Edit doze.hcl** button.
+
+A running stack keeps the file it started with, so a broken save does not stop
+anything. Once the file loads, restart the stack to apply it.
+
+An error that says something "is now" something else comes from a doze 0.1
+spelling; see [Upgrading from 0.1](/guides/upgrading-from-0-1/).
+
+## A task failed
+
+An app that lists the task in `after` does not start. Open the task in the app
+to see its output, or run it in a terminal to see it fail:
+
+```sh
+doze task migrate-catalog
+```
+
+Fix it and run it again; the waiting app starts after it succeeds.
+
+## A `.doze` name does not resolve
+
+```sh
+doze dns-setup --check
+```
+
+If a line is missing, run the setup again: **Repair** under Settings ›
+Machine, or `doze dns-setup` (one password). A machine set up by an older doze
+may need it once more; `doze doctor` says so.
+
+On Linux, names need systemd-resolved or dnsmasq. With only a plain
+`/etc/resolv.conf`, per-stack names cannot resolve; switch them off and use
+addresses. See [Linux](/guides/linux/#a-machine-with-a-plain-resolvconf).
+
+To work without names at all, for one run or in CI, set `DOZE_ZONE=off`, or
+`defaults { names = false }` in the stack. Each service then listens on
+`127.0.0.1` at its own port.
+
+## An https domain is not trusted
+
+```sh
+doze trust --check
+```
+
+`doze trust` routes each domain an app declares to doze, and trusts doze's
+local certificate authority, with one password. Run it again after adding a
+domain. `doze trust --rotate` makes a new authority if the old one is broken.
+See [Domains and HTTPS](/app/domains/).
+
+## A service went to sleep while I was using it
+
+A service sleeps after two minutes with **no connections**, not after two
+minutes without queries. An open connection or pool keeps it awake. A script
+that connects, disconnects and comes back later meets a sleeping service,
+which wakes on that connection.
+
+If the wake bothers you, keep it up longer or for good:
+
+```hcl
+module postgres "postgres" {
+  version = 18
+  sleep   = "30m" # or "never"
+}
+```
+
+Or pin it for now: **Pin awake** (<kbd>p</kbd>) in the app, or
+`doze pin postgres`. See [Sleep and wake](/hcl/sleep/).
+
+## An engine does not download
+
+doze downloads each engine version the first time a project needs it, and
+checks it against `doze.lock`. If the download fails, check your network and
+try again. A checksum that does not match is refused, not run; it means the
+file changed since it was pinned.
+
+To use binaries already on your machine instead, point doze at their folder:
+
+```sh
+DOZE_POSTGRES_BINDIR=/usr/lib/postgresql/18/bin doze up
+```
+
+See [Environment](/reference/environment/).
+
+## A process was left behind
+
+If the daemon was killed hard (`kill -9`, a crash), a Mac cannot stop its
+child processes the way Linux does. doze finds them the next time the stack
+starts. The app's Settings › Machine lists anything **left behind** that
+belongs to no stack, and `doze down` stops a stack's processes now.
+
+## Start fresh
+
+`doze reset <name>` throws away one service's data; the next wake sets it up
+again from the config. For a whole project, see
+[Files and storage](/guides/files-and-storage/#freeing-space).
+
+## Still stuck
+
+Open an [issue](https://github.com/doze-dev/doze/issues) with the output of
+`doze doctor` (or **Copy report** under Settings › Machine), the `doze logs`
+lines that matter, your `doze.hcl`, and your OS and chip.

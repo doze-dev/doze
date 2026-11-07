@@ -1,0 +1,145 @@
+---
+title: "Linux"
+description: Install doze on Linux, set up .doze names with systemd-resolved, and undo all of it.
+---
+import HowTo from "@docs/HowTo.astro";
+import Steps from "@docs/Steps.astro";
+
+You'll be able to install doze on a Linux machine, make `.doze` names resolve,
+and remove every change it made.
+
+doze runs on Linux on x86-64 and arm64. The app, the menu bar icon and the
+command line are one program, `doze`, as on a Mac.
+
+## Install
+
+The deb and rpm packages are built with every release; they are attached to
+the release once the app has had its look on real Linux desktops. Until then,
+the [releases page](https://github.com/doze-dev/doze/releases) has a tarball,
+`doze_<version>_linux_<arch>.tar.gz`, with the same `doze` inside.
+
+With a package:
+
+```sh
+sudo apt install ./doze_<version>_amd64.deb     # Debian, Ubuntu
+sudo dnf install ./doze_<version>_amd64.rpm     # Fedora, RHEL
+```
+
+The package puts:
+
+- `doze` in `/usr/bin`, and a desktop entry, so doze is in your app menu;
+- an AppArmor profile at `/etc/apparmor.d/doze`, and loads it. Ubuntu 24.04
+  and later let the app's web view sandbox itself only through such a profile;
+  without it, the window fails with "bwrap: setting up uid map: Permission
+  denied".
+
+It needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`, or `webkit2gtk4.1` on Fedora)
+for the window, and recommends Ayatana AppIndicator for the menu bar icon.
+
+From the tarball, copy `doze` to `/usr/local/bin`. On Ubuntu 24.04 or later,
+also copy the profile from
+[build/linux/doze.apparmor](https://github.com/doze-dev/doze/blob/main/build/linux/doze.apparmor)
+to `/etc/apparmor.d/doze` and run `sudo apparmor_parser -r /etc/apparmor.d/doze`.
+
+Without a desktop, over SSH, `doze` is the terminal dash and every command
+works the same; nothing needs the window.
+
+## Set up names
+
+Each service gets a name, `<service>.<stack>.doze`, such as
+`postgres.larder.doze` in **Larder**, the made-up example stack. For those
+names to resolve, doze sets the machine up once, with one password:
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Open doze.** The Library's Machine line says what is missing, with
+   **Set up (one password)**.
+2. **Press it,** or **Repair** under Settings › Machine.
+3. **Type your password** in the system's own dialog (polkit, through
+   `pkexec`). The rows turn green.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze dns-setup --check   # what is in place, no sudo
+doze dns-setup --print   # the script it would run, to read first
+doze dns-setup           # run it (asks for sudo once)
+```
+
+`doze doctor --fix` does the same. Over SSH there is no polkit dialog, so
+this is the way.
+
+</Fragment>
+</HowTo>
+
+The setup is shared with doze AWS and doze Kafka: any of them installs it for
+all three.
+
+### What it changes
+
+| Change | Why |
+|---|---|
+| `/etc/sysctl.d/60-doze.conf`: `net.ipv4.ip_unprivileged_port_start=80` | the front door serves apps on port 80 without root |
+| a marked block in `/etc/hosts` | a few fixed names, such as `aws.doze` |
+| `doze-names.service`: a dummy interface `doze0` at `192.0.2.53` | doze's resolver listens there, on port 5323 |
+| on systemd-resolved: `resolvectl dns doze0 192.0.2.53:5323` and `resolvectl domain doze0 ~doze`, set by that unit at every boot | only `.doze` questions go to doze; everything else goes where it went before |
+| on dnsmasq: `/etc/dnsmasq.d/doze.conf` | the same route, for machines that use dnsmasq |
+| `doze-netd.service`, running `/usr/local/libexec/doze-netd` as you | answers `.doze` when no stack is running, so a name never hangs |
+
+doze finds which resolver the machine uses from the comment at the top of
+`/etc/resolv.conf`, not by guessing from what is running.
+
+### A machine with a plain resolv.conf
+
+`/etc/resolv.conf` alone cannot send one domain to one server. On such a
+machine, with neither systemd-resolved nor dnsmasq, doze writes the hosts block
+and the port setting but no route, and per-stack names do not resolve.
+`doze dns-setup --check` says "n/a" on that line rather than failing.
+
+Use addresses there instead. Switch names off for the stack with
+`defaults { names = false }`, or for every doze program with `DOZE_ZONE=off`
+in the environment (handy in CI and containers). Each service then listens on
+`127.0.0.1` at its own `port`.
+
+## Domains and HTTPS
+
+An app with `domains = ["dev.acme.com"]` needs `doze trust` once per stack.
+On Linux it adds the domain to the `doze0` link's routes in
+systemd-resolved, and puts doze's local certificate authority into the
+distribution's bundle: `update-ca-certificates` on Debian and Ubuntu,
+`update-ca-trust` on Fedora. Programs that read the system bundle then trust
+the certificates doze makes. Without systemd-resolved there is no route for a
+domain; the name works with its port. See [Domains and HTTPS](/app/domains/).
+
+## Check it
+
+```sh
+doze doctor
+```
+
+`doze doctor` lists each part with a ✓ or what is wrong, including whether
+`doze-netd.service` is running. `systemctl status doze-netd.service` shows the
+daemon's own log. The app shows the same report under Settings › Machine.
+
+## Removing it
+
+Undo the machine setup, then remove the package:
+
+```sh
+doze trust --remove           # in each project that used domains
+doze dns-setup --uninstall    # sysctl, hosts block, units, routes, the authority
+sudo apt remove doze          # or: sudo dnf remove doze
+rm -rf ~/.doze                # downloaded engines and every project's data
+```
+
+`doze dns-setup --uninstall` removes both units, the network daemon, the
+dnsmasq drop-in, the sysctl file and the hosts block, and stops trusting
+doze's authority. Removing the package unloads the AppArmor profile.
+`~/.doze` is yours to delete; it holds your databases. See
+[Files and storage](/guides/files-and-storage/).

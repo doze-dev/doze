@@ -1,0 +1,278 @@
+---
+title: "Upgrading from 0.1"
+description: Every spelling doze 0.2 changed in doze.hcl and on the command line, and what to write instead.
+ground: historical
+---
+import Shot from "@docs/Shot.astro";
+import configError from "../../../assets/app/config-error.webp";
+
+You'll be able to move a `doze.hcl` written for doze 0.1 to 0.2, one error at
+a time, and know which commands changed.
+
+You don't have to find the old spellings yourself. doze 0.2 refuses each one
+with an error that names the new word and prints the line to write. Run
+`doze lint`, fix what it says, run it again until it passes. This page lists
+every one, so you can do it in one pass.
+
+<Shot src={configError} alt="A stack's page with a red banner: doze.hcl changed and does not load, with the line and the message" caption="The app shows the same errors as doze lint, with the line, and Edit doze.hcl." crop />
+
+The 0.1 docs stay readable at the
+[v0.1.1 tag](https://github.com/doze-dev/doze/tree/v0.1.1/docs).
+
+## Say which doze the file needs
+
+Put this at the top of `doze.hcl`:
+
+```hcl
+doze = ">= 0.2"
+```
+
+An older doze then says "this stack needs doze 0.2 or newer" instead of
+calling every new word a mistake.
+
+## Modules start with `module`
+
+A shared service is a module from the registry, and its block says so.
+
+{/* ground:skip */}
+```hcl
+# 0.1
+postgres "app" { version = 16 }
+valkey "cache" { version = 9 }
+```
+
+```hcl
+# 0.2
+module postgres "app" { version = 16 }
+module valkey "cache" { version = 9 }
+```
+
+doze prints `write: module postgres "app" { … }` for a bare block. A file from
+a 0.2 pre-release that says `use postgres "app"` gets `` `use` is now `module` ``.
+
+## S3, SQS and SNS are one `aws` module
+
+In 0.1, `s3`, `sqs` and `sns` were three engines. In 0.2 they are one module,
+`aws`, with buckets, queues and topics as blocks inside it. The same module
+also serves DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager, STS and
+Step Functions. See [AWS](/services/aws/).
+
+{/* ground:skip */}
+```hcl
+# 0.1
+s3 "media" {
+  bucket "uploads" {}
+}
+sqs "jobs" {
+  queue "emails" {}
+}
+sns "events" {
+  sqs = sqs.jobs.name
+  topic "signups" {}
+  subscribe "signups" {
+    protocol = "sqs"
+    endpoint = "emails"
+    raw      = true
+  }
+}
+```
+
+```hcl
+# 0.2
+module aws "aws" {
+  port = 4566
+
+  bucket "uploads" {}
+  queue "emails" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+  topic "signups" {
+    subscribe {
+      queue = "emails"
+      raw   = true
+    }
+  }
+}
+```
+
+A dead-letter queue is `dlq = "auto"` and `max_receives` on the queue, in
+place of a separate `redrive` block.
+
+The 0.1 `documentdb` engine is the `ferret` module now:
+`module ferret "docs" { version = 2 }`. Your app still talks to it with a
+MongoDB driver.
+
+## `process` is `app`
+
+{/* ground:skip */}
+```hcl
+# 0.1
+process "api" {
+  cwd     = "../api"
+  command = "go run ./cmd/api"
+  port    = 8080
+
+  depends_on = { "postgres.app" = "healthy" }
+
+  hooks {
+    pre_start  = ["go run ./cmd/migrate up"]
+    post_start = ["./scripts/notify-ready.sh"]
+    pre_stop   = ["./scripts/drain.sh"]
+  }
+
+  health {
+    http = "http://localhost:8080/health/ready"
+  }
+}
+```
+
+```hcl
+# 0.2
+app "api" {
+  dir   = "../api"
+  run   = "go run ./cmd/api"
+  port  = 8080
+  after = [module.app]
+
+  setup    = "go run ./cmd/migrate up"
+  on_ready = "./scripts/notify-ready.sh"
+  stop     = "./scripts/drain.sh"
+
+  ready = http("/health/ready")
+}
+```
+
+| 0.1 | 0.2 |
+|---|---|
+| `process "api"` | `app "api"` |
+| `command` | `run` |
+| `cwd` | `dir` |
+| `depends_on = { "postgres.app" = "healthy" }` | `after = [module.app]` |
+| `depends_on = { … = "started" }` | `after = [started(module.app)]` |
+| `hooks { pre_start, post_start, pre_stop }` | `setup`, `on_ready`, `stop` |
+| `health { http = "…" }` | `ready = http("/path")`; also `tcp()`, `log("text")`, `exec("cmd")` |
+
+`after` works on every block kind, and a reference in `env` (such as
+`module.app.url`) orders the start by itself, so many `depends_on` lines
+can go.
+
+A migration that ran in `pre_start` is better as a [task](/hcl/tasks/): it
+runs once, again only when its files change, and the app lists it in `after`.
+
+### An app's `port` means something new
+
+In 0.1, doze only read an app's `port` to build its URL; the app listened on
+it itself. In 0.2, doze holds that port and starts the app with `$PORT` set
+to a private one, which lets a sleeping app wake on its first request. Your
+app must listen on `$PORT` (and `$HOST`):
+
+- `vite --port $PORT --strictPort`, `next dev -p $PORT`,
+  `os.Getenv("PORT")` in your own server.
+- Or set `direct = true` to keep the 0.1 behaviour: the app binds `port`
+  itself, and doze does not wake it on a request.
+
+An app that keeps listening on its own port is never ready, and doze says
+which port it found it on. See
+[Troubleshooting](/guides/troubleshooting/#an-app-is-never-ready).
+
+An app with a port now sleeps when idle, like a module. One with no port, or
+with `direct = true`, runs until stopped.
+
+## The root and `defaults`
+
+{/* ground:skip */}
+```hcl
+# 0.1
+name   = "shop"
+listen = "127.0.0.1:6432"
+
+defaults {
+  idle_timeout = "5m"
+  domains      = true
+}
+
+modules {
+  mirror = "https://…"
+}
+```
+
+```hcl
+# 0.2
+stack = "shop"
+
+defaults {
+  sleep = "5m"
+  names = true
+}
+```
+
+| 0.1 | 0.2 | What doze says |
+|---|---|---|
+| `name = "shop"` | `stack = "shop"` | `` `name` is now `stack` `` |
+| `listen = "…"` at the root | delete it; set `port` on each module | a stack-wide `listen` is gone |
+| `idle_timeout = "5m"` | `sleep = "5m"` | `` `idle_timeout` is now `sleep` `` |
+| `idle_timeout = "0s"` | `sleep = "never"` | the same, with `"never"` filled in |
+| `domains = true` in `defaults` | `names = true` | `` `domains` is now `names` `` |
+| `modules { … }` | delete it | the `modules` block is gone |
+
+`domains` still exists, on an app, for hostnames of your own such as
+`dev.acme.com`. See [Domains and HTTPS](/app/domains/).
+
+### The default sleep is 2 minutes
+
+0.1 put a service to sleep after 5 minutes with no connections. 0.2 does it
+after 2. A stack that sets `sleep` in `defaults` keeps its own value; write
+`sleep = "5m"` there to keep the old one. See [Sleep and wake](/hcl/sleep/).
+
+## Versions with a dot are quoted
+
+A number drops trailing zeros: `11.10` reads as `11.1`. A version that is not
+a whole number must be text:
+
+{/* ground:skip */}
+```hcl
+# 0.1
+module mariadb "db" { version = 11.4 }
+```
+
+```hcl
+# 0.2
+module mariadb "db" { version = "11.4" }
+```
+
+Whole numbers, such as `version = 18`, stay as they are.
+
+## `front` and `logs` on a service
+
+They were read and never acted on. Delete them; doze names the line.
+
+## Commands
+
+| 0.1 | 0.2 |
+|---|---|
+| `doze dash` | `doze` opens the app. Over SSH, with no screen, `doze` is still the terminal dash. `doze dash` goes away in the next release. |
+| `doze shell db` (`doze psql`) | `psql "$(doze url db)"`, or the client of your choice with `doze url` |
+| `doze binaries …` | gone. `doze.lock` pins the binaries; `doze modules upgrade` moves module pins. |
+| `doze modules search`, `doze modules docs` | gone. Each module's page on the registry lists its versions and every argument. |
+| `doze sync --auto-approve`, `doze reset --yes`, `doze init --yes` | the global `-y` (or `DOZE_YES=1`) |
+| `doze pin db` toggled | `doze pin db` pins; `doze pin db --off` unpins; `--toggle` flips |
+| `doze run -- cmd` | the same, and `doze run --env -- cmd` adds the variables `doze env` prints |
+
+Exit codes now say what went wrong (2 a usage mistake, 4 an unknown name,
+5 a config that does not load, 8 a timeout, and more). They were all 1. The
+[CLI reference](/reference/cli/) lists them.
+
+## New in 0.2, worth a look
+
+- **The app.** Every stack on the machine in one window, and a bat in the menu
+  bar. See [Install the app](/start/install/).
+- **Names.** Each service gets `<name>.<stack>.doze` on its own address, so
+  two stacks can both use port 5432. `doze init` turns them on. See
+  [Names and addresses](/hcl/names/).
+- **`service` and `task` blocks.** Run software that is not in the registry,
+  and one-off steps such as migrations. See
+  [Your own services](/hcl/your-own-services/) and [Tasks](/hcl/tasks/).
+- **`doze migrate`** moves Postgres data to a new major version. See
+  [Postgres major upgrades](/guides/postgres-upgrades/).
+- **`doze up` remembers** what you started last time.

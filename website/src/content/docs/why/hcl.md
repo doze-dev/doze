@@ -1,66 +1,72 @@
 ---
-title: "Why HCL (and not YAML or JSON)"
-description: Config that declares infrastructure should have types, references, and expressions — argued from doze's actual features.
+title: "Why HCL"
+description: Why doze.hcl is HCL and not YAML or JSON, argued from what doze does with it.
 ---
 
-`doze.hcl` is HCL — the language Terraform made familiar. This page argues the
-choice from what doze actually does with it, not from taste. The short version:
-**doze's config is a small program with a schema, and YAML/JSON are data
-formats being asked to impersonate one.**
+You'll know why `doze.hcl` is written in HCL, the language Terraform made
+familiar, and what that buys you.
 
-## Typos are errors, not settings
+The short version: a doze config has types, references between blocks and
+expressions. YAML and JSON are data formats, and would need a second language
+on top to do the same.
 
-Every doze block is decoded against a strict, typed schema — by the module that
-owns it, so the schema is always the one the running code enforces. An unknown
-attribute is a positioned error with a suggestion:
+## A typo is an error, not a setting
 
-```
-error: postgres "app": unsupported argument "shared_bufers"
+Every block is checked against a schema. A module checks its own block, so the
+schema is always the one the running code uses. An argument it does not know
+is an error with the file, the line and a suggestion:
 
-  on doze.hcl line 7:
-   7:   shared_bufers = "256MB"
-
-did you mean "shared_buffers"?
+```text
+error: module postgres "app": doze.hcl:6,3-16: Unsupported argument; An argument named "shared_bufers" is not expected here. Did you mean "shared_buffers"?
 ```
 
-YAML's failure mode for the same typo is *silence* — the key is carried along
-and ignored by whatever reads it, and you discover it at 5pm when the setting
-you thought you set never applied. Add the classic traps (`no` parsing as
-`false`, `3.10` as `3.1`, indentation deciding structure invisibly) and YAML's
-approachability starts looking like deferred cost. JSON avoids the ambiguity
-but can't hold a comment — disqualifying for a file whose job is to be read by
-teammates.
+In YAML the same typo is silent: the key is carried along and ignored, and you
+find out when the setting you thought you set never applied. Add YAML's own
+traps (`no` read as `false`, `3.10` read as `3.1`, indentation deciding
+structure) and its ease of starting becomes a cost later. JSON avoids those but
+cannot hold a comment, which a file teammates read needs.
 
-## References are the dependency graph
+## References are the start order
 
-This is the feature the others can't fake. doze blocks reference each other as
-**values**:
+Blocks refer to each other as values:
 
 ```hcl
-module postgres "app" { version = 16 }
+module postgres "app" {
+  version = 18
+}
 
 app "api" {
-  run = "go run ./cmd/api"
-  port    = 8080
+  run  = "go run ./cmd/api"
+  port = 8080
   env = {
-    DATABASE_URL = module.app.url   # a typed reference, not a string that happens to match
+    DATABASE_URL = module.app.url
   }
 }
 ```
 
-That reference *is* the dependency edge: doze derives boot order from it (SNS
-boots and holds its SQS), validates it (a reference to an undeclared instance
-is a positioned error, not a runtime surprise), and re-evaluates it if the
-target changes. In YAML you'd write `sqs: jobs` as a string, and the fact that
-it names another service is a convention enforced by nothing until something
-breaks at runtime. Compose's `depends_on` exists precisely because YAML can't
-express "this value comes from that service" — it bolts the graph on beside the
-data.
+That reference is three things at once. It fills in the connection string. It
+orders the start: `api` waits until `app` is ready. And it is checked before
+anything runs:
 
-## Expressions scale past the toy example
+```text
+Error: reference to undeclared module "ap"
 
-Real projects want three tenant databases from a list, a port per tenant, a password from an environment variable in CI but a literal
-locally. HCL has variables, locals, functions, and `for_each`/`count`:
+  on doze.hcl line 4, in app "api":
+   4:   env = { DATABASE_URL = module.ap.url }
+
+no module named "ap" is declared. Did you mean module.app?
+```
+
+In YAML the same link is a string that happens to match a name, enforced by
+nothing until something breaks while running. Compose has `depends_on` because
+a YAML value cannot say "this comes from that service"; the order is written
+a second time beside the data.
+
+## Expressions instead of templates
+
+Real projects want three tenant databases from one list, a port each, or a
+value that differs between a laptop and CI. HCL has variables, locals,
+functions, `for_each` and `count`:
 
 ```hcl
 variable "tenants" {
@@ -75,10 +81,9 @@ module postgres "tenant" {
 }
 ```
 
-The YAML answer to this is templating YAML with a second language — Helm's Go
-templates, `envsubst`, YAML anchors stretched past their design — each of which
-means your config is no longer what's in the file. HCL keeps the program and
-the file the same artifact.
+The YAML answer is a template language on top (Helm's Go templates, `envsubst`,
+anchors stretched past their purpose), and then the config is no longer what
+is in the file. In HCL, the file is the program.
 
 ## It reads like what it declares
 
@@ -91,21 +96,19 @@ module postgres "app" {
     login    = true
   }
 
-  extension "pgvector" {}
+  extension "vector" {}
 }
 ```
 
-Blocks-with-labels mirror the shape of the infrastructure: an instance
-containing roles containing settings. It's scannable in review diffs, it
-comments naturally, and every Terraform user on your team already reads it
-fluently.
+Blocks with labels have the shape of the thing: a server holding roles and
+extensions. It reads well in a diff, takes comments, and anyone on your team
+who has used Terraform reads it already.
 
-## The counterargument, acknowledged
+## The cost
 
-HCL is one more syntax, and outside the Terraform world it's less universal
-than YAML. That's a real cost — paid once, in the first hour. The YAML costs
-above are paid on every silent typo, every stringly-typed reference, and every
-template layer, forever. doze also keeps the learning surface small: most
-projects use exactly what's on this page — blocks, attributes, references —
-and each engine's registry page puts every valid argument one click away,
-generated from the module itself.
+HCL is one more syntax, and less common than YAML outside the Terraform world.
+That cost is paid once, in the first hour. To keep it small, most stacks use
+only what is on this page: blocks, arguments and references. `doze fmt` lays a
+file out, `doze lint` checks it, and an editor schema at
+`/schema/doze-hcl.json` gives completion. Each module's page in the registry
+lists every argument it takes, generated from the module itself.
