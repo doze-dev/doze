@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: "1.4.0" }
+        with: { bun-version: "1.4.4" }
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
       - name: Build the page

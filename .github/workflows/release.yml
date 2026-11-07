@@ -24,7 +24,7 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: "1.4.0" }
+        with: { bun-version: "1.4.4" }
       # The app's page is built into the binary; without this the release
       # would ship the committed placeholder.
       - name: Build the page
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: "1.4.0" }
+        with: { bun-version: "1.4.4" }
       - name: Build doze with the page
         run: make build VERSION=${GITHUB_REF_NAME#v}
       - name: Import the Developer ID

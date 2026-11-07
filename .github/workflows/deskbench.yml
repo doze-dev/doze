@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: "1.4.0" }
+        with: { bun-version: "1.4.4" }
       - name: Measure against the budget
         env:
           DOZE_DESKBENCH_OUT: ${{ runner.temp }}/deskbench.json
