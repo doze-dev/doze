@@ -73,3 +73,7 @@ systemd-resolved, polkit Repair; undo: `doze dns-setup --uninstall`,
 - `doze down --help` still says "use the dash: :sleep" (should point to `doze sleep` / the app).
 - `RegistryBase` still doze.nerdmenot.in; docs say registry.doze-dev.com — the path layout (`/doze/<name>/index.yaml` at the root) must match what D5 serves.
 - The old site's sidebar (website/astro.config.mjs) lists slugs the rebuild deletes; switch it to autogenerate or retire the old site after the merges.
+- App `?` help sheet says "1 2 3 Tiles · List · Map"; code handles 1–4 (Grid) — fix the help text.
+- Home's empty state mentions a Procfile; internal/detect doesn't read Procfiles — fix the copy or add detection.
+- desk/app/menu.go `docsURL` points at /cli/app/ — point at /app/library/ on doze-dev.com.
+- `doze init` (non-wizard) doesn't write `defaults { names = true }`; decide whether it should.
