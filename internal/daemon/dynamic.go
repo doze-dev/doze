@@ -73,7 +73,7 @@ func (d *Daemon) startProxyInstance(name, engineType, domain, bindAddr string, d
 
 	// The module's other listeners (engine.Networked), each on this address at
 	// its own port, forwarded to the socket the module listens on for it.
-	if err := d.startListeners(name, engineType, bindAddr, ip, func(l net.Listener, backend string) {
+	if err := d.startListeners(name, engineType, bindAddr, func(l net.Listener, backend string) {
 		d.instWG.Add(1)
 		go func() {
 			defer d.instWG.Done()
@@ -333,8 +333,13 @@ func (d *Daemon) republishDomains() {
 			continue
 		}
 		live[host] = l
-		for _, t := range d.claimAppDomains(l, host) {
+		apps, held1 := d.claimAppDomains(l, host)
+		routed, held2 := d.claimRouteNames(l, host)
+		for _, t := range append(apps, routed...) {
 			live[t.Name.Host] = t
+		}
+		for _, h := range append(held1, held2...) {
+			d.noteHeldLocked(h) // the caller holds d.mu
 		}
 	}
 	// Drop what is no longer declared. Tracking the leases from THIS pass, not

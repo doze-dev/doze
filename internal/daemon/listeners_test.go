@@ -163,12 +163,22 @@ func TestAnInstancesExtraListenersAreServedAndRouted(t *testing.T) {
 	}
 	r.mu.Unlock()
 
-	// Its names resolve to its address, and each is routed to its listener.
-	for _, host := range []string{"events.shop.doze", "registry.events.shop.doze"} {
-		if ip := d.resolveMap[host]; ip == nil || ip.String() != "127.0.0.1" {
-			t.Errorf("%s resolves to %v", host, ip)
+	// Its route names are claimed as twins of its own name, at its address, so
+	// they resolve there whatever the registry's one-name-per-address rule says.
+	l, err := zone.ClaimAt(names.Name{Host: "events.shop.doze", Tier: names.TierQualified}, net.ParseIP("127.0.0.31"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	twins, _ := d.claimRouteNames(l, "events.shop.doze")
+	for _, tw := range twins {
+		if tw.Name.Host != "registry.events.shop.doze" || !tw.IP.Equal(net.ParseIP("127.0.0.31")) {
+			t.Errorf("twin %s at %s", tw.Name.Host, tw.IP)
 		}
 	}
+	if ip := zone.Resolve("registry.events.shop.doze"); ip == nil || ip.String() != "127.0.0.31" {
+		t.Errorf("registry.events.shop.doze resolves to %v, want the instance's address", ip)
+	}
+	// Each is routed to its listener.
 	routes := d.moduleRoutes()
 	if routes["events.shop.doze"] != "127.0.0.1:"+strconv.Itoa(console) || routes["registry.events.shop.doze"] != "127.0.0.1:"+strconv.Itoa(registry) {
 		t.Errorf("routes = %v", routes)
@@ -176,8 +186,8 @@ func TestAnInstancesExtraListenersAreServedAndRouted(t *testing.T) {
 
 	// Gone with the instance.
 	d.forgetListeners("events")
-	if _, ok := d.resolveMap["registry.events.shop.doze"]; ok || len(d.moduleRoutes()) != 0 {
-		t.Errorf("after removal: resolve %v, routes %v", d.resolveMap, d.moduleRoutes())
+	if len(d.moduleRoutes()) != 0 {
+		t.Errorf("after removal: routes %v", d.moduleRoutes())
 	}
 }
 

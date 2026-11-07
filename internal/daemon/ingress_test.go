@@ -29,11 +29,17 @@ func TestRoutesArePublishedInTheSharedRegistry(t *testing.T) {
 	}
 	eps := []endpoints.Endpoint{{Name: "api", Engine: "process", Address: "127.0.0.1:28080", Domain: "api.demo.doze"}}
 
-	// The names are claimed first, as the daemon does, then routed.
-	for host, ip := range map[string]string{"api.demo.doze": "127.0.0.21", "aws.demo.doze": "127.0.0.22", "sync-aws.demo.doze": "127.0.0.22"} {
-		if _, err := zone.ClaimAt(names.Name{Host: host, Tier: names.TierQualified}, net.ParseIP(ip)); err != nil {
-			t.Fatal(err)
-		}
+	// The names are claimed first, as the daemon does (a route name as a twin of
+	// its instance's, at the same address), then routed.
+	if _, err := zone.ClaimAt(names.Name{Host: "api.demo.doze", Tier: names.TierQualified}, net.ParseIP("127.0.0.21")); err != nil {
+		t.Fatal(err)
+	}
+	l, err := zone.ClaimAt(names.Name{Host: "aws.demo.doze", Tier: names.TierQualified}, net.ParseIP("127.0.0.22"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if twins, _ := d.claimRouteNames(l, "aws.demo.doze"); len(twins) != 1 {
+		t.Fatalf("twins = %d, want sync-aws.demo.doze", len(twins))
 	}
 	d.publishRoutes(eps, plan)
 

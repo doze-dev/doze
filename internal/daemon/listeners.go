@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	names "github.com/doze-dev/doze-names"
+
 	"github.com/doze-dev/doze-sdk/engine"
 
 	"github.com/doze-dev/doze/internal/netplan"
@@ -64,15 +66,10 @@ func (d *Daemon) listenersOf(name, mainBind string) ([]listenerBind, error) {
 // where its route names go. The caller holds d.mu (or runs during Run) and has
 // started the main listener on mainBind; serve runs a forward until the
 // instance is stopped.
-func (d *Daemon) startListeners(name, engineType, mainBind string, ip net.IP, serve func(l net.Listener, backend string)) error {
+func (d *Daemon) startListeners(name, engineType, mainBind string, serve func(l net.Listener, backend string)) error {
 	binds, err := d.listenersOf(name, mainBind)
 	if err != nil {
 		return err
-	}
-	if ip == nil {
-		if host, _, err := net.SplitHostPort(mainBind); err == nil {
-			ip = net.ParseIP(host)
-		}
 	}
 	routes := map[string]string{}
 	for _, b := range binds {
@@ -86,9 +83,6 @@ func (d *Daemon) startListeners(name, engineType, mainBind string, ip net.IP, se
 		}
 		for _, h := range b.Hosts {
 			routes[h] = b.Public
-			if ip != nil && d.resolveMap != nil {
-				d.resolveMap[h] = ip
-			}
 		}
 	}
 	if d.instRoutes == nil {
@@ -111,10 +105,42 @@ func (d *Daemon) moduleRoutes() map[string]string {
 }
 
 // forgetListeners drops an instance's route names, whose listeners stop with
-// it. The caller holds d.mu and republishes the names after.
+// it. The caller holds d.mu and republishes the names after, which releases
+// their twins.
 func (d *Daemon) forgetListeners(name string) {
-	for h := range d.instRoutes[name] {
-		delete(d.resolveMap, h)
-	}
 	delete(d.instRoutes, name)
+}
+
+// claimRouteNames claims, as twins of the lease of an instance's own name (host),
+// the route names of its listeners other than that name itself: a child
+// (registry.events.<stack>.doze) or a sibling (sync-aws.<stack>.doze). A twin
+// shares the instance's address and goes with its lease; a plain claim would be
+// refused, since an address belongs to one name. A name another program holds
+// is returned, for the caller to note against the instance (noteHeld takes
+// d.mu, which a live republish already holds).
+func (d *Daemon) claimRouteNames(l *names.Lease, host string) ([]*names.Lease, []*names.ErrHeld) {
+	var out []*names.Lease
+	var helds []*names.ErrHeld
+	for inst, routes := range d.instRoutes {
+		if d.cfg.DomainFor(inst) != host {
+			continue
+		}
+		for h := range routes {
+			if h == host {
+				continue
+			}
+			t, err := l.Twin(names.Name{Host: h, Tier: names.TierQualified})
+			if err != nil {
+				if held, ok := names.Held(err); ok {
+					d.logf("domains: %s is held by pid %d (%s)", held.Host, held.PID, held.Owner)
+					helds = append(helds, held)
+				} else {
+					d.logf("domains: could not register %s: %v", h, err)
+				}
+				continue
+			}
+			out = append(out, t)
+		}
+	}
+	return out, helds
 }
