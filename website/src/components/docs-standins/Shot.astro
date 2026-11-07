@@ -1,0 +1,9 @@
+---
+// Stand-in for doze-website's Shot: the image and its caption, no callouts.
+import { Image } from "astro:assets";
+const { src, alt = "", caption } = Astro.props;
+---
+<figure>
+  {typeof src === "string" ? <img src={src} alt={alt} /> : <Image src={src} alt={alt} />}
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

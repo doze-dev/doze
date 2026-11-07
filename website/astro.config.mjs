@@ -3,8 +3,12 @@
 // docs/design/website.md in the repo root).
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+  // Pages written for doze-website import its components as @docs/…; here the
+  // alias points at stand-ins so this older site still builds.
+  vite: { resolve: { alias: { "@docs": fileURLToPath(new URL("./src/components/docs-standins", import.meta.url)) } } },
   site: "https://doze.nerdmenot.in",
   integrations: [
     starlight({
