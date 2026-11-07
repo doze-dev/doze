@@ -1,57 +1,110 @@
 ---
 title: "doze.lock"
-description: The lockfile format — two pin layers, their semantics, and how each changes.
+description: What doze.lock pins, field by field, and what changes it.
 ---
 
-`doze.lock` lives next to `doze.hcl`, is written by doze, and is **meant to be
-committed** — it's the project's reproducibility contract. YAML (an older JSON
-lockfile still parses; JSON is a YAML subset).
+This page describes every part of `doze.lock`, so you can read one in a diff and know what changed.
 
-## The two layers
+`doze.lock` lives beside `doze.hcl`. doze writes it; you commit it. With it,
+every machine runs the same engine binaries, the same modules and the same
+downloads. It is YAML (an older JSON lockfile still loads).
+
+It has a top-level `doze:` line and three layers: `engines`, `modules` and
+`downloads`.
 
 ```yaml
+doze: 0.2.0
 engines:
-  postgres:
-    "16":                              # keyed by the DECLARED spec ("16" or "16.14")
-      resolved: 16.14.0                # what it resolved to
-      source: mirror                   # mirror | override
-      hashes:
-        aarch64-apple-darwin: sha256:67b4…   # per-platform archive checksums,
-        x86_64-unknown-linux-gnu: sha256:ef59…  # merged as platforms resolve
-
+    postgres:
+        "18":
+            resolved: 18.6.0
+            source: mirror
+            hashes:
+                aarch64-apple-darwin: sha256:f112ac93…
 modules:
-  doze/postgres:                       # keyed by module SOURCE, one pin per source
-    version: 0.2.1                     # the MODULE release (not an engine version)
-    protocol: 1                        # doze plugin protocol it speaks
-    engines: ["14", "15", "16", "17", "18"]  # engine majors it supports
-    hashes:                            # EVERY published platform, from the signed
-      aarch64-apple-darwin: sha256:64607…    # index — teammates on other platforms
-      aarch64-unknown-linux-gnu: sha256:044e…  # verify against the same pin
-      x86_64-unknown-linux-gnu: sha256:9bd7…
+    doze/postgres:
+        version: 0.2.4
+        protocol: 1
+        engines:
+            - "14"
+            - "15"
+            - "16"
+            - "17"
+            - "18"
+        hashes:
+            aarch64-apple-darwin: sha256:a07134d0…
+            aarch64-unknown-linux-gnu: sha256:f29c48e5…
+            x86_64-unknown-linux-gnu: sha256:7c920599…
+downloads:
+    https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz:
+        sha256: sha256:9ebb052f…
 ```
 
-## Semantics worth knowing
+This is the lock of Larder, the made-up example stack, with the hashes
+shortened. Its `doze:` line is what a released doze 0.2.0 would write.
 
-- **Engines layer** — written when an instance's declared version first
-  resolves. A bare major pins the newest minor *at that moment*; it never
-  moves on its own. New platforms merge their hash into the same pin.
-- **Modules layer** — written on first module resolution; carries `protocol`
-  and `engines` so compatibility gating works **offline**. Replaced wholesale
-  by `doze modules upgrade` (the diff in review shows release, support list,
-  and checksums moving together).
+## `doze`
 
-## What changes it, and what never does
+The newest doze that wrote the file. A released doze writes its own version
+when it is newer than the one there. An older doze that reads the file says so,
+since a newer one may have pinned what the older one cannot run.
 
-| Action | Effect on the lock |
+## `engines`
+
+The engine binaries: the real Postgres, Valkey and so on. Keyed by engine type,
+then by the version spec as `doze.hcl` declares it (`"18"` or `"18.1"`).
+
+| Field | What it is |
 |---|---|
-| First resolve of an engine or module | Adds the pin |
-| `doze modules upgrade [type]` | Moves module pins (and prints a commit reminder) |
-| Changing `version = 16` → `"16.15"` in config | New engines entry under the new spec |
-| `doze up` / `run` / time passing / registry changes | **Nothing — ever** |
+| `resolved` | The full version the spec resolved to, e.g. `18.6.0`. |
+| `source` | Where it came from: `mirror` for a verified download from [doze-binaries](/reference/binaries/). |
+| `hashes` | The archive's checksum per platform. Each platform adds its own the first time it downloads. |
 
-- Pinned + cached resolution touches **no network**.
-- `DOZE_<ENGINE>_BINDIR` / `DOZE_<TYPE>_PLUGIN` overrides bypass the lock
-  (that's their job) and never write to it.
-- Deleting the file is safe-but-loud: everything re-resolves fresh (majors may
-  land on newer minors, modules on newer releases) and re-pins. Prefer
-  `doze modules upgrade` — it's the same effect for modules, with intent.
+A bare major pins the newest minor at the moment it is first resolved. It
+never moves by itself. Changing `version = 18` to `"18.1"` adds a new entry
+under the new spec.
+
+## `modules`
+
+The modules: the signed plugins from the [registry](/contribute/registry/) that
+run each engine. Keyed by source, such as `doze/postgres`; one pin per source.
+
+| Field | What it is |
+|---|---|
+| `version` | The module's own release, e.g. `0.2.4`. Not an engine version. |
+| `protocol` | The plugin protocol it speaks. |
+| `engines` | The engine majors it supports. Empty means no limit, as for `aws`. |
+| `hashes` | The checksum of every published platform, from the signed index, so teammates on other platforms check against the same pin. |
+| `doze` | The oldest doze that runs this release, when the index says. |
+
+`protocol`, `engines` and `doze` are copied from the signed index, so doze can
+check a module against your config without the network. Only
+`doze modules upgrade` moves a module pin.
+
+## `downloads`
+
+What a [`service`](/hcl/your-own-services/) with a `download` fetched. Keyed by
+URL.
+
+| Field | What it is |
+|---|---|
+| `sha256` | The checksum of what the URL served the first time. Every later fetch must match, or doze unpacks nothing and says so. |
+
+## What changes it
+
+| What you do | What happens to the lock |
+|---|---|
+| First run of an engine, module or download | Adds the pin |
+| A new platform runs it | Adds that platform's hash to the engine pin |
+| `doze modules upgrade [type]` | Moves module pins |
+| `doze modules upgrade --check` | Nothing; exits 1 if a pin would move |
+| A new `version` spec in `doze.hcl` | Adds an engine entry under the new spec |
+| `doze up`, `doze run`, time passing, a new registry release | Nothing |
+| `--dry-run` on any command | Nothing |
+
+A pinned and cached resolve touches no network. A checksum that does not match
+the pin is an error, never a new pin.
+
+Deleting `doze.lock` is safe but loud: everything resolves fresh, majors may
+land on newer minors and modules on newer releases. For modules,
+`doze modules upgrade` does the same on purpose.

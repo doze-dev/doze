@@ -1,78 +1,106 @@
 ---
-title: "CLI reference"
+title: "CLI"
+description: Every doze command and flag, with the JSON envelope and exit codes for scripts.
 ---
 
+This page lists every doze command, so you can look up what a command does and which flags it takes.
 
-The global flag `-c, --config <path>` selects the config (default `doze.hcl`,
-which auto-merges sibling `*.doze.hcl` files; a directory merges its `*.hcl`).
-`--var name=value` (repeatable) overrides a config variable. The rest of the
-global flags are for scripts and agents; see [scripting doze](#scripting-doze).
+Everything the app does is also a command, so a script, a Makefile, CI or a
+machine with no screen can do the same. doze starts its background daemon on
+first use; you rarely manage it yourself. `doze <command> --help` prints the
+same facts as this page.
 
-doze has two surfaces that do the same things. [The app](/cli/app/) is the
-one to live in: every verb is a switch, a key or a ⌘K row there. The CLI below
-has a command for each of them, so a script, a Makefile, CI, or a machine with
-no screen can do everything the app can. doze starts
-its background daemon automatically on first use, so you rarely manage it
-directly.
-
-| | |
+| Group | Commands |
 |---|---|
-| **The app** | `doze` · `open` |
-| **The stack** | `up` · `down` · `sync` · `status` · `env` · `run` |
-| **One service** | `wake` · `sleep` · `restart` · `reset` · `pin` · `logs` · `url` |
-| **Before the app** | `init` · `lint` · `fmt` · `doctor` · `dns-setup` |
-| **Lockfile maintenance** | `modules upgrade` |
-| | `version` |
+| [The app](#the-app) | `doze` · `open` |
+| [The stack](#the-stack) | `up` · `down` · `sync` · `status` · `env` · `run` |
+| [One service](#one-service) | `wake` · `sleep` · `restart` · `reset` · `migrate` · `task` · `pin` · `on` · `off` · `logs` · `url` |
+| [Set up and edit](#set-up-and-edit) | `init` · `add` · `lint` · `fmt` · `doctor` · `dns-setup` · `trust` |
+| [Lockfile](#lockfile) | `modules upgrade` |
+| [Other](#other) | `version` · `completion` · `help` |
+
+## Global flags
+
+Every command takes these.
+
+| Flag | What it does |
+|---|---|
+| `-c, --config <path>` | The config to read (default `doze.hcl`). doze also reads every sibling `*.doze.hcl`. A directory merges its `*.hcl`. doze looks upward from the current folder when the file is not here. |
+| `--var name=value` | Set a config variable. Repeat it for more. |
+| `--json` | Print the result as one JSON envelope (`DOZE_JSON=1`). See [Scripting doze](#scripting-doze). |
+| `-q, --quiet` | Print nothing on stdout; the exit code is the answer. |
+| `-y, --yes` | Answer yes to every question (`DOZE_YES=1`). |
+| `--timeout <duration>` | How long to wait for one service to become ready (default `5m`). A block's own `ready_timeout` still applies. |
+| `--no-color` | No colour (`NO_COLOR=1`). |
 
 ## The app
 
-### `doze` / `doze open [dir]`
+### `doze` and `doze open [dir]`
 
-Links open the app too: `doze://shop` is the shop stack, `doze://shop/db`
-its db service, `doze://library` and `doze://settings` those pages; put one
-in a README or a runbook, or `doze open doze://shop/db` from a terminal.
+Bare `doze`, or `doze open`, opens [the app](/app/library/) at this project and
+gives the prompt back. The app is one window for every stack on this machine,
+plus a menu bar icon that stays after the window closes. Quitting the app
+leaves stacks running.
 
-Bare `doze`, or `doze open`, opens [the app](/cli/app/) at this project where
-there is a screen, and gives the prompt back. Over SSH, with no screen, bare
-`doze` is the terminal dash (`doze dash`, deprecated and going away in the next
-release); piped or redirected it prints the
-[status table](#doze-status-aliases-tree-ls-ps).
+| Flag | What it does |
+|---|---|
+| `--show <service>` | Open the window at this service of the project. |
+
+With no screen (SSH, CI) `doze open` prints the status table instead. Bare
+`doze` over SSH is the terminal dash; piped or redirected, it prints the
+[status table](#doze-status).
+
+`doze open` also takes a `doze://` link: `doze://shop` is the shop stack and
+`doze://shop/db` its db service. Put one in a README or a runbook.
+
+```sh
+doze open doze://shop/db
+```
 
 ## The stack
 
-### `doze up [service…] [--last | --all]`
+### `doze up [service…]`
 
-Bring the stack up in the background: converge declared structure (databases,
-roles, buckets, queues, topics — everything your config declares), then wake
-every service (or just the named ones and their dependencies), gated on health
-probes. Each line says how long that service took to become ready, as the
-daemon measured it. Returns when the stack is ready; the daemon keeps
-supervising.
+Bring the stack up in the background. doze converges declared structure
+(databases, roles, buckets, queues, topics), then wakes every enabled service
+in dependency order and waits for each health probe. It returns when the stack
+is ready; the daemon keeps supervising. Each line says how long that service
+took to become ready. Name services to start only those and what they depend on.
 
-doze remembers what was started: what `up` was asked for, with what was
-already running, and at `down` what was awake. A service that slept while
-idle stays in the set. When the set is less than everything, a bare `doze up`
-on a terminal asks whether to start the same again, with yes the default; `-y`
-says yes. Without a terminal it starts everything, `-y` or not, so a script
-gets the same stack whatever someone ran before, and it says how to get last
-time's set. `--last` and `--all` decide without asking.
+| Flag | What it does |
+|---|---|
+| `-f, --follow` | Stream logs after waking. Ctrl-C detaches; the stack keeps running. |
+| `--last` | Start what was started last time, without asking. |
+| `--all` | Start everything, without asking. |
+
+doze remembers what was started. When last time's set was smaller than
+everything, a bare `doze up` on a terminal asks whether to start the same
+again (`-y` says yes). With no terminal it starts everything, so a script gets
+the same stack whatever someone ran before. Blocks with `enabled = false`, and
+services turned [off](#doze-off-name) in this run, are skipped.
 
 ### `doze down`
 
-Bring the whole stack down: stop every service and the daemon. Data
-persists. Nothing wakes a stopped stack, not even a connection; the next
-`up` brings it back (in the app: Up as last time).
+Sleep every service and stop the daemon, so nothing is left running or
+listening. Data stays. A connection does not wake a stack that is down; the
+next `doze up` brings it back. To sleep services and keep the daemon up, use
+[`doze sleep`](#doze-sleep-name).
 
 ### `doze sync [service]`
 
-Reconcile the running stack with the config — create new instances, update
-changed ones, prune removed ones. `up` implies it; `sync` does it without
-waking anything that's asleep.
+Bring the environment in line with `doze.hcl`: create or update databases,
+roles, schemas, extensions, buckets, queues and topics, and drop structure that
+was applied before but is no longer declared. It wakes nothing that is asleep.
+A block with `enabled = false` is left alone, so its data survives.
 
-It also says which **blocks** differ from the ones the running daemon started
-with, because the daemon reads `doze.hcl` once, when it starts:
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Show the changes without making them. |
 
-```
+The daemon reads `doze.hcl` once, when it starts. `sync` also lists the blocks
+that differ from what the running daemon started with:
+
+```text
 doze.hcl differs from what the running daemon started with:
 
   ~ api       app      changed  restarts
@@ -86,145 +114,202 @@ doze.hcl differs from what the running daemon started with:
 
 A comment or a reordering is not a change; only a block's arguments are.
 
-### `doze status` (aliases `tree`, `ls`, `ps`)
+### `doze status`
 
-Every module and app: state, endpoint, connections, memory, CPU, and a note.
+Aliases: `tree`, `ls`, `ps`.
+
+Every service in a table grouped by kind: state, endpoint, open connections,
+memory, CPU and a note. With the daemon down it shows the declared structure.
+
+| Flag | What it does |
+|---|---|
+| `-w, --watch` | Keep the table on screen and redraw it as things change. Ctrl-C stops. |
+| `--graph` | Draw the dependency tree instead of the table. |
 
 | State | Meaning |
 |---|---|
-| `awake` | Running, and something is holding it: a connection, a dependant, a pin. |
-| `dozing` | Running with nothing holding it; the note counts down to sleep. |
+| `awake` | Running, and something holds it: a connection, a dependant, a pin. |
+| `dozing` | Running with nothing holding it. The note counts down to sleep. |
 | `waking` | Starting, or waiting for something it depends on. |
 | `asleep` | Not running. It wakes on its next connection. |
-| `crashing 2/5` | It exited by itself and is being restarted: attempt 2 of 5. |
-| `failed` | It is not running and something went wrong; the note says what. |
+| `crashing 2/5` | It exited by itself and doze is restarting it: attempt 2 of 5. |
+| `failed` | Not running, and something went wrong. The note says what. |
+| `disabled` | The block says `enabled = false`. |
 
 The note is the one thing worth knowing beyond the state: `held by api`,
-`pinned`, `sleeps in 4m12s`, or the error. `-w` keeps the table on screen and
-redraws it as things change. `--graph` draws the dependency tree. `--json` is
-for scripts (see [scripting doze](#scripting-doze)), and keeps the daemon's own state words (`active`, `idle`,
-`booting`, `reaped`).
+`pinned`, `sleeps in 1m12s`, or the error. `--json` keeps the daemon's own
+words for the states (`active`, `idle`, `booting`, `reaped`).
 
-### `doze env`
+### `doze env [service…]`
 
-Print the services' connection variables as eval-able exports —
-`DATABASE_URL`, `REDIS_URL`, `AWS_ENDPOINT_URL_*`, `KAFKA_BROKERS`, … —
-the same set `doze run --env` injects. `--dotenv` and `--json`
-for other consumers, dummy AWS credentials included when an AWS endpoint is
-present.
+Print one `export` line per declared service, pointing at doze's endpoints, so
+an unmodified app or the `aws` CLI talks to your local stack. Name services to
+limit the output. The daemon does not need to be running.
+
+| Flag | What it does |
+|---|---|
+| `--dotenv` | Print `KEY=value` lines for a `.env` file. |
 
 ```sh
 eval "$(doze env)"
 psql "$DATABASE_URL"
 ```
 
+The variables are listed on [Environment](/reference/environment/#variables-doze-env-prints).
+
 ### `doze run -- <command> [args…]`
 
-Ensure the daemon is up, then run a command with the stack's environment
-injected — the one-shot version of `eval "$(doze env)"`:
+Make sure the daemon is up, then run a command. By default doze adds nothing to
+the command's environment: every service has a fixed port, so connection
+strings are stable and can live in your app's config.
+
+| Flag | What it does |
+|---|---|
+| `--env` | Add the variables `doze env` prints to the command's environment. |
 
 ```sh
-doze run -- go test ./...
+doze run --env -- go test ./...
 ```
+
+`doze run` exits with its command's own code (128 plus the signal when a
+signal killed it).
 
 ## One service
 
-What the dash's keys do, as commands.
-
 ### `doze wake [name…]`
 
-Start the named services now, with whatever they depend on, and wait until each
-is ready. With no name, wake everything. Unlike `up` it does not reconcile
-declared structure first.
+Aliases: `boot`.
+
+Start the named services and what they depend on, in order, and wait until each
+is ready. With no name, wake every enabled service. Unlike `up`, it does not
+converge declared structure first.
 
 ### `doze sleep [name…]`
 
-Stop the named services, keeping their data; each wakes again on its next
-connection. With no name, put everything that is awake to sleep and leave the
-daemon running (`doze down` stops that too).
+Aliases: `reap`.
+
+Stop the named services. Their data stays, and each wakes on its next
+connection or the next `doze wake`. With no name, sleep everything that is
+awake. The daemon keeps running.
 
 ### `doze restart <name…>`
 
 Stop a service and start it again.
 
-### `doze reset <name…> [--yes]`
+### `doze reset <name…>`
 
-Delete a service's data. The next wake provisions it fresh from the config.
-It cannot be undone, so it asks first; `--yes` skips the question and is
-required when there is no terminal to ask on.
+Stop the named services and delete their data. The next wake provisions each
+one fresh from the config. This cannot be undone, so it asks first. `--yes`
+skips the question and is required when there is no terminal.
 
 ### `doze migrate <name>`
 
-Move a postgres instance's data to the major version doze.hcl now declares.
-Postgres cannot read another major's data, so change `version` (16 → 17), bring
-the stack down, and run `doze migrate db`: it dumps the data with Postgres 16,
-sets the old data folder aside (kept, named for its version, with the dump
-beside it), makes a fresh Postgres 17 cluster and restores the dump into it. If
-a step fails, the old data is put back. Statements that did not restore (often an
-extension the new major lacks) are listed. Then bring the stack up.
+Move a postgres instance's data to the major version `doze.hcl` now declares.
+Change `version` first (16 to 17), bring the stack down, then run
+`doze migrate db`. doze dumps the data with Postgres 16, sets the old data
+folder aside (kept, named for its version), makes a fresh Postgres 17 cluster
+and restores the dump into it. Then bring the stack up. See
+[Postgres major upgrades](/guides/postgres-upgrades/).
 
 ### `doze task [name]`
 
 Run a task now, whatever its state, after waking what it references. It returns
-when the task is over: exit 0 if it succeeded, 1 with the task's last lines of
-output if it failed. This is the only way to run a `manual = true` task.
+when the task is over: exit 0 if it succeeded, 1 with its output if it failed.
+This is the only way to run a `manual = true` task.
 
-With no name it lists every task, when it last ran, how that went and why it
-ran. A task also runs by itself when something that lists it in `after` starts
-and it has never succeeded or its `inputs` changed.
+With no name it lists every task and how it last ran. A task also runs by
+itself when something that lists it in `after` starts, if it never succeeded
+or its `inputs` changed. See [Tasks](/hcl/tasks/).
 
-### `doze pin <name…> [--off | --toggle]`
+### `doze pin <name…>`
 
-Keep a service awake past its idle time; `--off` lets it sleep again. Running
-it twice changes nothing the second time, and the result says whether each one
-changed (`changed` in `--json`). `--toggle` flips each one, as the dash's key
-does. A pin lasts until the daemon stops.
+Aliases: `keepawake`.
 
-### `doze logs [name…] [-f] [--run N] [-n N] [--since T]`
+Keep services awake with nobody connected. Running it twice changes nothing the
+second time, so a script can say what it wants. A pin lasts until the daemon
+stops.
 
-What a service printed. Logs are kept on disk, one run per start, so this
-works for a service that is asleep or has crashed, and with the daemon stopped.
+| Flag | What it does |
+|---|---|
+| `--off` | Unpin: let them sleep again when idle. |
+| `--toggle` | Flip each one. |
+
+### `doze off <name…>`
+
+Take services out of this run: stop them and keep them stopped. A connection
+does not wake one, and neither does a dependant. It is the switch on a service
+in the app. Data stays. Off lasts until `doze on` or until the daemon stops.
+
+### `doze on <name…>`
+
+Undo `doze off`. The services are part of the run again and wake on their next
+connection or the next `doze wake`. Nothing starts now.
+
+### `doze logs [name…]`
+
+Print the last lines of each named service's newest run, oldest first. With no
+name, print every service, merged by time. Logs are kept on disk per run, so
+this works for a service that is asleep or has crashed, and with the daemon
+stopped. Lines from stderr are marked.
+
+| Flag | What it does |
+|---|---|
+| `-f, --follow` | Keep printing as lines are written. Needs the daemon running. |
+| `--run <n>` | Which run: `0` the newest, `-1` the one before, `N` a run by number. |
+| `--since <duration>` | Only lines newer than this, e.g. `10m`. |
+| `-n, --tail <n>` | How many lines from the end of the run (default 200). |
 
 ```sh
-doze logs api              # the newest run
-doze logs api --run -1     # the run before it: what it said before it died
-doze logs api --since 10m  # only the last ten minutes
-doze logs -f api worker    # follow both, merged, as they print
+doze logs api --run -1     # what it said before it died
+doze logs -f api worker    # follow both as they print
 ```
 
-Lines from stderr are marked `err`. With no name, every service is shown,
-merged by time. The last five runs and 10 MB per service are kept; change that
-with `defaults { log_runs = 5  log_size = "10MB" }` (written on separate
-lines).
+doze keeps the last 5 runs and 10MB per service. Change that with `log_runs`
+and `log_size` in [`defaults`](/reference/doze-hcl/#defaults).
 
 ### `doze url <name>`
 
-Print the one line a client needs to reach a service — `doze url db | pbcopy`,
-or `psql "$(doze url db)"`. It reads the config, so the service need not be
-running.
+Aliases: `copy`.
 
-## Before the dash
+Print the one line a client needs to reach a service: its connection string,
+or its address when it has none. It reads the config, so the service need not
+be running.
 
-### `doze init [--force] [--wizard] [--yes]`
+```sh
+doze url db | pbcopy
+psql "$(doze url db)"
+```
 
-Write a `doze.hcl` for this project from what it says. `init` reads `go.mod`
-and the imports and environment variables of your Go main packages,
-`package.json`, a compose file, a `Makefile` and `.env`, and writes the apps to
-run, the modules and services they talk to, and the tasks that prepare them —
-each block with a comment saying why it is there, and each app's `env` wired to
-the module that answers what it reads (`DATABASE_URL = module.db.url`). An app
-that reads a database waits for its `migrate` task.
+## Set up and edit
 
-It shows what it found and asks before writing (`--yes` skips the question). A
-project it finds nothing in, or `--wizard`, gets the questions instead.
+### `doze init`
+
+Read the project and write a `doze.hcl`. doze reads `go.mod` and the imports and
+environment variables of your Go main packages, `package.json`, a compose file,
+a `Makefile` and `.env`. It writes the apps to run, the modules and services
+they talk to, the tasks that prepare them, and each app's `env` wired to what
+it reads. Every block has a comment saying why it is there. It shows what it
+found and asks before writing; `-y` skips the question. A project where it
+finds nothing gets questions instead.
+
+| Flag | What it does |
+|---|---|
+| `--wizard` | Ask questions instead of reading the project. |
+| `--force` | Overwrite an existing config. |
 
 ### `doze add <module|service> [name]`
 
-Add a block to `doze.hcl`, beside what is there — your comments and ordering are
-left alone. `doze add postgres` writes a registry module with the newest engine
-version and its usual port, and prints the line that wires it into an app:
+Add a block to `doze.hcl`, beside what is there. It does not reformat the file.
+It prints the block and the line that wires it into an app.
 
-```
+| Flag | What it does |
+|---|---|
+| `--version <v>` | The engine version (default: the newest the module offers). |
+| `--port <n>` | The port to declare (default: the module's usual one). |
+| `--as <how>` | For a service: `installed`, `container` or `download`. |
+| `--dry-run` | Show the block and write nothing. |
+
+```text
 $ doze add postgres
 → module postgres "db"
   module postgres "db" {
@@ -235,100 +320,119 @@ $ doze add postgres
   use it from an app:  DATABASE_URL = module.db.url
 ```
 
-A name that is not a module — `doze add mongo` — is added as a **service**, and
-there are three ways to run one: `--as installed` (a binary on your `PATH`),
-`--as container` (a `docker run` command; a container is just a command) and
-`--as download` (a URL, pinned in `doze.lock`). With no `--as` it takes the first
-that works on this machine and says the others. `--dry-run` shows the block and
-writes nothing; `--version`, `--port` and a second argument set the rest. A
-name that is taken is refused, and what would be written has to parse.
+A name that is not a registry module, such as `doze add mailpit`, is added as a
+[service](/hcl/your-own-services/). `--as installed` runs a binary on your
+`PATH`, `--as container` runs a `docker run` command, and `--as download`
+fetches a URL and pins it in `doze.lock`. With no `--as`, doze picks the first
+way that works on this machine and names the others.
 
 ### `doze lint`
 
-Validate the config without touching the daemon or any data: schema, references,
-ports, engine-version gates. Exit 5 on problems, 6 with no config (CI-friendly;
-see [exit codes](#exit-codes)).
+Check `doze.hcl` without touching the daemon or any data. It runs nothing and
+changes nothing, so it is safe in CI and pre-commit hooks.
 
-It also warns, without failing, about what loads but is likely a mistake: a
-variable nothing reads, and a task nothing lists in `after` (which only `doze
-task` would ever run; `manual = true` says that is meant).
+The first pass needs only the files: block kinds and names, the arguments of
+`app`, `service` and `task`, variables, references, and the dependency graph
+(no cycles, and no enabled block depending on a disabled one). The second pass
+hands each module its own block to check, from the cache or fetched. If a
+module is not cached and the registry cannot be reached, lint says which blocks
+went unchecked and passes on the first pass alone.
 
-### `doze fmt [--check]`
+| Flag | What it does |
+|---|---|
+| `--offline` | Run only the first pass: no cache, no network. |
 
-Rewrite `doze.hcl` and every sibling `*.doze.hcl` in HCL's canonical layout
-(indentation, aligned `=`, spacing), in place, and print the files it changed.
-Layout only, never meaning; a file that does not parse is an error and nothing
-is written.
+It exits 5 on problems and 6 with no config. It also warns, without failing,
+about a variable nothing reads and a task nothing lists in `after`.
 
-`--check` writes nothing: it lists the files that would change and exits 1 if
-there are any, so CI or a pre-commit hook can fail on an unformatted config.
+### `doze fmt`
 
-```bash
-doze fmt --check   # in CI
-```
+Rewrite `doze.hcl` and every sibling `*.doze.hcl` in HCL's canonical layout:
+indentation, aligned `=`, spacing. Layout only, never meaning. A file that does
+not parse is left untouched.
 
-### `doze doctor [--fix]`
+| Flag | What it does |
+|---|---|
+| `--check` | Write nothing; list the files that would change and exit 1 if any would. |
 
-Diagnose the environment: config, daemon, module pins, and each part of the
-machine setup for `.doze` names — including which doze program is currently
-answering for the zone. Says what's wrong and the command that fixes it.
+### `doze doctor`
 
-When a port the stack declares is held by another program, doctor says which —
-its name, pid and address — and the options in order of how little they ask:
-stop it (`kill <pid>`), give every service an address of its own (`doze doctor
---fix`, so ports never clash), or use another port in the block. It is silent
-about ports once each service has an address of its own.
+Check the machine and the config: the config, the daemon, module pins, and each
+part of the setup for `.doze` names. It says what is wrong and the command that
+fixes it. When a port the stack declares is held by another program, doctor
+names it, with its pid and address.
 
-`doze doctor --fix` runs the one-time setup that makes
-`<service>.<stack>.doze` names work: it routes the `.doze` zone to doze's
-resolver and installs a small network daemon that answers the zone whenever
-no stack is running; on macOS the daemon also gives every service an
-address of its own, so several can share a port (three Postgres instances,
-each at `<name>.<stack>.doze:5432`) with no limit on how many. It needs
-sudo once, and once more when a new doze changes the daemon: doctor says
-so. `--print-fix` prints the
-script instead of running it. The setup is shared with doze-aws and
-doze-kafka: whichever of them you run first installs it for all three.
+| Flag | What it does |
+|---|---|
+| `--fix` | Run the one-time machine setup for `.doze` names (one sudo). |
+| `--print-fix` | Print the setup script instead of running it. |
 
 ### `doze dns-setup`
 
-Another name for `doze doctor --fix`. `--check` verifies without sudo,
-`--print` shows the script, `--uninstall` removes the setup.
+The one-time machine setup for `<service>.<stack>.doze` names, the same as
+`doze doctor --fix`. It routes the `.doze` zone to doze's resolver and installs
+a small network daemon. On macOS it also gives services loopback addresses of
+their own, so several can share a port such as 5432. It needs sudo once. The
+setup is shared with doze AWS and doze Kafka: any of them installs it for all.
 
-## Lockfile maintenance
+| Flag | What it does |
+|---|---|
+| `--check` | Report what is set up (no sudo). |
+| `--print` | Print the script instead of running it. |
+| `--uninstall` | Remove the setup (needs sudo). |
 
-### `doze modules upgrade [engine-type ...]` 
+### `doze trust`
 
-Every `module` block is backed by a signed module fetched from the
-[registry](https://doze.nerdmenot.in/registry/), selected automatically and
-pinned in `doze.lock` — pins never move on their own. `upgrade` re-selects
-against the registry, downloads + verifies, and moves the pins (**commit the
-updated lock**). With `--check`, report available upgrades without changing
-anything and exit 1 if any (CI-friendly). No arguments = every declared engine.
+Make an app's `domains` reachable on this machine over https. It routes each
+domain to doze's resolver and trusts the doze certificate authority. doze mints
+only names a stack declares, but like any root the authority could sign any
+name, so its key stays in `~/.doze/ca`, readable by you alone. It needs sudo
+once. A domain no stack declares any more loses its route in the same step.
+See [Domains and HTTPS](/app/domains/).
 
-Discovery — what modules exist, their engine versions, platforms, config —
-lives on the [registry](https://doze.nerdmenot.in/registry/), generated from
-the modules themselves.
+| Flag | What it does |
+|---|---|
+| `--check` | Report what is set up (no sudo). |
+| `--print` | Print the script instead of running it. |
+| `--remove` | Remove this stack's routes, and the authority's trust with the last stack (needs sudo). |
+| `--rotate` | Make a new certificate authority, trust it, and stop trusting the old one. |
 
-### `doze version`
+## Lockfile
 
-Print the doze version.
+### `doze modules upgrade [engine-type…]`
+
+Aliases for `modules`: `mod`.
+
+Every `module` block runs a signed module from the
+[registry](/contribute/registry/), chosen automatically and pinned in
+[`doze.lock`](/reference/lockfile/). Pins never move on their own. `upgrade`
+picks the newest release that works with this doze and the engine versions you
+declared, downloads and verifies it, and rewrites the pin. With no arguments it
+upgrades every module the config uses. Commit the new `doze.lock`.
+
+| Flag | What it does |
+|---|---|
+| `--check` | Report available upgrades without changing `doze.lock`; exit 1 if any. |
+
+## Other
+
+| Command | What it does |
+|---|---|
+| `doze version` | Print the doze version. |
+| `doze completion <shell>` | Print a completion script for `bash`, `zsh`, `fish` or `powershell`. |
+| `doze help [command]` | Help for any command. |
+
+<!-- ground:skip -->
+`doze dash` is hidden and deprecated: the app replaced it, and it goes away in the next release.
 
 ## Scripting doze
 
 stdout carries what a command produced; stderr carries progress, warnings and
-errors. So `doze up > log` holds the results and `doze url db | pbcopy` copies
+errors. So `doze up > log` keeps the results, and `doze url db | pbcopy` copies
 one line.
 
-| Flag | Environment | What it does |
-|---|---|---|
-| `--json` | `DOZE_JSON=1` | Print the result as one JSON envelope on stdout, on success and on failure. |
-| `-q, --quiet` | | Print nothing on stdout; the exit code is the answer. |
-| `-y, --yes` | `DOZE_YES=1` | Answer yes to every question, `reset`'s included: with `DOZE_YES=1` set, `doze reset db` deletes its data without asking. Without it and without a terminal, a command that must ask exits 9. |
-| `--timeout <d>` | | How long to wait for one service to become ready (default `5m`). Its own `ready_timeout` still applies, so this can shorten the wait but not lengthen it. |
-| `--no-color` | `NO_COLOR=1` | No colour. |
-
-The envelope has the same shape for every command:
+With `--json` (or `DOZE_JSON=1`) a command prints one JSON envelope on stdout,
+on success and on failure. The envelope has the same shape for every command:
 
 ```json
 {
@@ -345,53 +449,47 @@ The envelope has the same shape for every command:
 
 `data` is the command's result: `results` for `up`, `wake`, `sleep`,
 `restart`, `reset`, `pin` and `task <name>`; the services for `status`; the
-variables for `env`; `{name, url}` for `url`; `lines` for `logs`; and so on.
-`error.code` is the kind of failure, the same word as in the table below.
+variables for `env`; `{name, url}` for `url`; `lines` for `logs`. A command may
+add `warnings`, a list of strings. `error.code` is the kind of failure, the
+same word as in [Exit codes](#exit-codes).
 
-A command that follows something as it happens (`logs -f`, `status -w`) prints NDJSON
-instead: one object per line, each with a `type`, and an `end` line last.
-`status -w` sends a `status` line when anything changes, which is about once a
-second while a service is busy (its memory and CPU move) and rarely when the
-stack is quiet. A watch ends `ok` on Ctrl-C and when the stack stops.
+These commands have a JSON result: `up`, `down`, `status`, `env`, `wake`,
+`sleep`, `restart`, `reset`, `task`, `pin`, `on`, `off`, `logs`, `url`,
+`lint`, `doctor` and `version`. The others (`run`, `sync`, `migrate`, `init`,
+`add`, `fmt`, `dns-setup`, `trust`, `open`) refuse `--json` and exit 2;
+`DOZE_JSON=1` leaves them as they are. `--json` and `-q` together are refused.
+
+A command that follows something as it happens (`logs -f`, `status -w`) prints
+NDJSON instead: one object per line, each with a `type`, and an `end` line
+last. `status -w` sends a `status` line when anything changes. A watch ends
+`ok` on Ctrl-C and when the stack stops.
 
 ```json
 {"type":"log","instance":"api","line":"listening on :3000","stream":"o","run":2,"time":"…"}
 {"type":"end","ok":true}
 ```
 
-Commands with no result to give (`run`, `sync`, `init`, `add`, the dash)
-refuse `--json` and exit 2; `DOZE_JSON=1` leaves them as they are.
+`-y` (or `DOZE_YES=1`) answers yes to every question, `reset`'s included. With
+neither and no terminal, a command that must ask exits 9.
 
 ## Exit codes
 
-A script can branch on how doze exited. Each code is one kind of failure, and
-the same kind is the `code` the daemon sends with an error. Codes are added,
-never renumbered.
+Each code is one kind of failure. The same kind is the `code` in the JSON
+envelope. Codes are added, never renumbered.
 
 | Code | Kind | Meaning |
 |---|---|---|
 | 0 | | It worked. |
 | 1 | `failed` | It failed, for a reason with no code of its own. |
 | 2 | `usage` | The command line is wrong: an unknown command or flag, a missing argument. |
-| 4 | `not_found` | The stack declares no instance or task by that name. |
+| 4 | `not_found` | The stack declares no service or task by that name. |
 | 5 | `config_invalid` | The config doesn't load: an error in it, or a module it names won't fetch or start. |
-| 6 | `no_config` | There is no doze.hcl here or in any parent directory. |
+| 6 | `no_config` | There is no `doze.hcl` here or in any parent folder. |
 | 7 | `daemon_down` | The command needs a running stack and doze isn't running. |
 | 8 | `timeout` | It took longer than allowed. |
-| 9 | `needs_confirmation` | It needs a yes and there is no terminal to ask: pass `--yes`. |
+| 9 | `needs_confirmation` | It needs a yes and there is no terminal to ask: pass the flag the message names. |
 | 130 | `interrupted` | It was interrupted (Ctrl-C or SIGTERM). |
 
 `doze run` exits with its command's own code instead.
 
-## Environment variables
-
-| Variable | Effect |
-|---|---|
-| `DOZE_HOME` | Override the shared home (default `~/.doze`). |
-| `DOZE_VAR_<name>` | Set a config variable (lower precedence than `--var`). |
-| `DOZE_<ENGINE>_BINDIR` | Use an explicit engine bin dir instead of downloading (e.g. `DOZE_POSTGRES_BINDIR`). |
-| `DOZE_<ENGINE>_MIRROR` / `DOZE_MIRROR` | Override the engine-binaries mirror — see [BINARIES](/reference/binaries/). |
-| `DOZE_MODULES` | `off` disables module fetching entirely (offline / apps only). |
-| `DOZE_ZONE` | `off` switches `.doze` names off for every doze program, whatever a config asks for (CI, containers). |
-| `DOZE_<TYPE>_PLUGIN` | Run a local plugin binary for an engine type, skipping the registry (module development). |
-| `NO_COLOR` | Disable colored output. |
+The variables doze reads are on [Environment](/reference/environment/).
