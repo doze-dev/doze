@@ -29,6 +29,9 @@ Naming rules as implemented:
 
 ## The zone is shared with the standalone tools
 
+> Superseded by [module-names.md](module-names.md) (2026-11-07): the standalone
+> tools stop using doze-names, and doze becomes the zone's only user.
+
 `.doze` does not belong to doze alone. doze-aws and doze-kafka each ship as a
 standalone binary and as a doze module, and the standalone binaries use
 doze-names directly. Checked on 2026-10-10:

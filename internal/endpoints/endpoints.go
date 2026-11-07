@@ -19,6 +19,7 @@ import (
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze/internal/config"
 	"github.com/doze-dev/doze/internal/dotdoze"
+	"github.com/doze-dev/doze/internal/netplan"
 )
 
 // Endpoint is one instance's client-facing endpoint plus its connection string
@@ -37,6 +38,17 @@ type Endpoint struct {
 	// HTTPS the first of them as a URL, served by the front door.
 	Domains []string `yaml:"domains,omitempty"`
 	HTTPS   string   `yaml:"https,omitempty"`
+	// Listeners are the ports of a module that declares them (engine.Networked),
+	// main first, each where it is reached. Empty for any other.
+	Listeners []Listener `yaml:"listeners,omitempty"`
+}
+
+// Listener is one port of an instance, where clients reach it.
+type Listener struct {
+	Name    string   `yaml:"name"`
+	Address string   `yaml:"address"`
+	URL     string   `yaml:"url,omitempty"`
+	Hosts   []string `yaml:"hosts,omitempty"`
 }
 
 // For computes the endpoints for every declared instance.
@@ -51,10 +63,15 @@ func For(cfg *config.Config) ([]Endpoint, error) {
 			continue // a portless process (worker) has no client-facing endpoint
 		}
 		ep := Endpoint{Name: decl.Name, Engine: decl.Type, Address: addr}
+		networked := false
 		if drv, ok := engine.Lookup(decl.Type); ok {
 			eep := engineEndpoint(addr)
-			inst := engine.Instance{Name: decl.Name, Type: decl.Type, Version: decl.Version, Endpoint: eep}
+			inst := engine.Instance{Name: decl.Name, Type: decl.Type, Version: decl.Version, Endpoint: eep, Spec: decl.Spec}
+			inst.Grant, _ = cfg.Grant(decl, drv, "")
 			ep.EnvVar, ep.URL = drv.ConnString(inst, eep)
+			if networked = netplan.Declared(drv, inst); networked {
+				ep.Listeners = listenersOf(inst.Grant)
+			}
 		}
 		// AWS built-ins share one port-less endpoint per type on the :80 ingress
 		// (http://s3.<stack>.doze). Their high backend port in Address is an
@@ -77,13 +94,26 @@ func For(cfg *config.Config) ([]Endpoint, error) {
 			// Local DNS name: connection strings read as the service, not a loopback
 			// address. Only TCP endpoints get one — a unix socket has no hostname.
 			ep.Domain = cfg.DomainFor(decl.Name)
-			if host, port, ok := splitHostPort(addr); ok && ep.URL != "" {
+			// A module that declares listeners built its URL from its grant, names
+			// and all. One that does not was given the address, and its URL is
+			// rewritten to the name.
+			if host, port, ok := splitHostPort(addr); ok && ep.URL != "" && !networked {
 				ep.URL = strings.Replace(ep.URL, host+":"+port, ep.Domain+":"+port, 1)
 			}
 		}
 		out = append(out, ep)
 	}
 	return out, nil
+}
+
+// listenersOf lists a grant's listeners, main first and then by name.
+func listenersOf(g engine.Grant) []Listener {
+	var out []Listener
+	for _, name := range netplan.ListenerNames(g) {
+		l := g.Listeners[name]
+		out = append(out, Listener{Name: name, Address: l.Addr, URL: l.URL, Hosts: l.Hosts})
+	}
+	return out
 }
 
 // ClientAddr returns the client-facing address assigned to a named instance.

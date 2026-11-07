@@ -16,6 +16,7 @@ them.
 | [config.md](config.md) | Contract 1: the `module` / `service` / `app` / `task` language |
 | [daemon-api.md](daemon-api.md) | Contract 2: states, events, logs and the control protocol |
 | [networking.md](networking.md) | Contract 3: names, addresses, ports, and doze-names |
+| [module-names.md](module-names.md) | Names for modules: one name by default, listeners and HTTP routes by asking; the plan to build it and fold doze-names into doze |
 | [lifecycle.md](lifecycle.md) | Contract 4: how a service and a task run |
 | [consoles.md](consoles.md) | Contract 5: how a module describes its console |
 | [screens.md](screens.md) | Every canvas screen, the data it needs, and where that comes from |

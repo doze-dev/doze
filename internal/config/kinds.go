@@ -176,7 +176,7 @@ func exprText(parser *hclparse.Parser, rng hcl.Range) string {
 // an error; a module built before doze added the argument would reject every
 // block that uses it. (doze-sdk strips count, for_each, depends_on, enabled,
 // version, listen and port on the module side; these came later.)
-var coreArguments = map[string]bool{"after": true, "sleep": true}
+var coreArguments = map[string]bool{"after": true, "sleep": true, "routes": true}
 
 // blankCoreArguments overwrites each core argument in a module block with
 // spaces, keeping its newlines, so the module never sees it and every line

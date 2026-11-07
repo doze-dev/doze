@@ -117,8 +117,9 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 	// reads its own `sleep` through its engine.)
 	var sleep runspec.Sleep
 	var sleepRange hcl.Range
+	var noRoutes bool
 	if head.kind == KindModule {
-		content, rest, diags := restBody.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "sleep"}}})
+		content, rest, diags := restBody.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "sleep"}, {Name: "routes"}}})
 		if diags.HasErrors() {
 			return nil, diagError(parser, diags)
 		}
@@ -132,6 +133,16 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 				return nil, posErr(parser, attr.Range, fmt.Sprintf("%s: %v", what, err), "")
 			}
 			sleep, sleepRange = s, attr.Range
+		}
+		// `routes = false` keeps the module's HTTP listeners on their ports only:
+		// none of its names is served without a port (module-names.md).
+		if attr, ok := content.Attributes["routes"]; ok {
+			var on bool
+			if diags := gohcl.DecodeExpression(attr.Expr, stampCtx, &on); diags.HasErrors() {
+				return nil, posErr(parser, attr.Range, fmt.Sprintf("%s: `routes` is true or false", what),
+					"routes = false serves the module's HTTP listeners on their ports only")
+			}
+			noRoutes = !on
 		}
 		restBody = rest
 	}
@@ -223,6 +234,8 @@ func (l *loader) buildPending(cfg *Config, block *hcl.Block, head blockHead, res
 		Key:     key,
 		Index:   len(cfg.Instances),
 		Sleep:   sleep,
+
+		NoRoutes: noRoutes,
 	}
 	cfg.index[name] = inst
 	cfg.Instances = append(cfg.Instances, inst)

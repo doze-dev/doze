@@ -135,6 +135,9 @@ type InstanceDecl struct {
 	// sleep, "never" keeps it on, a duration replaces the timeout. An
 	// app's sleep lives in its engine config.
 	Sleep runspec.Sleep
+	// NoRoutes is a module block's `routes = false`: its HTTP listeners are
+	// reached on their ports only, and none of its names without a port.
+	NoRoutes bool
 }
 
 // Lookup returns the declared instance by name, or nil.

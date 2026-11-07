@@ -169,16 +169,23 @@ func (r *Runtime) instanceFor(decl *config.InstanceDecl, drv engine.Driver) engi
 			tcpAddr = addr
 		}
 	}
-	return engine.Instance{
+	backend := drv.BackendSocket(socketDir, port)
+	inst := engine.Instance{
 		Name:      decl.Name,
 		Type:      decl.Type,
 		Version:   decl.Version,
 		DataDir:   r.cfg.ClusterDir(decl.Name),
 		SocketDir: socketDir,
 		Port:      port,
-		Endpoint:  engine.Endpoint{Backend: drv.BackendSocket(socketDir, port), TCPAddr: tcpAddr},
+		Endpoint:  engine.Endpoint{Backend: backend, TCPAddr: tcpAddr},
 		Spec:      decl.Spec,
 	}
+	// What doze sets up for the instance's listeners (engine.Grant): the config
+	// was checked at load, so an error here is one that check already reported.
+	if g, err := r.cfg.Grant(decl, drv, backend); err == nil {
+		inst.Grant = g
+	}
+	return inst
 }
 
 // privatePort returns the port name was last started on, or 0 if doze does not
