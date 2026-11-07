@@ -21,7 +21,7 @@ func TestEngineSchema(t *testing.T) {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build kafka plugin (needs the workspace): %v\n%s", err, out)
 	}
-	t.Setenv("DOZE_KAFKA_PLUGIN", bin)
+	defer doze.UseLocalPluginForTest("kafka", bin)()
 
 	base, err := os.MkdirTemp("/tmp", "dz")
 	if err != nil {

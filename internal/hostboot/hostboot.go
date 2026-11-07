@@ -49,7 +49,7 @@ type Host struct {
 	home      string
 	pluginMgr *plugin.Manager
 	modMgr    *modules.Manager // nil if modules couldn't be initialized
-	resolver  plugin.Resolver  // the resolver chain: DOZE_<TYPE>_PLUGIN, then modules
+	resolver  plugin.Resolver  // the resolver chain: a test's local module, then the registry's
 	hooks     *config.Hooks    // module integration for config decode; nil if modules are disabled
 }
 
@@ -64,8 +64,8 @@ func (h *Host) ConfigHooks() *config.Hooks {
 }
 
 // ResolvePlugin resolves an engine type to its plugin binary path (and any extra
-// env), via the same chain the engine uses — the DOZE_<TYPE>_PLUGIN override
-// first, then the fetched-from-doze-modules cache. Used to run a plugin's
+// env), via the same chain the engine uses — a test's locally built module
+// first, then the fetched-from-the-registry cache. Used to run a plugin's
 // __describe. Returns ok=false when no plugin provides the engine.
 func (h *Host) ResolvePlugin(engineType string) (path string, env []string, ok bool) {
 	if h.resolver == nil {
@@ -107,10 +107,11 @@ func Init(opts Options) (*Host, error) {
 	// engine/process (transitively engine/*) registers the built-in drivers.
 	process.Logf = opts.Logf
 
-	// Out-of-process engine modules: resolve a plugin binary (local
-	// DOZE_<TYPE>_PLUGIN override first, then a fetched-from-doze-modules module),
-	// keep it warm for config eval + boot, and reap it when the host closes.
-	resolvers := []plugin.Resolver{plugin.EnvResolver()}
+	// Out-of-process engine modules: resolve a plugin binary (a test's locally
+	// built module first, see modules.UseLocalPlugin, then one fetched from the
+	// registry), keep it warm for config eval + boot, and reap it when the host
+	// closes. There is no user-facing override.
+	resolvers := []plugin.Resolver{modules.LocalLookup}
 	// A module whose advertised capability fails on a call that has no error
 	// to return (a connection string, a socket path) says so here, instead of
 	// handing back an empty value with no explanation.

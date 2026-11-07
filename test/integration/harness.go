@@ -78,7 +78,9 @@ func buildDoze(t *testing.T) string {
 		}
 		out := filepath.Join(dir, "doze")
 		// The repo root is two levels up from test/integration.
-		cmd := exec.Command("go", "build", "-o", out, "./cmd/doze")
+		// The dozetest tag compiles in DOZE_TEST_<TYPE>_PLUGIN, which runs a
+		// module built from source; release builds have no such override.
+		cmd := exec.Command("go", "build", "-tags", testBuildTags(), "-o", out, "./cmd/doze")
 		cmd.Dir = repoRoot(t)
 		if b, err := cmd.CombinedOutput(); err != nil {
 			dozeBinErr = err
@@ -102,7 +104,7 @@ func repoRoot(t *testing.T) string {
 }
 
 // buildPlugin compiles a module plugin from the doze-modules checkout and returns
-// the binary path, for the DOZE_<ENGINE>_PLUGIN override.
+// the binary path, for DOZE_TEST_<ENGINE>_PLUGIN (read only by a dozetest build).
 func buildPlugin(t *testing.T, module string) string {
 	out := filepath.Join(t.TempDir(), module+"-plugin")
 	cmd := exec.Command("go", "build", "-o", out, "./modules/"+module+"/plugin")
@@ -142,7 +144,7 @@ func NewProject(t *testing.T, engine, name string, port int, cfg string) *Projec
 	p.env = append(os.Environ(),
 		"DOZE_HOME="+home,
 		"HOME="+home,
-		"DOZE_"+strings.ToUpper(engine)+"_PLUGIN="+buildPlugin(t, engine),
+		"DOZE_TEST_"+strings.ToUpper(engine)+"_PLUGIN="+buildPlugin(t, engine),
 	)
 	t.Cleanup(p.Cleanup)
 	return p
@@ -286,4 +288,16 @@ func (p *Project) clientTool(binDirEnv, name string) string {
 		return found
 	}
 	return tool(binDirEnv, name)
+}
+
+// testBuildTags is dozetest plus any tags already in GOFLAGS (a -tags flag on
+// the command line replaces GOFLAGS' one rather than adding to it).
+func testBuildTags() string {
+	tags := []string{"dozetest"}
+	for _, f := range strings.Fields(os.Getenv("GOFLAGS")) {
+		if v, ok := strings.CutPrefix(f, "-tags="); ok {
+			tags = append(tags, strings.Split(v, ",")...)
+		}
+	}
+	return strings.Join(tags, ",")
 }

@@ -33,9 +33,9 @@ import (
 // lives at <base>/<namespace>/<name>/index.yaml. It is the doze-registry Pages
 // project (data only: the signed discovery layer at its root; the index.yaml
 // artifact URLs point at the archive host, e.g. GitHub Releases). There is no
-// override: a module under development is run with DOZE_<TYPE>_PLUGIN instead.
-// doze 0.1 builds have doze.nerdmenot.in/registry compiled in; that host
-// redirects here, and the signatures, not the host, are what doze trusts.
+// override. doze 0.1 builds have doze.nerdmenot.in/registry compiled in; that
+// address keeps serving the same signed files, and the signatures, not the
+// host, are what doze trusts.
 const RegistryBase = "https://registry.doze-dev.com"
 
 // RegistryKey is the registry's ed25519 signing key, base64. Every module index
@@ -528,8 +528,8 @@ func (m *Manager) CheckSupport(engineType, version string) error {
 	if version == "" || version == "builtin" || isInTree(engineType) {
 		return nil
 	}
-	if os.Getenv("DOZE_"+strings.ToUpper(engineType)+"_PLUGIN") != "" {
-		return nil // a local override bypasses the registry and its metadata
+	if _, ok := LocalPlugin(engineType); ok {
+		return nil // a test's locally built module bypasses the registry and its metadata
 	}
 	pin, source, ok := m.Pinned(engineType)
 	if !ok || len(pin.Engines) == 0 {

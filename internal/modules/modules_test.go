@@ -516,3 +516,24 @@ func TestOfflineUsesTheCache(t *testing.T) {
 		t.Error("an offline pick was pinned")
 	}
 }
+
+func TestUseLocalPluginIsScopedAndSkipsSupportCheck(t *testing.T) {
+	if _, ok := LocalPlugin("widget"); ok {
+		t.Fatal("no local plugin before UseLocalPlugin")
+	}
+	restore := UseLocalPlugin("widget", "/bin/widget-plugin")
+	if p, _, ok := LocalLookup("widget"); !ok || p != "/bin/widget-plugin" {
+		t.Fatalf("LocalLookup = %q, %v", p, ok)
+	}
+	m, err := NewManager(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.CheckSupport("widget", "99"); err != nil {
+		t.Fatalf("a local plugin bypasses the support check: %v", err)
+	}
+	restore()
+	if _, ok := LocalPlugin("widget"); ok {
+		t.Fatal("restore removes the local plugin")
+	}
+}

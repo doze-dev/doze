@@ -161,7 +161,7 @@ func TestModulesAnswerAtTheirNames(t *testing.T) {
 	awsPlugin := buildModulePlugin(t, "doze-aws", "DOZE_AWS_SRC")
 	kafkaPort, awsPort := FreePort(t), FreePort(t)
 	z := newZone(t, fmt.Sprintf(moduleStack, kafkaPort, awsPort))
-	z.env = append(z.env, "DOZE_MODULES=on", "DOZE_KAFKA_PLUGIN="+kafkaPlugin, "DOZE_AWS_PLUGIN="+awsPlugin)
+	z.env = append(z.env, "DOZE_MODULES=on", "DOZE_TEST_KAFKA_PLUGIN="+kafkaPlugin, "DOZE_TEST_AWS_PLUGIN="+awsPlugin)
 	z.mustRun("up")
 
 	const (

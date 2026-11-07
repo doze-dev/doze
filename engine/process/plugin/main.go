@@ -1,6 +1,6 @@
 // Command process-plugin runs the generic process engine as an out-of-process
-// doze module over the engine plugin protocol. Point doze at it with
-// DOZE_PROCESS_PLUGIN=/path/to/process-plugin.
+// doze module over the engine plugin protocol, for exercising the protocol with
+// a known driver (doze itself runs the process engine in-tree).
 package main
 
 import (

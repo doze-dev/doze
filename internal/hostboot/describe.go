@@ -20,7 +20,7 @@ const describeTimeout = 3 * time.Second
 
 // describeCache holds each plugin binary's Description, keyed by its path,
 // size and modification time: a module's binary is immutable once fetched, and
-// a DOZE_<TYPE>_PLUGIN dev build that is rebuilt is asked again. A long-lived
+// a test's locally built module that is rebuilt is asked again. A long-lived
 // daemon reloading its doze.hcl runs each module's __describe once.
 var describeCache sync.Map // describeKey -> engine.Description
 
