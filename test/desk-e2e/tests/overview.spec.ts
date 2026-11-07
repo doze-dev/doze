@@ -72,13 +72,16 @@ test("list: rows with the details pane beside them; ⏎ opens the page", async (
   await expect(page.locator(".ql")).toBeVisible();
 });
 
-test("map: nodes by group with the edges of what needs what", async ({ page }, info) => {
+test("map: a stack whose apps call nothing is one lane over the shared band", async ({ page }, info) => {
   await openShop(page);
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Map" }).click();
   const map = page.getByRole("group", { name: /The stack as a map/ });
-  await expect(map.locator(".node")).toHaveCount(12);
+  await expect(map.locator(".cap").first()).toContainText("No callers");
+  await expect(map.locator(".node")).toHaveCount(3);
   await expect(map.locator(".node", { hasText: "api" }).first()).toContainText("84 MB");
-  await expect(map.locator("svg path")).not.toHaveCount(0);
+  await expect(map.locator(".node[data-name=api] .chip")).toHaveText(["db", "mongo", "cache"]);
+  await expect(map.locator(".inf")).toHaveCount(7);
+  await expect(map.locator("path.edge")).toHaveCount(0);
   await expect(page.locator(".legend")).toBeVisible();
   await page.screenshot({ path: `.desk-look/Map-${info.project.name}.png` });
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Tiles" }).click();

@@ -1,13 +1,17 @@
 // shot: screenshots of the page against a running `doze open --serve`, for
 // looking at a screen beside its board. bun run shot.ts <url> <out-dir>
 // [stack] [view...]. With a stack name it opens that tab and shoots each
-// view asked for (tiles, list, map); without, it shoots the Library.
+// view asked for (tiles, list, map, grid; map:<card> with a card selected,
+// grid:<row>/<column> with the pointer on a cell); without, it shoots the
+// Library. bun run shot.ts board <out-dir> <board.dc.html...> shoots boards
+// at the same size, to set beside them.
 import { chromium } from "playwright";
 import fs from "node:fs";
+import path from "node:path";
 
 const [url, out, stack, ...views] = process.argv.slice(2);
 if (!url || !out) {
-  console.error("usage: bun run shot.ts <url> <out-dir> [stack] [tiles|list|map ...]");
+  console.error("usage: bun run shot.ts <url> <out-dir> [stack] [tiles|list|map|grid|map:<card>|grid:<row>/<col> ...]\n       bun run shot.ts board <out-dir> <board.dc.html...>");
   process.exit(2);
 }
 fs.mkdirSync(out, { recursive: true });
@@ -16,6 +20,18 @@ const browser = await chromium.launch();
 const [w, h] = (process.env.SHOT_SIZE ?? "1280x800").split("x").map(Number);
 const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1, colorScheme: (process.env.SHOT_SCHEME as "dark" | "light") ?? "dark" });
 page.on("pageerror", (e) => console.error("page error:", e.message));
+if (url === "board") {
+  // A board is a page of its own: its window, drawn at its size.
+  for (const f of [stack, ...views]) {
+    await page.goto("file://" + path.resolve(f));
+    await page.waitForTimeout(800);
+    const file = `${out}/board-${path.basename(f, ".dc.html")}.png`;
+    await page.locator(".win").first().screenshot({ path: file });
+    console.log(file);
+  }
+  await browser.close();
+  process.exit(0);
+}
 await page.goto(url);
 await page.waitForSelector(".stab", { timeout: 10000 });
 if (!stack) {
@@ -111,6 +127,26 @@ if (!stack) {
       console.log(file);
       await page.getByRole("tab", { name: new RegExp(`^${stack}`) }).click();
       await page.waitForSelector(".strip", { timeout: 10000 });
+      continue;
+    }
+    if (v.startsWith("map:") || v.startsWith("grid:")) {
+      // The map with a card selected (MapFlowSelected), or the grid with
+      // the pointer on a cell (MapGrid's crosshair and tooltip).
+      const [kind, what] = [v.slice(0, v.indexOf(":")), v.slice(v.indexOf(":") + 1)];
+      await page.evaluate(([k, view]) => fetch("/api/setview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k, view }) }), [key, kind]);
+      await page.waitForTimeout(800);
+      if (kind === "map") {
+        await page.locator(`.flow [data-name="${what}"]`).click();
+      } else {
+        const [r, c] = what.split("/");
+        await page.locator(`.g td[aria-label="${r} needs ${c}"], .g td[aria-label="${r} uses ${c}"]`).first().hover();
+      }
+      await page.waitForTimeout(500);
+      const file = `${out}/${stack}-${kind}-${what.replace(/\W+/g, "_")}.png`;
+      await page.screenshot({ path: file });
+      console.log(file);
+      await page.keyboard.press("Escape");
+      await page.mouse.move(0, 0);
       continue;
     }
     // The view is remembered in Go; the page follows the push.

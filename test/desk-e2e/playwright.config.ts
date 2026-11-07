@@ -8,7 +8,8 @@ import path from "node:path";
 // app renders in; Chromium is the second opinion. DOZE_BIN points at a
 // built doze (make build); the default is a fresh build. The shop fixture
 // serves most specs; the crash and modules fixtures each get a server of
-// their own, matched to their spec files.
+// their own, matched to their spec files; larder, whose services call each
+// other, serves the map and the grid.
 const bin = process.env.DOZE_BIN ?? "../../doze";
 const port = Number(process.env.DOZE_E2E_PORT ?? 7731);
 const viewport = { width: 1280, height: 800 };
@@ -29,6 +30,7 @@ const fixtures = [
   { name: "portclash", port: port + 5, match: /portclash\.spec\.ts/, args: "", fixture: "" },
   { name: "changed", port: port + 6, match: /changed\.spec\.ts/, args: "", fixture: "" },
   { name: "stale", port: port + 7, match: /stale\.spec\.ts/, args: "", fixture: "" },
+  { name: "larder", port: port + 8, match: /(map|grid)\.spec\.ts/, args: "", fixture: "" },
 ];
 
 export default defineConfig({
