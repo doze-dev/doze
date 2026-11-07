@@ -1,0 +1,51 @@
+website/src/content/docs/cli/dashboard.md:8: hidden-command: doze dash is hidden from doze --help
+website/src/content/docs/cli/domains.md:23: bare-block: a code block with no language
+website/src/content/docs/cli/tour.md:148: unknown-command: doze binaries: no such command
+website/src/content/docs/guides/files-and-storage.md:14: bare-block: a code block with no language
+website/src/content/docs/guides/files-and-storage.md:66: bare-block: a code block with no language
+website/src/content/docs/guides/files-and-storage.md:88: bare-block: a code block with no language
+website/src/content/docs/guides/files-and-storage.md:153: bare-block: a code block with no language
+website/src/content/docs/guides/files-and-storage.md:233: bare-block: a code block with no language
+website/src/content/docs/guides/modules.md:56: bare-block: a code block with no language
+website/src/content/docs/guides/recipes/aws.md:96: unknown-block: doze.hcl: no block queue
+website/src/content/docs/guides/recipes/aws.md:103: unknown-block: doze.hcl: no block topic
+website/src/content/docs/guides/recipes/aws.md:114: unknown-block: doze.hcl: no block table
+website/src/content/docs/guides/recipes/aws.md:125: unknown-block: doze.hcl: no block function
+website/src/content/docs/guides/recipes/aws.md:130: unknown-block: doze.hcl: no block rule
+website/src/content/docs/guides/recipes/aws.md:143: unknown-block: doze.hcl: no block key
+website/src/content/docs/guides/recipes/aws.md:144: unknown-block: doze.hcl: no block parameter
+website/src/content/docs/guides/recipes/aws.md:145: unknown-block: doze.hcl: no block secret
+website/src/content/docs/guides/recipes/config-layout.md:15: bare-block: a code block with no language
+website/src/content/docs/guides/recipes/config-layout.md:84: unknown-command: doze binaries: no such command
+website/src/content/docs/guides/recipes/microservices-stack.md:117: bare-block: a code block with no language
+website/src/content/docs/guides/recipes/microservices-stack.md:135: bare-block: a code block with no language
+website/src/content/docs/guides/recipes/microservices-stack.md:183: hidden-command: doze dash is hidden from doze --help
+website/src/content/docs/guides/recipes/postgres.md:241: unknown-command: doze binaries: no such command
+website/src/content/docs/guides/recipes/stacks.md:128: hidden-command: doze dash is hidden from doze --help
+website/src/content/docs/guides/workflows.md:115: unknown-command: doze binaries: no such command
+website/src/content/docs/guides/workflows.md:116: unknown-command: doze binaries: no such command
+website/src/content/docs/modules/first-module.md:15: bare-block: a code block with no language
+website/src/content/docs/modules/publishing.md:50: unknown-module-type: module httpd: no engine page engines/httpd.md
+website/src/content/docs/modules/releasing.md:23: bare-block: a code block with no language
+website/src/content/docs/operate/mirror-binaries.md:15: bare-block: a code block with no language
+website/src/content/docs/operate/mirror-binaries.md:59: unknown-command: doze binaries: no such command
+website/src/content/docs/operate/operations.md:13: bare-block: a code block with no language
+website/src/content/docs/operate/trust-architecture.md:12: bare-block: a code block with no language
+website/src/content/docs/operate/trust-architecture.md:60: bare-block: a code block with no language
+website/src/content/docs/reference/architecture.md:20: bare-block: a code block with no language
+website/src/content/docs/reference/binaries.md:40: unknown-command: doze binaries: no such command
+website/src/content/docs/reference/binaries.md:74: bare-block: a code block with no language
+website/src/content/docs/reference/binaries.md:75: unknown-command: doze binaries: no such command
+website/src/content/docs/reference/binaries.md:76: unknown-command: doze binaries: no such command
+website/src/content/docs/reference/binaries.md:77: unknown-command: doze binaries: no such command
+website/src/content/docs/reference/cli.md:37: hidden-command: doze dash is hidden from doze --help
+website/src/content/docs/reference/cli.md:75: bare-block: a code block with no language
+website/src/content/docs/reference/cli.md:227: bare-block: a code block with no language
+website/src/content/docs/reference/configuration.md:820: unknown-command: doze binaries: no such command
+website/src/content/docs/reference/extensions.md:69: bare-block: a code block with no language
+website/src/content/docs/start/concepts.md:226: bare-block: a code block with no language
+website/src/content/docs/start/getting-started.md:90: bare-block: a code block with no language
+website/src/content/docs/why/hcl.md:17: bare-block: a code block with no language
+
+48 findings in 25 files: 24 bare-block, 11 unknown-command, 8 unknown-block, 4 hidden-command, 1 unknown-module-type
+not checked: the nested blocks of aws, kafka, kvrocks, postgres (their engine pages list none; regenerate them with gen-engines.mjs)

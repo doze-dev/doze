@@ -123,3 +123,7 @@ docs-shots: frontend ## Shoot the docs' app screenshots (website/docs-shots.json
 	CGO_ENABLED=0 go build -tags purego,production -ldflags "-s -w -X main.version=$(DOCS_VERSION)" -o test/desk-e2e/.doze-docs ./cmd/doze
 	cd test/desk-e2e && bun install --frozen-lockfile && DOZE_BIN=.doze-docs bun run shot.ts docs ../../website/docs-shots.json ../../website/src/assets/app
 	rm -f test/desk-e2e/.doze-docs
+
+.PHONY: ground
+ground: build ## Check that every doze command, flag and doze.hcl field the docs name exists (GROUND_REPORT_ONLY=1 reports without failing)
+	bun website/scripts/ground.ts
