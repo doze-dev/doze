@@ -1,72 +1,88 @@
 ---
-title: "Alternatives, honestly"
-description: What docker-compose, Testcontainers, LocalStack, Nix, and the rest are genuinely good at — and when to pick them over doze.
+title: "Alternatives"
+description: What docker-compose, Testcontainers, LocalStack, Nix, Tilt and brew services are good at, and when to pick them over doze.
 ---
 
-Tools earn trust by being honest about their neighbors. Here's the landscape as
-we see it — including when you should **not** pick doze.
+You'll know which tool fits your situation, including when it is not doze.
 
-| | Best at | Reach for it when | doze's edge over it |
+| | Best at | Pick it when | Where doze differs |
 |---|---|---|---|
-| **docker-compose** | Declaring multi-service stacks portably | Your stack must mirror production containers exactly | Native processes (debuggers, no VM tax), lazy boot/sleep, pinned real binaries, typed config |
-| **Testcontainers** | Ephemeral per-test services in code | Tests must own service lifecycle programmatically, per language | One shared declarative stack for dev *and* tests; instant warm boots; no Docker daemon required |
-| **LocalStack** | Broad AWS API surface in one box | You need many AWS services (Lambda, DynamoDB, …) | Real engines for data stores; S3/SQS/SNS in pure Go, ~instant, no Docker/JVM/Python |
-| **Nix / devenv / Flox** | Reproducible toolchains & environments | You want the *whole* environment (compilers, tools) pinned | Radically smaller learning curve; services that sleep; one lockfile scoped to backing services |
-| **Tilt / Skaffold** | Dev loops on Kubernetes | Your inner loop is genuinely k8s | Not being Kubernetes for a laptop CRUD app |
-| **brew services / systemd** | System-global daemons | One global Postgres forever is fine for you | Per-project versions & data, no port fights, no always-on drain, a lockfile |
+| **docker-compose** | Declaring a multi-service stack that runs anywhere Docker does | Your local stack must match production containers exactly | Native processes (debuggers attach, no VM), services that start on connect and sleep, pinned binaries, typed config |
+| **Testcontainers** | Throwaway services created from test code | Tests must build their own topology while they run | One declared stack shared by your editor, tests and team; no container runtime |
+| **LocalStack** | A very wide AWS surface in one place | You need AWS services or features doze AWS does not have | One native process for S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager, STS and Step Functions; no Docker |
+| **Nix, devenv, Flox** | Reproducible toolchains and whole environments | You want compilers and tools pinned too | Far less to learn; services that sleep; a lockfile for what the stack runs |
+| **Tilt, Skaffold** | Development loops on Kubernetes | Your inner loop is Kubernetes | Not Kubernetes |
+| **brew services, systemd** | One system-wide daemon per engine | One global Postgres forever suits you | A version and data per project, no port fights, nothing running when idle, a lockfile |
 
-## The longer takes
+## docker-compose
 
-**docker-compose** is the incumbent and a fine one: one file, `docker compose
-up`, portable anywhere Docker runs. Choose it when dev/prod container parity is
-the priority — when the container *is* the artifact you ship. Its costs are the
-VM on Mac/Windows (RAM held all day, bind-mount I/O, emulation for stray
-amd64-only images), the always-on whole-stack model, and YAML with string
-conventions where references should be. If your compose file is mostly "a
-postgres, a redis, a bucket" — the common case — doze replaces it with less
-machinery than it took to keep Docker Desktop updated. There's a
-[mental-model mapping](/start/from-docker-compose/) for making the move.
+The incumbent, and a good one: one file, `docker compose up`, works anywhere
+Docker runs. Choose it when the container is what you ship and the local stack
+must match it. Its costs on a Mac are the VM (memory held all day, slower file
+sharing, emulation for images without an arm64 build), a stack that runs
+whole the entire time, and YAML where references should be values. If your
+compose file is mostly a Postgres, a Redis and a bucket, doze does that with
+less machinery. See [Bring your own repo](/start/your-repo/) for moving
+across.
 
-**Testcontainers** is excellent at what it actually is: a *testing* library
-that gives each suite programmatic, throwaway containers. Choose it when tests
-must create bespoke topologies at runtime. As a *dev environment* it's the
-wrong shape — nothing to `psql` into between runs, per-language APIs, container
-startup in every suite. doze inverts it: one declared stack, always a
-connection away, warm across runs (`doze run -- go test ./...`), shared with
-your editor and your teammates via two committed files. Many teams run doze for
-dev + CI services and keep Testcontainers for the exotic per-test cases.
+## Testcontainers
 
-**LocalStack** has admirable breadth — dozens of AWS APIs, one endpoint. Choose
-it when your app leans on services doze doesn't provide (DynamoDB, Lambda,
-Step Functions). Its weight is the tradeoff: a ~1.2 GB image, Python + JVM
-inside Docker, and *reimplemented* APIs whose fidelity you verify against a
-coverage matrix. doze covers the three services most local dev actually
-touches — S3, SQS, SNS — as built-in pure-Go engines that boot in milliseconds,
-and runs real binaries for everything stateful.
+A testing library that gives each suite containers it creates and throws away.
+Choose it when tests must build unusual topologies at run time. As a
+development environment it is the wrong shape: nothing to connect to between
+runs, an API per language, and container start-up in every suite. doze keeps
+one declared stack, a connection away and warm across runs
+(`doze run --env -- go test ./...`), with `doze reset <name>` for a clean
+database. Many teams use doze for development and CI services and keep
+Testcontainers for the odd test that needs its own.
 
-**Nix (and devenv, Flox)** solves a bigger problem than doze does: the entire
-environment, hermetically. If your team already speaks Nix, `services.postgres`
-in devenv is genuinely good, and doze won't out-reproduce it. The honest
-differences: the learning cliff (Nix is a language, an ecosystem, and a
-worldview), and services that are supervised-while-the-shell-lives rather than
-doze's boot-on-connect/sleep-when-idle. doze is the 90% of the value for 2% of
-the onboarding.
+## LocalStack
 
-**Tilt/Skaffold** answer "how do I develop *on Kubernetes*" — if that's your
-question, doze isn't. doze's bet is that for most application work, Kubernetes
-on a laptop is complexity imported from production for no local benefit.
+LocalStack covers a very wide range of AWS services and features, as a large
+Docker image running a Python application, with some services using Java
+tooling.[^localstack] Choose it when your app needs an AWS service or an
+operation that doze AWS does not have.
 
-**brew services** (or systemd units) is the zero-tooling answer and the one
-doze most sympathizes with — it's also native processes! What it lacks is
-everything around the process: per-project versions (one global 5432), pinning
-(whatever brew last upgraded to), scoped data dirs, idle shutdown, and a
-declarative file your teammate can clone. doze is brew-services with the
-missing management layer.
+doze's `aws` module runs [doze AWS](https://doze-dev.com/docs/aws/), one
+native process behind one endpoint. Inside a doze stack you declare buckets,
+queues, topics, DynamoDB tables, Lambda functions, EventBridge rules, KMS keys,
+secrets and SSM parameters as blocks, and it also serves STS and Step
+Functions. It is not everything AWS or LocalStack offers: each service lists
+which operations work, which are accepted without effect, and which are
+refused, in doze AWS's [API support](https://doze-dev.com/docs/aws/support/).
+Check that list for the calls your app makes.
+
+## Nix, devenv and Flox
+
+They solve a bigger problem than doze: the whole environment, hermetically. If
+your team already uses Nix, `services.postgres` in devenv is good, and doze will
+not out-reproduce it. The differences: Nix is a language and an ecosystem to
+learn, and its services run while the shell lives rather than starting on a
+connection and sleeping when idle.
+
+## Tilt and Skaffold
+
+They answer "how do I develop on Kubernetes". If that is your question, doze is
+not the answer. doze's bet is that for most application work, Kubernetes on a
+laptop is production complexity with no local benefit.
+
+## brew services and systemd
+
+The no-tooling answer, and the closest to doze: native processes too. What it
+lacks is everything around the process: a version per project (one global
+5432), pinning (whatever the last upgrade installed), data per project,
+sleeping when idle, and a file a teammate can clone.
 
 ## When not to use doze
 
-Plainly: **production** (single instances, no HA, idle sleep — by design);
-**Windows without WSL2**; **apps needing AWS beyond S3/SQS/SNS** (pair doze
-with LocalStack, or wait for modules); **teams whose dev loop is contractually
-k8s**. And if your whole company happily runs Nix — carry on; you have our
-respect.
+- **Production.** One copy of each service, no failover, services that sleep.
+- **Windows or an Intel Mac.** There is no build.
+- **AWS beyond what doze AWS supports.** Check its
+  [API support](https://doze-dev.com/docs/aws/support/) first.
+- **A team whose development loop is Kubernetes.**
+
+And if your whole company already runs on Nix, carry on.
+
+[^localstack]: See [LocalStack](https://github.com/localstack/localstack) and
+    [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html),
+    which needs a Java runtime.

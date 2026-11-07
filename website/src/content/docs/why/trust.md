@@ -1,82 +1,96 @@
 ---
 title: "The trust model"
-description: Why a dev tool has supply-chain rigor — signatures, key pinning, and a lockfile with three layers.
+description: How doze checks every module and binary it downloads, what doze.lock pins, and what the signatures do not prove.
 ---
 
-`doze up` downloads and executes binaries. That sentence is why this page
-exists: a tool that fetches executables owes you a story about why you can
-trust what it runs — especially a *dev* tool, because dev machines hold source
-code, credentials, and production access.
+You'll know how doze decides that what it downloads is safe to run, and what
+that does and does not promise.
 
-## The chain, end to end
+`doze up` downloads programs and runs them. A tool that does that owes you an
+account of why you can trust what it runs, especially a development tool:
+your machine holds source code, credentials and access to production.
 
-Two supply chains meet on your machine, and every link is verified:
+## Where things come from
 
-**Modules** (the plugins that provide each engine) come from a **signed
-registry**:
+- **Modules** (the plugins that run each engine) come only from the doze
+  registry, `registry.doze-dev.com`. There is one registry and one publisher;
+  modules are added by pull request to
+  [doze-modules](https://github.com/doze-dev/doze-modules) and built in public
+  CI. See [How the registry works](/contribute/registry/).
+- **Engine binaries** (Postgres, Valkey, MariaDB and the rest) are built from
+  upstream source in public CI, in
+  [doze-binaries](https://github.com/doze-dev/doze-binaries). A published
+  version is never rebuilt. doze downloads them itself and checks each one.
+- **Anything else** you run as your own `service` with `download` comes from
+  the URL you wrote. doze cannot vouch for it, but it pins what it got the
+  first time, and refuses different bytes later.
 
-1. The registry has one ed25519 keypair, and its public key is **compiled
-   into doze**. doze does not fetch the key and does not learn it on first
-   use, so a compromised registry host cannot hand a fresh install a key of
-   its own. Rotating the key takes a doze release.
-2. Each module's **index is signed as a whole** — not just its artifacts. The
-   index carries the metadata that *selects* what you run: which releases
+## How a module is checked
+
+1. **The registry's key is compiled into doze.** It is an ed25519 public key.
+   doze does not fetch it and does not learn it on first use, so a compromised
+   registry host cannot hand a new install a key of its own. Changing the key
+   takes a doze release.
+2. **Each module's index is signed as a whole.** The index says which releases
    exist, which engine versions each supports, which plugin protocol it
-   speaks, where the channel points. Signing the index means a compromised CDN
-   can't claim false compatibility or roll the channel back to a vulnerable
-   release.
-3. Each **archive's checksum is signed** individually. The archive host
-   (GitHub releases) is untrusted *by design* — tampered bytes fail
-   verification no matter who serves them.
+   speaks, and where the channel points. Signing all of it means a compromised
+   server cannot claim false compatibility or roll the channel back to an
+   older release.
+3. **Each archive's checksum is signed.** Where the archive is stored is not
+   trusted: changed bytes fail the check whoever serves them.
 
-**Engine binaries** (the actual Postgres, Valkey, …) are fetched by the module
-from the [doze-binaries mirror](/reference/binaries/): built from upstream
-source in public CI, published append-only (a released version is never
-rebuilt), and checksum-pinned in your lock.
+## doze.lock is the contract
 
-## The lockfile is the contract
-
-`doze.lock` — committed next to your config — pins three layers:
+`doze.lock`, committed beside `doze.hcl`, has a `doze:` line and three layers:
 
 ```yaml
-engines:            # engine binaries: version = 16 -> 16.14.0 + per-platform SHA-256
-modules:            # per engine: module release, plugin protocol, supported
-                    # engine versions, per-platform hashes
+doze: 0.2.0   # the newest doze that wrote this file
+engines:      # each engine version you declared, resolved to an exact build, with a checksum per platform
+modules:      # the module release that runs each engine: version, protocol, checksums
+downloads:    # each URL a service downloads, with the checksum of what it served the first time
 ```
 
-The consequences are the guarantees:
+What that gives you:
 
-- **Reproducibility.** A teammate's clone and your CI resolve to byte-identical
-  software — verified, not hoped.
-- **No drift.** A moving registry can't change what a locked project runs.
-  Warm caches resolve **fully offline**.
-- **Explicit change.** Pins move only via `doze modules upgrade` (and the
-  updated lock goes through code review like anything else).
-- **Immutability upstream.** Published `(version, platform)` artifacts are
-  never rebuilt — the tooling hard-errors on changed bytes — so a lock
-  committed today resolves forever.
+- **The same bytes everywhere.** A teammate's clone and your CI resolve to the
+  same software, checked, not assumed.
+- **No drift.** A newer release in the registry does not change what a locked
+  project runs. With the downloads already on disk, it resolves offline.
+- **Change on purpose.** Module pins move only with `doze modules upgrade`, and
+  the new lock goes through review like any change.
+- **Nothing rebuilt upstream.** A published version and platform is never
+  rebuilt, so a lock committed today resolves the same later.
 
-## Two version axes, deliberately
+See [Files and storage](/guides/files-and-storage/#dozelock) and the
+[doze.lock reference](/reference/lockfile/).
 
-You declare the **engine** version (`version = 18`) — the software your app
-talks to. The **module** version (the plugin's own release) is selected
-automatically: newest release compatible with your doze's plugin protocol and
-every engine version you declared, then locked. You never write it; you meet
-it only in `doze modules` output and in error messages that name their own fix
-(`run 'doze modules upgrade postgres'`).
+## Two versions, on purpose
 
-This split is what makes evolution safe: a module can ship a new config
-argument or support a new Postgres major without touching what any locked
-project runs, and your project adopts it in one reviewed commit.
+You write the **engine** version, `version = 18`: the software your app talks
+to. The **module** version, the plugin's own release, is chosen for you: the
+newest release that this doze can run and that supports every engine version
+you declared. Then it is locked. You meet it only in `doze modules` output and
+in an error that names its own fix, such as
+`run 'doze modules upgrade postgres'`.
 
-## What this does *not* claim
+That split lets a module add an argument or a new Postgres major without
+changing what any locked project runs; your project takes it in one reviewed
+commit.
 
-Honesty section: signatures prove *who published*, not that the code is
-benign — a malicious publisher signs malware happily. Every module in the registry
-is built in public CI from public source, and each module's registry page
-shows its provenance, signature status, and exactly what config it accepts —
-generated from the module itself. The key is only as trustworthy as the doze
-binary that carries it: get doze from a source you trust.
+## The local certificate authority
 
-For how the registry is built and operated, and for mirroring engine
-binaries, see [how the registry works](/operate/trust-architecture/).
+For an app with `domains`, `doze trust` makes a certificate authority on your
+machine and asks the system to trust it. doze only makes certificates for names
+your stacks declare, but like any root it could sign any name, so its key stays
+in `~/.doze/ca`, readable by you alone. `doze trust --remove` stops trusting it
+when no stack declares a domain any more, and `doze trust --rotate` replaces
+it. See [Domains and HTTPS](/app/domains/).
+
+## What this does not claim
+
+A signature proves who published something, not that it is harmless. What
+makes the registry's modules trustworthy is that each one is built in public
+CI from public source, through a reviewed pull request, and each module's
+registry page shows its source and what it accepts. And the compiled-in key is
+only as trustworthy as the doze that carries it: get doze from its releases or
+the doze Homebrew tap.
