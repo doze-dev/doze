@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · larder · grid</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#e9e6f2}.win{height:900px}
+.tbb{width:30px;height:28px;margin-bottom:6px;border:1px solid var(--line2);border-radius:7px;background:var(--panel);display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:13px;flex:none}
+.tab .x{color:var(--dim);margin-left:4px}
+.strip{display:flex;align-items:center;gap:36px;margin:0 28px 18px;padding:0 0 18px;border-bottom:1px solid var(--line)}
+.stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .v{font-size:22px;line-height:26px;font-weight:600;color:var(--bright);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:12px;font-weight:400;color:var(--dim);margin-left:6px}
+.stat .s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .bar{width:220px;height:6px;display:flex;border-radius:3px;overflow:hidden}
+.stat .bar i{display:block;height:100%}
+.stat.wide{flex:1 1 0}
+.map{position:relative;flex:1;margin:0 28px 14px;min-height:0;border:1px solid var(--line);border-radius:12px;background:var(--well);overflow:hidden}
+.map svg.edges{position:absolute;left:0;top:0}
+.cap{position:absolute;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.cap span{font-weight:400;letter-spacing:0;text-transform:none;opacity:.85;margin-left:6px}
+.node,.inf{position:absolute;width:214px;display:flex;flex-direction:column;gap:7px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--panel);transition:opacity .2s}
+.node{height:74px}
+.node .top,.inf .top{display:flex;align-items:center;gap:7px;min-width:0}
+.node .top b,.inf .top b{font-size:14px;font-weight:650;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .lang{font:600 10px 'JetBrains Mono',monospace;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:14px;flex:none}
+.node .top .m,.inf .top .m{margin-left:auto;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;flex:none}
+.chips{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+.chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:10px;background:var(--sel);color:var(--text);font-size:11.5px;flex:none}
+.chip .dot{width:6px;height:6px}
+.chip.quiet{background:transparent;color:var(--dim);padding:0}
+.chip.hot{background:var(--accent);color:var(--ink)}
+.chip.hot .dot{background:var(--ink)}
+.fold{margin-left:auto;font-size:11.5px;color:var(--good);flex:none}
+.node.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 8px 24px rgba(80,50,160,.14)}
+.faded{opacity:.32}
+.band{position:absolute;left:0;right:0;top:486px;bottom:0;border-top:1px dashed var(--line2);background:color-mix(in srgb,var(--panel) 45%,transparent)}
+.inf{gap:3px;padding:10px 13px}
+.inf .st{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inf .st b{font-weight:600;color:var(--text)}
+.inf.hot{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.legend{position:absolute;right:18px;top:14px;display:flex;align-items:center;gap:16px;font-size:12px;color:var(--dim);white-space:nowrap}
+.legend i{display:inline-block;width:24px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:6px}
+.detail{position:absolute;left:762px;top:14px;width:448px;padding:9px 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:0 10px 30px rgba(60,40,120,.12);display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.detail .h{display:flex;align-items:center;gap:8px}.detail .h b{font-size:14px;color:var(--bright)}
+.detail .dr{display:flex;gap:8px;white-space:nowrap;line-height:21px}.detail .dr>span:first-child{width:76px;color:var(--dim);flex:none}
+.keys{display:flex;align-items:center;gap:18px;padding:0 28px 14px;font-size:12px;color:var(--dim);white-space:nowrap}
+.keys kbd{font:600 11px 'JetBrains Mono',monospace;color:var(--text);background:var(--sel);border-radius:4px;padding:1px 6px;margin-right:6px}
+.keys .note{margin-left:auto}
+/* grid */
+.gridw{flex:1;margin:0 28px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;position:relative}
+table.g{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12.5px}
+table.g th,table.g td{border-bottom:1px solid var(--line);height:42px;padding:0 6px;text-align:center;white-space:nowrap}
+table.g thead th{height:auto;padding:10px 4px 8px;vertical-align:bottom;font-weight:500;color:var(--text)}
+table.g thead tr.grph th{height:auto;padding:12px 4px 0;border-bottom:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-align:left}
+table.g thead th .n{display:flex;flex-direction:column;align-items:center;gap:3px}
+table.g thead th .n b{font-weight:600;color:var(--bright)}
+table.g thead th .n small{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+table.g .rh{text-align:left;padding-left:16px;padding-right:18px}
+table.g .rh .in{display:flex;align-items:center;gap:8px}
+table.g .rh b{color:var(--bright);font-weight:600;font-size:13.5px}
+table.g .rh .lang{font:600 10px 'JetBrains Mono',monospace;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:14px}
+table.g .rh .m{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
+table.g td.sep,table.g th.sep{border-left:1px solid var(--line2)}
+.cell{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--accent)}
+.self{color:var(--line2)}
+tr.selr td,tr.selr th{background:var(--sel)}
+td.selc,th.selc{background:color-mix(in srgb,var(--sel) 55%,transparent)}
+td.cross{background:var(--pick)!important}
+td.cross .cell{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 30%,transparent)}
+tfoot td{color:var(--dim);font-size:12px;height:38px}
+tfoot td b{color:var(--text)}
+.later{position:absolute;left:16px;right:16px;bottom:6px;margin:0;font-size:12px;color:var(--dim)}
+.tip{position:absolute;padding:10px 12px;border-radius:9px;background:var(--bright);color:var(--bg);font-size:12px;line-height:18px;box-shadow:0 10px 30px rgba(20,10,40,.25);white-space:nowrap}
+.tip code{font:12px 'JetBrains Mono',monospace;color:#d9ccff}
+.tip::before{content:"";position:absolute;left:22px;top:-6px;border:6px solid transparent;border-top:0;border-bottom-color:var(--bright)}</style>
+</helmet>
+<div class="win light">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div>
+    <div class="tabs" role="tablist" aria-label="Tabs">
+      <span class="tab" role="tab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="t">Home</span></span>
+      <span class="tab on" role="tab"><span class="dot g"></span><span class="t">larder</span><span class="x">×</span></span>
+      <span class="tab" role="tab"><span class="dot g"></span><span class="t">shop</span></span>
+    </div>
+    <span class="tbb" aria-label="Needs you"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+    <span class="tbb" aria-label="Help">?</span>
+    <span class="btn"><kbd>⌘K</kbd> Search or do</span>
+  </div>
+  <div class="body"><main class="main">
+    <div class="head" style="padding:20px 28px 14px"><h1>larder</h1><span class="path">~/Code/doze-dev/doze-examples/larder · up 18m</span><span class="grow"></span>
+      <div class="seg" role="group" aria-label="View"><button>Tiles</button><button>List</button><button>Map</button><button class="on">Grid <span class="tag">new</span></button></div>
+      <span class="btn quiet">Activity <kbd>A</kbd></span><span class="btn quiet">All logs <kbd>L</kbd></span>
+      <span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="larder is up"></button></span><span class="ib" aria-label="More">⋯</span>
+    </div>
+    <div class="strip">
+      <div class="stat wide"><span class="v">536 MB<small>resident</small></span><div class="bar"><i style="width:11%;background:var(--cool)"></i><i style="width:11%;background:var(--accent)"></i><i style="width:10%;background:var(--good)"></i><i style="width:68%;background:var(--line2)"></i></div><span class="s">storefront 61 · recommendations 58 · fulfilment 52 · +11 more</span></div>
+      <div class="stat"><span class="v">0.01<small>cores</small></span><span class="s">notifications 0.9% · the rest quiet</span></div>
+      <div class="stat"><span class="v">13<small>awake</small></span><span class="s"><span class="warn">1 dozing</span></span></div>
+      <div class="stat"><span class="v">21<small>connections</small></span><span class="s">tasks ✓ 9 done · 1 not run</span></div>
+    </div>
+    <div class="gridw" role="region" aria-label="Larder as a grid: rows need columns">
+      <table class="g"><colgroup><col style="width:300px"><col style="width:74px"><col style="width:74px"><col style="width:74px"><col style="width:74px"><col style="width:74px"><col style="width:74px"><col style="width:68px"><col style="width:68px"><col style="width:68px"><col style="width:68px"><col style="width:68px"><col></colgroup>
+        <thead>
+          <tr class="grph"><th class="rh" style="padding-left:16px">Service<span style="font-weight:400;letter-spacing:0;text-transform:none;margin-left:6px">needs →</span></th><th colspan="6">Other services</th><th colspan="5" class="sep" style="padding-left:10px">Shared</th><th class="sep" style="padding-left:10px">Before it</th></tr>
+          <tr><th class="rh"></th><th class=""><div class="n"><span class="dot g"></span><b>gateway</b><small>46 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>identity</b><small>42 MB</small></div></th><th class="selc"><div class="n"><span class="dot g"></span><b>catalog</b><small>47 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>orders</b><small>47 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>fulfilment</b><small>52 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>recs</b><small>58 MB</small></div></th><th class="sep "><div class="n"><span class="dot g"></span><b>kafka</b><small>24 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>postgres</b><small>13 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>redis</b><small>5 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>aws</b><small>25 MB</small></div></th><th class=""><div class="n"><span class="dot g"></span><b>mailpit</b><small>24 MB</small></div></th><th class="sep"><div class="n"><b style="font-weight:500;color:var(--dim)">tasks</b><small>9 ✓</small></div></th></tr>
+        </thead>
+        <tbody>
+<tr class=""><th class="rh"><div class="in"><span class="dot y"></span><b>storefront</b><span class="lang">ts</span><span class="m">61 MB</span></div></th><td class=""><span class="cell" aria-label="storefront needs gateway"></span></td><td class=""></td><td class="selc"></td><td class=""></td><td class=""></td><td class=""></td><td class="sep"></td><td class=""></td><td class=""></td><td class=""></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">installed ✓</td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>gateway</b><span class="lang">go</span><span class="m">46 MB</span></div></th><td class=""><span class="self">—</span></td><td class=""><span class="cell" aria-label="gateway needs identity"></span></td><td class="selc"><span class="cell" aria-label="gateway needs catalog"></span></td><td class=""><span class="cell" aria-label="gateway needs orders"></span></td><td class=""><span class="cell" aria-label="gateway needs fulfilment"></span></td><td class=""><span class="cell" aria-label="gateway needs recommendations"></span></td><td class="sep"></td><td class=""></td><td class=""><span class="cell" aria-label="gateway uses redis"></span></td><td class=""></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px"></td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>identity</b><span class="lang">go</span><span class="m">42 MB</span></div></th><td class=""></td><td class=""><span class="self">—</span></td><td class="selc"></td><td class=""></td><td class=""></td><td class=""></td><td class="sep"><span class="cell" aria-label="identity uses kafka"></span></td><td class=""><span class="cell" aria-label="identity uses postgres"></span></td><td class=""></td><td class=""></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">migrated ✓</td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>catalog</b><span class="lang">go</span><span class="m">47 MB</span></div></th><td class=""></td><td class=""></td><td class="selc"><span class="self">—</span></td><td class=""></td><td class=""></td><td class=""></td><td class="sep"></td><td class=""><span class="cell" aria-label="catalog uses postgres"></span></td><td class=""></td><td class=""><span class="cell" aria-label="catalog uses aws"></span></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">migrated ✓</td></tr>
+<tr class="selr"><th class="rh"><div class="in"><span class="dot g"></span><b>orders</b><span class="lang">go</span><span class="m">47 MB</span></div></th><td class=""></td><td class=""></td><td class="selc cross"><span class="cell" aria-label="orders needs catalog"></span></td><td class=""><span class="self">—</span></td><td class=""></td><td class=""></td><td class="sep"><span class="cell" aria-label="orders uses kafka"></span></td><td class=""><span class="cell" aria-label="orders uses postgres"></span></td><td class=""></td><td class=""></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">migrated ✓</td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>payments</b><span class="lang">go</span><span class="m">47 MB</span></div></th><td class=""></td><td class=""></td><td class="selc"></td><td class=""></td><td class=""></td><td class=""></td><td class="sep"><span class="cell" aria-label="payments uses kafka"></span></td><td class=""><span class="cell" aria-label="payments uses postgres"></span></td><td class=""><span class="cell" aria-label="payments uses redis"></span></td><td class=""></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">migrated ✓</td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>fulfilment</b><span class="lang">py</span><span class="m">52 MB</span></div></th><td class=""></td><td class=""></td><td class="selc"></td><td class=""><span class="cell" aria-label="fulfilment needs orders"></span></td><td class=""><span class="self">—</span></td><td class=""></td><td class="sep"><span class="cell" aria-label="fulfilment uses kafka"></span></td><td class=""></td><td class=""></td><td class=""><span class="cell" aria-label="fulfilment uses aws"></span></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">installed ✓</td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>recommendations</b><span class="lang">py</span><span class="m">58 MB</span></div></th><td class=""></td><td class=""></td><td class="selc"><span class="cell" aria-label="recommendations needs catalog"></span></td><td class=""></td><td class=""></td><td class=""><span class="self">—</span></td><td class="sep"><span class="cell" aria-label="recommendations uses kafka"></span></td><td class=""><span class="cell" aria-label="recommendations uses postgres"></span></td><td class=""><span class="cell" aria-label="recommendations uses redis"></span></td><td class=""></td><td class=""></td><td class="sep" style="color:var(--good);font-size:12px">migrated ✓</td></tr>
+<tr class=""><th class="rh"><div class="in"><span class="dot g"></span><b>notifications</b><span class="lang">ts</span><span class="m">45 MB</span></div></th><td class=""></td><td class=""></td><td class="selc"></td><td class=""></td><td class=""></td><td class=""></td><td class="sep"><span class="cell" aria-label="notifications uses kafka"></span></td><td class=""></td><td class=""></td><td class=""></td><td class=""><span class="cell" aria-label="notifications uses mailpit"></span></td><td class="sep" style="color:var(--good);font-size:12px">installed ✓</td></tr>
+        </tbody>
+        <tfoot><tr><td class="rh" style="text-align:left;padding-left:16px">needed by</td><td class=""><b>1</b></td><td class=""><b>1</b></td><td class="selc"><b>3</b></td><td class=""><b>2</b></td><td class=""><b>1</b></td><td class=""><b>1</b></td><td class="sep"><b>6</b></td><td class=""><b>5</b></td><td class=""><b>3</b></td><td class=""><b>2</b></td><td class=""><b>1</b></td><td class="sep"></td></tr></tfoot>
+      </table>
+      <p class="later">Not drawn yet: which Kafka topics each service writes and reads. doze sees that orders connects to kafka, not that it publishes orders.placed; that needs doze kafka to tell doze which connection is which service.</p>
+      <div class="tip" style="left:457px;top:322px"><b>orders needs catalog</b> · keeps it awake<br><code>CATALOG_URL = app.catalog.url</code> <span style="opacity:.7">in doze.hcl</span><br><span style="opacity:.75">⏎ opens catalog · o opens orders</span></div>
+    </div>
+    <div class="keys"><span><kbd>↑↓←→</kbd>move</span><span><kbd>space</kbd>wake / sleep the row</span><span><kbd>⏎</kbd>open</span><span><kbd>/</kbd>filter rows</span><span class="note">reads like a table: a row needs each column it has a dot in · the same at 30 services</span></div>
+  </main></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

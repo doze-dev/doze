@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>doze · larder · map, rethought</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#e9e6f2}.win{height:900px}
+.tbb{width:30px;height:28px;margin-bottom:6px;border:1px solid var(--line2);border-radius:7px;background:var(--panel);display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:13px;flex:none}
+.tab .x{color:var(--dim);margin-left:4px}
+.strip{display:flex;align-items:center;gap:36px;margin:0 28px 18px;padding:0 0 18px;border-bottom:1px solid var(--line)}
+.stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .v{font-size:22px;line-height:26px;font-weight:600;color:var(--bright);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:12px;font-weight:400;color:var(--dim);margin-left:6px}
+.stat .s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .bar{width:220px;height:6px;display:flex;border-radius:3px;overflow:hidden}
+.stat .bar i{display:block;height:100%}
+.stat.wide{flex:1 1 0}
+.map{position:relative;flex:1;margin:0 28px 14px;min-height:0;border:1px solid var(--line);border-radius:12px;background:var(--well);overflow:hidden}
+.map svg.edges{position:absolute;left:0;top:0}
+.cap{position:absolute;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.cap span{font-weight:400;letter-spacing:0;text-transform:none;opacity:.85;margin-left:6px}
+.node,.inf{position:absolute;width:214px;display:flex;flex-direction:column;gap:7px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--panel);transition:opacity .2s}
+.node{height:74px}
+.node .top,.inf .top{display:flex;align-items:center;gap:7px;min-width:0}
+.node .top b,.inf .top b{font-size:14px;font-weight:650;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .lang{font:600 10px 'JetBrains Mono',monospace;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:14px;flex:none}
+.node .top .m,.inf .top .m{margin-left:auto;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;flex:none}
+.chips{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+.chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:10px;background:var(--sel);color:var(--text);font-size:11.5px;flex:none}
+.chip .dot{width:6px;height:6px}
+.chip.quiet{background:transparent;color:var(--dim);padding:0}
+.chip.hot{background:var(--accent);color:var(--ink)}
+.chip.hot .dot{background:var(--ink)}
+.fold{margin-left:auto;font-size:11.5px;color:var(--good);flex:none}
+.node.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 8px 24px rgba(80,50,160,.14)}
+.faded{opacity:.32}
+.band{position:absolute;left:0;right:0;top:486px;bottom:0;border-top:1px dashed var(--line2);background:color-mix(in srgb,var(--panel) 45%,transparent)}
+.inf{gap:3px;padding:10px 13px}
+.inf .st{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inf .st b{font-weight:600;color:var(--text)}
+.inf.hot{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.legend{position:absolute;right:18px;top:14px;display:flex;align-items:center;gap:16px;font-size:12px;color:var(--dim);white-space:nowrap}
+.legend i{display:inline-block;width:24px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:6px}
+.detail{position:absolute;left:762px;top:14px;width:448px;padding:9px 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:0 10px 30px rgba(60,40,120,.12);display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.detail .h{display:flex;align-items:center;gap:8px}.detail .h b{font-size:14px;color:var(--bright)}
+.detail .dr{display:flex;gap:8px;white-space:nowrap;line-height:21px}.detail .dr>span:first-child{width:76px;color:var(--dim);flex:none}
+.keys{display:flex;align-items:center;gap:18px;padding:0 28px 14px;font-size:12px;color:var(--dim);white-space:nowrap}
+.keys kbd{font:600 11px 'JetBrains Mono',monospace;color:var(--text);background:var(--sel);border-radius:4px;padding:1px 6px;margin-right:6px}
+.keys .note{margin-left:auto}
+/* grid */
+.gridw{flex:1;margin:0 28px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;position:relative}
+table.g{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12.5px}
+table.g th,table.g td{border-bottom:1px solid var(--line);height:42px;padding:0 6px;text-align:center;white-space:nowrap}
+table.g thead th{height:auto;padding:10px 4px 8px;vertical-align:bottom;font-weight:500;color:var(--text)}
+table.g thead tr.grph th{height:auto;padding:12px 4px 0;border-bottom:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-align:left}
+table.g thead th .n{display:flex;flex-direction:column;align-items:center;gap:3px}
+table.g thead th .n b{font-weight:600;color:var(--bright)}
+table.g thead th .n small{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+table.g .rh{text-align:left;padding-left:16px;padding-right:18px}
+table.g .rh .in{display:flex;align-items:center;gap:8px}
+table.g .rh b{color:var(--bright);font-weight:600;font-size:13.5px}
+table.g .rh .lang{font:600 10px 'JetBrains Mono',monospace;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:14px}
+table.g .rh .m{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
+table.g td.sep,table.g th.sep{border-left:1px solid var(--line2)}
+.cell{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--accent)}
+.self{color:var(--line2)}
+tr.selr td,tr.selr th{background:var(--sel)}
+td.selc,th.selc{background:color-mix(in srgb,var(--sel) 55%,transparent)}
+td.cross{background:var(--pick)!important}
+td.cross .cell{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 30%,transparent)}
+tfoot td{color:var(--dim);font-size:12px;height:38px}
+tfoot td b{color:var(--text)}
+.later{position:absolute;left:16px;right:16px;bottom:6px;margin:0;font-size:12px;color:var(--dim)}
+.tip{position:absolute;padding:10px 12px;border-radius:9px;background:var(--bright);color:var(--bg);font-size:12px;line-height:18px;box-shadow:0 10px 30px rgba(20,10,40,.25);white-space:nowrap}
+.tip code{font:12px 'JetBrains Mono',monospace;color:#d9ccff}
+.tip::before{content:"";position:absolute;left:22px;top:-6px;border:6px solid transparent;border-top:0;border-bottom-color:var(--bright)}</style>
+</helmet>
+<div class="win light">
+  <div class="tb"><div class="lights"><span></span><span></span><span></span></div>
+    <div class="tabs" role="tablist" aria-label="Tabs">
+      <span class="tab" role="tab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="t">Home</span></span>
+      <span class="tab on" role="tab"><span class="dot g"></span><span class="t">larder</span><span class="x">×</span></span>
+      <span class="tab" role="tab"><span class="dot g"></span><span class="t">shop</span></span>
+    </div>
+    <span class="tbb" aria-label="Needs you"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+    <span class="tbb" aria-label="Help">?</span>
+    <span class="btn"><kbd>⌘K</kbd> Search or do</span>
+  </div>
+  <div class="body"><main class="main">
+    <div class="head" style="padding:20px 28px 14px"><h1>larder</h1><span class="path">~/Code/doze-dev/doze-examples/larder · up 18m</span><span class="grow"></span>
+      <div class="seg" role="group" aria-label="View"><button>Tiles</button><button>List</button><button class="on">Map</button><button>Grid <span class="tag">new</span></button></div>
+      <span class="btn quiet">Activity <kbd>A</kbd></span><span class="btn quiet">All logs <kbd>L</kbd></span>
+      <span class="swl"><b>Up</b><button class="sw big on" role="switch" aria-checked="true" aria-label="larder is up"></button></span><span class="ib" aria-label="More">⋯</span>
+    </div>
+    <div class="strip">
+      <div class="stat wide"><span class="v">536 MB<small>resident</small></span><div class="bar"><i style="width:11%;background:var(--cool)"></i><i style="width:11%;background:var(--accent)"></i><i style="width:10%;background:var(--good)"></i><i style="width:68%;background:var(--line2)"></i></div><span class="s">storefront 61 · recommendations 58 · fulfilment 52 · +11 more</span></div>
+      <div class="stat"><span class="v">0.01<small>cores</small></span><span class="s">notifications 0.9% · the rest quiet</span></div>
+      <div class="stat"><span class="v">13<small>awake</small></span><span class="s"><span class="warn">1 dozing</span></span></div>
+      <div class="stat"><span class="v">21<small>connections</small></span><span class="s">tasks ✓ 9 done · 1 not run</span></div>
+    </div>
+    <div class="map" role="img" aria-label="Larder as a map: who calls whom, left to right, with the shared services in a band below">
+      <svg class="edges" width="1222" height="650" aria-hidden="true"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7a4fe0"/></marker><marker id="ard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#d4cde6"/></marker></defs>
+          <path d="M238 205 L 258 205" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M472 205 C 482 205, 482 89, 492 89" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M472 205 L 492 205" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M472 205 C 482 205, 482 321, 492 321" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M448 168 C 448 128, 786 128, 786 167" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M448 242 C 448 272, 1026 272, 1026 243" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M742 205 L 762 205" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M976 205 L 996 205" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M742 321 C 942 321, 1126 311, 1126 243" fill="none" stroke="#7a4fe0" stroke-width="2" marker-end="url(#ar)"/>
+          
+      </svg>
+      <div class="cap" style="left:24px;top:16px">Who calls whom<span>left to right, the way a request travels</span></div>
+      <div class="cap" style="left:24px;top:372px">Nobody calls these<span>they work from events</span></div>
+      <div class="band"></div>
+      <div class="cap" style="left:24px;top:496px">Shared by the stack<span>one line each would be 16 lines; the chips on each card say who uses what</span></div>
+      <div class="node" style="left:24px;top:168px;width:214px">
+  <div class="top"><span class="dot y"></span><b>storefront</b><span class="lang">ts</span><span class="m">61 MB</span></div>
+  <div class="chips"><span class="chip quiet">no shared services</span><span class="fold" title="installed ✓" aria-label="installed ✓">✓</span></div>
+</div>
+<div class="node" style="left:258px;top:168px;width:214px">
+  <div class="top"><span class="dot g"></span><b>gateway</b><span class="lang">go</span><span class="m">46 MB</span></div>
+  <div class="chips"><span class="chip">redis</span></div>
+</div>
+<div class="node" style="left:492px;top:52px;width:250px">
+  <div class="top"><span class="dot g"></span><b>identity</b><span class="lang">go</span><span class="m">42 MB</span></div>
+  <div class="chips"><span class="chip">postgres</span><span class="chip">kafka</span><span class="fold" title="migrated ✓" aria-label="migrated ✓">✓</span></div>
+</div>
+<div class="node" style="left:492px;top:168px;width:250px">
+  <div class="top"><span class="dot g"></span><b>fulfilment</b><span class="lang">py</span><span class="m">52 MB</span></div>
+  <div class="chips"><span class="chip">kafka</span><span class="chip">aws</span><span class="fold" title="installed ✓" aria-label="installed ✓">✓</span></div>
+</div>
+<div class="node" style="left:492px;top:284px;width:250px">
+  <div class="top"><span class="dot g"></span><b>recommendations</b><span class="lang">py</span><span class="m">58 MB</span></div>
+  <div class="chips"><span class="chip">postgres</span><span class="chip">kafka</span><span class="chip">redis</span><span class="fold" title="migrated ✓" aria-label="migrated ✓">✓</span></div>
+</div>
+<div class="node" style="left:762px;top:168px;width:214px">
+  <div class="top"><span class="dot g"></span><b>orders</b><span class="lang">go</span><span class="m">47 MB</span></div>
+  <div class="chips"><span class="chip">postgres</span><span class="chip">kafka</span><span class="fold" title="migrated ✓" aria-label="migrated ✓">✓</span></div>
+</div>
+<div class="node" style="left:996px;top:168px;width:214px">
+  <div class="top"><span class="dot g"></span><b>catalog</b><span class="lang">go</span><span class="m">47 MB</span></div>
+  <div class="chips"><span class="chip">postgres</span><span class="chip">aws</span><span class="fold" title="migrated ✓" aria-label="migrated ✓">✓</span></div>
+</div>
+<div class="node" style="left:24px;top:396px;width:214px">
+  <div class="top"><span class="dot g"></span><b>payments</b><span class="lang">go</span><span class="m">47 MB</span></div>
+  <div class="chips"><span class="chip">postgres</span><span class="chip">kafka</span><span class="chip">redis</span><span class="fold" title="migrated ✓" aria-label="migrated ✓">✓</span></div>
+</div>
+<div class="node" style="left:258px;top:396px;width:214px">
+  <div class="top"><span class="dot g"></span><b>notifications</b><span class="lang">ts</span><span class="m">45 MB</span></div>
+  <div class="chips"><span class="chip">kafka</span><span class="chip">mailpit</span><span class="fold" title="installed ✓" aria-label="installed ✓">✓</span></div>
+</div>
+      <div class="inf" style="left:24px;top:522px;width:214px">
+  <div class="top"><span class="dot g"></span><b>mailpit</b><span class="m">24 MB</span></div>
+  <div class="st">brought in by you</div>
+  <div class="st"><b>used by 1</b> · notifications</div>
+</div>
+<div class="inf" style="left:258px;top:522px;width:214px">
+  <div class="top"><span class="dot g"></span><b>redis</b><span class="m">5 MB</span></div>
+  <div class="st">valkey · redis-compatible</div>
+  <div class="st"><b>used by 3</b></div>
+</div>
+<div class="inf" style="left:492px;top:522px;width:250px">
+  <div class="top"><span class="dot g"></span><b>postgres</b><span class="m">13 MB</span></div>
+  <div class="st">a schema per service</div>
+  <div class="st"><b>used by 5</b></div>
+</div>
+<div class="inf" style="left:762px;top:522px;width:214px">
+  <div class="top"><span class="dot g"></span><b>kafka</b><span class="m">24 MB</span></div>
+  <div class="st">doze kafka · 4 topics</div>
+  <div class="st"><b>used by 6</b></div>
+</div>
+<div class="inf" style="left:996px;top:522px;width:214px">
+  <div class="top"><span class="dot g"></span><b>aws</b><span class="m">25 MB</span></div>
+  <div class="st">doze aws · s3, sqs</div>
+  <div class="st"><b>used by 2</b></div>
+</div>
+      <div class="legend"><span><i></i>calls, from references in doze.hcl</span><span>chips · what it uses below</span><span><b class="ok">✓</b> its setup tasks ran</span><span>click a card to draw its lines</span></div>
+      
+    </div>
+    <div class="keys"><span><kbd>↑↓←→</kbd>move</span><span><kbd>space</kbd>wake / sleep</span><span><kbd>p</kbd>pin</span><span><kbd>⏎</kbd>open</span><span><kbd>l</kbd>logs</span><span><kbd>esc</kbd>home</span><span class="note">drag to tidy, remembered per stack</span></div>
+  </main></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
