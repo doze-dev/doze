@@ -108,7 +108,7 @@ proxy, or a download fails:
 - **Wrong address.** Use the exact endpoint from `doze status` (each instance has
   its own port, starting from your `listen` base).
 - **S3 client fails with a DNS/host error.** Enable **path-style** addressing
-  (localhost can't do virtual-host style) — see the [S3 recipe](/guides/recipes/s3/).
+  (localhost can't do virtual-host style) — see the [AWS recipe](/guides/recipes/aws/#point-your-sdk-at-it).
 - **TLS.** If you set a `tls {}` block with `required = true`, plaintext clients
   are rejected; connect with `sslmode=require`.
 
