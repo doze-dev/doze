@@ -283,6 +283,11 @@ stacks are unchanged.
   Metadata; `http://events.<stack>.doze` is the console;
   `http://registry.events.<stack>.doze/subjects` answers.
 
+The end-to-end tests of steps 3 and 4 are one test,
+`test/integration/module_names_test.go`, run by the integration workflow's
+`module-names` job on Linux and macOS against both modules' `main`. It also
+wakes each instance from sleep through its port or a route name.
+
 ### 5. Standalone doze-kafka and doze-aws without doze-names
 
 - doze-kafka: the default is `127.0.0.1:9092`, console and registry on their
