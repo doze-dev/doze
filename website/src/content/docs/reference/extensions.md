@@ -1,117 +1,80 @@
 ---
-title: "Using extensions"
+title: "Postgres extensions"
+description: Which Postgres extensions work out of the box, and how to install one that doesn't ship with Postgres.
 ---
 
+This page shows how to get a Postgres extension into a doze database, whether it ships with Postgres or not.
 
-Extensions are where "just run real Postgres" gets interesting. A Postgres
-*build* includes a fixed set of extension binaries; `CREATE EXTENSION` can only
-load what's physically present in the install's `share/extension` and library
-directories. doze declares extensions in config and creates them on
-convergence — but something has to put the files there first.
+A Postgres install can only `CREATE EXTENSION` what is on disk in its
+`share/extension` and library folders. doze creates the extensions you declare,
+but the files have to be there first. There are three ways they get there.
 
-There are four ways an extension becomes available, from easiest to most
-involved.
+## 1. Contrib extensions: already there
 
-## 1. Contrib extensions — already there
-
-The standard "contrib" set ships with every Postgres build: `uuid-ossp`,
+The standard contrib set ships with every Postgres doze runs: `uuid-ossp`,
 `pgcrypto`, `pg_stat_statements`, `pg_trgm`, `hstore`, `citext`, `btree_gin`,
-`postgres_fdw`, and many more. Just declare them:
+`postgres_fdw` and more. Declare them by name:
 
 ```hcl
-module postgres "app" {
-  version    = 16
+module postgres "db" {
+  version    = 18
   extensions = ["uuid-ossp", "pg_stat_statements", "pg_trgm"]
 }
 ```
 
-`doze doctor` classifies each declared extension and flags any third-party one
-that has no install source, so you find out before convergence, not during it.
+## 2. A bundle from a `source`
 
-## 2. Bundled into your binaries — best for the popular heavy hitters
-
-The cleanest answer for extensions everyone on your team needs (pgvector,
-PostGIS) is to **build them into the Postgres binaries you publish** (see
-[BINARIES.md](/reference/binaries/)). Your archive's `lib/` and `share/extension/`
-already contain the extension, so `CREATE EXTENSION vector` just works with
-nothing extra in the project config.
-
-This couples extension availability to the binary version — which is exactly
-what you want: one pinned artifact gives every developer the same engine *and*
-the same extensions.
-
-```hcl
-module postgres "app" {
-  version    = 16
-  extensions = ["pgvector"]   # available because the binary bundles it
-}
-```
-
-## 3. Per-extension bundles — for the long tail
-
-For extensions you don't want to bake into every binary, doze can install a
-**prebuilt bundle** into the toolchain at convergence time, then
+For an extension that does not ship with Postgres, give doze a bundle to
+install. doze copies it into the Postgres it manages, then runs
 `CREATE EXTENSION`:
 
 ```hcl
-module postgres "app" {
-  version = 16
-  extension "pgvector" {
-    version = "0.7.0"
-    source  = "https://ext.mycorp.dev/pgvector/0.7.0/pg16-x86_64.tar.gz"
+module postgres "db" {
+  version = 18
+  extension "vector" {
+    version = "0.8.0"
+    source  = "https://example.com/pgvector/pg18-aarch64-apple-darwin.tar.gz"
   }
 }
 ```
 
-`source` is a local path or http(s) URL to a `.tar.gz` whose entries are laid
-out like a partial install prefix:
+`source` is an http(s) URL or a path (relative to the folder of `doze.hcl`) to a `.tar.gz` laid out like part of a Postgres install:
 
-```
+```text
 share/extension/vector.control
-share/extension/vector--0.7.0.sql
+share/extension/vector--0.8.0.sql
 lib/vector.so
 ```
 
-doze routes `share/*` under the toolchain's `pg_config --sharedir` and `lib/*`
-under `--pkglibdir`, then runs `CREATE EXTENSION`. Bundles are keyed, by
-convention, to a (Postgres major × platform) pair — a `.so` is ABI-specific, so
-publish one bundle per `pg<major>-<triple>`.
+doze puts `share/*` under the install's `pg_config --sharedir` and `lib/*`
+under its `--pkglibdir`. A `.so` is built for one Postgres major and one
+platform, so you need one bundle per major and platform; build it against that
+Postgres' headers with `pg_config`.
 
-> **Toolchain must be writable.** Bundles install into doze-managed toolchains
-> (the share/lib dirs live in the writable cache). If you override with
-> `DOZE_POSTGRES_BINDIR` pointing at a read-only system Postgres, its share dir is
-> usually root-owned and the install will fail with a clear warning — install
-> the extension via your OS package manager instead (e.g.
-> `apt install postgresql-16-pgvector`).
+## 3. SQL-only extensions
 
-### Producing bundles
+Some extensions are only SQL or PL/pgSQL and need no shared library. Their
+bundle has just the `.control` and `.sql` files, with no `lib/`. This is the
+lightest `source` bundle, good for in-house helpers. It is not an option for C
+extensions such as pgvector.
 
-In the same separate build repo that produces your binaries, add a matrix job
-that, per (extension × pg-major × target), builds the extension against that
-Postgres' headers (`pg_config`), then tars up the resulting
-`share/extension/*` and `lib/*.so`. Publish them next to your binaries with
-their own checksums.
+## The `extension` block
 
-## 4. Trusted Language Extensions (TLE) — no filesystem access
+| Field | Type | Default | What it does |
+|---|---|---|---|
+| `version` | string | the default in its `.control` file | The extension version to create. |
+| `schema` | string | none | The schema to install it into. |
+| `source` | string | none | A bundle to install from: a URL or a local path. |
+| `optional` | bool | `false` | Warn and carry on if the extension is not available, instead of failing. |
+| `cascade` | bool | `false` | `CREATE EXTENSION … CASCADE`, so its dependencies are created too. |
 
-Some extensions are pure SQL / PL/pgSQL and need no shared library at all. These
-can be delivered as a `share/extension` bundle with just a `.control` and
-`.sql` (no `lib/`), which is the lightest possible `source` bundle. This is also
-the model [pg_tle](https://github.com/aws/pg_tle) generalizes: install the TLE
-loader once (as a bundled or system extension), then register pure-SQL
-extensions as data. Good for in-house helper extensions; not an option for C
-extensions like pgvector.
+`extensions = [ … ]` is the short form: one name each, no other fields.
 
-## Recommendation
+## When an extension is missing
 
-- **Contrib**: declare and go.
-- **pgvector / PostGIS and other team-wide must-haves**: bundle them into your
-  self-hosted binaries (option 2). One pinned artifact, zero per-project setup.
-- **Occasional / project-specific extensions**: per-extension `source` bundles
-  (option 3).
-- **In-house SQL-only helpers**: ship them as lightweight TLE-style bundles
-  (option 4).
+An extension that is neither on disk nor installable from its `source` stops
+the database from converging, and the error says so: declare a `source`, use a
+Postgres build that includes it, or set `optional = true`. With
+`optional = true`, doze logs a warning and starts the database without it.
 
-In all cases, `doze doctor` will tell you up front whether a declared extension
-is satisfiable, and convergence warns (rather than aborting the boot) when one
-isn't — so a missing optional extension never blocks development.
+The other Postgres fields are on [Postgres](/services/postgres/).

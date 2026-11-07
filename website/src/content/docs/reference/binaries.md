@@ -1,147 +1,88 @@
 ---
-title: "Managing binaries"
+title: "Binaries"
+description: Where the engine binaries doze runs come from, how they are checked and pinned, and where they live on disk.
+redirect_from: ["/operate/mirror-binaries/"]
 ---
 
+This page explains where the engine binaries come from and where doze keeps them, so you know what runs on your machine.
 
-doze runs real, unmodified engine binaries. It never compiles anything at
-runtime — it resolves an `(engine, version)` to a directory of executables and
-runs them. This document covers how that resolution works, how versions are
-pinned for reproducibility, and how to host your own mirror.
+doze runs real, unmodified engines: the actual `postgres`, `valkey-server`,
+`mariadbd`. It never compiles anything at runtime. It turns an engine and a
+version into a folder of executables and runs them.
 
-> **Scope.** This is the **engine binaries** supply chain (Postgres 16.14.0,
-> valkey-server, …), fetched by each engine's *module* from the checksum-only
-> [doze-binaries](https://github.com/doze-dev/doze-binaries) mirror. The
-> **modules themselves** (the plugins providing each engine) come from the
-> *signed registry* — a separate chain with ed25519 signatures and TOFU key
-> pinning, covered in [Core concepts → Engines are modules](/start/concepts/#engines-are-modules)
-> and the [modules reference](/reference/configuration/#modules). Both pin
-> into the same `doze.lock`.
+There are two supply chains, and both pin into [`doze.lock`](/reference/lockfile/):
 
-## Resolution order
+| What | From | Checked by |
+|---|---|---|
+| **Modules**, the plugins that run each engine | the [doze registry](/contribute/registry/) | an ed25519 signature, with the registry's key compiled into doze |
+| **Engine binaries**, the engines themselves | [doze-binaries](https://github.com/doze-dev/doze-binaries) | a checksum from the engine's index, then pinned in `doze.lock` |
 
-For a given `(engine, version)`, doze tries, cheapest first:
+A module asks doze for its binaries, so a module never carries its own
+downloader.
 
-1. **`DOZE_<ENGINE>_BINDIR`** — an explicit bin directory used for that engine
-   (e.g. `DOZE_POSTGRES_BINDIR`, `DOZE_VALKEY_BINDIR`). The escape hatch for CI,
-   tests, and local builds. Bypasses the lock.
-2. **Content-addressed cache** — `<home>/<engine>/<full>-<triple>/bin`, e.g.
-   `~/.doze/postgres/16.14.0-aarch64-apple-darwin/bin`. Keyed by the full version
-   and target triple in the shared home, so patches never collide and every
-   project on the machine reuses one download.
-3. **Download** — from the [doze-binaries](https://github.com/doze-dev/doze-binaries)
-   mirror (or your own), verified against a checksum and extracted into the cache.
+## doze-binaries
 
-doze deliberately has **no system fallback**. It only ever runs binaries it
-manages — the override, the cache, or a verified download — so the engine is
-identical on every machine. To use an existing local build, point
-`DOZE_<ENGINE>_BINDIR` at it.
+[doze-binaries](https://github.com/doze-dev/doze-binaries) builds each engine
+from upstream source in public CI, bundles the libraries it needs, tests it
+from a moved folder, and publishes it. Each engine has its own rolling GitHub
+release (the tag is the engine's name), so one slow engine never holds up the
+rest. Each release has an `index.yaml` that maps majors to full versions and
+names every archive with its checksum.
 
-A version is either a **major** (`16` → the newest minor the mirror has) or an
-**exact** full version (`"16.14"`). `doze binaries available [engine]` lists what the
-mirror offers, marking which versions are installed and pinned.
+Publishing is append-only: a published archive never changes or disappears, so
+every committed `doze.lock` keeps resolving.
 
-## The lockfile
+Platforms:
 
-`doze.lock` lives next to `doze.hcl` and is meant to be committed. It is doze's
-`go.sum`: it pins each `(engine, version)` to an exact resolved version and
-records the checksum each platform's archive was verified against. It is YAML
-(an older JSON lockfile still loads — JSON is a YAML subset — and is rewritten as
-YAML on the next change).
+| Triple | Machine |
+|---|---|
+| `aarch64-apple-darwin` | Apple silicon Mac |
+| `aarch64-unknown-linux-gnu` | 64-bit Arm Linux |
+| `x86_64-unknown-linux-gnu` | 64-bit Intel and AMD Linux |
 
-```yaml
-engines:
-  postgres:
-    "16":
-      resolved: 16.14.0
-      source: mirror
-      hashes:
-        x86_64-unknown-linux-gnu: "sha256:1f3a…"
-        aarch64-apple-darwin: "sha256:9b22…"
-  valkey:
-    "9":
-      resolved: 9.1.0
-      source: mirror
-      hashes: { … }
-```
+Intel Macs are not supported. The list of versions each engine ships is in
+doze-binaries' `versions.yaml`.
 
-- The first run on a machine resolves the version, downloads it, verifies the
-  checksum, and writes the pin (recording this platform's hash). Teammates on the
-  same platform get a byte-identical binary; another platform adds its hash on
-  first download.
-- A locked hash that doesn't match a freshly downloaded archive is a **hard
-  error** — tampering or a moved release is caught.
+## How doze finds a binary
 
-```
-doze binaries list          # declared instances: pinned + cached toolchains
-doze binaries which <name>  # resolve and print an instance's bin directory
-doze binaries available [engine]      # versions the mirror offers (installed/pinned marked)
-```
+For an engine and a version, doze tries, cheapest first:
 
-## Hosting your own mirror
+1. **The cache.** `~/.doze/<engine>/<full>-<triple>/bin`, for example
+   `~/.doze/postgres/18.6.0-aarch64-apple-darwin/bin`. Keyed by full version
+   and platform in the shared home, so every project on the machine reuses one
+   copy.
+2. **A verified download** from doze-binaries, checked against the checksum in
+   the index and, when there is one, the pin in `doze.lock`, then unpacked
+   into the cache.
 
-The default mirror is the companion repo
-[`doze-dev/doze-binaries`](https://github.com/doze-dev/doze-binaries), which
-builds the engines in CI and publishes them (append-only). **Each engine has its
-own rolling release** (tag = the engine name), so a slow or failing engine never
-holds up the rest; doze resolves each engine from `…/releases/download/<engine>`.
-Point doze elsewhere with a per-engine or global override:
+There is no system fallback. doze runs only binaries it manages, so the engine
+is the same on every machine. A Postgres you installed with Homebrew or apt is
+never used.
 
-```sh
-export DOZE_MIRROR=https://bin.mycorp.dev          # all engines (engine name is
-                                                   # appended: …/postgres, …/valkey)
-export DOZE_POSTGRES_MIRROR=https://pg.mycorp.dev  # just one engine (used as-is)
-```
+A version is a major (`version = 18`, the newest 18.x the index has, then
+pinned) or exact (`version = "18.1"`). The engine versions each module supports
+are on its page under [Services](/services/postgres/).
 
-A mirror is static files behind a base URL (`http(s)://` or `file://` for a local
-path): a per-engine `index.yaml` plus the archives it names. `DOZE_MIRROR` is a
-root that the engine name is joined to; `DOZE_<ENGINE>_MIRROR` is the exact base
-for that one engine.
+## Checks
 
-### The manifest
+- The first run on a machine resolves the version, downloads it, checks the
+  checksum and writes the pin with this platform's hash. A teammate on another
+  platform adds that platform's hash on their first run.
+- A download whose checksum does not match the pin is an error. doze unpacks
+  nothing and names both checksums.
+- A pinned and cached engine starts with no network at all.
 
-`<engine-base>/index.yaml` carries that engine's slice of the schema: a
-`major → full` map and, per full version, a `triple → artifact` map with
-checksums. (The shape is multi-engine so a single combined index also validates,
-but each release ships only its own engine.)
+## On disk
 
-```yaml
-engines:
-  postgres:
-    versions:
-      "16": 16.14.0
-      "17": 17.10.0
-    artifacts:
-      16.14.0:
-        x86_64-unknown-linux-gnu:
-          url: postgresql-16.14.0-x86_64-unknown-linux-gnu.tar.gz
-          sha256: "1f3a…"
-        aarch64-apple-darwin:
-          url: "…"
-          sha256: "…"
-```
+Everything lives under the shared home, `~/.doze` (or `$DOZE_HOME`).
 
-`url` may be relative to the mirror base (as above) or absolute (an S3/CDN URL).
-Each archive contains a `bin/` directory with the engine's executables, ideally
-**relocatable** so doze can run it from the cache. Archive naming is
-`<engine>-<full>-<triple>.tar.gz` (Postgres keeps the `postgresql-` prefix and a
-three-part version).
+| Path | What it holds |
+|---|---|
+| `~/.doze/<engine>/<full>-<triple>/` | Engine binaries. |
+| `~/.doze/modules/doze/<module>/` | Module releases. |
+| `~/.doze/downloads/` | What `service` blocks with a `download` fetched. |
+| `~/.doze/projects/<slug>/` | Each project's data, sockets and logs (`data_dir`). |
 
-### Building and publishing
-
-Building, packaging, and publishing the binaries — and generating `index.yaml` —
-lives in the [`doze-binaries`](https://github.com/doze-dev/doze-binaries) repo,
-not in doze itself: it's a different cadence, toolchain, and review surface.
-Fork it (or build your own) to control your supply chain. It builds only what
-upstreams lack (Postgres, Kvrocks, Valkey/macOS), re-hosts the rest, and is
-**append-only** so committed `doze.lock` files keep resolving forever.
-
-Because doze verifies checksums from `index.yaml` and pins them in `doze.lock`,
-the supply chain is end-to-end integrity-checked: the manifest names the hash,
-doze enforces it, and the lockfile freezes it for the whole team.
-
-### Air-gapped environments
-
-The same mechanism works fully offline: mirror each engine's archives +
-`index.yaml` onto an internal host (or a local directory via
-`DOZE_MIRROR=file:///path`, with a `<engine>/` subdir per engine), commit
-`doze.lock`, and the cache does the rest. No outbound internet is needed.
+The caches are safe to delete when no stack is running: doze downloads again
+on the next wake, checked against the same pins. A project's data is not a
+cache; delete it with `doze reset <name>`.
