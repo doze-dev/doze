@@ -216,7 +216,7 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible { outline: none; 
 .map .mscroll { position: absolute; inset: 0; overflow: auto; }
 .map .canvas { position: relative; min-width: 100%; min-height: 100%; }
 .map svg.edges { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 1; }
-.map .edge { fill: none; stroke: var(--accent); stroke-width: 2; transition: stroke .2s; }
+.map .edge { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; transition: stroke .2s; }
 .map .edge.dim { stroke: var(--line2); stroke-width: 1.5; }
 .map .use { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; }
 .map .cap { position: absolute; z-index: 2; padding: 0 4px; margin-left: -4px; border-radius: 4px; background: var(--well); font-size: var(--text-xs); line-height: 16px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }

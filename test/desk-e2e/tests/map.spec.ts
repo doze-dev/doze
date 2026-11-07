@@ -17,9 +17,12 @@ async function behindCards(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const canvas = document.querySelector(".flow .canvas") as HTMLElement;
     const at = canvas.getBoundingClientRect();
+    // A map a little too wide is drawn smaller (zoom); the lines are in the
+    // canvas's own units, so the cards are measured in them too.
+    const z = at.width / Number.parseFloat(canvas.style.width);
     const cards = [...document.querySelectorAll<HTMLElement>(".flow .node, .flow .inf")].map((c) => {
       const r = c.getBoundingClientRect();
-      return { name: c.dataset.name ?? "", x: r.left - at.left, y: r.top - at.top, w: r.width, h: r.height };
+      return { name: c.dataset.name ?? "", x: (r.left - at.left) / z, y: (r.top - at.top) / z, w: r.width / z, h: r.height / z };
     });
     const bad: string[] = [];
     for (const p of document.querySelectorAll<SVGPathElement>(".flow svg path[data-from]")) {

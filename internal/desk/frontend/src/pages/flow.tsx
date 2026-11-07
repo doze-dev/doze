@@ -13,6 +13,22 @@ export function MapFlow({ m, rows, lit, onLit, stackKey }: { m: view.MapView; ro
   const byName = new Map(rows.map((r) => [r.name, r]));
   const nodes = m.nodes ?? [];
   const shared = m.shared ?? [];
+  // A map a little wider than its box is drawn a little smaller, so the
+  // whole of it shows at 1280 wide; a much wider one scrolls instead.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(1);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.clientWidth / m.w;
+      setFit(r < 1 && r >= 0.88 ? r : 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [m.w]);
   const litNode = nodes.find((n) => n.name === lit);
   const litShared = shared.find((s) => s.name === lit);
   // What a selection keeps lit: a card's callers, what it calls and what it
@@ -54,16 +70,16 @@ export function MapFlow({ m, rows, lit, onLit, stackKey }: { m: view.MapView; ro
   const litRow = byName.get(lit);
   return (
     <div className="map flow" role="group" aria-label="The stack as a map: who calls whom, left to right, with the shared services in a band below">
-      <div className="mscroll">
-        <div className="canvas" style={{ width: m.w, height: m.h }}>
+      <div className="mscroll" ref={scroller}>
+        <div className="canvas" style={{ width: m.w, height: m.h, zoom: fit }}>
           {m.band > 0 && <div className="band" style={{ top: m.band }} />}
           <svg className="edges" width={m.w} height={m.h} aria-hidden="true">
             <defs>
-              <marker id="flow-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0 0L10 5L0 10z" style={{ fill: "var(--accent)" }} />
+              <marker id="flow-ar" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M1.5 1.5L11 6L1.5 10.5L4.2 6Z" style={{ fill: "var(--accent)", stroke: "var(--accent)", strokeWidth: 1, strokeLinejoin: "round" }} />
               </marker>
-              <marker id="flow-ard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0 0L10 5L0 10z" style={{ fill: "var(--line2)" }} />
+              <marker id="flow-ard" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M1.5 1.5L11 6L1.5 10.5L4.2 6Z" style={{ fill: "var(--line2)", stroke: "var(--line2)", strokeWidth: 1, strokeLinejoin: "round" }} />
               </marker>
             </defs>
             {(m.edges ?? []).map((e) => (

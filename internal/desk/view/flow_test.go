@@ -29,18 +29,19 @@ func TestLarderMap(t *testing.T) {
 	for _, n := range m.Nodes {
 		at[n.Name] = n
 	}
-	// The board's places: storefront → gateway → identity, fulfilment,
-	// recommendations → orders → catalog.
+	// The board's places, with 40 px between columns where the board has 20
+	// so a line can bend and its arrowhead land: storefront → gateway →
+	// identity, fulfilment, recommendations → orders → catalog.
 	want := map[string][4]int{
 		"storefront":      {24, 168, 214, 74},
-		"gateway":         {258, 168, 214, 74},
-		"identity":        {492, 52, 250, 74},
-		"fulfilment":      {492, 168, 250, 74},
-		"recommendations": {492, 284, 250, 74},
-		"orders":          {762, 168, 214, 74},
-		"catalog":         {996, 168, 214, 74},
+		"gateway":         {278, 168, 214, 74},
+		"identity":        {532, 52, 250, 74},
+		"fulfilment":      {532, 168, 250, 74},
+		"recommendations": {532, 284, 250, 74},
+		"orders":          {822, 168, 214, 74},
+		"catalog":         {1076, 168, 214, 74},
 		"payments":        {24, 396, 214, 74},
-		"notifications":   {258, 396, 214, 74},
+		"notifications":   {278, 396, 214, 74},
 	}
 	for name, w := range want {
 		n, ok := at[name]
@@ -106,8 +107,8 @@ func TestLarderMap(t *testing.T) {
 	if rows["needs"] != "catalog · and postgres, kafka below|" || rows["needed by"] != "gateway, fulfilment · they keep it awake|" || rows["before it"] != "migrate-orders ✓|16m ago" {
 		t.Errorf("orders detail %q", rows)
 	}
-	if m.Detail != (MapAt{762, 14}) {
-		t.Errorf("detail at %+v, the board's is at 762,14", m.Detail)
+	if m.Detail != (MapAt{842, 14}) {
+		t.Errorf("detail at %+v, want 842,14 (the board's 762, moved with the wider gaps)", m.Detail)
 	}
 
 	// Every call is drawn, and no line passes behind a card.

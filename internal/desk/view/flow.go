@@ -1,6 +1,7 @@
 package view
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -136,7 +137,7 @@ type MapLine struct {
 // The board's measures, in CSS pixels.
 const (
 	flowLeft    = 24  // the first column's left
-	flowGap     = 20  // between columns
+	flowGap     = 40  // between columns: room for a line to bend and an arrowhead to land
 	flowCardW   = 214 // a card's usual width
 	flowWide    = 36  // a column grows by this for a long name
 	flowCardH   = 74  // an app card
@@ -834,10 +835,18 @@ func (r *router) call(from string, s, t box) path {
 	sx, sy := float64(s.right()), float64(s.cy())
 	tx, ty := float64(t.x), float64(t.cy())
 	try := func(p path) bool { return p.clear(r.cards, s, t) }
-	// Side to side, when nothing stands between.
+	// Side to side, when nothing stands between: straight across on one row;
+	// to a card above or below, out a short way, a rounded bend, and in
+	// level, so the arrowhead lands flat on the card's side. Lines leaving
+	// one card for several share that first stretch, as a trunk.
 	if t.x > s.right() {
-		mx := (sx + tx) / 2
-		if p := curve(pt{sx, sy}, pt{mx, sy}, pt{mx, ty}, pt{tx, ty}); try(p) {
+		if sy == ty {
+			if p := curve(pt{sx, sy}, pt{(sx + tx) / 2, sy}, pt{(sx + tx) / 2, ty}, pt{tx, ty}); try(p) {
+				return p
+			}
+		}
+		bx := sx + math.Min(14, (tx-sx)/3)
+		if p := elbow(pt{sx, sy}, pt{bx, sy}, pt{bx, ty}, pt{tx, ty}); try(p) {
 			return p
 		}
 	}
