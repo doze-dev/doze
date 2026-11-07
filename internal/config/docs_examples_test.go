@@ -189,6 +189,11 @@ func TestDocExamplesParse(t *testing.T) {
 				// An override file: it changes blocks shown elsewhere.
 				continue
 			}
+			if firstLine(f.src) == "# 0.1" {
+				// The 0.1 side of a before/after in the upgrade guide: an old
+				// form, shown on purpose.
+				continue
+			}
 			if !declares.MatchString(f.src) {
 				// Part of a block. Not a config, but it must not teach a dead form.
 				if m := oldHeader.FindString(f.src); m != "" {
