@@ -1,0 +1,157 @@
+---
+title: ⌘K and keys
+description: The ⌘K palette, and every key the app answers to, page by page.
+---
+
+import Shot from "@docs/Shot.astro";
+import Keys from "@docs/Keys.astro";
+import palette from "../../../assets/app/palette.webp";
+import typed from "../../../assets/app/palette-typed.webp";
+
+Reach any stack, service or command from the keyboard, and look up every key.
+
+Press <kbd>?</kbd> (or <kbd>⌘/</kbd>) anywhere in the app for the same list, and
+for what each state word means.
+
+## ⌘K: search or do
+
+<kbd>⌘K</kbd>, or **Search or do** at the top right, opens the palette on every
+page. It reaches across every stack on the machine.
+
+<Shot src={palette} alt="The palette open on the larder stack with nothing typed: suggested commands, the two stacks, and Open folder" caption="Nothing typed: commands for the page you are on, then every stack." crop />
+
+With nothing typed it shows what is broken, a few commands for the page on
+screen, what you did lately, and every stack. A command that has a `doze` twin
+shows it, such as `doze sleep`.
+
+Type to search, then:
+
+- **A name** finds a service or a stack. <kbd>⏎</kbd> opens it.
+- **<kbd>tab</kbd> on a name** narrows the palette to its commands: restart,
+  logs and the rest. <kbd>⇧tab</kbd>, or <kbd>⌫</kbd> in an empty box,
+  steps back out.
+- **A name, then words** is a command for it (`gateway restart`, `postgres psql`)
+  or, when the words are not a command, a search of its logs (`gateway timeout`).
+- **A verb, then a name** works too: `sleep postgres`, `logs gateway`.
+- **`theme teal`** changes the colour theme.
+
+A copy says so in place and leaves the palette open for the next thing.
+
+<Shot src={typed} alt="The palette with gateway typed: one row, gateway in larder, awake, 46 MB, with tab for its commands" caption="gateway typed: tab shows its commands." crop />
+
+## Anywhere
+
+<Keys
+  keys={[
+    ["⌘K", "search a name, or type a verb and a name"],
+    ["⌘0", "Home"],
+    ["⌘1–9", "a stack's tab"],
+    ["⌘O", "open a folder"],
+    ["esc", "up a level: a service or the logs to its stack, a stack to Home"],
+    ["⌘[ ⌘]", "back, forward, the way you came"],
+    ["⌘L", "all logs of the stack"],
+    ["⌘⇧N", "Needs you: what is broken or worth doing"],
+    ["⌘,", "Settings"],
+    ["? ⌘/", "every key, and what the words mean"],
+    ["⌘W", "close the window; stacks keep running"],
+    ["⌘Q", "quit the app; stacks keep running"],
+    ["⌘⇧D", "open doze, from the menu bar"],
+  ]}
+/>
+
+## Home
+
+<Keys
+  keys={[
+    ["↑ ↓ j k", "move"],
+    ["space", "bring the stack up or down"],
+    ["⏎", "open the stack"],
+    ["⌫", "remove from doze; files stay"],
+  ]}
+/>
+
+## A stack
+
+<Keys
+  keys={[
+    ["1–4", "Tiles, List, Map, Grid"],
+    ["↑ ↓ j k", "move"],
+    ["space", "wake or sleep the selected one; a task: run it"],
+    ["⏎", "open it"],
+    ["w s", "wake, sleep"],
+    ["p", "pin it awake, or unpin"],
+    ["r", "restart it; a task: run it"],
+    ["l", "its logs"],
+    ["y", "copy its address"],
+    ["/", "filter"],
+    ["A", "Activity"],
+    ["L", "all logs"],
+  ]}
+/>
+
+When the stack is stopped, <kbd>space</kbd> starts it with the selected service,
+<kbd>u</kbd> brings it up as last time, and <kbd>c</kbd> chooses what starts.
+
+In the **Map**, the arrow keys move between cards the way they are drawn. In the
+**Grid**, an arrow key or <kbd>⏎</kbd> moves into the table; there the arrows
+move between cells, <kbd>⏎</kbd> opens the service of that column, <kbd>o</kbd>
+opens the row, <kbd>space</kbd> wakes or sleeps it, and <kbd>/</kbd> filters
+rows.
+
+## A service
+
+<Keys
+  keys={[
+    ["esc", "up to the stack"],
+    ["w s", "wake, sleep"],
+    ["p", "pin it awake, or unpin"],
+    ["r", "restart; a task: run it"],
+    ["o", "open in a browser"],
+    ["y", "copy its connect line"],
+    ["l", "its logs"],
+    ["⏎", "a task: run it"],
+  ]}
+/>
+
+A crashing service: <kbd>r</kbd> tries now, <kbd>s</kbd> stops trying. While a
+console tab has the keyboard, letters are the console's own actions.
+
+## Logs
+
+<Keys
+  keys={[
+    ["/", "filter the text"],
+    ["1–4", "level: debug, info, warnings, errors"],
+    ["t", "relative or clock time"],
+    ["[ ]", "earlier, later run"],
+    ["space", "pause or follow"],
+    ["c", "copy what is shown"],
+  ]}
+/>
+
+## Needs you, dialogs and Settings
+
+<Keys
+  keys={[
+    ["⏎", "Needs you: apply an item's fix"],
+    ["⌘⏎", "Needs you: show the item"],
+    ["n", "Needs you: not now"],
+    ["y n", "a restart question: yes, no"],
+    ["c", "Settings › Machine: copy the report"],
+  ]}
+/>
+
+## The same as commands
+
+Every key is a `doze` command too, for scripts and CI:
+
+```sh
+doze sleep postgres      # s
+doze wake postgres       # w
+doze pin postgres        # p
+doze restart gateway     # r
+doze logs gateway        # l
+doze url gateway         # y
+```
+
+Next: [Menu bar and notifications](/app/menu-bar/).

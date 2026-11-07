@@ -1,0 +1,109 @@
+---
+title: Settings and Doctor
+description: The app's settings, the machine's setup part by part, and Repair when a part is missing.
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Steps from "@docs/Steps.astro";
+import settings from "../../../assets/app/settings.webp";
+import machine from "../../../assets/app/machine.webp";
+
+Change how the app looks and starts, see what doze set up on this machine, and
+put back a part that is missing.
+
+Open Settings with <kbd>⌘,</kbd>, **Settings** on Home, or **Settings…** in the
+menu bar. It has three pages: General, Machine and About. Settings are saved as
+you change them, in `~/.doze/desk/prefs.json`.
+
+## General
+
+<Shot src={settings} alt="Settings, General: Mode, List rows, Colour theme with five themes, and Startup" caption="General. The violet theme, rows at their roomiest, following the system's mode." crop />
+
+- **Mode:** System, Light or Dark. System follows the system as it changes.
+- **List rows:** Compact, Cosy or Roomy, for Home and a stack's List.
+- **Colour theme:** the terminal's five, violet, teal, burgundy, amber and
+  slate, each drawn light or dark as the mode says. `theme teal` in
+  [⌘K](/app/keys/) does the same.
+- **Startup:** **Open at login, in the menu bar only** starts the bat at login
+  with no window. **Reopen the page I had, when the window opens** brings you
+  back where you were.
+
+## Machine
+
+**Machine** is what doze set up on this machine, part by part: the same report
+as `doze doctor`, with the fixes attached. The Machine line at the bottom of
+Home is a short form of it.
+
+<Shot
+  src={machine}
+  alt="Settings, Machine: everything in place, with the network, the resolver route and doze on PATH, and nothing left behind"
+  caption="Machine with everything in place."
+  callouts={[
+    { n: 1, x: 22, y: 18, title: "The summary.", text: "Everything in place, or how many parts are not, with Repair." },
+    { n: 2, x: 22, y: 25, title: "Names.", text: "The network daemon and the resolver route, shared with doze AWS and doze Kafka." },
+    { n: 3, x: 22, y: 38, title: "The app.", text: "Whether a terminal finds doze on its PATH." },
+    { n: 4, x: 22, y: 49, title: "Left behind.", text: "Processes, data and routes no stack on Home owns." },
+  ]}
+/>
+
+The parts:
+
+- **Names:** the network daemon that gives each service its own loopback
+  address, and the resolver route for `.doze`. See
+  [Install the app](/start/install/#what-the-one-password-sets-up).
+- **Domains:** for each domain a stack declares, its route, and the local
+  certificate authority. Shown only when some stack declares one. See
+  [Domains and HTTPS](/app/domains/).
+- **The app:** `doze` on your `PATH`, so a terminal and scripts find it.
+
+A part that is not in place says why, and **Copy fix** copies the command that
+puts it there.
+
+### Repair a missing part
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Open Settings › Machine.** The banner says how many parts are not in place.
+2. **Press Repair** and type your password into the system's prompt: macOS's
+   own, or polkit's on Linux. One prompt for each part that needs root.
+3. **Read the report again.** It refreshes when the repair ends.
+
+</Steps>
+
+On Home, the same repair is the Machine line's **Set up (one password)**.
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze doctor               # the same report
+doze doctor --fix         # the names setup, one sudo
+doze doctor --print-fix   # the script, to read first
+doze trust                # in a stack with domains: its routes and the authority
+```
+
+</Fragment>
+</HowTo>
+
+### Left behind
+
+**Left behind** lists what stacks left out of step with doze: a process whose
+daemon died, a daemon for a stack no longer on Home, data with no stack, a route
+for a folder that is gone. Each has its own button. **Clean up** stops the stray
+processes and removes the stale routes in one go; it never deletes data. Data is
+deleted one folder at a time, after asking. **Look again** checks once more.
+
+**Copy report** (<kbd>c</kbd>) copies the whole page as text, for a bug report.
+
+## About
+
+The version, and whether a newer doze is out. **Check for Updates…** in the
+menu bar checks now. To update, `brew upgrade doze`, or the new package;
+running stacks keep running. The app and the command line are one binary, so
+they update together.
+
+Next: [Apps](/hcl/apps/), the first page about `doze.hcl`.

@@ -1,0 +1,134 @@
+---
+title: Library and stacks
+description: Home, the list of every stack on this machine, and how to add, start, stop and remove one.
+redirect_from: ["/cli/app/", "/cli/dashboard/"]
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Shot from "@docs/Shot.astro";
+import Keys from "@docs/Keys.astro";
+import Steps from "@docs/Steps.astro";
+import library from "../../../assets/app/library.webp";
+
+Find every stack on this machine in one place, and start, stop or remove one.
+
+The app is one window for every stack, and a bat in the menu bar that stays
+when the window closes. Its first tab is **Home**, the library of stacks. Home
+never closes. Each stack you open gets a tab beside it.
+
+## Home
+
+<Shot
+  src={library}
+  alt="Home with two stacks, larder up and acme stopped, and the Machine line at the bottom"
+  caption="Home with Larder, the made-up grocery example, up, and a second stack stopped."
+  callouts={[
+    { n: 1, x: 7, y: 28, title: "A stack.", text: "Its name, its folder, and how many services it declares." },
+    { n: 2, x: 31, y: 28, title: "Running.", text: "How many are awake and dozing, the memory they use, and open connections. A stopped stack says what started last time." },
+    { n: 3, x: 64, y: 27, title: "Addresses.", text: "Its apps' URLs, a click away." },
+    { n: 4, x: 92, y: 29, title: "The switch.", text: "On brings the stack up as last time; off brings it down." },
+    { n: 5, x: 95.5, y: 29, title: "⋯", text: "Start everything, choose what starts, restart, edit doze.hcl, show in Finder, remove." },
+    { n: 6, x: 5, y: 92, title: "Machine.", text: "Whether names are set up here, with Set up when they are not." },
+  ]}
+/>
+
+Running stacks come first. Double-click a row, or select it and press
+<kbd>⏎</kbd>, to open the stack in its own tab.
+
+Bare `doze` in a terminal opens the app too, on the stack of the folder you are
+in. Over SSH, with no screen, `doze` prints the status table instead.
+
+## Add a stack
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Drop a project folder anywhere on the window,** or press <kbd>⌘O</kbd> and
+   pick it.
+2. **A folder with a `doze.hcl` appears on Home, stopped.** Opening a folder
+   never starts it.
+3. **A folder without one** opens on what doze found in it and the three ways
+   to start. See [Bring your own repo](/start/your-repo/).
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze open ~/code/larder      # a tab for the project; the current folder by default
+```
+
+</Fragment>
+</HowTo>
+
+## Start and stop a stack
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Flip the stack's switch on.** It starts what was running last time.
+2. **For something else, open the ⋯ menu.** **Start everything** starts all
+   declared services. **Choose what starts…** (<kbd>c</kbd>) opens a sheet where
+   you tick the apps you will work on; what they need comes too.
+3. **Flip the switch off** to bring the stack down. Data stays.
+
+</Steps>
+
+On a stopped stack's page, turning one service on starts the stack with just
+that service and what it needs.
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze up              # asks to start the same as last time, when that was less than everything
+doze up --last       # what started last time, without asking
+doze up --all        # everything, without asking
+doze up gateway      # gateway and what it needs
+doze down            # sleep everything and stop the stack's daemon
+```
+
+</Fragment>
+</HowTo>
+
+## Remove a stack
+
+Select it and press <kbd>⌫</kbd>, or choose **Remove from doze…** in its ⋯
+menu. A running stack is stopped first. Its folder, its `doze.hcl` and its data
+all stay; open the folder again to bring it back.
+
+## Quitting
+
+Quitting the app (<kbd>⌘Q</kbd>, or **Quit doze** in the menu bar) leaves every
+stack running. The app shows the stacks; their daemons run them. Closing the
+window (<kbd>⌘W</kbd>) leaves the bat in the menu bar. The app writes its own
+log to `~/.doze/desk/app.log`.
+
+## Links into the app
+
+`doze://larder` opens the larder stack, `doze://larder/postgres` its postgres
+service, and `doze://library` and `doze://settings` those pages. Put one in a
+README or a runbook.
+
+## Keys
+
+<Keys
+  keys={[
+    ["↑ ↓ j k", "move"],
+    ["space", "bring the stack up or down"],
+    ["⏎", "open it"],
+    ["⌫", "remove from doze; files stay"],
+    ["⌘O", "open a folder"],
+    ["⌘0", "Home"],
+    ["⌘1–9", "a stack's tab"],
+  ]}
+/>
+
+Every key is listed under [⌘K and keys](/app/keys/).
+
+Next: [Tiles, List, Map and Grid](/app/views/).

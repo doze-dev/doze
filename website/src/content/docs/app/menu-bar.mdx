@@ -1,0 +1,99 @@
+---
+title: Menu bar and notifications
+description: The bat in the menu bar, what its menu offers, and when doze sends a notification.
+---
+
+import HowTo from "@docs/HowTo.astro";
+import Steps from "@docs/Steps.astro";
+
+Run doze from the menu bar with the window closed, and know when something
+needs you.
+
+## The bat
+
+doze puts a bat in the menu bar. It stays when you close the window
+(<kbd>⌘W</kbd>), so stacks are a click away without the window. The bat never
+shows a number. When something is broken it gets a red dot; hover it for a line
+such as `doze · 13 awake`.
+
+On Linux the bat lives in the system tray, which needs AppIndicator support;
+the deb and rpm packages recommend it.
+
+## The menu
+
+From the top:
+
+- **Needs you**, only when something is broken: up to three items, newest first.
+  Each opens to say what is wrong, with its fix and
+  **Show in doze**. A last line counts the things worth doing and opens the
+  bell's panel.
+- **Stacks**: one line per stack. ● is running, ○ stopped, ⚠ in trouble. The
+  line under the name says how it is: `13 awake · 1 dozing · 536 MB`,
+  `up 3d ago`, or the service that is in trouble and why. Running stacks come
+  first; past eight running or five stopped, the rest are under
+  **More stacks**. A stack in trouble is always listed.
+- **Open doze** (<kbd>⌘⇧D</kbd>), **Settings…** (<kbd>⌘,</kbd>),
+  **Check for Updates…**
+- **Quit doze · stacks keep running.**
+
+Each stack's line opens a submenu of what fits its state:
+
+| Running stack | Stopped stack |
+|---|---|
+| Open in doze | Open in doze |
+| Open its web address, when it has an app with one | Up as last time |
+| Sleep everything | Up everything |
+| Restart | |
+| Down | |
+
+When starting a stopped stack would run into something, such as a port another
+process holds, the window opens on the stack to ask first.
+
+## Start with the menu bar only
+
+<HowTo>
+<Fragment slot="app">
+
+<Steps>
+
+1. **Open Settings** (<kbd>⌘,</kbd>).
+2. **Under Startup, turn on Open at login, in the menu bar only.** At login the
+   bat appears and the window does not.
+3. **Optionally, turn on Reopen the page I had, when the window opens,** to come
+   back where you left off.
+
+</Steps>
+
+</Fragment>
+<Fragment slot="terminal">
+
+```sh
+doze open        # open the window at this project
+```
+
+Open at login is a setting of the app; there is no command for it.
+
+</Fragment>
+</HowTo>
+
+## Notifications
+
+doze sends a system notification for three things only:
+
+- **a crash**: `orders crashed · larder`, with the error and the try it is on,
+  such as `try 3 of 5 · next in 4s`;
+- **a failed task**: its exit code, and that nothing retries it;
+- **a service that never became ready**, with a pointer to its ready check.
+
+It says each once per episode: a service crashing five times in a row is one
+notification. It says nothing about what is already on screen, and nothing about
+what was already broken when the app opened.
+
+Click a notification to open the window on that service. When the item has a fix
+the app can apply, such as stopping a process that holds a port, the
+notification carries it as a button.
+
+The first time, the system asks whether doze may send notifications. You can
+change the answer later in the system's own notification settings.
+
+Next: [Domains and HTTPS](/app/domains/).
