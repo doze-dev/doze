@@ -72,6 +72,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Modules come from registry.doze-dev.com.** doze 0.1 builds keep fetching from doze.nerdmenot.in/registry, which keeps serving the same signed files.
 - **Renamed, with the old spelling an error that prints the new line:**
   `depends_on` is `after`; in `defaults`, `idle_timeout` is `sleep` (`"0s"`
   is `"never"`) and `domains = true` is `names = true`. A root `listen` is gone.

@@ -30,11 +30,13 @@ import (
 )
 
 // RegistryBase is the doze registry: the one place modules come from. A module
-// lives at <base>/<namespace>/<name>/index.yaml. It is the doze-registry site on
-// Cloudflare Pages (which serves the signed discovery layer; the index.yaml
+// lives at <base>/<namespace>/<name>/index.yaml. It is the doze-registry Pages
+// project (data only: the signed discovery layer at its root; the index.yaml
 // artifact URLs point at the archive host, e.g. GitHub Releases). There is no
 // override: a module under development is run with DOZE_<TYPE>_PLUGIN instead.
-const RegistryBase = "https://doze.nerdmenot.in/registry"
+// doze 0.1 builds have doze.nerdmenot.in/registry compiled in; that host
+// redirects here, and the signatures, not the host, are what doze trusts.
+const RegistryBase = "https://registry.doze-dev.com"
 
 // RegistryKey is the registry's ed25519 signing key, base64. Every module index
 // and artifact must verify against it. It is compiled in rather than fetched
