@@ -34,11 +34,47 @@ type path struct {
 	pts []pt // samples along it, for the collision check
 }
 
-// curve is one cubic from a to b with control points c1 and c2.
-func curve(a, c1, c2, b pt) path {
-	p := path{d: fmt.Sprintf("M%s %s C %s %s, %s %s, %s %s", n(a.x), n(a.y), n(c1.x), n(c1.y), n(c2.x), n(c2.y), n(b.x), n(b.y))}
-	p.pts = cubicSamples(a, c1, c2, b)
+// Every line ends in an arrowhead at the card's edge. The line itself stops
+// where the head begins, after a short straight run in the head's direction,
+// so the head sits on the line's end instead of on a bend, and no line shows
+// through it. The frontend's marker is headLen long with its base at the end.
+const (
+	headLen = 10.0
+	stubLen = 8.0
+)
+
+// curve is one cubic from a toward b with control points c1 and c2, landing
+// on b: the cubic stops short, a straight run carries on, and the head (drawn
+// by the frontend) fills the rest.
+func curve(a, c1, c2, b pt) path { return curveH(headLen, a, c1, c2, b) }
+
+// curveH is curve with a head of the given length; 0 for a line that ends
+// on the card itself (a dot, not a head).
+func curveH(head float64, a, c1, c2, b pt) path {
+	d := unit(c2, b)
+	if d == (pt{}) {
+		d = unit(a, b)
+	}
+	e := pt{b.x - head*d.x, b.y - head*d.y}
+	st := pt{e.x - stubLen*d.x, e.y - stubLen*d.y}
+	k := head + stubLen
+	c2s := pt{c2.x - k*d.x, c2.y - k*d.y}
+	if dist(a, b) <= k {
+		// Too short to bend: straight.
+		return path{d: fmt.Sprintf("M%s %s L %s %s", n(a.x), n(a.y), n(e.x), n(e.y)), pts: line(a, b)}
+	}
+	p := path{d: fmt.Sprintf("M%s %s C %s %s, %s %s, %s %s L %s %s", n(a.x), n(a.y), n(c1.x), n(c1.y), n(c2s.x), n(c2s.y), n(st.x), n(st.y), n(e.x), n(e.y))}
+	p.pts = append(cubicSamples(a, c1, c2s, st), line(st, b)...)
 	return p
+}
+
+// unit is the direction from a to b, of length one; zero when they meet.
+func unit(a, b pt) pt {
+	l := dist(a, b)
+	if l == 0 {
+		return pt{}
+	}
+	return pt{(b.x - a.x) / l, (b.y - a.y) / l}
 }
 
 func cubicSamples(a, c1, c2, b pt) []pt {
@@ -57,7 +93,10 @@ func cubicSamples(a, c1, c2, b pt) []pt {
 
 // elbow is a polyline through the points, its corners rounded, the way a
 // line is routed along the gaps between cards when no curve is clear.
-func elbow(points ...pt) path {
+func elbow(points ...pt) path { return elbowH(headLen, points...) }
+
+// elbowH is elbow with a head of the given length, as curveH.
+func elbowH(head float64, points ...pt) path {
 	points = dedupe(points)
 	var b strings.Builder
 	var samples []pt
@@ -66,13 +105,14 @@ func elbow(points ...pt) path {
 	for i := 1; i < len(points); i++ {
 		p := points[i]
 		if i == len(points)-1 {
-			fmt.Fprintf(&b, " L %s %s", n(p.x), n(p.y))
+			e := toward(p, cur, math.Min(head, dist(cur, p)))
+			fmt.Fprintf(&b, " L %s %s", n(e.x), n(e.y))
 			samples = append(samples, line(cur, p)...)
 			break
 		}
 		// Round the corner at p: stop short of it, curve through it.
 		next := points[i+1]
-		r := math.Min(10, math.Min(dist(cur, p), dist(p, next))/2)
+		r := math.Min(12, math.Min(dist(cur, p), dist(p, next))/2)
 		in := toward(p, cur, r)
 		out := toward(p, next, r)
 		fmt.Fprintf(&b, " L %s %s Q %s %s, %s %s", n(in.x), n(in.y), n(p.x), n(p.y), n(out.x), n(out.y))

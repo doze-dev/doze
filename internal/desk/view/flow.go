@@ -850,21 +850,26 @@ func (r *router) call(from string, s, t box) path {
 			return p
 		}
 	}
+	// Over the cards between: up out of the caller's top into the free row
+	// above, along it, and down into the called card. Square, with rounded
+	// corners, like every other call line.
 	over := func() path {
-		cy := float64(min(s.y, t.y)) - 40
-		return curve(pt{float64(s.right() - 24), float64(s.y)}, pt{float64(s.right() - 24), cy}, pt{float64(t.x + 24), cy}, pt{float64(t.x + 24), float64(t.y - 1)})
+		cy := r.rowAbove(float64(min(s.y, t.y)))
+		x1, x2 := float64(s.right()-28), float64(t.x+28)
+		return elbow(pt{x1, float64(s.y)}, pt{x1, cy}, pt{x2, cy}, pt{x2, float64(t.y)})
 	}
 	under := func() path {
-		cy := float64(max(s.bottom(), t.bottom())) + 30
-		return curve(pt{float64(s.right() - 24), float64(s.bottom())}, pt{float64(s.right() - 24), cy}, pt{float64(t.x + 30), cy}, pt{float64(t.x + 30), float64(t.bottom() + 1)})
+		cy := r.rowBelow(float64(max(s.bottom(), t.bottom())))
+		x1, x2 := float64(s.right()-28), float64(t.x+28)
+		return elbow(pt{x1, float64(s.bottom())}, pt{x1, cy}, pt{x2, cy}, pt{x2, float64(t.bottom())})
 	}
 	// Along its own row, then up or down into the card.
 	along := func() path {
 		ex := float64(t.cx() + 23)
 		if s.cy() > t.bottom() {
-			return curve(pt{sx, sy}, pt{sx + (ex-sx)*0.52, sy}, pt{ex, sy - (sy-float64(t.bottom()))*0.13}, pt{ex, float64(t.bottom() + 1)})
+			return elbow(pt{sx, sy}, pt{ex, sy}, pt{ex, float64(t.bottom())})
 		}
-		return curve(pt{sx, sy}, pt{sx + (ex-sx)*0.52, sy}, pt{ex, sy + (float64(t.y)-sy)*0.13}, pt{ex, float64(t.y - 1)})
+		return elbow(pt{sx, sy}, pt{ex, sy}, pt{ex, float64(t.y)})
 	}
 	if t.x > s.right() {
 		if !r.used[from+"^"] {
@@ -942,26 +947,41 @@ func (r *router) use(s, t box) path {
 	if t.y < s.y {
 		a.y, b.y = float64(s.y), float64(t.bottom())
 	}
+	// No head: a use ends in a dot on the band card (the frontend's marker).
 	my := (a.y + b.y) / 2
-	if p := curve(a, pt{a.x, my}, pt{b.x, my}, b); p.clear(r.cards, s, t) {
+	if p := curveH(0, a, pt{a.x, my}, pt{b.x, my}, b); p.clear(r.cards, s, t) {
 		return p
 	}
 	above := r.rowAbove(float64(t.y))
-	if p := elbow(a, pt{a.x, above}, pt{b.x, above}, b); p.clear(r.cards, s, t) {
+	if p := elbowH(0, a, pt{a.x, above}, pt{b.x, above}, b); p.clear(r.cards, s, t) {
 		return p
 	}
-	for _, side := range []int{1, -1} {
+	// Down the gap beside the card: the left first, since calls leave from
+	// the right; a little below the middle, clear of a call arriving there.
+	y0 := float64(s.cy() + 18)
+	for _, side := range []int{-1, 1} {
 		x0 := float64(s.right())
 		if side < 0 {
 			x0 = float64(s.x)
 		}
 		gx := r.nextX(x0, side)
-		p := elbow(pt{x0, float64(s.cy())}, pt{gx, float64(s.cy())}, pt{gx, above}, pt{b.x, above}, b)
+		p := elbowH(0, pt{x0, y0}, pt{gx, y0}, pt{gx, above}, pt{b.x, above}, b)
 		if p.clear(r.cards, s, t) {
 			return p
 		}
 	}
-	return curve(a, pt{a.x, my}, pt{b.x, my}, b)
+	return curveH(0, a, pt{a.x, my}, pt{b.x, my}, b)
+}
+
+// rowBelow is the free row nearest below y.
+func (r *router) rowBelow(y float64) float64 {
+	best, found := y+14, false
+	for _, g := range r.ys {
+		if g > y && (!found || g < best) {
+			best, found = g, true
+		}
+	}
+	return best
 }
 
 // rowAbove is the free row nearest above y.

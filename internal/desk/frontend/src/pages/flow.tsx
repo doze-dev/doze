@@ -75,18 +75,21 @@ export function MapFlow({ m, rows, lit, onLit, stackKey }: { m: view.MapView; ro
           {m.band > 0 && <div className="band" style={{ top: m.band }} />}
           <svg className="edges" width={m.w} height={m.h} aria-hidden="true">
             <defs>
-              <marker id="flow-ar" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M1.5 1.5L11 6L1.5 10.5L4.2 6Z" style={{ fill: "var(--accent)", stroke: "var(--accent)", strokeWidth: 1, strokeLinejoin: "round" }} />
+              <marker id="flow-ar" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0.5 0.8L9.5 5L0.5 9.2Z" style={{ fill: "var(--accent)", stroke: "var(--accent)", strokeWidth: 1, strokeLinejoin: "round" }} />
               </marker>
-              <marker id="flow-ard" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M1.5 1.5L11 6L1.5 10.5L4.2 6Z" style={{ fill: "var(--line2)", stroke: "var(--line2)", strokeWidth: 1, strokeLinejoin: "round" }} />
+              <marker id="flow-ard" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0.5 0.8L9.5 5L0.5 9.2Z" style={{ fill: "var(--line2)", stroke: "var(--line2)", strokeWidth: 1, strokeLinejoin: "round" }} />
+              </marker>
+              <marker id="flow-dot" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse">
+                <circle cx="4" cy="4" r="3.5" style={{ fill: "var(--accent)" }} />
               </marker>
             </defs>
             {(m.edges ?? []).map((e) => (
               <path key={e.from + ">" + e.to} d={e.d} className={"edge" + (edgeOn(e) ? "" : " dim")} data-from={e.from} data-to={e.to} markerEnd={edgeOn(e) ? "url(#flow-ar)" : "url(#flow-ard)"} />
             ))}
             {lines.map((l) => (
-              <path key={l.from + ">" + l.to} d={l.d} className="use" data-from={l.from} data-to={l.to} markerEnd="url(#flow-ar)" />
+              <path key={l.from + ">" + l.to} d={l.d} className="use" data-from={l.from} data-to={l.to} markerEnd="url(#flow-dot)" />
             ))}
           </svg>
           {(m.caps ?? []).map((c) => (
