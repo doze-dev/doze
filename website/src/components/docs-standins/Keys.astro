@@ -1,7 +1,0 @@
----
-// Stand-in for doze-website's Keys: a plain two-column table.
-const { keys = [] } = Astro.props as { keys?: [string, string][] };
----
-<table>
-  <tbody>{keys.map(([k, v]) => <tr><td><kbd>{k}</kbd></td><td>{v}</td></tr>)}</tbody>
-</table>

@@ -1,9 +1,0 @@
----
-// Stand-in for doze-website's HowTo (the real one draws the boards' tabs).
-// The pages are written for doze-website; this keeps this older site building.
-import { TabItem, Tabs } from "@astrojs/starlight/components";
----
-<Tabs syncKey="how">
-  <TabItem label="In the app"><slot name="app" /></TabItem>
-  <TabItem label="In a terminal"><slot name="terminal" /></TabItem>
-</Tabs>
