@@ -181,8 +181,9 @@ func offCmd() *cobra.Command {
 		Use:   "off <name…>",
 		Short: "Take a service out of this run: stop it, and nothing wakes it until doze on",
 		Long: "off stops the named services and keeps them stopped: a connection does not\n" +
-			"wake one, and neither does a dependant. It is the row's switch in the app.\n" +
-			"Data stays. `doze on <name>` puts it back; `doze up` starts it as usual.",
+			"wake one, and neither does a dependant. In the app it is Stop trying on a\n" +
+			"crashing service; a row's switch puts it to sleep instead. Data stays.\n" +
+			"`doze on <name>` puts it back; `doze up` starts it as usual.",
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: instanceCompletion,
 		RunE: func(_ *cobra.Command, args []string) error {
