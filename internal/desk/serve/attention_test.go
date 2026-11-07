@@ -3,6 +3,7 @@ package serve
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,8 +29,12 @@ func TestAttentionGraceThenFixed(t *testing.T) {
 		f := fixture.Crash(epoch)
 		h, key := newHub(t, f)
 		s := New(h, nil)
+		// The clock is read by the service's own goroutines (the doctor check),
+		// so moving it is guarded.
+		var clockMu sync.Mutex
 		now := epoch
-		s.SetClock(func() time.Time { return now })
+		s.SetClock(func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return now })
+		advance := func(d time.Duration) { clockMu.Lock(); now = now.Add(d); clockMu.Unlock() }
 		id := "instance:" + key + "/api"
 		a := s.Attention()
 		it, ok := itemFor(a, id)
@@ -53,11 +58,11 @@ func TestAttentionGraceThenFixed(t *testing.T) {
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
-		now = now.Add(time.Second)
+		advance(time.Second)
 		if it, ok := itemFor(s.Attention(), id); !aside && (!ok || it.Fixed) {
 			t.Fatalf("within its grace the item should stay as it was: %+v %v", it, ok)
 		}
-		now = now.Add(graceFor + time.Second)
+		advance(graceFor + time.Second)
 		it, ok = itemFor(s.Attention(), id)
 		switch {
 		case aside && ok:
@@ -65,7 +70,7 @@ func TestAttentionGraceThenFixed(t *testing.T) {
 		case !aside && (!ok || !it.Fixed):
 			t.Errorf("after its grace it should say fixed: %+v %v", it, ok)
 		}
-		now = now.Add(fixedFor + time.Second)
+		advance(fixedFor + time.Second)
 		if _, ok := itemFor(s.Attention(), id); ok {
 			t.Errorf("a fixed item should leave after %s", fixedFor)
 		}
@@ -94,8 +99,9 @@ func TestFailedTaskOutlivesItsStack(t *testing.T) {
 	})
 	h, key := newHub(t, f)
 	s := New(h, nil)
+	var clockMu sync.Mutex // read by the service's own goroutines
 	now := epoch
-	s.SetClock(func() time.Time { return now })
+	s.SetClock(func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return now })
 	var task view.Item
 	for _, it := range s.Attention().Items {
 		if it.Kind == "task" {
@@ -126,7 +132,9 @@ func TestFailedTaskOutlivesItsStack(t *testing.T) {
 	if st, ok := s.stack(key); !ok || st.Running {
 		t.Fatalf("the hub should see the stack stopped: %+v %v", st, ok)
 	}
+	clockMu.Lock()
 	now = now.Add(graceFor + time.Second)
+	clockMu.Unlock()
 	it, ok := itemFor(s.Attention(), task.ID)
 	if !ok || it.Fixed || !it.Red || it.Fixes[0].Verb != "up-last" {
 		t.Errorf("after its stack stopped: %+v %v", it, ok)
