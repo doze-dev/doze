@@ -476,184 +476,435 @@
   "total": 10,
   "view": "",
   "map": {
-    "columns": [
+    "w": 1222,
+    "h": 386,
+    "caps": [
       {
-        "title": "APPS",
-        "what": "your code",
-        "x": 30,
-        "y": 32
+        "text": "No callers",
+        "sub": "nothing in doze.hcl refers to these",
+        "x": 24,
+        "y": 16
       },
       {
-        "title": "MODULES",
-        "what": "from the doze registry",
-        "x": 430,
-        "y": 32
-      },
-      {
-        "title": "OUTSIDE",
-        "what": "brought in by you",
-        "x": 830,
-        "y": 32
-      },
-      {
-        "title": "TASKS",
-        "what": "run once, then out of the way",
-        "x": 830,
-        "y": 416
+        "text": "Shared by the stack",
+        "sub": "one line each would be 4 lines; the chips on each card say who uses what",
+        "x": 24,
+        "y": 152
       }
     ],
+    "band": 142,
     "nodes": [
       {
         "name": "api",
-        "x": 30,
-        "y": 76,
-        "w": 224,
-        "h": 64,
-        "task": false
-      },
-      {
-        "name": "web",
-        "x": 30,
-        "y": 200,
-        "w": 224,
-        "h": 64,
-        "task": false
+        "x": 24,
+        "y": 52,
+        "w": 214,
+        "h": 74,
+        "lane": true,
+        "lang": "go",
+        "chips": [
+          "db",
+          "mongo",
+          "cache"
+        ],
+        "fold": {
+          "glyph": "✓",
+          "tone": "good",
+          "title": "before it: migrate ✓ 2m ago"
+        },
+        "calls": [],
+        "callers": [],
+        "uses": [
+          "db",
+          "mongo",
+          "cache"
+        ],
+        "detail": {
+          "head": "Go · 84 MB · awake",
+          "rows": [
+            {
+              "k": "needs",
+              "v": "db, mongo, cache below"
+            },
+            {
+              "k": "needed by",
+              "v": "nobody calls it"
+            },
+            {
+              "k": "before it",
+              "v": "migrate ✓",
+              "tone": "ok",
+              "dim": "2m ago"
+            }
+          ]
+        }
       },
       {
         "name": "worker",
-        "x": 30,
-        "y": 324,
-        "w": 224,
-        "h": 64,
-        "task": false
+        "x": 258,
+        "y": 52,
+        "w": 214,
+        "h": 74,
+        "lane": true,
+        "lang": "go",
+        "chips": [
+          "events"
+        ],
+        "calls": [],
+        "callers": [],
+        "uses": [
+          "events"
+        ],
+        "detail": {
+          "head": "Go · waking",
+          "rows": [
+            {
+              "k": "needs",
+              "v": "events below"
+            },
+            {
+              "k": "needed by",
+              "v": "nobody calls it"
+            },
+            {
+              "k": "before it",
+              "v": "nothing",
+              "tone": "dim"
+            }
+          ]
+        }
       },
+      {
+        "name": "web",
+        "x": 492,
+        "y": 52,
+        "w": 214,
+        "h": 74,
+        "lane": true,
+        "lang": "js",
+        "chips": [],
+        "quiet": "no shared services",
+        "calls": [],
+        "callers": [],
+        "uses": [],
+        "detail": {
+          "head": "JavaScript · 213 MB · awake",
+          "rows": [
+            {
+              "k": "needs",
+              "v": "nothing"
+            },
+            {
+              "k": "needed by",
+              "v": "nobody calls it"
+            },
+            {
+              "k": "before it",
+              "v": "nothing",
+              "tone": "dim"
+            }
+          ]
+        }
+      }
+    ],
+    "shared": [
       {
         "name": "cache",
-        "x": 430,
-        "y": 76,
-        "w": 224,
-        "h": 64,
-        "task": false
-      },
-      {
-        "name": "cloud",
-        "x": 430,
-        "y": 200,
-        "w": 224,
-        "h": 64,
-        "task": false
+        "x": 24,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "valkey 9",
+        "used": "used by 1",
+        "only": "api",
+        "users": [
+          "api"
+        ],
+        "detail": {
+          "head": "valkey 9 · 11 MB · dozing",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "api"
+            }
+          ]
+        }
       },
       {
         "name": "db",
-        "x": 430,
-        "y": 324,
-        "w": 224,
-        "h": 64,
-        "task": false
-      },
-      {
-        "name": "events",
-        "x": 430,
-        "y": 448,
-        "w": 224,
-        "h": 64,
-        "task": false
-      },
-      {
-        "name": "mailpit",
-        "x": 830,
-        "y": 76,
-        "w": 224,
-        "h": 64,
-        "task": false
+        "x": 258,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "postgres 17",
+        "used": "used by 1",
+        "only": "api",
+        "users": [
+          "api"
+        ],
+        "detail": {
+          "head": "postgres 17 · 96 MB · awake",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "api"
+            }
+          ]
+        }
       },
       {
         "name": "mongo",
-        "x": 830,
-        "y": 200,
-        "w": 224,
-        "h": 64,
-        "task": false
+        "x": 492,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "brought in by you",
+        "used": "used by 1",
+        "only": "api",
+        "users": [
+          "api"
+        ],
+        "detail": {
+          "head": "brought in by you · 148 MB · awake",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "api"
+            }
+          ]
+        }
+      },
+      {
+        "name": "events",
+        "x": 726,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "kafka",
+        "used": "used by 1",
+        "only": "worker",
+        "users": [
+          "worker"
+        ],
+        "detail": {
+          "head": "kafka · waking",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "worker"
+            }
+          ]
+        }
+      },
+      {
+        "name": "cloud",
+        "x": 960,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "aws",
+        "used": "nothing uses it",
+        "users": [],
+        "detail": {
+          "head": "aws · asleep",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "no app"
+            }
+          ]
+        }
+      },
+      {
+        "name": "mailpit",
+        "x": 24,
+        "y": 282,
+        "w": 214,
+        "h": 88,
+        "what": "brought in by you",
+        "used": "nothing uses it",
+        "users": [],
+        "detail": {
+          "head": "brought in by you · asleep",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "no app"
+            }
+          ]
+        }
       },
       {
         "name": "search",
-        "x": 830,
-        "y": 324,
-        "w": 224,
-        "h": 64,
-        "task": false
-      },
-      {
-        "name": "migrate",
-        "x": 830,
-        "y": 460,
-        "w": 200,
-        "h": 64,
-        "task": true
-      },
-      {
-        "name": "seed",
-        "x": 830,
-        "y": 584,
-        "w": 200,
-        "h": 64,
-        "task": true
+        "x": 258,
+        "y": 282,
+        "w": 214,
+        "h": 88,
+        "what": "brought in by you",
+        "used": "nothing uses it",
+        "users": [],
+        "detail": {
+          "head": "brought in by you · asleep",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "no app"
+            }
+          ]
+        }
       }
     ],
-    "edges": [
+    "edges": [],
+    "lines": [
       {
         "from": "api",
         "to": "db",
-        "x1": 254,
-        "y1": 108,
-        "x2": 430,
-        "y2": 356,
-        "tone": "on",
-        "same": false
+        "d": "M131 126 C 131 152, 365 152, 365 178"
       },
       {
         "from": "api",
         "to": "mongo",
-        "x1": 254,
-        "y1": 108,
-        "x2": 830,
-        "y2": 232,
-        "tone": "on",
-        "same": false
+        "d": "M131 126 C 131 152, 599 152, 599 178"
       },
       {
         "from": "api",
         "to": "cache",
-        "x1": 254,
-        "y1": 108,
-        "x2": 430,
-        "y2": 108,
-        "tone": "on",
-        "same": false
-      },
-      {
-        "from": "api",
-        "to": "migrate",
-        "x1": 254,
-        "y1": 108,
-        "x2": 830,
-        "y2": 492,
-        "tone": "dim",
-        "same": false
+        "d": "M131 126 C 131 152, 131 152, 131 178"
       },
       {
         "from": "worker",
         "to": "events",
-        "x1": 254,
-        "y1": 356,
-        "x2": 430,
-        "y2": 480,
-        "tone": "dim",
-        "same": false
+        "d": "M365 126 C 365 152, 833 152, 833 178"
       }
     ],
-    "w": 1230,
-    "h": 784
+    "detail": {
+      "x": 762,
+      "y": 14
+    }
+  },
+  "grid": {
+    "heads": [
+      {
+        "text": "Shared",
+        "span": 4
+      },
+      {
+        "text": "Before it",
+        "span": 1
+      }
+    ],
+    "cols": [
+      {
+        "name": "cache",
+        "kind": "shared"
+      },
+      {
+        "name": "db",
+        "kind": "shared"
+      },
+      {
+        "name": "events",
+        "kind": "shared"
+      },
+      {
+        "name": "mongo",
+        "kind": "shared"
+      },
+      {
+        "name": "tasks",
+        "kind": "tasks",
+        "sep": true,
+        "sub": "1 ✓"
+      }
+    ],
+    "rows": [
+      {
+        "name": "api",
+        "lang": "go",
+        "cells": [
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses cache",
+              "why": "keeps it awake",
+              "ref": "module.cache",
+              "keys": "⏎ opens cache · o opens api",
+              "open": "cache"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses db",
+              "why": "keeps it awake",
+              "ref": "module.db",
+              "keys": "⏎ opens db · o opens api",
+              "open": "db"
+            }
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses mongo",
+              "why": "keeps it awake",
+              "ref": "service.mongo",
+              "keys": "⏎ opens mongo · o opens api",
+              "open": "mongo"
+            }
+          },
+          {
+            "text": "migrate ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate run before api",
+              "why": "migrate ✓ 2m ago",
+              "ref": "after = [task.migrate]",
+              "keys": "⏎ opens migrate · o opens api",
+              "open": "migrate"
+            }
+          }
+        ]
+      },
+      {
+        "name": "worker",
+        "lang": "go",
+        "cells": [
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "worker uses events",
+              "ref": "module.events",
+              "keys": "⏎ opens events · o opens worker",
+              "open": "events"
+            }
+          },
+          {},
+          {}
+        ]
+      },
+      {
+        "name": "web",
+        "lang": "js",
+        "cells": [
+          {},
+          {},
+          {},
+          {},
+          {}
+        ]
+      }
+    ],
+    "foot": [
+      "1",
+      "1",
+      "1",
+      "1",
+      ""
+    ],
+    "later": "Not drawn yet: which kafka topics each service writes and reads. doze sees that a service connects to events, not what it publishes; that needs the module to tell doze which connection is which service."
   },
   "up": "0s"
 }

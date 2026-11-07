@@ -311,7 +311,7 @@ export function SetOpenAtLogin(on: boolean): $CancellablePromise<void> {
 }
 
 /**
- * SetView remembers a stack's overview view: tiles, list or map.
+ * SetView remembers a stack's overview view: tiles, list, map or grid.
  */
 export function SetView(key: string, name: string): $CancellablePromise<void> {
     return $Call.ByName("github.com/doze-dev/doze/internal/desk/app.API.SetView", key, name);

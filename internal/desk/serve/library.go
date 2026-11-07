@@ -140,7 +140,7 @@ func (s *Service) doctorWithin(stacks []hub.StackView, age time.Duration) []view
 // SetView remembers a stack's overview view (tiles, list, map), by key.
 func (s *Service) SetView(key, name string) {
 	switch name {
-	case "tiles", "list", "map":
+	case "tiles", "list", "map", "grid":
 	default:
 		return
 	}
@@ -704,4 +704,34 @@ func (s *Service) remove(key string, st hub.StackView) error {
 		s.changed()
 	}()
 	return nil
+}
+
+// refsSeen is a stack's references, and the stamp of the files they were
+// read from.
+type refsSeen struct {
+	stamp stamp
+	refs  view.Refs
+}
+
+// refsFor is what the Grid's tooltips quote: each reference as doze.hcl
+// writes it. The file is parsed again only when it changes.
+func (s *Service) refsFor(dir string) view.Refs {
+	fi, ok := configStamp(dir)
+	if !ok {
+		return nil
+	}
+	s.mu.Lock()
+	seen, hit := s.refs[dir]
+	s.mu.Unlock()
+	if hit && seen.stamp == fi {
+		return seen.refs
+	}
+	refs := view.RefsIn(dir)
+	s.mu.Lock()
+	if s.refs == nil {
+		s.refs = map[string]refsSeen{}
+	}
+	s.refs[dir] = refsSeen{stamp: fi, refs: refs}
+	s.mu.Unlock()
+	return refs
 }

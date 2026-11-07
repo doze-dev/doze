@@ -28,7 +28,7 @@ type Prefs struct {
 	// empty is violet. Mode is dark, light, or empty to follow the system.
 	Theme string `json:"theme,omitempty"`
 	Mode  string `json:"mode,omitempty"`
-	// Views is each stack's overview view (tiles, list, map), by key.
+	// Views is each stack's overview view (tiles, list, map, grid), by key.
 	Views map[string]string `json:"views,omitempty"`
 	// Recent is the services whose pages were opened last, newest first,
 	// for ⌘K's Recent section.

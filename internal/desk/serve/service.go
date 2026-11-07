@@ -160,6 +160,9 @@ type Service struct {
 	doctorBusy   bool
 	// configs is the last look at each running stack's doze.hcl.
 	configs map[string]configSeen
+	// refs is each stack's references as doze.hcl writes them, by folder,
+	// read again when the file changes.
+	refs map[string]refsSeen
 	// admin runs a script as root after the system's administrator
 	// prompt; nil says this face cannot ask (SetRepair). run runs a doze
 	// command as the person, in a folder; a field so tests can stand in.
@@ -452,6 +455,9 @@ func (s *Service) Home(key string) view.Home {
 	if !st.Running && st.Dir != "" {
 		view.StoppedHome(&h, st, s.now())
 		s.frontedDown(&h)
+	}
+	if st.Dir != "" {
+		h.Grid.Refer(s.refsFor(st.Dir))
 	}
 	s.mu.Lock()
 	h.Busy, h.Failed = s.busy[key], s.failed[key]

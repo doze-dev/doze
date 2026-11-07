@@ -56,7 +56,8 @@ func StoppedHome(h *Home, st hub.StackView, now time.Time) {
 	}
 	h.Stopped = &out
 	h.Groups, h.Side = []Group{}, []Side{}
-	h.Map = MapView{Columns: []MapColumn{}, Nodes: []MapNode{}, Edges: []MapEdge{}, W: mapLeft + 3*mapColW, H: 580}
+	h.Map = mapOf(nil, now)
+	h.Grid = gridOf(nil, now)
 	cfg, err := config.LoadShape(filepath.Join(st.Dir, "doze.hcl"), nil)
 	if err != nil {
 		out.Config = ConfigErrorOf(filepath.Join(st.Dir, "doze.hcl"), err, time.Time{}, now)
@@ -109,6 +110,12 @@ func StoppedHome(h *Home, st hub.StackView, now time.Time) {
 	snap := control.Snapshot{Stack: stack, Dir: st.Dir}
 	for _, d := range decls {
 		v := control.InstanceView{Name: d.Name, Kind: d.Kind}
+		if r, ok := d.Spec.(interface{ RunLine() string }); ok {
+			v.Run = r.RunLine() // the map's language badge
+		}
+		if d.Kind == "module" {
+			v.Engine, v.Version = d.Type, d.Version.String()
+		}
 		for _, dep := range d.Deps {
 			v.Needs = append(v.Needs, dep.Name)
 		}
@@ -136,7 +143,8 @@ func StoppedHome(h *Home, st hub.StackView, now time.Time) {
 			h.Groups = append(h.Groups, grp)
 		}
 	}
-	h.Map = mapOf(hub.StackView{}, rows)
+	h.Map = mapOf(rows, now)
+	h.Grid = gridOf(rows, now)
 }
 
 // downRow is one declared instance of a stopped stack: down, with what it

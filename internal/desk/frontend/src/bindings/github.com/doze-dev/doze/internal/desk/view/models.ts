@@ -627,6 +627,109 @@ export interface Found {
 }
 
 /**
+ * GridCell is one row against one column.
+ */
+export interface GridCell {
+    "dot"?: boolean;
+    "self"?: boolean;
+
+    /**
+     * Text is the tasks column's word: "migrate-orders ✓".
+     */
+    "text"?: string;
+    "tone"?: string;
+
+    /**
+     * Tip is what hovering or focusing the cell says; nil for an empty one.
+     */
+    "tip"?: GridTip | null;
+}
+
+/**
+ * GridCol is a column: an app, a shared service, or the tasks.
+ */
+export interface GridCol {
+    "name": string;
+
+    /**
+     * app, shared, tasks
+     */
+    "kind": string;
+
+    /**
+     * Sep starts a group: a line on its left.
+     */
+    "sep"?: boolean;
+
+    /**
+     * Sub is the tasks column's tally: "9 ✓".
+     */
+    "sub"?: string;
+}
+
+/**
+ * GridHead is a group's caption over its columns.
+ */
+export interface GridHead {
+    "text": string;
+    "span": number;
+}
+
+/**
+ * GridRow is an app and what it needs.
+ */
+export interface GridRow {
+    "name": string;
+    "lang"?: string;
+    "cells": GridCell[] | null;
+}
+
+/**
+ * GridTip is the tooltip: what the dot means, why it matters, the line of
+ * doze.hcl that makes it so, and what the keys do.
+ */
+export interface GridTip {
+    "head": string;
+    "why"?: string;
+
+    /**
+     * Ref is the reference as doze.hcl writes it: "CATALOG_URL =
+     * app.catalog.url"; the reference alone ("app.catalog") when the file
+     * was not read.
+     */
+    "ref": string;
+    "keys": string;
+
+    /**
+     * Open is what ⏎ opens: the column's service, or the first task.
+     */
+    "open": string;
+}
+
+/**
+ * GridView is the stack as the Grid view draws it.
+ */
+export interface GridView {
+    /**
+     * Heads are the groups over the columns, each spanning its columns.
+     */
+    "heads": GridHead[] | null;
+    "cols": GridCol[] | null;
+    "rows": GridRow[] | null;
+
+    /**
+     * "needed by", a count per column
+     */
+    "foot": string[] | null;
+
+    /**
+     * Later says what the grid cannot show yet, when the stack has a
+     * broker whose topics it would want to.
+     */
+    "later"?: string;
+}
+
+/**
  * Group is a heading over part of the stack.
  */
 export interface Group {
@@ -678,15 +781,18 @@ export interface Home {
     "total": number;
 
     /**
-     * View is the overview's view, remembered per stack: tiles, list, map.
+     * View is the overview's view, remembered per stack: tiles, list, map,
+     * grid.
      * The service fills it from prefs.
      */
     "view": string;
 
     /**
-     * Map is the stack as a map: nodes placed by role, an edge per need.
+     * Map is the stack as a map: the calls left to right, the shared
+     * services in a band below. Grid is the same as a table.
      */
     "map": MapView;
+    "grid": GridView;
 
     /**
      * Up is how long the daemon has been up: "14m".
@@ -1151,37 +1257,66 @@ export interface Look {
 }
 
 /**
- * MapColumn is a heading over a column of nodes.
+ * MapAt is a place in the drawing.
  */
-export interface MapColumn {
-    "title": string;
-    "what": string;
+export interface MapAt {
     "x": number;
     "y": number;
 }
 
 /**
- * MapEdge is one need, from the one that needs to the one needed, with the
- * points to draw it between and its tone: on (keeps it awake), dim (needs
- * it, not right now), off (would need it, if on).
+ * MapCap is a caption: the part's name and a quieter line after it.
+ */
+export interface MapCap {
+    "text": string;
+    "sub": string;
+    "x": number;
+    "y": number;
+}
+
+/**
+ * MapCard is the selected card's detail: a head line and labelled rows.
+ */
+export interface MapCard {
+    "head": string;
+    "rows": MapLine[] | null;
+}
+
+/**
+ * MapEdge is one line: a call, or a use drawn dashed.
  */
 export interface MapEdge {
     "from": string;
     "to": string;
-    "x1": number;
-    "y1": number;
-    "x2": number;
-    "y2": number;
-    "tone": string;
-
-    /**
-     * Same says both ends are in one column, so the line runs vertically.
-     */
-    "same": boolean;
+    "d": string;
 }
 
 /**
- * MapNode is one instance, placed.
+ * MapFold is the mark for an app's tasks: ✓ when every one has run, ▸
+ * when one has not yet; the title names them and when they ran.
+ */
+export interface MapFold {
+    "glyph": string;
+    "tone": string;
+    "title": string;
+}
+
+/**
+ * MapLine is one row of a detail card.
+ */
+export interface MapLine {
+    "k": string;
+    "v": string;
+    "tone"?: string;
+
+    /**
+     * Dim is a quieter tail: "16m ago".
+     */
+    "dim"?: string;
+}
+
+/**
+ * MapNode is an app's card, or a task's while it runs or after it failed.
  */
 export interface MapNode {
     "name": string;
@@ -1189,23 +1324,109 @@ export interface MapNode {
     "y": number;
     "w": number;
     "h": number;
-    "task": boolean;
+
+    /**
+     * Lane says it is in the lane of apps nothing calls.
+     */
+    "lane"?: boolean;
+    "task"?: boolean;
+
+    /**
+     * Lang is the badge, read from the run command: go, py, ts, js; empty
+     * when the command does not say.
+     */
+    "lang"?: string;
+
+    /**
+     * Chips are the shared services it uses, in the order doze.hcl refers
+     * to them, as many as fit; More counts the rest.
+     */
+    "chips": string[] | null;
+    "more"?: number;
+
+    /**
+     * Quiet is the chip row's word when it uses nothing shared.
+     */
+    "quiet"?: string;
+
+    /**
+     * Fold is its setup tasks, folded into one mark.
+     */
+    "fold"?: MapFold | null;
+
+    /**
+     * Calls, Callers and Uses are its neighbours, for what a selection
+     * keeps lit.
+     */
+    "calls": string[] | null;
+    "callers": string[] | null;
+    "uses": string[] | null;
+    "detail": MapCard;
 }
 
 /**
- * MapView is the stack as the Map view draws it: nodes in columns by
- * role, each with a place, and an edge per need.
+ * MapShared is a card in the band: a module or an outside service.
  */
-export interface MapView {
-    "columns": MapColumn[] | null;
-    "nodes": MapNode[] | null;
-    "edges": MapEdge[] | null;
+export interface MapShared {
+    "name": string;
+    "x": number;
+    "y": number;
+    "w": number;
+    "h": number;
 
     /**
-     * W and H are the drawing's size, so the page can scale it.
+     * What it is: "postgres 18", "brought in by you".
+     */
+    "what": string;
+
+    /**
+     * Used is "used by 3", or "used by 1" and Only its one user.
+     */
+    "used": string;
+    "only"?: string;
+    "users": string[] | null;
+    "detail": MapCard;
+}
+
+/**
+ * MapView is the stack as the Map view draws it.
+ */
+export interface MapView {
+    /**
+     * W and H are the drawing's size; the page scrolls it when the window
+     * is smaller.
      */
     "w": number;
     "h": number;
+
+    /**
+     * Caps are the captions over the parts: the calls, the lane, the band.
+     */
+    "caps": MapCap[] | null;
+
+    /**
+     * Band is the top of the shared band, 0 when the stack shares nothing.
+     */
+    "band": number;
+    "nodes": MapNode[] | null;
+    "shared": MapShared[] | null;
+
+    /**
+     * Edges are the calls, each a path placed so it passes behind no card.
+     */
+    "edges": MapEdge[] | null;
+
+    /**
+     * Lines are the dashed lines from a card down to what it uses in the
+     * band, drawn only while one of their ends is selected.
+     */
+    "lines": MapEdge[] | null;
+
+    /**
+     * Detail is where the selected card's detail card sits: clear of the
+     * cards where the drawing has room.
+     */
+    "detail": MapAt;
 }
 
 /**

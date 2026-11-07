@@ -36,11 +36,14 @@ type Home struct {
 	// Awake and Total count the instances up and declared, tasks aside.
 	Awake int `json:"awake"`
 	Total int `json:"total"`
-	// View is the overview's view, remembered per stack: tiles, list, map.
+	// View is the overview's view, remembered per stack: tiles, list, map,
+	// grid.
 	// The service fills it from prefs.
 	View string `json:"view"`
-	// Map is the stack as a map: nodes placed by role, an edge per need.
-	Map MapView `json:"map"`
+	// Map is the stack as a map: the calls left to right, the shared
+	// services in a band below. Grid is the same as a table.
+	Map  MapView  `json:"map"`
+	Grid GridView `json:"grid"`
 	// Up is how long the daemon has been up: "14m".
 	Up string `json:"up,omitempty"`
 	// Busy is the stack action in flight ("starting", "stopping",
@@ -158,50 +161,6 @@ type Row struct {
 	Run   string   `json:"run,omitempty"`
 }
 
-// MapView is the stack as the Map view draws it: nodes in columns by
-// role, each with a place, and an edge per need.
-type MapView struct {
-	Columns []MapColumn `json:"columns"`
-	Nodes   []MapNode   `json:"nodes"`
-	Edges   []MapEdge   `json:"edges"`
-	// W and H are the drawing's size, so the page can scale it.
-	W int `json:"w"`
-	H int `json:"h"`
-}
-
-// MapColumn is a heading over a column of nodes.
-type MapColumn struct {
-	Title string `json:"title"`
-	What  string `json:"what"`
-	X     int    `json:"x"`
-	Y     int    `json:"y"`
-}
-
-// MapNode is one instance, placed.
-type MapNode struct {
-	Name string `json:"name"`
-	X    int    `json:"x"`
-	Y    int    `json:"y"`
-	W    int    `json:"w"`
-	H    int    `json:"h"`
-	Task bool   `json:"task"`
-}
-
-// MapEdge is one need, from the one that needs to the one needed, with the
-// points to draw it between and its tone: on (keeps it awake), dim (needs
-// it, not right now), off (would need it, if on).
-type MapEdge struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-	X1   int    `json:"x1"`
-	Y1   int    `json:"y1"`
-	X2   int    `json:"x2"`
-	Y2   int    `json:"y2"`
-	Tone string `json:"tone"`
-	// Same says both ends are in one column, so the line runs vertically.
-	Same bool `json:"same"`
-}
-
 // Side is one instance in the sidebar's list: its dot and a word or figure.
 type Side struct {
 	Name    string `json:"name"`
@@ -264,7 +223,8 @@ func HomeOf(st hub.StackView, now time.Time) Home {
 	if st.Running && !st.Since.IsZero() {
 		h.Up = display.Ago(now.Sub(st.Since))
 	}
-	h.Map = mapOf(st, rows)
+	h.Map = mapOf(rows, now)
+	h.Grid = gridOf(rows, now)
 	return h
 }
 

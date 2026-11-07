@@ -211,7 +211,7 @@ func (a *API) Repair() error { return a.s.Repair() }
 // RepairPlan is what Repair would run, to show before the password.
 func (a *API) RepairPlan() string { return a.s.RepairPlan() }
 
-// SetView remembers a stack's overview view: tiles, list or map.
+// SetView remembers a stack's overview view: tiles, list, map or grid.
 func (a *API) SetView(key, name string) { a.s.SetView(key, name) }
 
 // ChooseFolder shows the folder picker and opens what was chosen, which
