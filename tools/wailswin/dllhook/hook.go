@@ -51,7 +51,7 @@ func loaded(reason uint32, data *loadedData, _ uintptr) uintptr {
 		if strings.HasPrefix(l, "\t") || strings.HasPrefix(l, "goroutine") {
 			continue
 		}
-		if l = strings.TrimSpace(l); l != "" && !strings.Contains(l, "dllhook") && !strings.HasPrefix(l, "runtime.") && !strings.HasPrefix(l, "syscall.") {
+		if l = strings.TrimSpace(l); l != "" && !strings.Contains(l, "dllhook") && !strings.HasPrefix(l, "runtime.") && !strings.HasPrefix(l, "syscall.") && !strings.HasPrefix(l, "golang.org/x/sys/windows.") {
 			frames = append(frames, l)
 		}
 	}
