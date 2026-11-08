@@ -1,3 +1,6 @@
+> [!WARNING]
+> **Still in active development.** This project is not cleared for use yet. Expect breaking changes, and do not rely on it for real work.
+
 <div align="center">
 
 <img src="docs/assets/logo.png" alt="doze" width="110" />
