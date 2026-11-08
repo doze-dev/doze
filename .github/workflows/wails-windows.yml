@@ -50,12 +50,13 @@ jobs:
           go build -o plain.exe ./probe
           go build -tags wails -o stock.exe ./probe
           go build -tags wails,dllhook -o stock-hook.exe ./probe
+          go build -tags wails -o smoke-stock.exe ./smoke
           if [ -d ../../wails-branch ]; then
             go mod edit -replace github.com/wailsapp/wails/v3=../../wails-branch/v3
             go mod tidy
             go build -tags wails -o branch.exe ./probe
             go build -tags wails,dllhook -o branch-hook.exe ./probe
-            go build -tags wails -o smoke.exe ./smoke
+            go build -tags wails -o smoke-branch.exe ./smoke
           fi
           ls -l *.exe
       - name: Measure
@@ -73,18 +74,20 @@ jobs:
               echo '```'
             done
           } | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: A window, with the branch
-        if: inputs.wails_ref != ''
+      - name: A window, with stock Wails and with the branch
         run: |
           {
-            echo; echo "#### A window with the branch"; echo; echo '```'
-            for mode in main worker service; do
-              arg=""; [ "$mode" != main ] && arg=$mode
-              if out=$(timeout 120 ./smoke.exe $arg 2>&1); then echo "$mode: $out" | grep smoke:; else echo "$mode: FAILED ($?)"; echo "$out" | tail -20; fi
+            for b in stock branch; do
+              [ -f smoke-$b.exe ] || continue
+              echo; echo "#### A window, $b"; echo; echo '```'
+              for mode in main worker service; do
+                arg=""; [ "$mode" != main ] && arg=$mode
+                if out=$(timeout 120 ./smoke-$b.exe $arg 2>&1); then echo "$b $mode: $out" | grep smoke:; else echo "$b $mode: FAILED ($?)"; echo "$out" | head -30; fi
+              done
+              echo '```'
             done
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
-          ! grep -q FAILED "$GITHUB_STEP_SUMMARY"
+          } | tee smoke.log | tee -a "$GITHUB_STEP_SUMMARY"
+          ! grep -q "branch .*FAILED" smoke.log
       - name: The branch's Windows tests
         if: inputs.wails_ref != ''
         working-directory: wails-branch/v3
