@@ -38,27 +38,6 @@
       "scheme": "dark"
     },
     {
-      "name": "app-module-postgres",
-      "fixture": "larder",
-      "stack": "larder",
-      "view": "console:postgres",
-      "scheme": "dark"
-    },
-    {
-      "name": "app-palette",
-      "fixture": "larder",
-      "stack": "larder",
-      "view": "pal:wake sto",
-      "scheme": "dark"
-    },
-    {
-      "name": "app-needs-you",
-      "fixture": "larder-crash",
-      "stack": "larder",
-      "view": "needs",
-      "scheme": "dark"
-    },
-    {
       "name": "app-light",
       "fixture": "larder",
       "stack": "larder",
