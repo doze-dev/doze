@@ -87,7 +87,12 @@ jobs:
               echo '```'
             done
           } | tee smoke.log | tee -a "$GITHUB_STEP_SUMMARY"
-          ! grep -q "branch .*FAILED" smoke.log
+          # A regression is the branch failing where stock Wails passes.
+          bad=0
+          for mode in main worker service; do
+            if grep -q "^branch $mode: FAILED" smoke.log && ! grep -q "^stock $mode: FAILED" smoke.log; then echo "regression: $mode"; bad=1; fi
+          done
+          exit $bad
       - name: The branch's Windows tests
         if: inputs.wails_ref != ''
         working-directory: wails-branch/v3
@@ -153,4 +158,9 @@ jobs:
               echo '```'
             done
           } | tee smoke.log | tee -a "$GITHUB_STEP_SUMMARY"
-          ! grep -q "branch .*FAILED" smoke.log
+          # A regression is the branch failing where stock Wails passes.
+          bad=0
+          for mode in main worker service; do
+            if grep -q "^branch $mode: FAILED" smoke.log && ! grep -q "^stock $mode: FAILED" smoke.log; then echo "regression: $mode"; bad=1; fi
+          done
+          exit $bad
