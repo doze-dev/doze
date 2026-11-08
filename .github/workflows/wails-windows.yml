@@ -49,10 +49,12 @@ jobs:
         run: |
           go build -o plain.exe ./probe
           go build -tags wails -o stock.exe ./probe
+          go build -tags wails,dllhook -o stock-hook.exe ./probe
           if [ -d ../../wails-branch ]; then
             go mod edit -replace github.com/wailsapp/wails/v3=../../wails-branch/v3
             go mod tidy
             go build -tags wails -o branch.exe ./probe
+            go build -tags wails,dllhook -o branch-hook.exe ./probe
             go build -tags wails -o smoke.exe ./smoke
           fi
           ls -l *.exe
@@ -61,6 +63,16 @@ jobs:
           bins="plain.exe stock.exe"
           [ -f branch.exe ] && bins="$bins branch.exe"
           go run ./runner -n "${{ inputs.runs }}" $bins | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Which code loads which DLL before main
+        run: |
+          {
+            for b in stock branch; do
+              [ -f $b-hook.exe ] || continue
+              echo; echo "#### DLLs loaded before main, $b"; echo; echo '```'
+              ./$b-hook.exe 2>&1 | grep dllhook | head -60
+              echo '```'
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: A window, with the branch
         if: inputs.wails_ref != ''
         run: |
