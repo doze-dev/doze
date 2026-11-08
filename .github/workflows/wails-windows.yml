@@ -3,6 +3,10 @@
 # memory, the DLLs loaded before main, the COM state of the main thread, and
 # which Wails package inits take the time. The Linux side of this question is
 # d0.yml and wailsapp/wails#6583. Run by hand; see tools/wailswin.
+#
+# Given a Wails branch (repository and ref), it also measures that branch
+# beside stock Wails, opens a real window with it (built on the main goroutine
+# and on another one), and runs its Windows tests for the packages involved.
 name: wails-windows
 
 on:
@@ -11,6 +15,12 @@ on:
       runs:
         description: Runs of each probe
         default: "300"
+      wails_repo:
+        description: A Wails repository to compare with stock (owner/name)
+        default: doze-dev/wails
+      wails_ref:
+        description: Its branch or commit; empty measures stock Wails alone
+        default: ""
 
 permissions:
   contents: read
@@ -30,11 +40,44 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version-file: tools/wailswin/go.mod, cache-dependency-path: tools/wailswin/go.sum }
+      - name: The Wails branch
+        if: inputs.wails_ref != ''
+        uses: actions/checkout@v4
+        with: { repository: "${{ inputs.wails_repo }}", ref: "${{ inputs.wails_ref }}", path: wails-branch }
       - name: Build the probes
         env: { CGO_ENABLED: "0" }
         run: |
           go build -o plain.exe ./probe
-          go build -tags wails -o wails.exe ./probe
-          ls -l plain.exe wails.exe
+          go build -tags wails -o stock.exe ./probe
+          if [ -d ../../wails-branch ]; then
+            go mod edit -replace github.com/wailsapp/wails/v3=../../wails-branch/v3
+            go mod tidy
+            go build -tags wails -o branch.exe ./probe
+            go build -tags wails -o smoke.exe ./smoke
+          fi
+          ls -l *.exe
       - name: Measure
-        run: go run ./runner -n "${{ inputs.runs }}" plain.exe wails.exe | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          bins="plain.exe stock.exe"
+          [ -f branch.exe ] && bins="$bins branch.exe"
+          go run ./runner -n "${{ inputs.runs }}" $bins | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: A window, with the branch
+        if: inputs.wails_ref != ''
+        run: |
+          {
+            echo; echo "#### A window with the branch"; echo; echo '```'
+            for mode in main worker; do
+              arg=""; [ "$mode" = worker ] && arg=worker
+              if out=$(timeout 120 ./smoke.exe $arg 2>&1); then echo "App built on the $mode goroutine: $out" | grep smoke:; else echo "App built on the $mode goroutine: FAILED ($?)"; echo "$out" | tail -20; fi
+            done
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          ! grep -q FAILED "$GITHUB_STEP_SUMMARY"
+      - name: The branch's Windows tests
+        if: inputs.wails_ref != ''
+        working-directory: wails-branch/v3
+        env: { CGO_ENABLED: "0" }
+        run: |
+          go test -count=1 -timeout 20m ./pkg/w32/... ./internal/go-common-file-dialog/... ./internal/webview2/... ./pkg/application/ 2>&1 | tee test.log | tail -40
+          { echo; echo "#### Branch tests"; echo; echo '```'; grep -E "^(ok|FAIL|---|panic)" test.log | head -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          ! grep -qE "^(FAIL|panic)" test.log
