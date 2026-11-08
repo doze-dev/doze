@@ -1,0 +1,40 @@
+# What linking Wails costs a Windows process that never opens a window (a CLI
+# or a daemon sharing a binary with the app): start-and-exit time, peak
+# memory, the DLLs loaded before main, the COM state of the main thread, and
+# which Wails package inits take the time. The Linux side of this question is
+# d0.yml and wailsapp/wails#6583. Run by hand; see tools/wailswin.
+name: wails-windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Runs of each probe
+        default: "300"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tools/wailswin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: tools/wailswin/go.mod, cache-dependency-path: tools/wailswin/go.sum }
+      - name: Build the probes
+        env: { CGO_ENABLED: "0" }
+        run: |
+          go build -o plain.exe ./probe
+          go build -tags wails -o wails.exe ./probe
+          ls -l plain.exe wails.exe
+      - name: Measure
+        run: go run ./runner -n "${{ inputs.runs }}" plain.exe wails.exe | tee -a "$GITHUB_STEP_SUMMARY"
