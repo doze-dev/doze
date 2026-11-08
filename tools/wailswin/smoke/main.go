@@ -1,4 +1,4 @@
-//go:build windows && wails
+//go:build wails && (windows || linux)
 
 // smoke opens a real Wails window and quits once its page has loaded, after
 // an InvokeSync from another goroutine has reached the main thread. It exits
@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 var (
@@ -73,7 +72,7 @@ func openWindow() {
 		Height: 300,
 	})
 	win.Show()
-	win.OnWindowEvent(events.Windows.WebViewNavigationCompleted, func(*application.WindowEvent) {
+	win.OnWindowEvent(pageLoaded, func(*application.WindowEvent) {
 		go func() {
 			ran := false
 			application.InvokeSync(func() { ran = true })

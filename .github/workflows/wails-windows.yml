@@ -96,3 +96,61 @@ jobs:
           go test -count=1 -timeout 20m ./pkg/w32/... ./internal/go-common-file-dialog/... ./internal/webview2/... ./pkg/application/ 2>&1 | tee test.log | tail -40
           { echo; echo "#### Branch tests"; echo; echo '```'; grep -E "^(ok|FAIL|---|panic)" test.log | head -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           ! grep -qE "^(FAIL|panic)" test.log
+
+  # The same window, on Linux with the purego GTK4 backend: the App built on
+  # the main goroutine, on another one, and with the window opened from a
+  # ServiceStartup, against stock Wails and the branch.
+  linux:
+    if: inputs.wails_ref != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: tools/wailswin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: tools/wailswin/go.mod, cache-dependency-path: tools/wailswin/go.sum }
+      - name: The Wails branch
+        uses: actions/checkout@v4
+        with: { repository: "${{ inputs.wails_repo }}", ref: "${{ inputs.wails_ref }}", path: wails-branch }
+      - name: GTK4, WebKitGTK 6.0, Xvfb, D-Bus
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwebkitgtk-6.0-4 libgtk-4-1 xvfb xauth dbus-x11
+      # WebKitGTK sandboxes its web process with bubblewrap, which Ubuntu 24.04
+      # allows only under an AppArmor profile granting user namespaces (d0.yml).
+      - name: AppArmor profile for the smoke binaries
+        run: |
+          sudo tee /etc/apparmor.d/wailswin-smoke >/dev/null <<PROFILE
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile wailswin-smoke ${{ runner.temp }}/smoke/smoke-* flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser -r /etc/apparmor.d/wailswin-smoke
+      - name: Build the smoke test against stock Wails and the branch
+        env: { CGO_ENABLED: "0" }
+        run: |
+          mkdir -p "${{ runner.temp }}/smoke"
+          go build -tags wails,purego -o "${{ runner.temp }}/smoke/smoke-stock" ./smoke
+          go mod edit -replace github.com/wailsapp/wails/v3=../../wails-branch/v3
+          go mod tidy
+          go build -tags wails,purego -o "${{ runner.temp }}/smoke/smoke-branch" ./smoke
+      - name: A window, with stock Wails and with the branch
+        run: |
+          {
+            for b in stock branch; do
+              echo; echo "#### A window on Linux, $b"; echo; echo '```'
+              for mode in main worker service; do
+                arg=""; [ "$mode" != main ] && arg=$mode
+                if out=$(timeout 120 dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" "${{ runner.temp }}/smoke/smoke-$b" $arg 2>&1); then echo "$b $mode: $(echo "$out" | grep smoke: | tr '\n' ' ')"; else echo "$b $mode: FAILED ($?)"; echo "$out" | head -30; fi
+              done
+              echo '```'
+            done
+          } | tee smoke.log | tee -a "$GITHUB_STEP_SUMMARY"
+          ! grep -q "branch .*FAILED" smoke.log
