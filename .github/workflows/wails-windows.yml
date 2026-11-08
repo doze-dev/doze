@@ -78,9 +78,9 @@ jobs:
         run: |
           {
             echo; echo "#### A window with the branch"; echo; echo '```'
-            for mode in main worker; do
-              arg=""; [ "$mode" = worker ] && arg=worker
-              if out=$(timeout 120 ./smoke.exe $arg 2>&1); then echo "App built on the $mode goroutine: $out" | grep smoke:; else echo "App built on the $mode goroutine: FAILED ($?)"; echo "$out" | tail -20; fi
+            for mode in main worker service; do
+              arg=""; [ "$mode" != main ] && arg=$mode
+              if out=$(timeout 120 ./smoke.exe $arg 2>&1); then echo "$mode: $out" | grep smoke:; else echo "$mode: FAILED ($?)"; echo "$out" | tail -20; fi
             done
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
