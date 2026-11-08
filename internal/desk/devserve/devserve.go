@@ -60,6 +60,10 @@ var Fixtures = map[string]func(time.Time) *fakedaemon.Fake{
 	"larder-portclash": fixture.LarderPortClash,
 	"larder-badconfig": fixture.Larder,
 	"larder-domains":   fixture.LarderDomains,
+	// Acted out, for the site's recordings (make site-media).
+	"larder-live":       fixture.LarderLive,
+	"larder-asleep":     fixture.LarderAsleep,
+	"larder-live-crash": fixture.LarderLiveCrash,
 	// none is a machine with no stacks at all: the LibraryEmpty board.
 	"none": nil,
 }

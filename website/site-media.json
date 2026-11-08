@@ -1,0 +1,201 @@
+{
+  "$comment": "The app's stills and videos on doze-dev.com (make site-media): Larder, dark, at 1440x900 on a Retina screen. Stills are shot as the docs' are (shot.ts docs); clips are played by record.ts on the acted-out fixtures (larder-live, larder-asleep, larder-live-crash). Each lands in doze-website/public/media under the name its page asks for.",
+  "size": "1440x900",
+  "scale": 2,
+  "now": "2026-11-03T14:22:30Z",
+  "shots": [
+    {
+      "name": "app-overview-map",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "map",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-overview-tiles",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "tiles",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-overview-list",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "list",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-library",
+      "fixture": "larder",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-service-gateway",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "inside:gateway",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-module-postgres",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "console:postgres",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-palette",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "pal:wake sto",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-needs-you",
+      "fixture": "larder-crash",
+      "stack": "larder",
+      "view": "needs",
+      "scheme": "dark"
+    },
+    {
+      "name": "app-light",
+      "fixture": "larder",
+      "stack": "larder",
+      "view": "map",
+      "scheme": "light"
+    }
+  ],
+  "clips": [
+    {
+      "name": "app-rec-views",
+      "fixture": "larder-live",
+      "stack": "larder",
+      "view": "tiles",
+      "steps": [
+        {
+          "wait": 1200
+        },
+        {
+          "click": "[role=group][aria-label=View] button:has-text('List')",
+          "pause": 2200
+        },
+        {
+          "click": "[role=group][aria-label=View] button:has-text('Map')",
+          "pause": 3200
+        },
+        {
+          "click": "[role=group][aria-label=View] button:has-text('Grid')",
+          "pause": 2800
+        },
+        {
+          "click": "[role=group][aria-label=View] button:has-text('Tiles')",
+          "pause": 1500
+        }
+      ]
+    },
+    {
+      "name": "app-rec-cascade",
+      "fixture": "larder-live",
+      "stack": "larder",
+      "view": "tiles",
+      "steps": [
+        {
+          "wait": 1000
+        },
+        {
+          "click": ".tile[aria-label=postgres] [role=switch]",
+          "pause": 2400
+        },
+        {
+          "click": "button:has-text(\"Sleep postgres and\")",
+          "pause": 3400
+        }
+      ]
+    },
+    {
+      "name": "app-rec-request-wakes",
+      "fixture": "larder-asleep",
+      "stack": "larder",
+      "view": "map",
+      "steps": [
+        {
+          "wait": 1000
+        },
+        {
+          "key": "Meta+K",
+          "pause": 400
+        },
+        {
+          "type": "wake storefront",
+          "pause": 600
+        },
+        {
+          "key": "Enter",
+          "pause": 7600
+        }
+      ]
+    },
+    {
+      "name": "app-rec-wake",
+      "fixture": "larder-asleep",
+      "stack": "larder",
+      "view": "tiles",
+      "steps": [
+        {
+          "wait": 900
+        },
+        {
+          "click": ".tile[aria-label=redis] [role=switch]",
+          "pause": 1800
+        },
+        {
+          "click": ".tile[aria-label=identity] [role=switch]",
+          "pause": 3200
+        }
+      ]
+    },
+    {
+      "name": "app-rec-palette",
+      "fixture": "larder-asleep",
+      "stack": "larder",
+      "view": "tiles",
+      "steps": [
+        {
+          "wait": 900
+        },
+        {
+          "key": "Meta+K",
+          "pause": 500
+        },
+        {
+          "type": "wake orders",
+          "pause": 700
+        },
+        {
+          "key": "Enter",
+          "pause": 4800
+        }
+      ]
+    },
+    {
+      "name": "app-rec-needs-you",
+      "fixture": "larder-live-crash",
+      "stack": "larder",
+      "view": "tiles",
+      "steps": [
+        {
+          "wait": 1200
+        },
+        {
+          "click": "button[aria-label^='Needs you']",
+          "pause": 1800
+        },
+        {
+          "click": "[role=dialog][aria-label='Needs you'] button:has-text('Restart')",
+          "pause": 3600
+        }
+      ]
+    }
+  ]
+}

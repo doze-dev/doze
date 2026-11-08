@@ -48,6 +48,12 @@ async function openStack(page: Page, name: string) {
 async function arrange(page: Page, name: string, key: string, v: string): Promise<{ file: string; full?: boolean; undo: () => Promise<void> }> {
   const none = async () => {};
   const back = async () => openStack(page, name);
+  if (v === "needs") {
+    // The Needs you panel, by its keys (⌘⇧N).
+    await page.keyboard.press("ControlOrMeta+Shift+N");
+    await page.getByRole("dialog", { name: "Needs you" }).waitFor({ timeout: 5000 });
+    return { file: `${name}-needs`, undo: async () => { await page.keyboard.press("Escape"); } };
+  }
   if (v === "settings" || v === "machine") {
     // ⌘, opens Settings; Machine is its second part.
     await page.keyboard.press("Meta+,");
@@ -190,6 +196,8 @@ type Shot = {
   // palette, pal:<typed>, sleep:<name>, settings, machine, help, timeline.
   view?: string;
   dark?: boolean;
+  // scheme shoots this one scheme alone, as <name>.webp (the site's dark captures).
+  scheme?: "light" | "dark";
   // hold is a port to listen on while shooting, so the page has a holder
   // to name (the port clash).
   hold?: number;
@@ -231,8 +239,8 @@ async function docs(listFile: string, outDir: string) {
     };
     try {
       for (const shot of list.shots) {
-        for (const scheme of shot.dark ? (["light", "dark"] as const) : (["light"] as const)) {
-          const file = path.join(outDir, `${shot.name}${scheme === "dark" ? "-dark" : ""}.webp`);
+        for (const scheme of shot.scheme ? [shot.scheme] : shot.dark ? (["light", "dark"] as const) : (["light"] as const)) {
+          const file = path.join(outDir, `${shot.name}${scheme === "dark" && !shot.scheme ? "-dark" : ""}.webp`);
           // A fresh server per shot: nothing one shot did (a view chosen,
           // a card selected) is seen by the next.
           for (const s of servers.values()) {
