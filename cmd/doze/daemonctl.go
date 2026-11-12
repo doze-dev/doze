@@ -18,18 +18,30 @@ import (
 // stopDaemon shuts the background daemon down (which reaps every backend). The
 // lifecycle lives in internal/daemonctl; this wrapper renders the result.
 func stopDaemon(cfg *config.Config) error {
-	stopped, err := daemonctl.Stop(cfg)
-	if err != nil {
-		return err
+	rep, err := daemonctl.Stop(cfg)
+	leftovers := rep.Leftovers
+	if leftovers == nil {
+		leftovers = []daemonctl.Leftover{}
 	}
 	setResult(struct {
 		Stopped bool `json:"stopped"` // false: it wasn't running
-	}{stopped})
-	if !stopped {
+		// Leftovers outlived the daemon and were stopped by down (or, with an
+		// error, could not be).
+		Leftovers []daemonctl.Leftover `json:"leftovers"`
+	}{rep.Stopped, leftovers})
+	for _, l := range rep.Leftovers {
+		if l.Stopped {
+			fmt.Printf("%s %s (pid %d) was still running after the daemon exited; stopped it\n", ui.Warn("!"), l.Command, l.PID)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	if !rep.Stopped {
 		fmt.Println(ui.Muted("doze is not running"))
 		return nil
 	}
-	fmt.Println(ui.OK("✓") + " doze stopped")
+	fmt.Println(ui.OK("✓") + " doze stopped · nothing left running")
 	return nil
 }
 
