@@ -17,6 +17,7 @@ import (
 	"github.com/doze-dev/doze/internal/control"
 	"github.com/doze-dev/doze/internal/daemon"
 	"github.com/doze-dev/doze/internal/fault"
+	"github.com/doze-dev/doze/internal/modules"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -103,7 +104,11 @@ func degradedStatus(cfgErr error) error {
 	if jsonMode {
 		return degradedStatusJSON(sc.Decls, views, daemonUp, cfgErr)
 	}
-	fmt.Println(ui.Fail("config has errors") + ui.Muted(" — showing declared blocks; details below") + "\n")
+	headline := "config has errors"
+	if modules.IsUnreachable(cfgErr) {
+		headline = "a module could not be fetched"
+	}
+	fmt.Println(ui.Fail(headline) + ui.Muted(" — showing declared blocks; details below") + "\n")
 	t := ui.NewTable("NAME", "ENGINE", "STATE", "ENDPOINT")
 	for _, d := range sc.Decls {
 		v, running := views[d.Name]

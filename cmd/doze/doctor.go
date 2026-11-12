@@ -17,6 +17,7 @@ import (
 	names "github.com/doze-dev/doze-names"
 	"github.com/doze-dev/doze/internal/binaries"
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/modules"
 	"github.com/doze-dev/doze/internal/portholder"
 	"github.com/doze-dev/doze/internal/ui"
 )
@@ -47,14 +48,25 @@ func doctorCmd() *cobra.Command {
 			// A broken config is doctor's most common patient: report it as a
 			// failing check and keep diagnosing the environment around it.
 			cfg, cfgErr := loadConfig()
-			if cfgErr != nil {
+			var unreach *modules.UnreachableError
+			switch {
+			case errors.As(cfgErr, &unreach):
+				// Not the file: the registry row below says why, once.
+				add("config", "not checked: module "+unreach.Module+" could not be fetched (see registry)", false)
+			case cfgErr != nil:
 				add("config", cfgErr.Error(), false)
-			} else {
+			default:
 				add("config", cfg.Path()+" parses cleanly", true)
 			}
 
 			plat, perr := binaries.HostPlatform()
 			add("platform", plat.Triple, perr == nil)
+			var probe registryProbe
+			if mm := activeHost.Modules(); mm != nil {
+				probe = mm
+			}
+			c := registryCheck(cmd.Context(), probe)
+			add(c.Name, c.Detail, c.OK)
 
 			if cfg == nil {
 				add("home", dozeHome(), true)
@@ -182,6 +194,42 @@ func doctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&fix, "fix", false, "run the one-time machine setup for .doze names (one sudo)")
 	cmd.Flags().BoolVar(&printFix, "print-fix", false, "print the setup script instead of running it")
 	return cmd
+}
+
+// registryTimeout is how long doctor waits for the registry to answer.
+const registryTimeout = 3 * time.Second
+
+// registryProbe is the one question doctor asks the registry.
+type registryProbe interface {
+	CheckRegistry(ctx context.Context, timeout time.Duration) error
+}
+
+var _ registryProbe = (*modules.Manager)(nil)
+
+// registryCheck asks the module registry for one module index, briefly: a
+// stack whose modules are not on this machine cannot start without it.
+func registryCheck(ctx context.Context, mm registryProbe) doctorCheck {
+	if !modules.Enabled() || mm == nil {
+		return doctorCheck{Name: "registry", Detail: "not checked: modules are off (DOZE_MODULES=off)", OK: true}
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	start := time.Now()
+	err := mm.CheckRegistry(ctx, registryTimeout)
+	var un *modules.UnreachableError
+	switch {
+	case err == nil:
+		return doctorCheck{Name: "registry", Detail: fmt.Sprintf("%s answered in %s", registryHostName(), time.Since(start).Round(time.Millisecond)), OK: true}
+	case errors.As(err, &un):
+		return doctorCheck{Name: "registry", Detail: fmt.Sprintf("can't be reached (%s: %s) — modules not on this machine can't be fetched", un.Host, un.Cause), OK: false}
+	default:
+		return doctorCheck{Name: "registry", Detail: err.Error(), OK: false}
+	}
+}
+
+func registryHostName() string {
+	return strings.TrimPrefix(modules.RegistryBase, "https://")
 }
 
 // renderCheck prints one check line, indenting a multi-line detail (a config

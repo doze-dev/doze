@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/doze-dev/doze/internal/config"
+	"github.com/doze-dev/doze/internal/modules"
 	"github.com/doze-dev/doze/internal/ui"
 )
 
@@ -41,22 +43,33 @@ func lintCmd() *cobra.Command {
 				return err
 			}
 			if offline {
-				reportLint(shape, moduleTypes(shape), "--offline")
+				reportLint(shape, moduleTypes(shape), "--offline", nil)
 				return nil
 			}
-			if _, err := loadConfig(); err != nil {
-				if missing := unreachableModules(shape); len(missing) > 0 {
-					reportLint(shape, missing, "not cached, and the registry cannot be reached")
-					return nil
-				}
-				return err
-			}
-			reportLint(shape, nil, "")
-			return nil
+			_, err = loadConfig()
+			return lintVerdict(shape, err)
 		},
 	}
 	cmd.Flags().BoolVar(&offline, "offline", false, "check only what needs no module (no cache or network access)")
 	return cmd
+}
+
+// lintVerdict reports the module pass's outcome (err is what the full load
+// returned) and is the error lint exits with.
+func lintVerdict(shape *config.Config, err error) error {
+	if err == nil {
+		reportLint(shape, nil, "", nil)
+		return nil
+	}
+	var un *modules.UnreachableError
+	if !errors.As(err, &un) {
+		return err
+	}
+	// The module pass could not run: a mistake in those blocks would pass
+	// unseen, so this is not a pass. It exits 5, the code for "a module it
+	// names won't fetch", as status, env and url do for the same cause.
+	reportLint(shape, unreachableModules(shape, un.Module), "", un)
+	return shown(err)
 }
 
 // moduleTypes returns the distinct module types a config declares, sorted.
@@ -73,33 +86,39 @@ func moduleTypes(cfg *config.Config) []string {
 	return out
 }
 
-// unreachableModules returns the declared module types that are not in the
-// cache, when the registry cannot be reached to fetch them — the one case in
-// which a failed module pass says nothing about the config. With the registry
-// reachable, or everything cached, it returns nil and the failure stands.
-func unreachableModules(cfg *config.Config) []string {
-	mm := activeHost.Modules()
-	if mm == nil {
-		return nil
+// unreachableModules returns the declared module types the module pass could
+// not check because the registry did not answer: every one not in the cache
+// (the load stops at the first, failed; the others would fail the same way),
+// and always failed itself.
+func unreachableModules(cfg *config.Config, failed string) []string {
+	var mm *modules.Manager
+	if activeHost != nil {
+		mm = activeHost.Modules()
 	}
 	var missing []string
 	for _, t := range moduleTypes(cfg) {
+		if t == failed {
+			missing = append(missing, t)
+			continue
+		}
+		if mm == nil {
+			continue
+		}
 		if _, _, ok := mm.Cached(t); !ok {
 			missing = append(missing, t)
 		}
 	}
 	if len(missing) == 0 {
-		return nil
-	}
-	if _, err := mm.Catalog(); err == nil {
-		return nil
+		missing = []string{failed}
 	}
 	return missing
 }
 
 // reportLint prints the verdict: what the config declares and, when the
-// module pass did not run for some types, exactly which and why.
-func reportLint(cfg *config.Config, unchecked []string, why string) {
+// module pass did not run for some types, exactly which and why. A tick is
+// given only for what was checked: with un set (the registry did not answer)
+// there is none.
+func reportLint(cfg *config.Config, unchecked []string, why string, un *modules.UnreachableError) {
 	count := map[string]int{}
 	disabled := 0
 	for _, d := range cfg.Instances {
@@ -126,6 +145,9 @@ func reportLint(cfg *config.Config, unchecked []string, why string) {
 	if unchecked == nil {
 		unchecked = []string{}
 	}
+	if un != nil {
+		why = fmt.Sprintf("module %s could not be fetched: the registry can't be reached (%s: %s)", un.Module, un.Host, un.Cause)
+	}
 	setResult(struct {
 		Config    string         `json:"config"`
 		Declared  map[string]int `json:"declared"` // by kind
@@ -134,9 +156,17 @@ func reportLint(cfg *config.Config, unchecked []string, why string) {
 		Why       string         `json:"why,omitempty"`
 		Warnings  []string       `json:"warnings,omitempty"`
 	}{cfg.Path(), count, disabled, unchecked, why, cfg.Warnings})
-	fmt.Printf("%s %s is valid: %s\n", ui.OK("✓"), cfg.Path(), summary)
-	if len(unchecked) > 0 {
+	switch {
+	case un != nil:
+		fmt.Printf("%s %s: not checked: %s\n", ui.Fail("✗"), cfg.Path(), strings.Join(unchecked, ", "))
+		fmt.Printf("  %s\n", why)
+		fmt.Printf("  only what needs no module was checked (%s); a mistake in a %s block would pass unseen\n", summary, strings.Join(unchecked, " or "))
+		fmt.Printf("  next: run doze lint again once the registry answers · doze doctor checks it\n")
+	case len(unchecked) > 0:
+		fmt.Printf("%s %s passes the checks that need no module: %s\n", ui.OK("✓"), cfg.Path(), summary)
 		fmt.Printf("  %s module blocks not checked (%s): %s\n", ui.Warn("!"), why, strings.Join(unchecked, ", "))
+	default:
+		fmt.Printf("%s %s is valid: %s\n", ui.OK("✓"), cfg.Path(), summary)
 	}
 	for _, w := range cfg.Warnings {
 		fmt.Printf("  %s %s\n", ui.Warn("!"), w)

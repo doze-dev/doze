@@ -336,11 +336,12 @@ The first pass needs only the files: block kinds and names, the arguments of
 (no cycles, and no enabled block depending on a disabled one). The second pass
 hands each module its own block to check, from the cache or fetched. If a
 module is not cached and the registry cannot be reached, lint says which blocks
-went unchecked and passes on the first pass alone.
+went unchecked and why, gives no tick, and exits 5: a block it could not check
+is not a pass. `--offline` is the way to ask for the first pass alone.
 
 | Flag | What it does |
 |---|---|
-| `--offline` | Run only the first pass: no cache, no network. |
+| `--offline` | Run only the first pass: no cache, no network. It exits 0 on that pass and names the module blocks it left. |
 
 It exits 5 on problems and 6 with no config. It also warns, without failing,
 about a variable nothing reads and a task nothing lists in `after`.
@@ -357,8 +358,9 @@ not parse is left untouched.
 
 ### `doze doctor`
 
-Check the machine and the config: the config, the daemon, module pins, and each
-part of the setup for `.doze` names. It says what is wrong and the command that
+Check the machine and the config: the config, the module registry (it asks
+for one module's index, waiting at most 3 seconds), the daemon, module pins,
+and each part of the setup for `.doze` names. It says what is wrong and the command that
 fixes it. When a port the stack declares is held by another program, doctor
 names it, with its pid and address.
 
