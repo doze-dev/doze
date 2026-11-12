@@ -628,7 +628,13 @@ func (m *Manager) Lookup(engineType string) (path string, env []string, ok bool)
 	if err != nil {
 		m.mu.Lock()
 		m.misses[engineType] = true
-		if notPublished(err) {
+		if un := m.asUnreachable(engineType, err); un != nil {
+			// Nothing answered (no DNS, refused, timed out, a 5xx): the
+			// network's problem or the registry's, never the config's. Kept for
+			// LastError, which carries it to the one place it is shown; no log
+			// line here, so it is said once.
+			m.verifyErrs[engineType] = un
+		} else if notPublished(err) {
 			// Genuinely no such module: the caller falls back to an in-tree driver,
 			// then reports "unknown engine type", which is the right message.
 			m.logf("module %s: not published in the registry (%v)", engineType, err)
@@ -662,6 +668,12 @@ func (m *Manager) LastError(engineType string) error {
 // user should see.
 func notPublished(err error) bool {
 	if err == nil {
+		return false
+	}
+	// A request that got no answer says nothing about whether the module
+	// exists: "lookup registry.doze-dev.com: no such host" is the network, not
+	// a miss, though it contains "no such".
+	if unreachable("", err) != nil {
 		return false
 	}
 	s := strings.ToLower(err.Error())

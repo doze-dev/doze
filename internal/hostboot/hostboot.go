@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/doze-dev/doze-sdk/engine"
 	"github.com/doze-dev/doze-sdk/plugin"
@@ -51,6 +52,23 @@ type Host struct {
 	modMgr    *modules.Manager // nil if modules couldn't be initialized
 	resolver  plugin.Resolver  // the resolver chain: a test's local module, then the registry's
 	hooks     *config.Hooks    // module integration for config decode; nil if modules are disabled
+	closed    atomic.Bool      // Close has reaped the plugins: launch no more
+}
+
+// lookup is the engine plugin resolver while the host is open. After Close it
+// launches nothing: a goroutine still running as the process ends (a wake, a
+// status call) would otherwise start a module that nothing reaps, and that
+// outlives the process under PID 1. A launch that raced Close is reaped here.
+func (h *Host) lookup(engineType string) (engine.Driver, bool) {
+	if h.closed.Load() {
+		return nil, false
+	}
+	drv, ok := h.pluginMgr.Lookup(engineType)
+	if h.closed.Load() {
+		h.pluginMgr.Close()
+		return nil, false
+	}
+	return drv, ok
 }
 
 // ConfigHooks returns the module-integration hooks to pass to config.Load/
@@ -159,9 +177,10 @@ func Init(opts Options) (*Host, error) {
 		hooks.DefaultPort = defaultPort(chain)
 	}
 	pluginMgr = plugin.NewManager(chain)
-	engine.SetPluginResolver(pluginMgr.Lookup)
+	h := &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr, resolver: chain, hooks: hooks}
+	engine.SetPluginResolver(h.lookup)
 
-	current = &Host{home: opts.Home, pluginMgr: pluginMgr, modMgr: modMgr, resolver: chain, hooks: hooks}
+	current = h
 	refcount = 1
 	return current, nil
 }
@@ -181,6 +200,7 @@ func (h *Host) Close() error {
 	if refcount > 0 {
 		return nil
 	}
+	h.closed.Store(true)
 	h.pluginMgr.Close()
 	plugin.SetReporter(nil)
 	current = nil

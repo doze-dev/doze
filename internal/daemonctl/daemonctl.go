@@ -114,28 +114,52 @@ func daemonEnv(base []string, vars map[string]string) []string {
 	return env
 }
 
+// StopReport is what Stop did.
+type StopReport struct {
+	// Stopped is false when no daemon was running.
+	Stopped bool
+	// Leftovers are processes the daemon had started (modules, engines) that
+	// were still running after it exited, and that Stop then stopped.
+	Leftovers []Leftover
+}
+
 // Stop signals the daemon to shut down (which reaps every backend) and waits up
-// to ~20s for it to exit. It returns (false, nil) when no daemon was running,
-// (true, nil) on a clean stop, and an error if signalling failed or the daemon
-// did not exit in time.
-func Stop(cfg *config.Config) (bool, error) {
+// to ~20s for it to exit. Then it verifies: every process the daemon had
+// started must be gone too, and any that is not is given a grace period and
+// then stopped (see leftovers.go). It returns Stopped false when no daemon was
+// running, and an error if signalling failed, the daemon did not exit in
+// time, or something it started could not be stopped.
+func Stop(cfg *config.Config) (StopReport, error) {
 	pid := Pid(cfg)
 	if pid == 0 {
-		return false, nil
+		return StopReport{}, nil
 	}
+	// What the daemon has started, read before it is told to stop, and
+	// again while it shuts down.
+	tr := newTracker(pid)
+	tr.look()
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return false, fmt.Errorf("signalling daemon: %w", err)
+		return StopReport{}, fmt.Errorf("signalling daemon: %w", err)
 	}
 	// The daemon's shutdown reap is budgeted at 15s (worst case: a backend that
 	// ignores everything until SIGKILL); wait past that so a slow-but-clean
 	// shutdown isn't misreported as a failure.
+	exited := false
 	for i := 0; i < 200; i++ {
 		if !Alive(pid) {
-			return true, nil
+			exited = true
+			break
+		}
+		if i%10 == 9 {
+			tr.look()
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return false, fmt.Errorf("daemon (pid %d) did not stop", pid)
+	if !exited {
+		return StopReport{}, fmt.Errorf("daemon (pid %d) did not stop", pid)
+	}
+	left, err := tr.reapLeftovers()
+	return StopReport{Stopped: true, Leftovers: left}, err
 }
 
 // TailLog returns the last n lines of the daemon log, for surfacing failures.

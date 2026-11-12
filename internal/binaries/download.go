@@ -149,7 +149,7 @@ func (m *Manager) streamTo(ctx context.Context, rawURL, dest string) (string, er
 		}
 		if resp.StatusCode != http.StatusOK {
 			_ = resp.Body.Close()
-			return "", fmt.Errorf("GET %s: %s", rawURL, resp.Status)
+			return "", &StatusError{URL: rawURL, Code: resp.StatusCode, Status: resp.Status}
 		}
 		src = resp.Body
 	}

@@ -16,6 +16,8 @@ import (
 	"github.com/doze-dev/doze-sdk/engine"
 
 	"github.com/doze-dev/doze/internal/detect"
+	"github.com/doze-dev/doze/internal/fault"
+	"github.com/doze-dev/doze/internal/modules"
 	"github.com/doze-dev/doze/internal/runspec"
 )
 
@@ -272,6 +274,12 @@ func (l *loader) lookupDriver(block *hcl.Block, head blockHead, version string) 
 	// The module fetcher may have a REAL failure recorded (signature, gate,
 	// network) — surface that verbatim instead of "no module called".
 	if err := l.hooks.lookupError(head.etype); err != nil {
+		// A module whose host did not answer is not a mistake in the file:
+		// say what could not be fetched and why, without the "config has a
+		// mistake" framing or a snippet pointing at a correct block.
+		if modules.IsUnreachable(err) {
+			return nil, fault.With(fault.Invalid, &ModuleUnreachableError{Err: err})
+		}
 		return nil, posErr(parser, block.DefRange, err.Error(), "")
 	}
 	// Suggest from the registry catalog too: almost nothing is compiled in, so
@@ -288,6 +296,17 @@ func (l *loader) lookupDriver(block *hcl.Block, head blockHead, version string) 
 	}
 	return nil, posErr(parser, block.DefRange, summary, "")
 }
+
+// ModuleUnreachableError is a config that could not be loaded because a module
+// it names could not be fetched: its host did not answer. The file may well be
+// right; nothing could check it. Its message says so, and what to do next.
+type ModuleUnreachableError struct{ Err error }
+
+func (e *ModuleUnreachableError) Error() string {
+	return e.Err.Error() + "\n  this is the network or the registry, not doze.hcl · doze doctor checks the registry"
+}
+
+func (e *ModuleUnreachableError) Unwrap() error { return e.Err }
 
 // InstanceAddr returns the client-facing address assigned to a declared instance:
 // a per-instance `listen` override wins; otherwise, for a TCP base each instance

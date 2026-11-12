@@ -269,10 +269,21 @@ func (m *Manager) get(ctx context.Context, url string) ([]byte, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
+		return nil, &StatusError{URL: url, Code: resp.StatusCode, Status: resp.Status}
 	}
 	return io.ReadAll(resp.Body)
 }
+
+// StatusError is a GET the server answered with something other than 200, so a
+// caller can tell a missing file (404) from a server that is down (5xx) without
+// reading the message.
+type StatusError struct {
+	URL    string
+	Code   int
+	Status string // e.g. "404 Not Found"
+}
+
+func (e *StatusError) Error() string { return fmt.Sprintf("GET %s: %s", e.URL, e.Status) }
 
 func sum256(b []byte) []byte { s := sha256.Sum256(b); return s[:] }
 

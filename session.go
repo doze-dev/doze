@@ -281,7 +281,7 @@ func (s *Session) Shutdown(ctx context.Context) error {
 	if s.served != nil {
 		return s.Close()
 	}
-	_, stopErr := daemonctl.Stop(s.cfg)
+	_, stopErr := daemonctl.Stop(s.cfg) // it also stops what the daemon left running
 	cerr := s.host.Close()
 	if stopErr != nil {
 		return stopErr
