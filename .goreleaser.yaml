@@ -55,7 +55,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: https://doze.nerdmenot.in
+    homepage: https://doze-dev.com
     description: "Real databases on your laptop — asleep until you need them"
     license: Apache-2.0
     test: |
@@ -76,8 +76,8 @@ nfpms:
     package_name: doze
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
     vendor: doze-dev
-    homepage: https://doze.nerdmenot.in
-    maintainer: doze <hello@doze.nerdmenot.in>
+    homepage: https://doze-dev.com
+    maintainer: doze <hello@doze-dev.com>
     description: Real databases and services on your machine, asleep until you need them.
     license: Apache-2.0
     formats: [deb, rpm]
