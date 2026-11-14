@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parse, stringify } from 'yaml';
 
-const BASE = process.env.DOZE_REGISTRY_BASE || 'https://doze.nerdmenot.in/registry';
+const BASE = process.env.DOZE_REGISTRY_BASE || 'https://registry.doze-dev.com';
 // Where readers are sent: the registry's pages on the site, and its signed
 // files on the registry host.
 const SITE = 'https://doze-dev.com/registry';
