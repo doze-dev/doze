@@ -9,6 +9,7 @@
 //	oracle-dump edit   <dir> <outdir>   internal/config's AppendBlock path per file
 //	oracle-dump eval   <exprs.json>     value, exact type and diagnostics per expression,
 //	                                    with doze.hcl's function table
+//	oracle-dump convert <cases.json> each value converted to a cty type (JSON), or types unified
 //	oracle-dump config [-shape] <path>… each path loaded as doze loads it (a file, or a
 //	                                    directory's *.hcl): the Config as JSON, or the
 //	                                    diagnostics it is refused with, positions included
@@ -46,6 +47,8 @@ func main() {
 		editAll(in, arg(3))
 	case "eval":
 		evalAll(in)
+	case "convert":
+		convertAll(in)
 	case "config":
 		configAll(os.Args[2:])
 	default:

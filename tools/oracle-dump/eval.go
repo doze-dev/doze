@@ -32,7 +32,13 @@ func evalAll(path string) {
 	}
 }
 
-func evalOne(c exprCase, ctx *hcl.EvalContext) map[string]any {
+func evalOne(c exprCase, ctx *hcl.EvalContext) (out map[string]any) {
+	// Some inputs make hcl or cty panic (`null || true`); record that instead of dying.
+	defer func() {
+		if r := recover(); r != nil {
+			out = map[string]any{"id": c.ID, "ok": false, "stage": "panic", "err": fmt.Sprint(r)}
+		}
+	}()
 	f, diags := parseFile([]byte("x = " + c.Expr + "\n"))
 	if diags.HasErrors() {
 		return map[string]any{"id": c.ID, "ok": false, "stage": "parse", "diags": diagsOf(diags)}
@@ -101,6 +107,7 @@ func testContext() *hcl.EvalContext {
 				"set":   cty.SetVal([]cty.Value{cty.StringVal("b"), cty.StringVal("a")}),
 				"users": cty.TupleVal([]cty.Value{cty.ObjectVal(map[string]cty.Value{"name": cty.StringVal("ann"), "age": n("31")}), cty.ObjectVal(map[string]cty.Value{"name": cty.StringVal("bo"), "age": n("27")})}),
 				"later": cty.UnknownVal(cty.String),
+				"any":   cty.DynamicVal,
 			}),
 			"local": cty.ObjectVal(map[string]cty.Value{"base": cty.StringVal("/srv"), "n": n("3")}),
 		},
