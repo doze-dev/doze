@@ -66,7 +66,12 @@ var (
 )
 
 // buildDoze compiles the doze CLI once per test binary and returns its path.
+//
+// rust-oracle: DOZE_BIN names a prebuilt doze (the Rust one) to run instead.
 func buildDoze(t *testing.T) string {
+	if bin := os.Getenv("DOZE_BIN"); bin != "" {
+		return bin
+	}
 	dozeBinOnce.Do(func() {
 		// Not t.TempDir(): the binary is built once and used by every test in the
 		// package, and a test's temp dir is deleted when that test ends — which
@@ -105,7 +110,17 @@ func repoRoot(t *testing.T) string {
 
 // buildPlugin compiles a module plugin from the doze-modules checkout and returns
 // the binary path, for DOZE_TEST_<ENGINE>_PLUGIN (read only by a dozetest build).
+//
+// rust-oracle: DOZE_MODULE_BIN_DIR holds prebuilt modules (the Rust ones, named
+// doze-module-<module>) to run instead of building the Go plugin.
 func buildPlugin(t *testing.T, module string) string {
+	if dir := os.Getenv("DOZE_MODULE_BIN_DIR"); dir != "" {
+		bin := filepath.Join(dir, "doze-module-"+module)
+		if _, err := os.Stat(bin); err != nil {
+			t.Fatalf("DOZE_MODULE_BIN_DIR has no %s: %v", bin, err)
+		}
+		return bin
+	}
 	out := filepath.Join(t.TempDir(), module+"-plugin")
 	cmd := exec.Command("go", "build", "-o", out, "./modules/"+module+"/plugin")
 	cmd.Dir = modulesDir(t)

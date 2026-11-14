@@ -51,6 +51,9 @@ func posErr(parser *hclparse.Parser, rng hcl.Range, summary, detail string) erro
 func diagError(parser *hclparse.Parser, diags hcl.Diagnostics) error {
 	diags = dedupeDiags(diags)
 	addFixHints(diags)
+	if OracleDiags != nil {
+		OracleDiags(diags)
+	}
 	var buf bytes.Buffer
 	wr := hcl.NewDiagnosticTextWriter(&buf, parser.Files(), 0, false)
 	_ = wr.WriteDiagnostics(diags)

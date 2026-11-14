@@ -112,12 +112,7 @@ func TestFixtureStack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doze := filepath.Join(home, "doze")
-	build := exec.Command("go", "build", "-o", doze, "./cmd/doze")
-	build.Dir = root
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building doze: %v\n%s", err, out)
-	}
+	doze := benchDoze(t, root, home)
 	// A copy of the fixture, so the run writes nothing into the repo.
 	stack := filepath.Join(home, "shop")
 	if out, err := exec.Command("cp", "-R", filepath.Join(root, "examples", "shop"), stack).CombinedOutput(); err != nil {
@@ -325,12 +320,7 @@ func TestLogStoreMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doze := filepath.Join(home, "doze")
-	build := exec.Command("go", "build", "-o", doze, "./cmd/doze")
-	build.Dir = root
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building doze: %v\n%s", err, out)
-	}
+	doze := benchDoze(t, root, home)
 	stack := filepath.Join(home, "noisy")
 	if err := os.MkdirAll(stack, 0o755); err != nil {
 		t.Fatal(err)
@@ -397,4 +387,19 @@ app "noisy" {
 	if after-before > logGrowthBudgetKB {
 		t.Errorf("the daemon grew %d kB while a service wrote 100,000 lines; the budget is %d kB", after-before, logGrowthBudgetKB)
 	}
+}
+
+// benchDoze builds doze into home, or (rust-oracle) returns DOZE_BIN, a
+// prebuilt doze to measure instead (the Rust one).
+func benchDoze(t *testing.T, root, home string) string {
+	if bin := os.Getenv("DOZE_BIN"); bin != "" {
+		return bin
+	}
+	doze := filepath.Join(home, "doze")
+	build := exec.Command("go", "build", "-o", doze, "./cmd/doze")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building doze: %v\n%s", err, out)
+	}
+	return doze
 }
