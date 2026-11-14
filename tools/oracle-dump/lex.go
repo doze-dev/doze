@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 )
 
 // srcCase is one generated source for the lex and check modes, which take a JSON
@@ -52,4 +54,21 @@ func parseOneSafe(src []byte) (out any) {
 		}
 	}()
 	return parseOne(src)
+}
+
+// formatCases writes hclwrite.Format of each source, accepted or not (Format works on
+// tokens and never refuses), so the formatter can be diffed on broken input too.
+func formatCases(path string) {
+	for _, c := range readCases(path) {
+		emit(map[string]any{"id": c.ID, "out": formatSafe([]byte(c.Src))})
+	}
+}
+
+func formatSafe(src []byte) (out any) {
+	defer func() {
+		if r := recover(); r != nil {
+			out = map[string]any{"panic": fmt.Sprint(r)}
+		}
+	}()
+	return string(hclwrite.Format(src))
 }

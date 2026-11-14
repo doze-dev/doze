@@ -9,6 +9,10 @@
 //	oracle-dump edit   <dir> <outdir>   internal/config's AppendBlock path per file
 //	oracle-dump eval   <exprs.json>     value, exact type and diagnostics per expression,
 //	                                    with doze.hcl's function table
+//	oracle-dump typeexpr <exprs.json>   each expression as a type constraint and as an exact type
+//	oracle-dump fmtcases <cases.json>   hclwrite.Format of each {"id","src"}, accepted or not
+//	oracle-dump editcases <cases.json>  doze add / doze init edits per {"id","src"}, and the names declared
+//	oracle-dump content <cases.json>    bodies read against a schema (Content, PartialContent, JustAttributes, MergeFiles)
 //	oracle-dump lex    <cases.json>     hclsyntax tokens per {"id","src"} (type, bytes, positions)
 //	oracle-dump check  <cases.json>     accept/reject and diagnostics per {"id","src"}
 //	oracle-dump convert <cases.json> each value converted to a cty type (JSON), or types unified
@@ -49,6 +53,14 @@ func main() {
 		editAll(in, arg(3))
 	case "eval":
 		evalAll(in)
+	case "typeexpr":
+		typeexprAll(in)
+	case "fmtcases":
+		formatCases(in)
+	case "editcases":
+		editCases(in)
+	case "content":
+		contentAll(in)
 	case "lex":
 		lexAll(in)
 	case "check":

@@ -13,6 +13,10 @@ import (
 	"github.com/doze-dev/doze/internal/config"
 )
 
+func parseFileNamed(src []byte, name string) (*hcl.File, hcl.Diagnostics) {
+	return hclsyntax.ParseConfig(src, name, hcl.Pos{Line: 1, Column: 1, Byte: 0})
+}
+
 func parseFile(src []byte) (*hcl.File, hcl.Diagnostics) {
 	return hclsyntax.ParseConfig(src, "x.hcl", hcl.Pos{Line: 1, Column: 1, Byte: 0})
 }
@@ -123,5 +127,30 @@ func editAll(dir, outDir string) {
 func must(err error) {
 	if err != nil {
 		panic(err)
+	}
+}
+
+// editCases runs internal/config's two edits on each {"id","src"}: AppendBlock (what `doze
+// add` does) and SetStack (what `doze init` does), each on a fresh copy, plus the names
+// the file declares. A file that does not open is reported as such.
+func editCases(path string) {
+	for _, c := range readCases(path) {
+		out := map[string]any{"id": c.ID}
+		if e, err := config.OpenEdit([]byte(c.Src)); err != nil {
+			out["open"] = false
+		} else {
+			out["open"] = true
+			out["names"] = e.Names()
+			out["has_stack"] = e.HasStack()
+			if err := e.AppendBlock(appendedBlock); err != nil {
+				out["append_err"] = err.Error()
+			} else {
+				out["append"] = string(e.Bytes())
+			}
+			e2, _ := config.OpenEdit([]byte(c.Src))
+			e2.SetStack("shop")
+			out["stack"] = string(e2.Bytes())
+		}
+		emit(out)
 	}
 }
