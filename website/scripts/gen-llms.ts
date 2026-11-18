@@ -64,7 +64,6 @@ for (const [group, pages] of Object.entries(ia.doze)) {
     out += `- [${title}](${base}${p.slug}/)${desc}\n`;
   }
 }
-out += `\n## Optional\n\n- [doze AWS docs](https://doze-dev.com/docs/aws/): the local AWS on its own\n- [doze Kafka docs](https://doze-dev.com/docs/kafka/): the local Kafka on its own\n- [The module registry](https://doze-dev.com/registry/): every module, its versions and fields\n`;
 
 if (missing.length) console.error(`gen-llms: no page yet for ${missing.join(", ")} (listed with its working title)`);
 

@@ -17,7 +17,6 @@ order, as one config:
 my-app/
   doze.hcl              stack name, defaults, variables
   data.doze.hcl         postgres, valkey
-  aws.doze.hcl          the aws module
   services.doze.hcl     your apps and tasks
 ```
 
@@ -31,10 +30,13 @@ defaults {
 ```
 
 ```hcl
-# aws.doze.hcl
-module aws "aws" {
-  bucket "uploads" {}
-  queue "emails" {}
+# data.doze.hcl
+module postgres "db" {
+  version = 18
+}
+
+module valkey "cache" {
+  version = 9
 }
 ```
 
@@ -74,7 +76,7 @@ app "admin" {
   enabled = false
 }
 
-module kafka "events" {
+module valkey "cache" {
   sleep = "never"
 }
 ```

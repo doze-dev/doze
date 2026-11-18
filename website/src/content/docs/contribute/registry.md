@@ -24,8 +24,8 @@ registry.doze-dev.com/doze/<name>/meta.yaml    # the module's docs, generated fr
 
 The plugin archives themselves live on GitHub Releases. The index points at
 them and carries their signed checksums, so the archive host does not need to
-be trusted. You can browse the modules at
-[doze-dev.com/registry](https://doze-dev.com/registry/).
+be trusted. The registry is being rebuilt from scratch, and the modules will be
+republished to it.
 
 ## The module index
 
@@ -135,9 +135,7 @@ doze-registry publish.yml ◀────────┘
 ```
 
 The registry's `publish` workflow also runs every hour and signs any release
-it has not seen yet, so a missed notification only delays a release. The Kafka
-and AWS modules are built in doze-kafka and doze-aws and enter the registry the
-same way. [Submit and release](/contribute/submit/) walks the contributor's side.
+it has not seen yet, so a missed notification only delays a release. [Submit and release](/contribute/submit/) walks the contributor's side.
 
 ## What a submission must meet
 

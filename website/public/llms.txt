@@ -51,8 +51,6 @@ Key facts:
 - [FerretDB](https://doze-dev.com/docs/doze/services/ferretdb/): Run a MongoDB-compatible database that any Mongo driver, mongosh or Compass connects to.
 - [MariaDB](https://doze-dev.com/docs/doze/services/mariadb/): Run MariaDB, the MySQL-compatible database, with its users and grants declared in doze.hcl.
 - [Temporal](https://doze-dev.com/docs/doze/services/temporal/): Run a local Temporal server, with its Web UI and namespaces, for your workflow workers.
-- [Kafka](https://doze-dev.com/docs/doze/services/kafka/): Run a single-node Kafka-protocol broker, with its topics declared in doze.hcl and a web console, without a JVM.
-- [AWS](https://doze-dev.com/docs/doze/services/aws/): Run local AWS (S3, SQS, SNS, DynamoDB, Lambda and more) as one service, with buckets, queues and tables declared in doze.hcl.
 
 ## Guides
 
@@ -91,9 +89,3 @@ Key facts:
 - [Why HCL](https://doze-dev.com/docs/doze/why/hcl/): Why doze.hcl is HCL and not YAML or JSON, argued from what doze does with it.
 - [Alternatives](https://doze-dev.com/docs/doze/why/alternatives/): What docker-compose, Testcontainers, LocalStack, Nix, Tilt and brew services are good at, and when to pick them over doze.
 - [The trust model](https://doze-dev.com/docs/doze/why/trust/): How doze checks every module and binary it downloads, what doze.lock pins, and what the signatures do not prove.
-
-## Optional
-
-- [doze AWS docs](https://doze-dev.com/docs/aws/): the local AWS on its own
-- [doze Kafka docs](https://doze-dev.com/docs/kafka/): the local Kafka on its own
-- [The module registry](https://doze-dev.com/registry/): every module, its versions and fields

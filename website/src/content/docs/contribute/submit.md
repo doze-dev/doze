@@ -88,9 +88,8 @@ protects.
 
 ## Live in the registry
 
-A few minutes after the merge, the module is listed at
-[doze-dev.com/registry](https://doze-dev.com/registry/), and any `doze.hcl` can
-declare it:
+A few minutes after the merge, the module is in the registry, and any `doze.hcl` can declare
+it:
 
 ```hcl
 module valkey "cache" {

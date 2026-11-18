@@ -103,8 +103,7 @@ queues and topics. Personal changes go in a gitignored override file; see
 - **LocalStack** is a large set of AWS services in a Docker image. doze's `aws`
   module is one native process with S3, SQS, SNS, DynamoDB, Lambda,
   EventBridge, KMS, SSM, Secrets Manager, STS and Step Functions. It does not
-  cover everything LocalStack does; see doze AWS's
-  [API support](https://doze-dev.com/docs/aws/support/).
+  cover everything LocalStack does.
 
 More in [Alternatives](/why/alternatives/).
 
