@@ -53,8 +53,8 @@ and pins it in `doze.lock`.
 | [`ferret`](/services/ferretdb/) | MongoDB | a document database | 2 |
 | [`mariadb`](/services/mariadb/) | MySQL | a MySQL-compatible database | 11 |
 | [`temporal`](/services/temporal/) | Temporal gRPC | a workflow engine | 1.1 |
-| [`kafka`](/services/kafka/) | Kafka | an event log | 1 – 4 (protocol) |
-| [`aws`](/services/aws/) | the AWS APIs | S3, SQS, SNS, DynamoDB, Lambda and more, as one service | none |
+| `kafka` | Kafka | an event log | 1 – 4 (protocol) |
+| `aws` | the AWS APIs | S3, SQS, SNS, DynamoDB, Lambda and more, as one service | none |
 
 Each page has the module's every field, the exact builds you can declare, and
 recipes. Each one runs on macOS (Apple Silicon) and Linux (x86_64 and arm64).

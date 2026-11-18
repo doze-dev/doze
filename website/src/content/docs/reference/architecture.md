@@ -101,11 +101,6 @@ plugin protocol and supports every engine major you declared. Both pin into
 | [doze-binaries](https://github.com/doze-dev/doze-binaries) | The engine binaries, built from source in CI and published append-only. |
 | [doze-registry](https://github.com/doze-dev/doze-registry) | The registry at registry.doze-dev.com: each module's signed index and docs. Signing happens in its CI. |
 | [doze-names](https://github.com/doze-dev/doze-names) | The `.doze` zone shared by every doze program: resolver, addresses, front door, certificate authority, and the network daemon. |
-| [doze-aws](https://github.com/doze-dev/doze-aws) | Local AWS, standalone or as the `aws` module: S3, SQS, SNS, DynamoDB, Lambda, EventBridge, KMS, SSM, Secrets Manager, STS and Step Functions in one service. |
-| [doze-kafka](https://github.com/doze-dev/doze-kafka) | A local Kafka, standalone or as the `kafka` module. |
-
-The `aws` and `kafka` modules are built from their own repos and published to
-the same registry.
 
 ## Packages in doze
 

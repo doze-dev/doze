@@ -43,14 +43,12 @@ Docker image running a Python application, with some services using Java
 tooling.[^localstack] Choose it when your app needs an AWS service or an
 operation that doze AWS does not have.
 
-doze's `aws` module runs [doze AWS](https://doze-dev.com/docs/aws/), one
+doze's `aws` module runs doze AWS, one
 native process behind one endpoint. Inside a doze stack you declare buckets,
 queues, topics, DynamoDB tables, Lambda functions, EventBridge rules, KMS keys,
 secrets and SSM parameters as blocks, and it also serves STS and Step
-Functions. It is not everything AWS or LocalStack offers: each service lists
-which operations work, which are accepted without effect, and which are
-refused, in doze AWS's [API support](https://doze-dev.com/docs/aws/support/).
-Check that list for the calls your app makes.
+Functions. It is not everything AWS or LocalStack offers: check that it covers the
+calls your app makes.
 
 ## Nix, devenv and Flox
 
@@ -77,8 +75,7 @@ sleeping when idle, and a file a teammate can clone.
 
 - **Production.** One copy of each service, no failover, services that sleep.
 - **Windows or an Intel Mac.** There is no build.
-- **AWS beyond what doze AWS supports.** Check its
-  [API support](https://doze-dev.com/docs/aws/support/) first.
+- **AWS beyond what doze AWS supports.**
 - **A team whose development loop is Kubernetes.**
 
 And if your whole company already runs on Nix, carry on.

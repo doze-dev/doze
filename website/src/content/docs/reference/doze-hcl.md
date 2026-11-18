@@ -124,8 +124,8 @@ Each module's own fields, with examples, are on its page.
 | `ferret` | 2 | 27017 | `MONGODB_URI` | [FerretDB](/services/ferretdb/) |
 | `mariadb` | 11 | 3306 | `DATABASE_URL` | [MariaDB](/services/mariadb/) |
 | `temporal` | 1 | 7233 | `TEMPORAL_ADDRESS` | [Temporal](/services/temporal/) |
-| `kafka` | protocol 1 to 4 | 9092 | `KAFKA_BROKERS` | [Kafka](/services/kafka/) |
-| `aws` | none | 4566 | `AWS_ENDPOINT_URL` | [AWS](/services/aws/) |
+| `kafka` | protocol 1 to 4 | 9092 | `KAFKA_BROKERS` | — |
+| `aws` | none | 4566 | `AWS_ENDPOINT_URL` | — |
 
 Versions and ports are from each module's newest release on the registry.
 Anything not in this list runs as your own [`service`](#service).

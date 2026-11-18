@@ -56,11 +56,10 @@ extension and client behaviour is the real one, because it is the same
 software.
 
 Kafka and AWS are different: they are doze's own servers,
-[doze Kafka](https://doze-dev.com/docs/kafka/) and
-[doze AWS](https://doze-dev.com/docs/aws/), written to speak the wire
+doze Kafka and
+doze AWS, written to speak the wire
 protocols so unmodified clients work. Each says exactly what it supports and
-what it does not, operation by operation; see doze AWS's
-[API support](https://doze-dev.com/docs/aws/support/).
+what it does not, operation by operation.
 
 ## What containers are still for
 

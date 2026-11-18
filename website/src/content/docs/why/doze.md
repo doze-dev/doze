@@ -41,8 +41,8 @@ doze runs each service as a native process, and only while something uses it.
   services costs little until you touch one.
 - **Real software.** Postgres, MariaDB, Valkey, Kvrocks, FerretDB and Temporal
   are their upstream programs, built from source and pinned by checksum. Kafka
-  and AWS are doze's own servers, [doze Kafka](https://doze-dev.com/docs/kafka/)
-  and [doze AWS](https://doze-dev.com/docs/aws/): native programs that speak
+  and AWS are doze's own servers, doze Kafka
+  and doze AWS: native programs that speak
   the wire protocols, so unmodified clients work.
 - **Pinned.** `doze.lock` pins every binary, so your machine, your teammate's
   and CI run the same bytes.

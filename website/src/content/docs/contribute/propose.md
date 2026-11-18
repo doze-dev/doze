@@ -11,8 +11,8 @@ as an issue, and the code comes after the issue is agreed.
 
 ## Before you open an issue
 
-- **Check it isn't there.** The modules that exist are listed at
-  [doze-dev.com/registry](https://doze-dev.com/registry/).
+- **Check it isn't there.** The modules that exist are listed in the
+  [doze.hcl reference](/reference/doze-hcl/).
 - **Ask whether a `service` is enough.** doze runs any program as
   [your own service](/hcl/your-own-services/), with names, logs and sleep, and
   `doze add` can write the block for you. A module adds what a `service`
